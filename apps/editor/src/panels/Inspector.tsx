@@ -1,6 +1,8 @@
 import { animationDuration, type Attachment, attachmentOwner, type BindingTarget, type BoneProperty, type ClippingAttachment, CONSTRAINT_PROPERTIES, defaultSkin, descendantIds, estimateTextBox, getAttachment, type SequenceAttachment, shapeOutline, type SkinData, slotAttachments, templateInputs } from "@openbone/core";
 import { regionGridMesh, retraceMesh, traceRegion } from "../mesh-trace.ts";
 import { lastBackground, setBackground } from "../background.ts";
+import { reorderSlot } from "../visibility.ts";
+import { tip } from "../shortcuts/index.ts";
 import { For, Match, Show, Switch, createSignal } from "solid-js";
 import { commitBone, keyBoneProperty, keyConstraint, keySlot } from "../edit.ts";
 import { imageFor } from "../images.ts";
@@ -482,13 +484,15 @@ function SlotInspector(p: { id: string; attachment?: string }) {
           options={["normal", "additive", "multiply", "screen"].map((v) => ({ value: v, label: v }))}
           onCommit={(v) => apply("updateSlot", { slot: p.id, blend: v })}
         />
+        <div class="field draw-order" title="Draw order: slots later in the list are drawn on top">
+          <span>Draw order</span>
+          <button title={tip("Send to back", "edit.sendToBack")} onClick={() => reorderSlot(p.id, "back")} disabled={index() === 0}>⤓</button>
+          <button title={tip("Send backward", "edit.sendBackward")} onClick={() => reorderSlot(p.id, "backward")} disabled={index() === 0}>↓</button>
+          <button title={tip("Bring forward", "edit.bringForward")} onClick={() => reorderSlot(p.id, "forward")} disabled={index() === doc().skeleton.slots.length - 1}>↑</button>
+          <button title={tip("Bring to front", "edit.bringToFront")} onClick={() => reorderSlot(p.id, "front")} disabled={index() === doc().skeleton.slots.length - 1}>⤒</button>
+          <span class="muted small">{index() + 1} / {doc().skeleton.slots.length}</span>
+        </div>
         <div class="btn-row">
-          <button title="Move back in draw order" onClick={() => apply("updateSlot", { slot: p.id, index: Math.max(0, index() - 1) })}>
-            ↓ Back
-          </button>
-          <button title="Move forward in draw order" onClick={() => apply("updateSlot", { slot: p.id, index: index() + 1 })}>
-            ↑ Front
-          </button>
           <button class="danger" onClick={() => apply("deleteSlot", { slot: p.id }) !== undefined && setSelection(null)}>
             Delete
           </button>

@@ -61,6 +61,7 @@ export function PreviewPanel() {
     if (!sfx || (editorAudio.ctx && sfx.ctx !== editorAudio.ctx)) {
       sfx?.dispose();
       sfx = new WebAudioBackend(doc(), { resolveUrl: resolveAudioUrl, ...(editorAudio.ctx ? { context: editorAudio.ctx } : {}) });
+      sfx.setSpeed(speed());
       sfx.unlock(window);
     }
     return sfx;
@@ -70,6 +71,7 @@ export function PreviewPanel() {
   const build = () => {
     const d = doc();
     sfx?.stopAll(0.05);
+    if (playing()) sfx?.resumeAll();
     inst = new OpenBoneInstance(d);
     inst.on("audio", (c) => {
       if (!sound() || !d.audio?.assets.length) return;
@@ -137,7 +139,9 @@ export function PreviewPanel() {
         <button
           title={playing() ? "Pause" : "Play"}
           onClick={() => {
-            if (playing()) sfx?.stopAll(0.05);
+            // Sounds pause and resume with the animation (they continue from where they were).
+            if (playing()) sfx?.pauseAll();
+            else sfx?.resumeAll();
             setPlaying(!playing());
           }}
         >
@@ -146,7 +150,14 @@ export function PreviewPanel() {
         <button title="Restart" onClick={build}>
           ⟲
         </button>
-        <select value={String(speed())} onChange={(e) => setSpeed(Number(e.currentTarget.value))} title="Speed">
+        <select
+          value={String(speed())}
+          onChange={(e) => {
+            setSpeed(Number(e.currentTarget.value));
+            sfx?.setSpeed(speed());
+          }}
+          title="Speed (sounds play faster or slower too)"
+        >
           <For each={[0.25, 0.5, 1, 2]}>{(s) => <option value={s} selected={speed() === s}>{s}×</option>}</For>
         </select>
       </div>

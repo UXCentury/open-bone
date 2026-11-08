@@ -56,7 +56,15 @@ export class Player {
   private ro: ResizeObserver | null = null;
   playing = false;
   /** Playback rate (1 = real time). */
-  speed = 1;
+  private _speed = 1;
+  /** Playback speed (1 = normal). Sounds follow it: 2× plays them twice as fast and an octave higher. */
+  get speed() {
+    return this._speed;
+  }
+  set speed(v: number) {
+    this._speed = v;
+    this.audio?.setSpeed(v);
+  }
   ready: Promise<void>;
   /** Web Audio playback of the document's sounds (null when audio is off or the document has none). */
   audio: WebAudioBackend | null = null;
@@ -116,6 +124,7 @@ export class Player {
     if (o.audio !== false && this.doc.audio?.assets.length && typeof AudioContext !== "undefined") {
       this.audio = new WebAudioBackend(this.doc, { baseUrl: base, context: o.audioContext, resolveUrl: o.resolveAudioUrl });
       this.audio.setMuted(o.audio === "muted");
+      this.audio.setSpeed(this._speed);
       this.audio.unlock(o.canvas.ownerDocument?.defaultView ?? window);
       void this.audio.preload();
       this.instance.on("audio", this.audio.handle);
@@ -201,6 +210,7 @@ export class Player {
   play() {
     if (this.playing) return;
     this.playing = true;
+    this.audio?.resumeAll();
     this.last = performance.now();
     const tick = (now: number) => {
       if (!this.playing) return;
@@ -219,9 +229,11 @@ export class Player {
     if (this.doc) this.resize();
   }
 
+  /** Pause the animation and its sounds (play() continues both from where they were). */
   pause() {
     this.playing = false;
     cancelAnimationFrame(this.raf);
+    this.audio?.pauseAll();
   }
 
   /** Mute or unmute this player's sounds. */

@@ -16,6 +16,15 @@ interface Voice {
   gain: GainNode;
   source: AudioBufferSourceNode | null;
   stopped: boolean;
+  buffer?: AudioBuffer;
+  /** The sound's own rate (the backend's speed multiplies it). */
+  rate: number;
+  loop: boolean;
+  /** Context time and file position (seconds) when the current source started, for pause/resume and speed changes. */
+  startedAt: number;
+  offset: number;
+  /** File position while paused; null when playing. */
+  paused: number | null;
 }
 
 const isAbsolute = (src: string) => /^(data:|https?:|blob:|\/)/.test(src);
@@ -210,7 +219,7 @@ export class WebAudioBackend {
     }
     const gain = ctx.createGain();
     gain.connect(this.busNode(ctx, cmd.bus));
-    const voice: Voice = { gain, source: null, stopped: false };
+    const voice: Voice = { gain, source: null, stopped: false, rate: cmd.rate, loop: cmd.loop, startedAt: 0, offset: 0, paused: this.pausedAll ? 0 : null };
     this.voices.set(cmd.id, voice);
     this.opts.onLog?.(`play ${name} [${cmd.id}]${cmd.loop ? " loop" : ""} vol ${round(cmd.volume)} × bus ${round(this.busGain(cmd.bus))} rate ${cmd.rate} (${cmd.source})`, cmd);
     void this.load(asset).then((buffer) => {
@@ -219,22 +228,126 @@ export class WebAudioBackend {
         gain.disconnect();
         return;
       }
-      const src = ctx.createBufferSource();
-      src.buffer = buffer;
-      src.loop = cmd.loop;
-      src.playbackRate.value = cmd.rate;
-      src.connect(gain);
+      voice.buffer = buffer;
       const t = ctx.currentTime;
       if (cmd.fadeIn > 0) {
         gain.gain.setValueAtTime(0, t);
         gain.gain.linearRampToValueAtTime(cmd.volume, t + cmd.fadeIn);
       } else gain.gain.setValueAtTime(cmd.volume, t);
-      src.onended = () => {
-        if (this.voices.get(cmd.id) === voice) this.voices.delete(cmd.id);
-        gain.disconnect();
-      };
-      voice.source = src;
-      src.start(t);
+      // Started while everything is paused: it waits at the beginning for resumeAll().
+      if (voice.paused === null) this.startSource(cmd.id, voice, 0);
+    });
+  }
+
+  /** (Re)start a voice's buffer from `offset` seconds into the file, at the sound's rate × the backend's speed. */
+  private startSource(id: string, voice: Voice, offset: number) {
+    const ctx = this.ctx;
+    if (!ctx || !voice.buffer) return;
+    const src = ctx.createBufferSource();
+    src.buffer = voice.buffer;
+    src.loop = voice.loop;
+    src.playbackRate.value = voice.rate * this.speed;
+    src.connect(voice.gain);
+    src.onended = () => {
+      if (voice.source !== src) return;
+      if (this.voices.get(id) === voice) this.voices.delete(id);
+      voice.gain.disconnect();
+    };
+    voice.source = src;
+    voice.startedAt = ctx.currentTime;
+    voice.offset = offset;
+    voice.paused = null;
+    src.start(ctx.currentTime, Math.max(0, offset));
+  }
+
+  /** Where a voice is in its file now (seconds). */
+  private position(v: Voice): number {
+    if (v.paused !== null) return v.paused;
+    const ctx = this.ctx;
+    if (!ctx || !v.buffer) return 0;
+    const p = v.offset + (ctx.currentTime - v.startedAt) * v.rate * this.speed;
+    return v.loop ? p % v.buffer.duration : p;
+  }
+
+  private speed = 1;
+  private pausedAll = false;
+
+  /**
+   * Playback speed for everything this backend plays (sounds already playing change too), like a player's speed
+   * control: 2 plays twice as fast and an octave higher.
+   */
+  setSpeed(speed: number) {
+    const ctx = this.ctx;
+    for (const v of this.voices.values()) {
+      if (!v.source || !ctx) continue;
+      // Keep the position continuous: restart the clock from here at the new rate.
+      v.offset = this.position(v);
+      v.startedAt = ctx.currentTime;
+      v.source.playbackRate.value = v.rate * speed;
+    }
+    this.speed = Math.max(0.05, speed);
+  }
+
+  /** Pause every voice where it is (resumeAll continues them from there). */
+  pauseAll() {
+    this.pausedAll = true;
+    for (const v of this.voices.values()) {
+      if (!v.source) continue;
+      v.paused = this.position(v);
+      const src = v.source;
+      v.source = null;
+      try {
+        src.stop();
+      } catch {
+        /* already stopped */
+      }
+      src.disconnect();
+    }
+  }
+
+  /** Continue every paused voice from where it was paused. */
+  resumeAll() {
+    this.pausedAll = false;
+    for (const [id, v] of [...this.voices]) {
+      if (v.paused === null || v.source) continue;
+      if (!v.buffer) {
+        v.paused = null; // still loading: it starts when it arrives
+        continue;
+      }
+      if (!v.loop && v.paused >= v.buffer.duration - 0.005) {
+        this.voices.delete(id);
+        v.gain.disconnect();
+        continue;
+      }
+      this.startSource(id, v, v.paused);
+    }
+  }
+
+  /**
+   * A short grain of a sound at `offset` seconds into its file, for scrubbing a timeline: fades in and out over a few
+   * milliseconds so dragging sounds like a tape head rather than clicks.
+   */
+  scrub(assetId: string, offset: number, o: { duration?: number; volume?: number; rate?: number; bus?: string | null } = {}) {
+    const asset = this.doc.audio?.assets.find((a) => a.id === assetId);
+    const ctx = this.context();
+    if (!asset || !ctx || ctx.state !== "running") return;
+    void this.load(asset).then((buffer) => {
+      if (!buffer || offset < 0 || offset >= buffer.duration) return;
+      const dur = Math.min(o.duration ?? 0.09, buffer.duration - offset);
+      const g = ctx.createGain();
+      g.connect(this.busNode(ctx, o.bus ?? null));
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.playbackRate.value = (o.rate ?? 1) * this.speed;
+      src.connect(g);
+      const t = ctx.currentTime;
+      const v = o.volume ?? 1;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(v, t + 0.006);
+      g.gain.setValueAtTime(v, t + Math.max(0.007, dur - 0.012));
+      g.gain.linearRampToValueAtTime(0, t + dur);
+      src.onended = () => g.disconnect();
+      src.start(t, offset, dur + 0.01);
     });
   }
 

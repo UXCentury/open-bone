@@ -21,6 +21,8 @@ export interface CanvasRenderOptions {
   selectedBone?: string | null;
   background?: string | null;
   clear?: boolean;
+  /** Per-slot opacity multiplier (editor show/dim/hide): 0 skips the slot. */
+  slotAlpha?: (slotId: string) => number;
 }
 
 const css = (c: number[]) =>
@@ -128,7 +130,9 @@ export class CanvasRenderer {
           ctx.clip();
         }
       }
-      this.drawItem(item, opts.wireframe ?? false, view.zoom);
+      const k = opts.slotAlpha ? opts.slotAlpha(item.slot.data.id) : 1;
+      if (k <= 0) continue;
+      this.drawItem(k < 1 ? { ...item, color: [item.color[0], item.color[1], item.color[2], item.color[3] * k] } : item, opts.wireframe ?? false, view.zoom);
     }
     if (clip) ctx.restore();
     if (opts.boundingBoxes) this.drawBoundingBoxes(sk, view.zoom);

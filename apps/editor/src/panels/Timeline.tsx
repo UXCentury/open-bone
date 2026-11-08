@@ -6,6 +6,7 @@ import { askText } from "../dialogs.tsx";
 import { AudioTrack, addSoundKey } from "./AudioPanel.tsx";
 import { GraphView, timelineColor, timelineKey } from "./GraphView.tsx";
 import { lipSyncDialog } from "../lipsync-ui.ts";
+import { scrubAudio, scrubSound, setScrubSound } from "../audio.ts";
 
 /** Dopesheet (keys per row) or Graph (value curves); remembered while the editor is open. */
 const [timelineView, setTimelineView] = createSignal<"dopesheet" | "graph">("dopesheet");
@@ -99,6 +100,16 @@ export function Timeline() {
   const [selKey, setSelKey] = createSignal<KeyRef | null>(null);
   const [showGraph, setShowGraph] = createSignal(true);
   const anim = currentAnimation;
+  // Scrub audio: while the playhead moves without playback (dragging it, stepping frames), sound the audio under it.
+  let lastT = time();
+  createEffect(() => {
+    const t = time();
+    const a = anim();
+    const prev = lastT;
+    lastT = t;
+    if (!a || playing() || mode() !== "animate" || t === prev) return;
+    scrubAudio(a, prev, t);
+  });
   // Forget a selected key that no longer exists (undo, another animation, deleted timeline) instead of showing
   // "Key not found".
   createEffect(() => {
@@ -303,6 +314,15 @@ export function Timeline() {
             onClick={() => setAutoKey(!autoKey())}
           >
             ● Rec
+          </button>
+          <button
+            class="scrub-btn"
+            classList={{ on: scrubSound() }}
+            aria-pressed={scrubSound()}
+            title={scrubSound() ? "Scrub sound on: dragging the playhead plays the audio under it. Click to scrub silently." : "Scrub sound off: dragging the playhead is silent. Click to hear the audio while scrubbing."}
+            onClick={() => setScrubSound(!scrubSound())}
+          >
+            {scrubSound() ? "🔊" : "🔇"} Scrub
           </button>
         
         <Show when={selKey()}>

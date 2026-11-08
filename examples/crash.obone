@@ -10,42 +10,63 @@
   "fps": 30,
   "images": [
     {
-      "id": "img_7th1s5x",
+      "id": "img_weyyw6p",
       "name": "crash-sky",
-      "src": "assets/canva/crash-sky.jpg",
-      "width": 800,
-      "height": 655
+      "src": "assets/eleven/crash-bg-sky.jpg",
+      "width": 1600,
+      "height": 900
     },
     {
-      "id": "img_0zqpt5y",
+      "id": "img_39i6t6q",
+      "name": "crash-clouds",
+      "src": "assets/eleven/crash-bg-clouds.png",
+      "width": 2000,
+      "height": 379
+    },
+    {
+      "id": "img_qwkef6r",
+      "name": "crash-ground",
+      "src": "assets/eleven/rocket-bg-mid.png",
+      "width": 2000,
+      "height": 320
+    },
+    {
+      "id": "img_57r3r6s",
+      "name": "crash-pad",
+      "src": "assets/eleven/rocket-pad.png",
+      "width": 560,
+      "height": 564
+    },
+    {
+      "id": "img_fjbpz6t",
       "name": "rocket",
-      "src": "assets/canva/rocket.png",
-      "width": 204,
-      "height": 352
+      "src": "assets/eleven/rocket-ship.png",
+      "width": 197,
+      "height": 435
     },
     {
-      "id": "img_wxioh5z",
+      "id": "img_jee306u",
       "name": "explosion_0001",
       "src": "assets/canva/explosion_0001.png",
       "width": 180,
       "height": 180
     },
     {
-      "id": "img_8z79760",
+      "id": "img_5v2rh6v",
       "name": "explosion_0002",
       "src": "assets/canva/explosion_0002.png",
       "width": 180,
       "height": 180
     },
     {
-      "id": "img_hn64s61",
+      "id": "img_qti0i6w",
       "name": "explosion_0003",
       "src": "assets/canva/explosion_0003.png",
       "width": 180,
       "height": 180
     },
     {
-      "id": "img_6yofp62",
+      "id": "img_g1fmf6x",
       "name": "explosion_0004",
       "src": "assets/canva/explosion_0004.png",
       "width": 180,
@@ -55,7 +76,7 @@
   "skeleton": {
     "bones": [
       {
-        "id": "bone_riz2h5p",
+        "id": "bone_n0o6j6h",
         "name": "root",
         "parent": null,
         "length": 0,
@@ -69,9 +90,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_i5kpv5q",
+        "id": "bone_sh7wu6i",
         "name": "climb",
-        "parent": "bone_riz2h5p",
+        "parent": "bone_n0o6j6h",
         "length": 0,
         "x": 0,
         "y": 0,
@@ -83,9 +104,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_sypo25r",
+        "id": "bone_om7qr6j",
         "name": "rocket",
-        "parent": "bone_i5kpv5q",
+        "parent": "bone_sh7wu6i",
         "length": 70,
         "x": 0,
         "y": 0,
@@ -98,9 +119,9 @@
         "color": "#ff9f43"
       },
       {
-        "id": "bone_2ype85s",
+        "id": "bone_gnsu56k",
         "name": "flame",
-        "parent": "bone_sypo25r",
+        "parent": "bone_om7qr6j",
         "length": 30,
         "x": -34,
         "y": 0,
@@ -112,9 +133,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_m0byf5t",
+        "id": "bone_7j8g96l",
         "name": "boom",
-        "parent": "bone_sypo25r",
+        "parent": "bone_om7qr6j",
         "length": 0,
         "x": 10,
         "y": 0,
@@ -126,9 +147,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_ky08d5u",
+        "id": "bone_46a3j6m",
         "name": "hud",
-        "parent": "bone_riz2h5p",
+        "parent": "bone_n0o6j6h",
         "length": 0,
         "x": 290,
         "y": 300,
@@ -140,9 +161,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_5bb9h5v",
+        "id": "bone_s1mid6n",
         "name": "status",
-        "parent": "bone_riz2h5p",
+        "parent": "bone_n0o6j6h",
         "length": 0,
         "x": 290,
         "y": 236,
@@ -154,9 +175,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_tmkcb5w",
+        "id": "bone_phizn6o",
         "name": "button",
-        "parent": "bone_riz2h5p",
+        "parent": "bone_n0o6j6h",
         "length": 0,
         "x": 570,
         "y": -40,
@@ -166,93 +187,146 @@
         "shearX": 0,
         "shearY": 0,
         "inherit": "normal"
+      },
+      {
+        "id": "bone_wysiz6y",
+        "name": "sky-layer",
+        "parent": "bone_n0o6j6h",
+        "length": 0,
+        "x": 290,
+        "y": 170,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal",
+        "color": "#7fb7ff"
+      },
+      {
+        "id": "bone_e5rz56z",
+        "name": "cloud-layer",
+        "parent": "bone_n0o6j6h",
+        "length": 0,
+        "x": 420,
+        "y": 190,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal",
+        "color": "#7fb7ff"
+      },
+      {
+        "id": "bone_sk56x70",
+        "name": "ground-layer",
+        "parent": "bone_n0o6j6h",
+        "length": 0,
+        "x": 290,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal",
+        "color": "#7fb7ff"
       }
     ],
     "slots": [
       {
-        "id": "slot_a48gt63",
+        "id": "slot_8xy1p71",
         "name": "sky",
-        "bone": "bone_riz2h5p",
-        "color": "#7f8cc8",
+        "bone": "bone_wysiz6y",
+        "color": "#c9d2ff",
         "attachment": "crash-sky",
         "blend": "normal"
       },
       {
-        "id": "slot_9wwnj64",
+        "id": "slot_hincj72",
+        "name": "clouds",
+        "bone": "bone_e5rz56z",
+        "color": "#ffffffa0",
+        "attachment": "crash-clouds",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_989ja73",
         "name": "ground",
-        "bone": "bone_riz2h5p",
+        "bone": "bone_sk56x70",
         "color": "#ffffff",
-        "attachment": "rect",
+        "attachment": "crash-ground",
         "blend": "normal"
       },
       {
-        "id": "slot_4fufo65",
+        "id": "slot_sfq9774",
         "name": "pad",
-        "bone": "bone_riz2h5p",
+        "bone": "bone_sk56x70",
         "color": "#ffffff",
-        "attachment": "rect",
+        "attachment": "crash-pad",
         "blend": "normal"
       },
       {
-        "id": "slot_2yaq866",
+        "id": "slot_x0nv275",
         "name": "flame",
-        "bone": "bone_2ype85s",
+        "bone": "bone_gnsu56k",
         "color": "#ffffff",
         "attachment": "polygon",
         "blend": "normal"
       },
       {
-        "id": "slot_8o3hf67",
+        "id": "slot_slg2h76",
         "name": "flame-core",
-        "bone": "bone_2ype85s",
+        "bone": "bone_gnsu56k",
         "color": "#ffffff",
         "attachment": "polygon",
         "blend": "normal"
       },
       {
-        "id": "slot_fctnq68",
+        "id": "slot_bq2at77",
         "name": "body",
-        "bone": "bone_sypo25r",
+        "bone": "bone_om7qr6j",
         "color": "#ffffff",
         "attachment": "rocket",
         "blend": "normal"
       },
       {
-        "id": "slot_03ana69",
+        "id": "slot_ntx1278",
         "name": "boom",
-        "bone": "bone_m0byf5t",
+        "bone": "bone_7j8g96l",
         "color": "#ffffff00",
         "attachment": "boom",
         "blend": "additive"
       },
       {
-        "id": "slot_q89dt6a",
+        "id": "slot_vhs9b79",
         "name": "multiplier",
-        "bone": "bone_ky08d5u",
+        "bone": "bone_46a3j6m",
         "color": "#ffffff",
         "attachment": "text",
         "blend": "normal"
       },
       {
-        "id": "slot_bs2d16b",
+        "id": "slot_235pr7a",
         "name": "status",
-        "bone": "bone_5bb9h5v",
+        "bone": "bone_s1mid6n",
         "color": "#ffffff",
         "attachment": "text",
         "blend": "normal"
       },
       {
-        "id": "slot_c64bd6c",
+        "id": "slot_swhoj7b",
         "name": "button-bg",
-        "bone": "bone_tmkcb5w",
+        "bone": "bone_phizn6o",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_5a46i6d",
+        "id": "slot_dccxh7c",
         "name": "button-label",
-        "bone": "bone_tmkcb5w",
+        "bone": "bone_phizn6o",
         "color": "#ffffff",
         "attachment": "text",
         "blend": "normal"
@@ -263,50 +337,67 @@
         "id": "skin_default",
         "name": "default",
         "attachments": {
-          "slot_a48gt63": {
+          "slot_8xy1p71": {
             "crash-sky": {
               "type": "region",
               "name": "crash-sky",
-              "image": "img_7th1s5x",
-              "x": 290,
-              "y": 170,
+              "image": "img_weyyw6p",
+              "x": 0,
+              "y": 0,
               "rotation": 0,
               "scaleX": 1,
               "scaleY": 1,
-              "width": 800,
-              "height": 655,
+              "width": 1100,
+              "height": 619,
               "color": "#ffffff"
             }
           },
-          "slot_9wwnj64": {
-            "rect": {
-              "type": "shape",
-              "name": "rect",
-              "shape": "rect",
-              "x": 290,
-              "y": -40,
-              "rotation": 0,
-              "width": 800,
-              "height": 80,
-              "radius": 0,
-              "fill": "#111827"
-            }
-          },
-          "slot_4fufo65": {
-            "rect": {
-              "type": "shape",
-              "name": "rect",
-              "shape": "rect",
+          "slot_hincj72": {
+            "crash-clouds": {
+              "type": "region",
+              "name": "crash-clouds",
+              "image": "img_39i6t6q",
               "x": 0,
-              "y": -8,
+              "y": 0,
               "rotation": 0,
-              "width": 90,
-              "height": 14,
-              "radius": 4,
-              "fill": "#374151"
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 1700,
+              "height": 322,
+              "color": "#ffffff"
             }
           },
-          "slot_2yaq866": {
+          "slot_989ja73": {
+            "crash-ground": {
+              "type": "region",
+              "name": "crash-ground",
+              "image": "img_qwkef6r",
+              "x": 0,
+              "y": 18,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 1300,
+              "height": 208,
+              "color": "#ffffff"
+            }
+          },
+          "slot_sfq9774": {
+            "crash-pad": {
+              "type": "region",
+              "name": "crash-pad",
+              "image": "img_57r3r6s",
+              "x": -308,
+              "y": 38,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 150,
+              "height": 151,
+              "color": "#ffffff"
+            }
+          },
+          "slot_x0nv275": {
             "polygon": {
               "type": "shape",
               "name": "polygon",
@@ -328,7 +419,7 @@
               "fill": "#f97316"
             }
           },
-          "slot_8o3hf67": {
+          "slot_slg2h76": {
             "polygon": {
               "type": "shape",
               "name": "polygon",
@@ -350,37 +441,37 @@
               "fill": "#fde047"
             }
           },
-          "slot_fctnq68": {
+          "slot_bq2at77": {
             "rocket": {
               "type": "region",
               "name": "rocket",
-              "image": "img_0zqpt5y",
+              "image": "img_fjbpz6t",
               "x": 10,
               "y": 0,
               "rotation": -90,
               "scaleX": 1,
               "scaleY": 1,
-              "width": 54,
-              "height": 94,
+              "width": 46,
+              "height": 102,
               "color": "#ffffff"
             }
           },
-          "slot_03ana69": {
+          "slot_ntx1278": {
             "boom": {
               "type": "sequence",
               "name": "boom",
               "frames": [
                 {
-                  "image": "img_wxioh5z"
+                  "image": "img_jee306u"
                 },
                 {
-                  "image": "img_8z79760"
+                  "image": "img_5v2rh6v"
                 },
                 {
-                  "image": "img_hn64s61"
+                  "image": "img_qti0i6w"
                 },
                 {
-                  "image": "img_6yofp62"
+                  "image": "img_g1fmf6x"
                 }
               ],
               "x": 0,
@@ -396,7 +487,7 @@
               "offset": 0
             }
           },
-          "slot_q89dt6a": {
+          "slot_vhs9b79": {
             "text": {
               "type": "text",
               "name": "text",
@@ -415,7 +506,7 @@
               "outlineWidth": 4
             }
           },
-          "slot_bs2d16b": {
+          "slot_235pr7a": {
             "text": {
               "type": "text",
               "name": "text",
@@ -432,7 +523,7 @@
               "align": "center"
             }
           },
-          "slot_c64bd6c": {
+          "slot_swhoj7b": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -446,7 +537,7 @@
               "fill": "#22c55e"
             }
           },
-          "slot_5a46i6d": {
+          "slot_dccxh7c": {
             "text": {
               "type": "text",
               "name": "text",
@@ -474,13 +565,13 @@
   "events": [],
   "animations": [
     {
-      "id": "anim_558jm6e",
+      "id": "anim_0eigx7d",
       "name": "idle",
       "duration": 1.2,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_sypo25r",
+          "id": "bone_om7qr6j",
           "property": "rotation",
           "keys": [
             {
@@ -497,7 +588,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_sypo25r",
+          "id": "bone_om7qr6j",
           "property": "y",
           "keys": [
             {
@@ -514,7 +605,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_2ype85s",
+          "id": "bone_gnsu56k",
           "property": "scaleX",
           "keys": [
             {
@@ -551,7 +642,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_c64bd6c",
+          "id": "slot_swhoj7b",
           "property": "color",
           "keys": [
             {
@@ -590,13 +681,13 @@
       "events": []
     },
     {
-      "id": "anim_99hzc6f",
+      "id": "anim_4g0wr7e",
       "name": "flyout",
       "duration": 0.9,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_sypo25r",
+          "id": "bone_om7qr6j",
           "property": "rotation",
           "keys": [
             {
@@ -623,7 +714,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_sypo25r",
+          "id": "bone_om7qr6j",
           "property": "y",
           "keys": [
             {
@@ -650,7 +741,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_sypo25r",
+          "id": "bone_om7qr6j",
           "property": "scaleX",
           "keys": [
             {
@@ -687,7 +778,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_2ype85s",
+          "id": "bone_gnsu56k",
           "property": "scaleX",
           "keys": [
             {
@@ -724,7 +815,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_c64bd6c",
+          "id": "slot_swhoj7b",
           "property": "color",
           "keys": [
             {
@@ -741,7 +832,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_5a46i6d",
+          "id": "slot_dccxh7c",
           "property": "color",
           "keys": [
             {
@@ -760,13 +851,13 @@
       "events": []
     },
     {
-      "id": "anim_32yd26g",
+      "id": "anim_6saz57f",
       "name": "flying",
       "duration": 0.6,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_sypo25r",
+          "id": "bone_om7qr6j",
           "property": "rotation",
           "keys": [
             {
@@ -803,7 +894,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_sypo25r",
+          "id": "bone_om7qr6j",
           "property": "y",
           "keys": [
             {
@@ -840,7 +931,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_2ype85s",
+          "id": "bone_gnsu56k",
           "property": "scaleX",
           "keys": [
             {
@@ -872,7 +963,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_2ype85s",
+          "id": "bone_gnsu56k",
           "property": "scaleY",
           "keys": [
             {
@@ -894,7 +985,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_c64bd6c",
+          "id": "slot_swhoj7b",
           "property": "color",
           "keys": [
             {
@@ -906,7 +997,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_5a46i6d",
+          "id": "slot_dccxh7c",
           "property": "color",
           "keys": [
             {
@@ -920,13 +1011,13 @@
       "events": []
     },
     {
-      "id": "anim_yv2do6h",
+      "id": "anim_fn3bc7g",
       "name": "crash",
       "duration": 1.8,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_sypo25r",
+          "id": "bone_om7qr6j",
           "property": "rotation",
           "keys": [
             {
@@ -953,7 +1044,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_sypo25r",
+          "id": "bone_om7qr6j",
           "property": "y",
           "keys": [
             {
@@ -980,7 +1071,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_2ype85s",
+          "id": "bone_gnsu56k",
           "property": "scaleX",
           "keys": [
             {
@@ -997,7 +1088,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_fctnq68",
+          "id": "slot_bq2at77",
           "property": "color",
           "keys": [
             {
@@ -1014,7 +1105,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_03ana69",
+          "id": "slot_ntx1278",
           "property": "color",
           "keys": [
             {
@@ -1041,7 +1132,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_m0byf5t",
+          "id": "bone_7j8g96l",
           "property": "scaleX",
           "keys": [
             {
@@ -1068,7 +1159,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_m0byf5t",
+          "id": "bone_7j8g96l",
           "property": "scaleY",
           "keys": [
             {
@@ -1095,7 +1186,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_m0byf5t",
+          "id": "bone_7j8g96l",
           "property": "rotation",
           "keys": [
             {
@@ -1112,7 +1203,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_q89dt6a",
+          "id": "slot_vhs9b79",
           "property": "color",
           "keys": [
             {
@@ -1129,7 +1220,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_c64bd6c",
+          "id": "slot_swhoj7b",
           "property": "color",
           "keys": [
             {
@@ -1151,7 +1242,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_5a46i6d",
+          "id": "slot_dccxh7c",
           "property": "color",
           "keys": [
             {
@@ -1175,13 +1266,13 @@
       "events": []
     },
     {
-      "id": "anim_l5fzp6i",
+      "id": "anim_05bbf7h",
       "name": "cashout",
       "duration": 1.6,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_sypo25r",
+          "id": "bone_om7qr6j",
           "property": "x",
           "keys": [
             {
@@ -1208,7 +1299,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_sypo25r",
+          "id": "bone_om7qr6j",
           "property": "y",
           "keys": [
             {
@@ -1235,7 +1326,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_2ype85s",
+          "id": "bone_gnsu56k",
           "property": "scaleX",
           "keys": [
             {
@@ -1252,7 +1343,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_q89dt6a",
+          "id": "slot_vhs9b79",
           "property": "color",
           "keys": [
             {
@@ -1269,7 +1360,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_ky08d5u",
+          "id": "bone_46a3j6m",
           "property": "scaleX",
           "keys": [
             {
@@ -1306,7 +1397,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_ky08d5u",
+          "id": "bone_46a3j6m",
           "property": "scaleY",
           "keys": [
             {
@@ -1343,7 +1434,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_c64bd6c",
+          "id": "slot_swhoj7b",
           "property": "color",
           "keys": [
             {
@@ -1365,7 +1456,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_5a46i6d",
+          "id": "slot_dccxh7c",
           "property": "color",
           "keys": [
             {
@@ -1391,35 +1482,35 @@
   ],
   "stateMachines": [
     {
-      "id": "sm_7vlwm6j",
+      "id": "sm_smdmv7i",
       "name": "game",
       "inputs": [
         {
-          "id": "in_g22uk6k",
+          "id": "in_savhx7j",
           "name": "start",
           "type": "trigger",
           "default": false
         },
         {
-          "id": "in_lc4bc6l",
+          "id": "in_wrkde7k",
           "name": "crash",
           "type": "trigger",
           "default": false
         },
         {
-          "id": "in_3dflw6m",
+          "id": "in_p9jv87l",
           "name": "cashout",
           "type": "trigger",
           "default": false
         },
         {
-          "id": "in_ypqpo6n",
+          "id": "in_66ofs7m",
           "name": "multiplier",
           "type": "number",
           "default": 1
         },
         {
-          "id": "in_83bot6o",
+          "id": "in_c9ipq7n",
           "name": "status",
           "type": "string",
           "default": "Press START"
@@ -1427,10 +1518,10 @@
       ],
       "bindings": [
         {
-          "id": "bind_116te6z",
-          "input": "in_ypqpo6n",
+          "id": "bind_kyl4h7y",
+          "input": "in_66ofs7m",
           "target": "bone",
-          "object": "bone_i5kpv5q",
+          "object": "bone_sh7wu6i",
           "property": "x",
           "inMin": 1,
           "inMax": 10,
@@ -1438,10 +1529,10 @@
           "outMax": 520
         },
         {
-          "id": "bind_pxiyu70",
-          "input": "in_ypqpo6n",
+          "id": "bind_48gbu7z",
+          "input": "in_66ofs7m",
           "target": "bone",
-          "object": "bone_i5kpv5q",
+          "object": "bone_sh7wu6i",
           "property": "y",
           "inMin": 1,
           "inMax": 10,
@@ -1449,109 +1540,153 @@
           "outMax": 300
         },
         {
-          "id": "bind_3pngo71",
-          "input": "in_ypqpo6n",
+          "id": "bind_v2ogo80",
+          "input": "in_66ofs7m",
           "target": "slot",
-          "object": "slot_a48gt63",
+          "object": "slot_8xy1p71",
           "property": "color",
           "inMin": 1,
           "inMax": 10,
-          "outMin": "#7f8cc8",
+          "outMin": "#c9d2ff",
           "outMax": "#ffd9ef"
+        },
+        {
+          "id": "bind_18m8681",
+          "input": "in_66ofs7m",
+          "target": "bone",
+          "object": "bone_sk56x70",
+          "property": "y",
+          "inMin": 1,
+          "inMax": 3,
+          "outMin": 0,
+          "outMax": -260
+        },
+        {
+          "id": "bind_ha2ef82",
+          "input": "in_66ofs7m",
+          "target": "bone",
+          "object": "bone_e5rz56z",
+          "property": "x",
+          "inMin": 1,
+          "inMax": 10,
+          "outMin": 420,
+          "outMax": -180
+        },
+        {
+          "id": "bind_skn0x83",
+          "input": "in_66ofs7m",
+          "target": "bone",
+          "object": "bone_e5rz56z",
+          "property": "y",
+          "inMin": 1,
+          "inMax": 10,
+          "outMin": 190,
+          "outMax": 20
+        },
+        {
+          "id": "bind_dd3xm84",
+          "input": "in_66ofs7m",
+          "target": "bone",
+          "object": "bone_wysiz6y",
+          "property": "y",
+          "inMin": 1,
+          "inMax": 10,
+          "outMin": 170,
+          "outMax": 130
         }
       ],
       "layers": [
         {
-          "id": "sm_7vlwm6j_layer1",
+          "id": "sm_smdmv7i_layer1",
           "name": "Layer 1",
-          "entry": "st_3n6h46p",
+          "entry": "st_bif2e7o",
           "states": [
             {
-              "id": "st_3n6h46p",
+              "id": "st_bif2e7o",
               "name": "idle",
               "type": "animation",
-              "animation": "anim_558jm6e",
+              "animation": "anim_0eigx7d",
               "loop": true,
               "speed": 1,
               "x": 80,
               "y": 160,
               "inputs": [
                 {
-                  "input": "in_ypqpo6n",
+                  "input": "in_66ofs7m",
                   "value": 1
                 },
                 {
-                  "input": "in_83bot6o",
+                  "input": "in_c9ipq7n",
                   "value": "Press START"
                 }
               ]
             },
             {
-              "id": "st_5wd6t6q",
+              "id": "st_3usli7p",
               "name": "flying",
               "type": "animation",
-              "animation": "anim_32yd26g",
+              "animation": "anim_6saz57f",
               "loop": true,
               "speed": 1,
               "x": 520,
               "y": 160,
               "sounds": [
                 {
-                  "sound": "snd_3u4xt77",
+                  "sound": "snd_huyjo8a",
                   "on": "enter",
                   "action": "play"
                 }
               ]
             },
             {
-              "id": "st_nihmn6r",
+              "id": "st_0gb9a7q",
               "name": "flyout",
               "type": "animation",
-              "animation": "anim_99hzc6f",
+              "animation": "anim_4g0wr7e",
               "loop": false,
               "speed": 1,
-              "onComplete": "st_5wd6t6q",
+              "onComplete": "st_3usli7p",
               "x": 300,
               "y": 160,
               "sounds": [
                 {
-                  "sound": "snd_t48ti75",
+                  "sound": "snd_78kc688",
                   "on": "enter",
                   "action": "play"
                 }
               ]
             },
             {
-              "id": "st_dg5xv6s",
+              "id": "st_l0tey7r",
               "name": "crash",
               "type": "animation",
-              "animation": "anim_yv2do6h",
+              "animation": "anim_fn3bc7g",
               "loop": false,
               "speed": 1,
-              "onComplete": "st_3n6h46p",
+              "onComplete": "st_bif2e7o",
               "x": 740,
               "y": 60,
               "sounds": [
                 {
-                  "sound": "snd_24opu79",
+                  "sound": "snd_fu9v88c",
                   "on": "enter",
                   "action": "play"
                 }
               ]
             },
             {
-              "id": "st_e18un6t",
+              "id": "st_clfzd7s",
               "name": "cashout",
               "type": "animation",
-              "animation": "anim_l5fzp6i",
+              "animation": "anim_05bbf7h",
               "loop": false,
               "speed": 1,
-              "onComplete": "st_3n6h46p",
+              "onComplete": "st_bif2e7o",
               "x": 740,
               "y": 260,
               "sounds": [
                 {
-                  "sound": "snd_xcjy57b",
+                  "sound": "snd_kqsi68e",
                   "on": "enter",
                   "action": "play"
                 }
@@ -1560,12 +1695,12 @@
           ],
           "transitions": [
             {
-              "id": "tr_lx3tz6u",
-              "from": "st_3n6h46p",
-              "to": "st_nihmn6r",
+              "id": "tr_5kh1f7t",
+              "from": "st_bif2e7o",
+              "to": "st_0gb9a7q",
               "conditions": [
                 {
-                  "input": "in_g22uk6k",
+                  "input": "in_savhx7j",
                   "op": "==",
                   "value": true
                 }
@@ -1574,12 +1709,12 @@
               "exitTime": null
             },
             {
-              "id": "tr_ac7rf6v",
-              "from": "st_nihmn6r",
-              "to": "st_dg5xv6s",
+              "id": "tr_e2dcz7u",
+              "from": "st_0gb9a7q",
+              "to": "st_l0tey7r",
               "conditions": [
                 {
-                  "input": "in_lc4bc6l",
+                  "input": "in_wrkde7k",
                   "op": "==",
                   "value": true
                 }
@@ -1588,12 +1723,12 @@
               "exitTime": null
             },
             {
-              "id": "tr_zfkfy6w",
-              "from": "st_nihmn6r",
-              "to": "st_e18un6t",
+              "id": "tr_zp8f77v",
+              "from": "st_0gb9a7q",
+              "to": "st_clfzd7s",
               "conditions": [
                 {
-                  "input": "in_3dflw6m",
+                  "input": "in_p9jv87l",
                   "op": "==",
                   "value": true
                 }
@@ -1602,12 +1737,12 @@
               "exitTime": null
             },
             {
-              "id": "tr_xah7x6x",
-              "from": "st_5wd6t6q",
-              "to": "st_dg5xv6s",
+              "id": "tr_hn5hl7w",
+              "from": "st_3usli7p",
+              "to": "st_l0tey7r",
               "conditions": [
                 {
-                  "input": "in_lc4bc6l",
+                  "input": "in_wrkde7k",
                   "op": "==",
                   "value": true
                 }
@@ -1616,12 +1751,12 @@
               "exitTime": null
             },
             {
-              "id": "tr_ue8jn6y",
-              "from": "st_5wd6t6q",
-              "to": "st_e18un6t",
+              "id": "tr_ivzwz7x",
+              "from": "st_3usli7p",
+              "to": "st_clfzd7s",
               "conditions": [
                 {
-                  "input": "in_3dflw6m",
+                  "input": "in_p9jv87l",
                   "op": "==",
                   "value": true
                 }
@@ -1634,18 +1769,18 @@
       ],
       "listeners": [
         {
-          "id": "lis_qpd6m7c",
+          "id": "lis_gj2g68f",
           "name": "start button",
-          "slot": "slot_5a46i6d",
+          "slot": "slot_dccxh7c",
           "event": "click",
           "actions": [
             {
               "type": "fireTrigger",
-              "input": "in_g22uk6k"
+              "input": "in_savhx7j"
             },
             {
               "type": "playSound",
-              "sound": "snd_5icjc73"
+              "sound": "snd_0q0d986"
             }
           ]
         }
@@ -1659,31 +1794,31 @@
     "muted": false,
     "assets": [
       {
-        "id": "aud_406q372",
+        "id": "aud_g7ssj85",
         "name": "click",
         "src": "assets/eleven/button-click.wav",
         "duration": 0.034
       },
       {
-        "id": "aud_ew7uv74",
+        "id": "aud_oi96687",
         "name": "liftoff",
         "src": "assets/eleven/crash-liftoff.wav",
         "duration": 1.2
       },
       {
-        "id": "aud_nzdhp76",
+        "id": "aud_duzgs89",
         "name": "engine",
         "src": "assets/eleven/rocket-engine-loop.wav",
         "duration": 4
       },
       {
-        "id": "aud_u0yg578",
+        "id": "aud_8114b8b",
         "name": "explosion",
         "src": "assets/eleven/crash-explosion.wav",
         "duration": 1.992
       },
       {
-        "id": "aud_pkp737a",
+        "id": "aud_7ulnl8d",
         "name": "cashout",
         "src": "assets/eleven/crash-cashout.wav",
         "duration": 1.069
@@ -1711,9 +1846,9 @@
     ],
     "sounds": [
       {
-        "id": "snd_5icjc73",
+        "id": "snd_0q0d986",
         "name": "click",
-        "asset": "aud_406q372",
+        "asset": "aud_g7ssj85",
         "bus": "bus_ui",
         "volume": 0.8,
         "rate": 1,
@@ -1722,9 +1857,9 @@
         "fadeOut": 0
       },
       {
-        "id": "snd_t48ti75",
+        "id": "snd_78kc688",
         "name": "liftoff",
-        "asset": "aud_ew7uv74",
+        "asset": "aud_oi96687",
         "bus": "bus_sfx",
         "volume": 0.7,
         "rate": 1,
@@ -1733,9 +1868,9 @@
         "fadeOut": 0
       },
       {
-        "id": "snd_3u4xt77",
+        "id": "snd_huyjo8a",
         "name": "engine",
-        "asset": "aud_nzdhp76",
+        "asset": "aud_duzgs89",
         "bus": "bus_sfx",
         "volume": 0.22,
         "rate": 1,
@@ -1744,9 +1879,9 @@
         "fadeOut": 0.15
       },
       {
-        "id": "snd_24opu79",
+        "id": "snd_fu9v88c",
         "name": "explosion",
-        "asset": "aud_u0yg578",
+        "asset": "aud_8114b8b",
         "bus": "bus_sfx",
         "volume": 0.75,
         "rate": 1,
@@ -1755,9 +1890,9 @@
         "fadeOut": 0
       },
       {
-        "id": "snd_xcjy57b",
+        "id": "snd_kqsi68e",
         "name": "cashout",
-        "asset": "aud_pkp737a",
+        "asset": "aud_7ulnl8d",
         "bus": "bus_sfx",
         "volume": 0.8,
         "rate": 1,

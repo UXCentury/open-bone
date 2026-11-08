@@ -10,7 +10,7 @@
   "fps": 30,
   "images": [
     {
-      "id": "img_wge8f1r",
+      "id": "img_sl4z02a",
       "name": "button-play",
       "src": "assets/canva/button-play.png",
       "width": 262,
@@ -20,7 +20,7 @@
   "skeleton": {
     "bones": [
       {
-        "id": "bone_aceax1o",
+        "id": "bone_begzm27",
         "name": "root",
         "parent": null,
         "length": 0,
@@ -34,9 +34,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_478ii1p",
+        "id": "bone_r8ukv28",
         "name": "btn",
-        "parent": "bone_aceax1o",
+        "parent": "bone_begzm27",
         "length": 0,
         "x": 0,
         "y": 0,
@@ -48,9 +48,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_6h43n1q",
+        "id": "bone_dooqk29",
         "name": "shine",
-        "parent": "bone_478ii1p",
+        "parent": "bone_r8ukv28",
         "length": 0,
         "x": -140,
         "y": 0,
@@ -64,33 +64,33 @@
     ],
     "slots": [
       {
-        "id": "slot_rw68u1s",
+        "id": "slot_0qww22b",
         "name": "bg",
-        "bone": "bone_478ii1p",
+        "bone": "bone_r8ukv28",
         "color": "#ffffff",
         "attachment": "button-play",
         "blend": "normal"
       },
       {
-        "id": "slot_3mgzm1t",
+        "id": "slot_sluuz2c",
         "name": "glass-mask",
-        "bone": "bone_478ii1p",
+        "bone": "bone_r8ukv28",
         "color": "#ffffff",
         "attachment": "mask",
         "blend": "normal"
       },
       {
-        "id": "slot_zr8521u",
+        "id": "slot_ll16o2d",
         "name": "shine",
-        "bone": "bone_6h43n1q",
+        "bone": "bone_dooqk29",
         "color": "#ffffff00",
         "attachment": "polygon",
         "blend": "normal"
       },
       {
-        "id": "slot_z715h1v",
+        "id": "slot_4mudy2e",
         "name": "hit",
-        "bone": "bone_478ii1p",
+        "bone": "bone_r8ukv28",
         "color": "#ffffff",
         "attachment": null,
         "blend": "normal"
@@ -101,11 +101,11 @@
         "id": "skin_default",
         "name": "default",
         "attachments": {
-          "slot_rw68u1s": {
+          "slot_0qww22b": {
             "button-play": {
               "type": "region",
               "name": "button-play",
-              "image": "img_wge8f1r",
+              "image": "img_sl4z02a",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -116,7 +116,7 @@
               "color": "#ffffff"
             }
           },
-          "slot_3mgzm1t": {
+          "slot_sluuz2c": {
             "mask": {
               "type": "clipping",
               "name": "mask",
@@ -194,10 +194,10 @@
                 -73,
                 -37
               ],
-              "end": "slot_zr8521u"
+              "end": "slot_ll16o2d"
             }
           },
-          "slot_zr8521u": {
+          "slot_ll16o2d": {
             "polygon": {
               "type": "shape",
               "name": "polygon",
@@ -221,7 +221,7 @@
               "fill": "#ffffff66"
             }
           },
-          "slot_z715h1v": {
+          "slot_4mudy2e": {
             "hitbox": {
               "type": "boundingBox",
               "name": "hitbox",
@@ -247,23 +247,23 @@
   },
   "events": [
     {
-      "id": "evt_hvaid1z",
+      "id": "evt_78d5o2i",
       "name": "clicked",
       "int": 0,
       "float": 0,
       "string": "",
-      "audio": "snd_pway72f"
+      "audio": "snd_rg2m32y"
     }
   ],
   "animations": [
     {
-      "id": "anim_zrag91w",
+      "id": "anim_icjuz2f",
       "name": "idle",
       "duration": 1.5,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_478ii1p",
+          "id": "bone_r8ukv28",
           "property": "scaleX",
           "keys": [
             {
@@ -300,7 +300,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_478ii1p",
+          "id": "bone_r8ukv28",
           "property": "scaleY",
           "keys": [
             {
@@ -339,13 +339,13 @@
       "events": []
     },
     {
-      "id": "anim_hp22p1x",
+      "id": "anim_a3w4a2g",
       "name": "hover",
       "duration": 0.6,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_478ii1p",
+          "id": "bone_r8ukv28",
           "property": "scaleX",
           "keys": [
             {
@@ -372,7 +372,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_478ii1p",
+          "id": "bone_r8ukv28",
           "property": "scaleY",
           "keys": [
             {
@@ -399,7 +399,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_rw68u1s",
+          "id": "slot_0qww22b",
           "property": "color",
           "keys": [
             {
@@ -426,7 +426,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_zr8521u",
+          "id": "slot_ll16o2d",
           "property": "color",
           "keys": [
             {
@@ -453,7 +453,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_6h43n1q",
+          "id": "bone_dooqk29",
           "property": "x",
           "keys": [
             {
@@ -482,13 +482,13 @@
       "events": []
     },
     {
-      "id": "anim_bih3t1y",
+      "id": "anim_25fvc2h",
       "name": "press",
       "duration": 0.25,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_478ii1p",
+          "id": "bone_r8ukv28",
           "property": "scaleX",
           "keys": [
             {
@@ -525,7 +525,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_478ii1p",
+          "id": "bone_r8ukv28",
           "property": "scaleY",
           "keys": [
             {
@@ -562,7 +562,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_478ii1p",
+          "id": "bone_r8ukv28",
           "property": "y",
           "keys": [
             {
@@ -601,24 +601,24 @@
       "events": [
         {
           "time": 0.08,
-          "event": "evt_hvaid1z"
+          "event": "evt_78d5o2i"
         }
       ]
     }
   ],
   "stateMachines": [
     {
-      "id": "sm_ts62m20",
+      "id": "sm_c2v4j2j",
       "name": "ui",
       "inputs": [
         {
-          "id": "in_l8bgo21",
+          "id": "in_tylcy2k",
           "name": "hover",
           "type": "bool",
           "default": false
         },
         {
-          "id": "in_gh7dq22",
+          "id": "in_6p7bb2l",
           "name": "press",
           "type": "trigger",
           "default": false
@@ -627,35 +627,35 @@
       "bindings": [],
       "layers": [
         {
-          "id": "sm_ts62m20_layer1",
+          "id": "sm_c2v4j2j_layer1",
           "name": "Layer 1",
-          "entry": "st_a9ox423",
+          "entry": "st_uiub82m",
           "states": [
             {
-              "id": "st_a9ox423",
+              "id": "st_uiub82m",
               "name": "idle",
               "type": "animation",
-              "animation": "anim_zrag91w",
+              "animation": "anim_icjuz2f",
               "loop": true,
               "speed": 1,
               "x": 120,
               "y": 120
             },
             {
-              "id": "st_vt3ns24",
+              "id": "st_fqkk32n",
               "name": "hover",
               "type": "animation",
-              "animation": "anim_hp22p1x",
+              "animation": "anim_a3w4a2g",
               "loop": false,
               "speed": 1,
               "x": 360,
               "y": 60
             },
             {
-              "id": "st_g057x25",
+              "id": "st_za3ee2o",
               "name": "press",
               "type": "animation",
-              "animation": "anim_bih3t1y",
+              "animation": "anim_25fvc2h",
               "loop": false,
               "speed": 1,
               "x": 360,
@@ -664,12 +664,12 @@
           ],
           "transitions": [
             {
-              "id": "tr_0v5lg26",
-              "from": "st_a9ox423",
-              "to": "st_vt3ns24",
+              "id": "tr_tvm9b2p",
+              "from": "st_uiub82m",
+              "to": "st_fqkk32n",
               "conditions": [
                 {
-                  "input": "in_l8bgo21",
+                  "input": "in_tylcy2k",
                   "op": "==",
                   "value": true
                 }
@@ -678,12 +678,12 @@
               "exitTime": null
             },
             {
-              "id": "tr_rpyva27",
-              "from": "st_vt3ns24",
-              "to": "st_a9ox423",
+              "id": "tr_mhwgl2q",
+              "from": "st_fqkk32n",
+              "to": "st_uiub82m",
               "conditions": [
                 {
-                  "input": "in_l8bgo21",
+                  "input": "in_tylcy2k",
                   "op": "==",
                   "value": false
                 }
@@ -692,12 +692,12 @@
               "exitTime": null
             },
             {
-              "id": "tr_0c81m28",
+              "id": "tr_rc37s2r",
               "from": "@any",
-              "to": "st_g057x25",
+              "to": "st_za3ee2o",
               "conditions": [
                 {
-                  "input": "in_gh7dq22",
+                  "input": "in_6p7bb2l",
                   "op": "==",
                   "value": true
                 }
@@ -706,12 +706,12 @@
               "exitTime": null
             },
             {
-              "id": "tr_s9p1029",
-              "from": "st_g057x25",
-              "to": "st_vt3ns24",
+              "id": "tr_gc2et2s",
+              "from": "st_za3ee2o",
+              "to": "st_fqkk32n",
               "conditions": [
                 {
-                  "input": "in_l8bgo21",
+                  "input": "in_tylcy2k",
                   "op": "==",
                   "value": true
                 }
@@ -720,12 +720,12 @@
               "exitTime": 1
             },
             {
-              "id": "tr_hb44y2a",
-              "from": "st_g057x25",
-              "to": "st_a9ox423",
+              "id": "tr_h7k8e2t",
+              "from": "st_za3ee2o",
+              "to": "st_uiub82m",
               "conditions": [
                 {
-                  "input": "in_l8bgo21",
+                  "input": "in_tylcy2k",
                   "op": "==",
                   "value": false
                 }
@@ -738,52 +738,52 @@
       ],
       "listeners": [
         {
-          "id": "lis_4n9um2b",
+          "id": "lis_xq67k2u",
           "name": "enter",
-          "slot": "slot_z715h1v",
+          "slot": "slot_4mudy2e",
           "event": "enter",
           "actions": [
             {
               "type": "setInput",
-              "input": "in_l8bgo21",
+              "input": "in_tylcy2k",
               "value": true
             }
           ]
         },
         {
-          "id": "lis_2lnuy2c",
+          "id": "lis_prm6j2v",
           "name": "exit",
-          "slot": "slot_z715h1v",
+          "slot": "slot_4mudy2e",
           "event": "exit",
           "actions": [
             {
               "type": "setInput",
-              "input": "in_l8bgo21",
+              "input": "in_tylcy2k",
               "value": false
             }
           ]
         },
         {
-          "id": "lis_txmls2d",
+          "id": "lis_b95qu2w",
           "name": "down",
-          "slot": "slot_z715h1v",
+          "slot": "slot_4mudy2e",
           "event": "down",
           "actions": [
             {
               "type": "fireTrigger",
-              "input": "in_gh7dq22"
+              "input": "in_6p7bb2l"
             }
           ]
         },
         {
-          "id": "lis_c4rri2i",
+          "id": "lis_kjgfl31",
           "name": "hover sound",
-          "slot": "slot_z715h1v",
+          "slot": "slot_4mudy2e",
           "event": "enter",
           "actions": [
             {
               "type": "playSound",
-              "sound": "snd_5ryj32h"
+              "sound": "snd_nrlee30"
             }
           ]
         }
@@ -797,13 +797,13 @@
     "muted": false,
     "assets": [
       {
-        "id": "aud_aup7e2e",
+        "id": "aud_l5p6a2x",
         "name": "click",
         "src": "assets/eleven/button-click.wav",
         "duration": 0.034
       },
       {
-        "id": "aud_2w2h32g",
+        "id": "aud_nwhgs2z",
         "name": "hover",
         "src": "assets/eleven/button-hover.wav",
         "duration": 0.798
@@ -831,9 +831,9 @@
     ],
     "sounds": [
       {
-        "id": "snd_pway72f",
+        "id": "snd_rg2m32y",
         "name": "click",
-        "asset": "aud_aup7e2e",
+        "asset": "aud_l5p6a2x",
         "bus": "bus_ui",
         "volume": 0.8,
         "rate": 1,
@@ -842,9 +842,9 @@
         "fadeOut": 0
       },
       {
-        "id": "snd_5ryj32h",
+        "id": "snd_nrlee30",
         "name": "hover",
-        "asset": "aud_2w2h32g",
+        "asset": "aud_nwhgs2z",
         "bus": "bus_ui",
         "volume": 0.45,
         "rate": 1,

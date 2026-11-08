@@ -79,8 +79,13 @@ describe("WebGL batching with an atlas", () => {
     expect(atlas.calls).toBe(4);
   });
 
-  it("tail example: no images, nothing changes", () => {
-    const doc = example("tail.obone");
+  it("shapes only: no images, nothing changes", () => {
+    const st = new DocumentStore(createDocument("Shapes"));
+    st.apply("addSlot", { bone: "root", name: "a" });
+    st.apply("addShape", { slot: "a", shape: "rect", width: 40, height: 20, fill: "#ff0000" });
+    st.apply("addSlot", { bone: "root", name: "b" });
+    st.apply("addShape", { slot: "b", shape: "ellipse", width: 30, height: 30, fill: "#00ff00" });
+    const doc = st.doc;
     expect(packed(doc).atlas).toBeUndefined();
     expect(drawCalls(packed(doc))).toEqual(drawCalls(doc));
   });

@@ -2,7 +2,7 @@
  * Builds the example projects in this folder using the same ops the editor and MCP server use.
  * Run: pnpm tsx examples/build-examples.ts
  */
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCanvas } from "@napi-rs/canvas";
@@ -10,173 +10,456 @@ import { DocumentStore, createDocument, lipSync, serialize, validate } from "@op
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-// ---------- assets ----------
-function makeCape() {
-  const c = createCanvas(120, 60);
-  const g = c.getContext("2d");
-  const grad = g.createLinearGradient(0, 0, 120, 0);
-  grad.addColorStop(0, "#b91c1c");
-  grad.addColorStop(1, "#7f1d1d");
-  g.fillStyle = grad;
-  g.beginPath();
-  g.moveTo(0, 8);
-  g.lineTo(120, 0);
-  g.lineTo(120, 60);
-  g.lineTo(0, 52);
-  g.closePath();
-  g.fill();
-  g.fillStyle = "rgba(255,255,255,0.15)";
-  for (let x = 10; x < 120; x += 20) g.fillRect(x, 0, 6, 60);
-  return c.toBuffer("image/png");
+// ---------- side-view characters (knight, walker): painted parts on a shared rig ----------
+// Parts come from one ElevenLabs parts sheet per character (see assets/eleven/LICENSE.md), cut apart and stored with
+// limbs upright (the joint nearest the body at the top). Joint positions are given as fractions of each image.
+
+type Pt = readonly [number, number];
+interface Part {
+  image: string;
+  w: number;
+  h: number;
 }
-writeFileSync(path.join(here, "assets/cape.png"), makeCape());
+const part = (A: Op, name: string, w: number, h: number): Part => {
+  A("addImage", { name, src: `assets/eleven/${name}.png`, width: w, height: h });
+  return { image: name, w, h };
+};
 
-// ---------- walker ----------
-function walker() {
-  const s = new DocumentStore(createDocument("Walker"));
-  const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
-  A("setDocument", { width: 800, height: 600, originX: 400, originY: 500 });
-  A("addBone", { name: "hip", y: 165, length: 20, color: "#ff9f43" });
-  A("addBone", { name: "torso", parent: "hip", rotation: 90, length: 110 });
-  A("addBone", { name: "head", parent: "torso", x: 118, length: 60 });
-  A("addBone", { name: "pupils", parent: "head", x: 32, length: 0 });
+/**
+ * Place a part so that its image point `anchor` (fractions, y down) sits at bone-local `at`, the image turned by
+ * `r` degrees (90 on a bone pointing down keeps the image upright, -90 on a bone pointing up).
+ */
+function pin(A: Op, slot: string, bone: string, p: Part, anchor: Pt, at: Pt, r: number, k: number, o: { color?: string; scale?: number; name?: string } = {}) {
+  const s = k * (o.scale ?? 1);
+  const vx = (0.5 - anchor[0]) * p.w * s;
+  const vy = (anchor[1] - 0.5) * p.h * s;
+  const c = Math.cos((r * Math.PI) / 180);
+  const sn = Math.sin((r * Math.PI) / 180);
+  A("addSlot", { bone, name: slot, ...(o.color ? { color: o.color } : {}) });
+  A("addRegion", {
+    slot,
+    ...(o.name ? { name: o.name } : {}),
+    image: p.image,
+    x: Math.round((at[0] + vx * c - vy * sn) * 100) / 100,
+    y: Math.round((at[1] + vx * sn + vy * c) * 100) / 100,
+    rotation: r,
+    width: Math.round(p.w * s * 100) / 100,
+    height: Math.round(p.h * s * 100) / 100,
+  });
+}
+/** Distance between two image points of a part, in drawn pixels (for bone lengths). */
+const span = (p: Part, a: Pt, b: Pt, k: number) => Math.hypot((b[0] - a[0]) * p.w, (b[1] - a[1]) * p.h) * k;
+
+interface SideRigSpec {
+  k: number;
+  torso: { part: Part; hip: Pt; neck: Pt; shoulder: Pt };
+  head: { part: Part; neck: Pt };
+  upper: { part: Part; top: Pt; bottom: Pt };
+  fore: { part: Part; top: Pt; wrist: Pt };
+  hand?: { part: Part; top: Pt; grip: Pt };
+  thigh: { part: Part; top: Pt; bottom: Pt };
+  shin: { part: Part; top: Pt; bottom: Pt };
+  foot: { part: Part; ankle: Pt };
+  /** Cape or scarf: a mesh hanging from the neck on three bones (image stored with its attached edge on the left). */
+  drape?: { part: Part; length: number; width: number; at: Pt; rotation: number };
+  /** Feet apart at rest (each foot target ±stance/2 from the hip) and how bent the knees are at rest (0..1). */
+  stance: number;
+  bend: number;
+  /** Scale of the leg parts relative to the body (parts sheets often draw legs too long for the torso). */
+  legScale?: number;
+  /** Scale of the arm parts relative to the body. */
+  armScale?: number;
+  /** Extra slots drawn on the back hand and front forearm (sword, shield). */
+  backProp?: (hand: string) => void;
+  frontProp?: (forearm: string) => void;
+  backTint: string;
+}
+
+/**
+ * Side view (facing right) character rig: hip → torso → head, two arms, two IK legs whose feet (on the foot targets)
+ * stay flat on the ground, and an optional cape. Draw order: drape, back arm, back leg, torso, front leg, head,
+ * front arm. Returns the measurements the animations need.
+ */
+function sideRig(A: Op, r: SideRigSpec) {
+  const { k } = r;
+  const T = r.torso;
+  // Torso-local point of a torso image point (torso bone points up from the hip; local y = towards the back).
+  const tl = (P: Pt): Pt => [(T.hip[1] - P[1]) * T.part.h * k, -(P[0] - T.hip[0]) * T.part.w * k];
+  const neck = tl(T.neck);
+  const shoulder = tl(T.shoulder);
+  const ak = k * (r.armScale ?? 1);
+  const upperLen = span(r.upper.part, r.upper.top, r.upper.bottom, ak);
+  const foreLen = span(r.fore.part, r.fore.top, r.fore.wrist, ak);
+  const lk = k * (r.legScale ?? 1);
+  const thighLen = span(r.thigh.part, r.thigh.top, r.thigh.bottom, lk);
+  const shinLen = span(r.shin.part, r.shin.top, r.shin.bottom, lk);
+  const ankleH = (1 - r.foot.ankle[1]) * r.foot.part.h * lk * 0.92;
+  // Knees slightly bent at rest: the hip sits a little lower than the straight leg.
+  const legReach = (thighLen + shinLen) * (1 - r.bend * 0.08);
+  const hipY = Math.round(ankleH + Math.sqrt(Math.max(0, legReach ** 2 - (r.stance / 2) ** 2)));
+
+  A("addBone", { name: "hip", y: hipY, length: 20, color: "#ff9f43" });
+  A("addBone", { name: "torso", parent: "hip", rotation: 90, length: Math.round(neck[0]) });
+  A("addBone", { name: "head", parent: "torso", x: neck[0], y: neck[1], length: 50 });
   for (const side of ["back", "front"] as const) {
-    const dx = side === "front" ? 6 : -6;
-    A("addBone", { name: `${side}-arm`, parent: "torso", x: 100, rotation: 180, length: 60 });
-    A("addBone", { name: `${side}-forearm`, parent: `${side}-arm`, x: 60, rotation: -15, length: 55 });
-    A("addBone", { name: `${side}-thigh`, parent: "hip", x: 0, y: dx, rotation: -90, length: 82 });
-    A("addBone", { name: `${side}-shin`, parent: `${side}-thigh`, x: 82, length: 80 });
-    A("addBone", { name: `${side}-foot-target`, x: side === "front" ? 10 : -10, y: 4, length: 0 });
+    A("addBone", { name: `${side}-arm`, parent: "torso", x: shoulder[0], y: shoulder[1], rotation: 180, length: Math.round(upperLen) });
+    A("addBone", { name: `${side}-forearm`, parent: `${side}-arm`, x: upperLen, length: Math.round(foreLen) });
+    A("addBone", { name: `${side}-hand`, parent: `${side}-forearm`, x: foreLen, length: 24 });
+    A("addBone", { name: `${side}-thigh`, parent: "hip", rotation: -90, length: Math.round(thighLen) });
+    A("addBone", { name: `${side}-shin`, parent: `${side}-thigh`, x: thighLen, length: Math.round(shinLen) });
+    A("addBone", { name: `${side}-foot`, x: side === "front" ? r.stance / 2 : -r.stance / 2, y: ankleH, length: 0, color: "#ff5d5d" });
   }
-  A("addBone", { name: "cape1", parent: "torso", x: 105, y: -8, rotation: 175, length: 40 });
-  A("addBone", { name: "cape2", parent: "cape1", x: 40, length: 40 });
-  A("addBone", { name: "cape3", parent: "cape2", x: 40, length: 40 });
-
-  // Visuals (back to front).
-  const limb = (slot: string, bone: string, len: number, w: number, fill: string) => {
-    A("addSlot", { bone, name: slot });
-    A("addShape", { slot, shape: "rect", x: len / 2, width: len + w * 0.6, height: w, radius: w / 2, fill });
+  if (r.drape) {
+    const d = r.drape;
+    const seg = d.length / 3;
+    A("addBone", { name: "drape1", parent: "torso", x: d.at[0], y: d.at[1], rotation: d.rotation, length: seg });
+    A("addBone", { name: "drape2", parent: "drape1", x: seg, length: seg });
+    A("addBone", { name: "drape3", parent: "drape2", x: seg, length: seg });
+    A("addSlot", { bone: "drape1", name: "drape" });
+    A("addMesh", { slot: "drape", name: "drape", image: d.part.image, x: d.length / 2, width: d.length, height: d.width, cols: 6, rows: 2 });
+    A("autoWeights", { slot: "drape", attachment: "drape", bones: ["drape1", "drape2", "drape3"], maxInfluences: 2 });
+  }
+  const arm = (side: "back" | "front", color?: string) => {
+    pin(A, `${side}-upper`, `${side}-arm`, r.upper.part, r.upper.top, [0, 0], 90, ak, { color });
+    pin(A, `${side}-fore`, `${side}-forearm`, r.fore.part, r.fore.top, [0, 0], 90, ak, { color });
+    if (r.hand) pin(A, `${side}-fist`, `${side}-hand`, r.hand.part, r.hand.top, [0, 0], 90, ak, { color });
   };
-  A("addImage", { name: "cape", src: "assets/cape.png", width: 120, height: 60 });
-  A("addSlot", { bone: "cape1", name: "cape" });
-  A("addMesh", { slot: "cape", image: "cape", x: 60, cols: 6, rows: 2 });
-  A("autoWeights", { slot: "cape", attachment: "cape", bones: ["cape1", "cape2", "cape3"], maxInfluences: 2 });
-  limb("back-arm", "back-arm", 60, 18, "#3b5b8f");
-  limb("back-forearm", "back-forearm", 55, 16, "#e0a77b");
-  limb("back-thigh", "back-thigh", 82, 24, "#2c3e66");
-  limb("back-shin", "back-shin", 80, 20, "#2c3e66");
-  A("addSlot", { bone: "back-shin", name: "back-shoe" });
-  A("addShape", { slot: "back-shoe", shape: "rect", x: 82, y: 10, width: 18, height: 34, radius: 6, fill: "#1f2937" });
-  A("addSlot", { bone: "torso", name: "body" });
-  A("addShape", { slot: "body", shape: "rect", x: 55, width: 125, height: 70, radius: 26, fill: "#4a78c2" });
-  A("addBoundingBox", { slot: "body", name: "body-hit", x: 60, width: 150, height: 90 });
-  limb("front-thigh", "front-thigh", 82, 24, "#34497a");
-  limb("front-shin", "front-shin", 80, 20, "#34497a");
-  A("addSlot", { bone: "front-shin", name: "front-shoe" });
-  A("addShape", { slot: "front-shoe", shape: "rect", x: 82, y: 10, width: 18, height: 34, radius: 6, fill: "#111827" });
-  A("addSlot", { bone: "head", name: "face" });
-  A("addShape", { slot: "face", shape: "ellipse", x: 28, width: 66, height: 62, fill: "#f2c49b", stroke: "#c9956b", strokeWidth: 2 });
-  for (const [n, y] of [["eye-l", 12], ["eye-r", -12]] as const) {
-    A("addSlot", { bone: "head", name: n });
-    A("addShape", { slot: n, shape: "ellipse", x: 32, y, width: 16, height: 13, fill: "#ffffff" });
-    A("addSlot", { bone: "pupils", name: `${n}-pupil` });
-    A("addShape", { slot: `${n}-pupil`, shape: "ellipse", x: 0, y, width: 7, height: 7, fill: "#1f2937" });
-  }
-  A("addSlot", { bone: "head", name: "hair" });
-  A("addShape", { slot: "hair", shape: "polygon", points: [40, 34, 62, 20, 66, -10, 56, -32, 44, -30, 50, -6, 44, 20], fill: "#5b3a29" });
-  limb("front-arm", "front-arm", 60, 18, "#5b8bd6");
-  limb("front-forearm", "front-forearm", 55, 16, "#f2c49b");
+  // Thigh, then the boot, then the shin on top: the knee guard or trouser leg covers the thigh's end and the boot's
+  // top, like real clothing.
+  const leg = (side: "back" | "front", color?: string) => {
+    pin(A, `${side}-thigh`, `${side}-thigh`, r.thigh.part, r.thigh.top, [0, 0], 90, lk, { color });
+    pin(A, `${side}-boot`, `${side}-foot`, r.foot.part, r.foot.ankle, [0, 0], 0, lk, { color });
+    pin(A, `${side}-shin`, `${side}-shin`, r.shin.part, r.shin.top, [0, 0], 90, lk, { color });
+  };
+  // Back limbs a shade darker: they are further from the light and the viewer.
+  r.backProp?.("back-hand");
+  arm("back", r.backTint);
+  leg("back", r.backTint);
+  pin(A, "torso", "torso", T.part, T.hip, [0, 0], -90, k);
+  leg("front");
+  pin(A, "head", "head", r.head.part, r.head.neck, [0, 0], -90, k);
+  arm("front");
+  r.frontProp?.("front-forearm");
+  for (const side of ["back", "front"]) A("addIkConstraint", { name: `${side}-leg`, bones: [`${side}-thigh`, `${side}-shin`], target: `${side}-foot`, bendPositive: false });
+  return { hipY, ankleH, upperLen, foreLen, thighLen, shinLen };
+}
 
-  A("addIkConstraint", { name: "back-leg", bones: ["back-thigh", "back-shin"], target: "back-foot-target", bendPositive: false });
-  A("addIkConstraint", { name: "front-leg", bones: ["front-thigh", "front-shin"], target: "front-foot-target", bendPositive: false });
-
-  // ---- idle ----
-  A("createAnimation", { name: "idle", duration: 2 });
-  const K = (anim: string, target: string, id: string, property: string, keys: [number, number | string][], curve = "easeInOut") =>
-    A("setKeys", { animation: anim, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });
-  K("idle", "bone", "hip", "y", [[0, 165], [1, 160], [2, 165]]);
-  K("idle", "bone", "torso", "rotation", [[0, 90], [1, 92], [2, 90]]);
-  K("idle", "bone", "head", "rotation", [[0, 0], [1, -3], [2, 0]]);
-  K("idle", "bone", "front-arm", "rotation", [[0, 182], [1, 186], [2, 182]]);
-  K("idle", "bone", "back-arm", "rotation", [[0, 178], [1, 174], [2, 178]]);
-  K("idle", "bone", "cape1", "rotation", [[0, 175], [1, 172], [2, 175]]);
-  K("idle", "bone", "cape2", "rotation", [[0, 0], [1, -4], [2, 0]]);
-  // blink
-  A("setKeys", { animation: "idle", target: "slot", id: "eye-l", property: "color", keys: [{ time: 0, value: "#ffffff", curve: "stepped" }, { time: 1.6, value: "#f2c49b", curve: "stepped" }, { time: 1.7, value: "#ffffff", curve: "stepped" }] });
-  A("setKeys", { animation: "idle", target: "slot", id: "eye-r", property: "color", keys: [{ time: 0, value: "#ffffff", curve: "stepped" }, { time: 1.6, value: "#f2c49b", curve: "stepped" }, { time: 1.7, value: "#ffffff", curve: "stepped" }] });
-
-  // ---- walk (1s cycle) ----
-  A("createAnimation", { name: "walk", duration: 1 });
-  const L = "linear";
-  K("walk", "bone", "hip", "y", [[0, 160], [0.25, 166], [0.5, 160], [0.75, 166], [1, 160]]);
-  K("walk", "bone", "torso", "rotation", [[0, 86], [1, 86]]);
+type Keys = [number, number][];
+/**
+ * Walk cycle on the foot targets (1 s): each foot is planted for half the cycle, sliding back from +reach to -reach
+ * (so the ground must scroll at 4·reach px/s), then lifts, rolls the boot and swings forward. The two feet are half a
+ * cycle apart. Returns the ground speed.
+ */
+function walkFeet(K: (target: string, id: string, property: string, keys: Keys, curve?: string) => void, ankleH: number, reach: number, lift: number) {
   for (const [side, phase] of [["front", 0], ["back", 0.5]] as const) {
-    // stance: foot slides back on the ground; swing: lifts and moves forward
-    const key = (t: number) => (t + phase) % 1;
-    const xs: [number, number][] = [[key(0), 45], [key(0.5), -45], [key(0.75), 0], [key(1 - 1e-3), 45]];
-    const ys: [number, number][] = [[key(0), 4], [key(0.5), 4], [key(0.7), 34], [key(1 - 1e-3), 4]];
-    const sort = (k: [number, number][]) => {
-      const s2 = k.sort((a, b) => a[0] - b[0]);
-      // close the loop: value at t=1 equals value at t=0
-      const first = s2[0];
-      if (first[0] > 0) {
-        const last = s2[s2.length - 1];
-        s2.unshift([0, last[1] + ((first[1] - last[1]) * (1 - last[0])) / (1 - last[0] + first[0])]);
+    const at = (t: number) => Math.round(((t + phase) % 1) * 1000) / 1000;
+    // Keys within one cycle (phase-shifted), sorted and closed so t = 0 and t = 1 match.
+    const loop = (pts: Keys): Keys => {
+      const s = pts.map(([t, v]) => [at(t), v] as [number, number]).sort((a, b) => a[0] - b[0]);
+      if (s[0][0] > 0) {
+        const last = s[s.length - 1];
+        const first = s[0];
+        const span = 1 - last[0] + first[0];
+        s.unshift([0, last[1] + ((first[1] - last[1]) * (1 - last[0])) / span]);
       }
-      s2.push([1, s2[0][1]]);
-      return s2;
+      s.push([1, s[0][1]]);
+      return s.filter((k, i) => i === 0 || k[0] !== s[i - 1][0]);
     };
-    K("walk", "bone", `${side}-foot-target`, "x", sort(xs), L);
-    K("walk", "bone", `${side}-foot-target`, "y", sort(ys), L);
-    const armPhase = side === "front" ? 1 : -1;
-    K("walk", "bone", `${side}-arm`, "rotation", [[0, 180 - 25 * armPhase], [0.5, 180 + 25 * armPhase], [1, 180 - 25 * armPhase]]);
+    K("bone", `${side}-foot`, "x", loop([[0, reach], [0.5, -reach], [0.62, -reach * 0.8], [0.8, reach * 0.35], [0.94, reach * 0.95]]), "linear");
+    K("bone", `${side}-foot`, "y", loop([[0, ankleH], [0.5, ankleH], [0.6, ankleH + lift * 0.7], [0.74, ankleH + lift], [0.9, ankleH + lift * 0.25], [0.999, ankleH]]), "easeInOut");
+    // Heel strike (toe up), flat, toe-off (heel up), then swing.
+    K("bone", `${side}-foot`, "rotation", loop([[0, 8], [0.08, 0], [0.42, 0], [0.55, -18], [0.75, -6], [0.94, 10]]), "easeInOut");
   }
-  K("walk", "bone", "cape1", "rotation", [[0, 160], [0.5, 150], [1, 160]]);
-  K("walk", "bone", "cape2", "rotation", [[0, -10], [0.5, 5], [1, -10]]);
-  K("walk", "bone", "cape3", "rotation", [[0, 10], [0.5, -10], [1, 10]]);
-  A("addEventKey", { animation: "walk", event: "footstep", time: 0, string: "front" });
-  A("addEventKey", { animation: "walk", event: "footstep", time: 0.5, string: "back" });
+  return reach * 4;
+}
 
-  // ---- jump ----
-  A("createAnimation", { name: "jump", duration: 0.8 });
-  K("jump", "bone", "hip", "y", [[0, 160], [0.12, 140], [0.4, 240], [0.7, 160], [0.8, 165]]);
-  K("jump", "bone", "front-arm", "rotation", [[0, 180], [0.4, 30], [0.8, 180]]);
-  K("jump", "bone", "back-arm", "rotation", [[0, 180], [0.4, -30], [0.8, 180]]);
-  K("jump", "bone", "cape1", "rotation", [[0, 175], [0.4, 200], [0.8, 175]]);
-  A("addEventKey", { animation: "jump", event: "land", time: 0.7 });
+// ---------- knight: side view with sword and shield ----------
+function knight() {
+  const s = new DocumentStore(createDocument("Knight", { background: "#9fd0f5" }));
+  const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
+  A("setDocument", { width: 900, height: 600, originX: 400, originY: 530 });
+  const P = (n: string, w: number, h: number) => part(A, `knight-${n}`, w, h);
+  const torso = P("torso", 196, 281);
+  const helmet = P("helmet", 260, 280);
+  const upper = P("arm-upper", 117, 198);
+  const fore = P("forearm", 79, 180);
+  const fist = P("fist", 83, 116);
+  const thigh = P("thigh", 106, 218);
+  const shin = P("shin", 111, 282);
+  const boot = P("boot", 143, 123);
+  const sword = P("sword", 116, 370);
+  const shield = P("shield", 263, 265);
+  const cape = P("cape", 343, 175);
+  A("addImage", { name: "knight-bg-far", src: "assets/eleven/knight-bg-far.jpg", width: 2000, height: 429 });
+  const mid = { image: "knight-bg-mid", w: 2000, h: 260 };
+  A("addImage", { name: mid.image, src: `assets/eleven/${mid.image}.png`, width: mid.w, height: mid.h });
+  const ground = { image: "knight-bg-ground", w: 2000, h: 158 };
+  A("addImage", { name: ground.image, src: `assets/eleven/${ground.image}.png`, width: ground.w, height: ground.h });
 
-  // ---- state machine ----
+  // Parallax: far castle, hills and wall, then the road the knight walks on (scrolls at the feet's speed).
+  // Each layer is its art plus a mirrored copy (seamless when it wraps), drawn 2300 wide.
+  const reach = 46;
+  const GW = 2300;
+  const scroll = addScrollLayers(A, "knight", "walk", [
+    { name: "bg-far", image: "knight-bg-far", x: 700, y: 290, w: GW, h: (GW * 429) / 2000, speed: 14 },
+    { name: "bg-mid", image: mid.image, x: 700, y: 100, w: GW, h: (GW * mid.h) / mid.w, speed: 55 },
+    { name: "bg-ground", image: ground.image, x: 700, y: -21, w: GW, h: (GW * ground.h) / ground.w, speed: reach * 4 },
+  ]);
+
+  const k = 0.5;
+  const m = sideRig(A, {
+    k,
+    torso: { part: torso, hip: [0.52, 0.8], neck: [0.5, 0.06], shoulder: [0.42, 0.24] },
+    head: { part: helmet, neck: [0.62, 0.93] },
+    upper: { part: upper, top: [0.5, 0.14], bottom: [0.5, 0.9] },
+    fore: { part: fore, top: [0.5, 0.08], wrist: [0.5, 0.9] },
+    hand: { part: fist, top: [0.5, 0.14], grip: [0.5, 0.62] },
+    thigh: { part: thigh, top: [0.5, 0.12], bottom: [0.5, 0.8] },
+    shin: { part: shin, top: [0.44, 0.2], bottom: [0.45, 0.86] },
+    foot: { part: boot, ankle: [0.3, 0.28] },
+    drape: { part: cape, length: 150, width: 84, at: [100, 30], rotation: 166 },
+    stance: 30,
+    bend: 0.6,
+    legScale: 0.82,
+    armScale: 0.86,
+    backTint: "#c2c6d0",
+    // Sword in the back hand (pointing forward and down at rest); shield on the front forearm.
+    backProp: (hand) => pin(A, "sword", hand, sword, [0.5, 0.84], [14, 0], -40, k, { scale: 0.9 }),
+    frontProp: (forearm) => pin(A, "shield", forearm, shield, [0.5, 0.5], [40, -6], 90, k, { scale: 0.62 }),
+  });
+  A("addBoundingBox", { slot: "torso", name: "body-hit", x: 40, width: 150, height: 110 });
+  A("addBoundingBox", { slot: "head", name: "head-hit", x: 40, width: 90, height: 90 });
+  // Click the road to start or stop walking.
+  A("addSlot", { bone: "root", name: "road-hit" });
+  A("addBoundingBox", { slot: "road-hit", name: "road", y: -35, width: 900, height: 70 });
+
+  const anim = (name: string, duration: number) => A("createAnimation", { name, duration });
+  let cur = "";
+  const K = (target: string, id: string, property: string, keys: Keys, curve = "easeInOut") =>
+    A("setKeys", { animation: cur, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });
+  const hip = m.hipY;
+
+  // ---- idle: breathing, weight shifting, cape drifting ----
+  anim((cur = "idle"), 2.4);
+  K("bone", "hip", "y", [[0, hip], [1.2, hip - 3], [2.4, hip]]);
+  K("bone", "torso", "rotation", [[0, 88], [1.2, 89.5], [2.4, 88]]);
+  K("bone", "head", "rotation", [[0, 0], [1.2, -2], [2.4, 0]]);
+  K("bone", "back-arm", "rotation", [[0, 186], [1.2, 189], [2.4, 186]]);
+  K("bone", "back-forearm", "rotation", [[0, 20], [1.2, 24], [2.4, 20]]);
+  K("bone", "front-arm", "rotation", [[0, 196], [1.2, 192], [2.4, 196]]);
+  K("bone", "front-forearm", "rotation", [[0, 40], [1.2, 44], [2.4, 40]]);
+  K("bone", "drape2", "rotation", [[0, 0], [1.2, 4], [2.4, 0]]);
+  K("bone", "drape3", "rotation", [[0, 0], [1.2, 7], [2.4, 0]]);
+
+  // ---- walk: planted feet slide at the road's speed; hips bob, arms counter-swing, cape streams back ----
+  anim((cur = "walk"), 1);
+  const groundSpeed = walkFeet(K, m.ankleH, reach, 24);
+  void groundSpeed;
+  K("bone", "hip", "y", [[0, hip - 5], [0.25, hip + 3], [0.5, hip - 5], [0.75, hip + 3], [1, hip - 5]]);
+  K("bone", "torso", "rotation", [[0, 84], [0.25, 85.5], [0.5, 84], [0.75, 85.5], [1, 84]]);
+  K("bone", "head", "rotation", [[0, 4], [0.25, 2], [0.5, 4], [0.75, 2], [1, 4]]);
+  K("bone", "back-arm", "rotation", [[0, 200], [0.5, 168], [1, 200]]);
+  K("bone", "back-forearm", "rotation", [[0, 16], [0.5, 30], [1, 16]]);
+  K("bone", "front-arm", "rotation", [[0, 178], [0.5, 206], [1, 178]]);
+  K("bone", "front-forearm", "rotation", [[0, 44], [0.5, 34], [1, 44]]);
+  K("bone", "drape1", "rotation", [[0, 152], [0.5, 146], [1, 152]]);
+  K("bone", "drape2", "rotation", [[0, 6], [0.25, -2], [0.5, 8], [0.75, -2], [1, 6]]);
+  K("bone", "drape3", "rotation", [[0, 10], [0.25, -4], [0.5, 12], [0.75, -4], [1, 10]]);
+
+  // ---- attack: wind up behind the head, strike forward and down, recover ----
+  anim((cur = "attack"), 0.95);
+  K("bone", "back-arm", "rotation", [[0, 186], [0.26, 40], [0.36, 40], [0.46, 262], [0.6, 250], [0.95, 186]], "easeInOut");
+  K("bone", "back-forearm", "rotation", [[0, 20], [0.26, -50], [0.36, -55], [0.46, 0], [0.6, 6], [0.95, 20]]);
+  K("bone", "back-hand", "rotation", [[0, 0], [0.26, -30], [0.46, 20], [0.95, 0]]);
+  K("bone", "torso", "rotation", [[0, 88], [0.26, 98], [0.36, 99], [0.46, 76], [0.6, 78], [0.95, 88]]);
+  K("bone", "hip", "x", [[0, 0], [0.26, -8], [0.46, 14], [0.7, 10], [0.95, 0]]);
+  K("bone", "hip", "y", [[0, hip], [0.26, hip - 2], [0.46, hip - 10], [0.7, hip - 8], [0.95, hip]]);
+  K("bone", "front-arm", "rotation", [[0, 196], [0.26, 230], [0.46, 160], [0.95, 196]]);
+  K("bone", "head", "rotation", [[0, 0], [0.26, 6], [0.46, -6], [0.95, 0]]);
+  K("bone", "drape2", "rotation", [[0, 0], [0.3, -10], [0.5, 14], [0.95, 0]]);
+  K("bone", "drape3", "rotation", [[0, 0], [0.35, -14], [0.55, 18], [0.95, 0]]);
+
+  // ---- salute: sword raised high, "Hail, traveller!" ----
+  anim((cur = "salute"), 1.8);
+  // Arm raised forward, forearm up, sword held upright in front of the helmet.
+  K("bone", "back-arm", "rotation", [[0, 186], [0.35, 292], [1.35, 292], [1.8, 186]]);
+  K("bone", "back-forearm", "rotation", [[0, 20], [0.35, 56], [1.35, 56], [1.8, 20]]);
+  K("bone", "back-hand", "rotation", [[0, 0], [0.35, 4], [1.35, 4], [1.8, 0]]);
+  K("bone", "torso", "rotation", [[0, 88], [0.35, 92], [1.35, 92], [1.8, 88]]);
+  K("bone", "head", "rotation", [[0, 0], [0.35, 8], [0.7, 4], [1.35, 8], [1.8, 0]]);
+  K("bone", "hip", "y", [[0, hip], [0.35, hip + 4], [1.35, hip + 4], [1.8, hip]]);
+  K("bone", "drape3", "rotation", [[0, 0], [0.4, -8], [0.9, 6], [1.8, 0]]);
+
+  // ---- state machine: walk toggles (click the road), click the knight to attack, click his helmet to salute ----
+  A("createStateMachine", { name: "knight" });
+  A("addInput", { stateMachine: "knight", name: "walk", type: "bool" });
+  A("addInput", { stateMachine: "knight", name: "attack", type: "trigger" });
+  A("addInput", { stateMachine: "knight", name: "salute", type: "trigger" });
+  A("addState", { stateMachine: "knight", name: "idle", animation: "idle", x: 120, y: 140 });
+  A("addState", { stateMachine: "knight", name: "walk", animation: "walk", x: 380, y: 40 });
+  A("addState", { stateMachine: "knight", name: "attack", animation: "attack", loop: false, x: 380, y: 160 });
+  A("addState", { stateMachine: "knight", name: "salute", animation: "salute", loop: false, x: 380, y: 280 });
+  const T = (from: string, to: string, conditions: unknown[], o: Record<string, unknown> = {}) =>
+    A("addTransition", { stateMachine: "knight", from, to, conditions, duration: 0.2, ...o });
+  T("idle", "walk", [{ input: "walk", value: true }]);
+  T("walk", "idle", [{ input: "walk", value: false }]);
+  T("@any", "attack", [{ input: "attack" }], { duration: 0.08 });
+  T("@any", "salute", [{ input: "salute" }], { duration: 0.15 });
+  for (const st of ["attack", "salute"]) {
+    T(st, "walk", [{ input: "walk", value: true }], { exitTime: 1 });
+    T(st, "idle", [{ input: "walk", value: false }], { exitTime: 1 });
+  }
+  A("addListener", { stateMachine: "knight", slot: "torso", event: "click", actions: [{ type: "fireTrigger", input: "attack" }] });
+  A("addListener", { stateMachine: "knight", slot: "head", event: "click", actions: [{ type: "fireTrigger", input: "salute" }] });
+  A("addListener", { stateMachine: "knight", slot: "road-hit", event: "click", actions: [{ type: "toggleInput", input: "walk" }] });
+  scroll();
+
+  // Sounds: armoured steps as each foot lands, the sword's swing and clang, and the greeting.
+  sfx(A, "step", "knight-step", { volume: 0.55 });
+  sfx(A, "swoosh", "knight-swoosh", { volume: 0.8 });
+  sfx(A, "clang", "knight-clang", { volume: 0.7 });
+  sfx(A, "hail", "knight-hail");
+  A("addAudioKey", { animation: "walk", sound: "step", time: 0.02 });
+  A("addAudioKey", { animation: "walk", sound: "step", time: 0.52 });
+  A("addAudioKey", { animation: "attack", sound: "swoosh", time: 0.34 });
+  A("addAudioKey", { animation: "attack", sound: "clang", time: 0.47 });
+  A("addAudioKey", { animation: "salute", sound: "hail", time: 0.3 });
+  return s.doc;
+}
+
+// ---------- walker: side view adventurer, IK legs, scrolling parallax, a proper jump ----------
+function walker() {
+  const s = new DocumentStore(createDocument("Walker", { background: "#a8d8ff" }));
+  const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
+  A("setDocument", { width: 900, height: 560, originX: 400, originY: 480 });
+  const P = (n: string, w: number, h: number) => part(A, `walker-${n}`, w, h);
+  const torso = P("torso", 194, 277);
+  const head = P("head", 279, 257);
+  const upper = P("arm-upper", 102, 227);
+  const fore = P("forearm", 95, 290);
+  const thigh = P("thigh", 121, 289);
+  const shin = P("shin", 87, 254);
+  const shoe = P("shoe", 186, 111);
+  const scarf = P("scarf", 332, 109);
+  A("addImage", { name: "walker-bg-far", src: "assets/eleven/walker-bg-far.jpg", width: 2000, height: 429 });
+  const mid = { image: "walker-bg-mid", w: 2000, h: 329 };
+  A("addImage", { name: mid.image, src: `assets/eleven/${mid.image}.png`, width: mid.w, height: mid.h });
+  const ground = { image: "walker-bg-ground", w: 2000, h: 158 };
+  A("addImage", { name: ground.image, src: `assets/eleven/${ground.image}.png`, width: ground.w, height: ground.h });
+
+  const reach = 36;
+  const GW = 2300;
+  const scroll = addScrollLayers(A, "character", "speed", [
+    { name: "bg-far", image: "walker-bg-far", x: 700, y: 240, w: GW, h: (GW * 429) / 2000, speed: 12 },
+    { name: "bg-mid", image: mid.image, x: 700, y: 147, w: GW, h: (GW * mid.h) / mid.w, speed: 50 },
+    { name: "bg-ground", image: ground.image, x: 700, y: -6, w: GW, h: (GW * ground.h) / ground.w, speed: reach * 4 },
+  ]);
+
+  const k = 0.4;
+  const m = sideRig(A, {
+    k,
+    torso: { part: torso, hip: [0.56, 0.9], neck: [0.62, 0.1], shoulder: [0.58, 0.3] },
+    head: { part: head, neck: [0.5, 0.9] },
+    upper: { part: upper, top: [0.5, 0.1], bottom: [0.5, 0.88] },
+    fore: { part: fore, top: [0.47, 0.07], wrist: [0.5, 0.72] },
+    thigh: { part: thigh, top: [0.5, 0.1], bottom: [0.5, 0.84] },
+    shin: { part: shin, top: [0.5, 0.12], bottom: [0.5, 0.88] },
+    foot: { part: shoe, ankle: [0.27, 0.3] },
+    drape: { part: scarf, length: 120, width: 38, at: [100, 14], rotation: 160 },
+    stance: 26,
+    bend: 0.5,
+    legScale: 0.7,
+    armScale: 0.74,
+    backTint: "#c8ccd6",
+  });
+  A("addBoundingBox", { slot: "torso", name: "body-hit", x: 50, width: 130, height: 100 });
+  A("addSlot", { bone: "root", name: "path-hit" });
+  A("addBoundingBox", { slot: "path-hit", name: "path", y: -30, width: 900, height: 60 });
+
+  let cur = "";
+  const K = (target: string, id: string, property: string, keys: Keys, curve = "easeInOut") =>
+    A("setKeys", { animation: cur, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });
+  const hip = m.hipY;
+  const a0 = m.ankleH;
+
+  // ---- idle: breathing, a little bounce, head looking around ----
+  A("createAnimation", { name: (cur = "idle"), duration: 2 });
+  K("bone", "hip", "y", [[0, hip], [1, hip - 3], [2, hip]]);
+  K("bone", "torso", "rotation", [[0, 88], [1, 90], [2, 88]]);
+  K("bone", "head", "rotation", [[0, 0], [0.8, -4], [1.4, 3], [2, 0]]);
+  K("bone", "back-arm", "rotation", [[0, 184], [1, 188], [2, 184]]);
+  K("bone", "front-arm", "rotation", [[0, 192], [1, 188], [2, 192]]);
+  K("bone", "back-forearm", "rotation", [[0, 14], [1, 18], [2, 14]]);
+  K("bone", "front-forearm", "rotation", [[0, 18], [1, 14], [2, 18]]);
+  K("bone", "drape2", "rotation", [[0, 0], [1, 5], [2, 0]]);
+  K("bone", "drape3", "rotation", [[0, 0], [1, 8], [2, 0]]);
+
+  // ---- walk (1 s): IK feet planted at the path's speed, bouncy hips, swinging arms, scarf streaming ----
+  A("createAnimation", { name: (cur = "walk"), duration: 1 });
+  walkFeet(K, a0, reach, 30);
+  K("bone", "hip", "y", [[0, hip - 6], [0.25, hip + 4], [0.5, hip - 6], [0.75, hip + 4], [1, hip - 6]]);
+  K("bone", "torso", "rotation", [[0, 82], [0.25, 84], [0.5, 82], [0.75, 84], [1, 82]]);
+  K("bone", "head", "rotation", [[0, 6], [0.25, 4], [0.5, 6], [0.75, 4], [1, 6]]);
+  K("bone", "back-arm", "rotation", [[0, 214], [0.5, 156], [1, 214]]);
+  K("bone", "front-arm", "rotation", [[0, 156], [0.5, 214], [1, 156]]);
+  K("bone", "back-forearm", "rotation", [[0, 30], [0.5, 10], [1, 30]]);
+  K("bone", "front-forearm", "rotation", [[0, 10], [0.5, 30], [1, 10]]);
+  K("bone", "drape1", "rotation", [[0, 145], [0.5, 138], [1, 145]]);
+  K("bone", "drape2", "rotation", [[0, 6], [0.25, -4], [0.5, 8], [0.75, -4], [1, 6]]);
+  K("bone", "drape3", "rotation", [[0, 12], [0.25, -6], [0.5, 14], [0.75, -6], [1, 12]]);
+  A("addEventKey", { animation: "walk", event: "footstep", time: 0.02, string: "front" });
+  A("addEventKey", { animation: "walk", event: "footstep", time: 0.52, string: "back" });
+
+  // ---- jump (1.1 s): anticipation crouch, explosive take-off, tucked legs at the apex, squash on landing ----
+  A("createAnimation", { name: (cur = "jump"), duration: 1.1 });
+  const air = 88;
+  K("bone", "hip", "y", [[0, hip], [0.14, hip - 30], [0.24, hip + 16], [0.5, hip + air], [0.72, hip + 30], [0.8, hip - 28], [0.94, hip + 4], [1.1, hip]], "easeInOut");
+  K("bone", "torso", "rotation", [[0, 88], [0.14, 72], [0.24, 92], [0.5, 84], [0.76, 86], [0.82, 74], [1.1, 88]]);
+  K("bone", "head", "rotation", [[0, 0], [0.14, 10], [0.24, -10], [0.5, -4], [0.82, 10], [1.1, 0]]);
+  // Feet: planted through the crouch, pulled up under the body in the air, reaching down for the landing.
+  for (const [side, x] of [["front", 13], ["back", -13]] as const) {
+    K("bone", `${side}-foot`, "x", [[0, x], [0.2, x], [0.5, x + (side === "front" ? 14 : -4)], [0.74, x], [1.1, x]]);
+    // Knees tucked high at the apex: the feet come up further than the hips rise.
+    K("bone", `${side}-foot`, "y", [[0, a0], [0.2, a0], [0.3, a0 + 52], [0.5, a0 + air + 46], [0.68, a0 + 40], [0.78, a0], [1.1, a0]]);
+    K("bone", `${side}-foot`, "rotation", [[0, 0], [0.2, -16], [0.32, -24], [0.5, -10], [0.72, 12], [0.78, 0], [1.1, 0]]);
+  }
+  // Arms swing back in the crouch, up and forward for lift, out for balance on landing.
+  for (const [side, d] of [["back", 0], ["front", 10]] as const) {
+    K("bone", `${side}-arm`, "rotation", [[0, 186 + d], [0.14, 120 + d], [0.26, 320 + d], [0.5, 300 + d], [0.78, 240 + d], [0.9, 210 + d], [1.1, 186 + d]]);
+    K("bone", `${side}-forearm`, "rotation", [[0, 16], [0.14, 30], [0.26, 10], [0.5, 30], [0.8, 20], [1.1, 16]]);
+  }
+  K("bone", "drape1", "rotation", [[0, 160], [0.26, 130], [0.5, 185], [0.72, 210], [0.82, 145], [1.1, 160]]);
+  K("bone", "drape3", "rotation", [[0, 0], [0.3, -14], [0.6, 18], [0.85, -10], [1.1, 0]]);
+  A("addEventKey", { animation: "jump", event: "land", time: 0.78 });
+
+  // ---- state machine: click the path to walk or stop (a script eases "speed" for the blend), click him to jump ----
   A("createStateMachine", { name: "character" });
+  A("addInput", { stateMachine: "character", name: "walk", type: "bool" });
   A("addInput", { stateMachine: "character", name: "speed", type: "number", default: 0 });
   A("addInput", { stateMachine: "character", name: "jump", type: "trigger" });
   A("addState", { stateMachine: "character", name: "locomotion", type: "blend1d", blendInput: "speed", blend: [{ animation: "idle", value: 0 }, { animation: "walk", value: 1 }], x: 160, y: 120 });
   A("addState", { stateMachine: "character", animation: "jump", loop: false, x: 420, y: 120 });
-  A("addTransition", { stateMachine: "character", from: "@any", to: "jump", conditions: [{ input: "jump" }], duration: 0.1 });
-  A("addTransition", { stateMachine: "character", from: "jump", to: "locomotion", duration: 0.2 });
-  A("addListener", { stateMachine: "character", slot: "body", event: "click", actions: [{ type: "fireTrigger", input: "jump" }] });
+  A("addTransition", { stateMachine: "character", from: "@any", to: "jump", conditions: [{ input: "jump" }], duration: 0.06 });
+  A("addTransition", { stateMachine: "character", from: "jump", to: "locomotion", exitTime: 1, duration: 0.15 });
+  A("addListener", { stateMachine: "character", slot: "torso", event: "click", actions: [{ type: "fireTrigger", input: "jump" }] });
+  A("addListener", { stateMachine: "character", slot: "path-hit", event: "click", actions: [{ type: "toggleInput", input: "walk" }] });
   A("addScript", {
-    name: "eyes-follow-pointer",
-    code: `// Pupils look toward the pointer.
+    name: "ease-speed",
+    code: `// Ease the blend's "speed" towards the "walk" switch, so idle and walk cross-fade smoothly.
 function onUpdate(dt) {
-  const p = ob.pointer();
-  const h = ob.bone("head");
-  if (!h) return;
-  const dx = p.x - h.worldX, dy = p.y - h.worldY;
-  const len = Math.hypot(dx, dy) || 1;
-  const k = Math.min(4, len / 25);
-  // head's local frame is rotated +90° from world
-  ob.setBone("pupils", { x: 32 + (dy / len) * k, y: -(dx / len) * k });
-}
-function onEvent(e) { if (e.name === "land") ob.log("landed!"); }`,
+  const target = ob.input("walk") ? 1 : 0;
+  const v = Number(ob.input("speed")) || 0;
+  ob.setInput("speed", v + (target - v) * Math.min(1, dt * 4));
+}`,
   });
-  A("attachScript", { stateMachine: "character", script: "eyes-follow-pointer" });
-  // Sounds: a step on each footstep event, a swish on take-off and a thud on the land event.
+  A("attachScript", { stateMachine: "character", script: "ease-speed" });
+  scroll();
   sfx(A, "step", "walker-step", { volume: 0.55 });
   sfx(A, "jump", "walker-jump", { volume: 0.7 });
   sfx(A, "land", "walker-land", { volume: 0.8 });
   A("setEventSound", { event: "footstep", sound: "step" });
   A("setEventSound", { event: "land", sound: "land" });
-  A("addAudioKey", { animation: "jump", sound: "jump", time: 0.1 });
+  A("addAudioKey", { animation: "jump", sound: "jump", time: 0.18 });
   return s.doc;
 }
 
@@ -189,6 +472,45 @@ function sfx(A: Op, name: string, file: string, o: { loop?: boolean; bus?: strin
   const { volume, fadeIn, fadeOut } = o;
   if (volume !== undefined || fadeIn !== undefined || fadeOut !== undefined)
     A("updateSound", { sound: name, ...(volume !== undefined ? { volume } : {}), ...(fadeIn !== undefined ? { fadeIn } : {}), ...(fadeOut !== undefined ? { fadeOut } : {}) });
+}
+
+/**
+ * Scrolling parallax for walk cycles: each layer (two copies side by side on one bone) slides left at its own speed
+ * times the value of a state-machine input (eased), wrapping every tile width. The ground layer should move at the
+ * feet's speed so they don't skate; far layers move slower.
+ */
+function addScrollLayers(
+  A: Op,
+  stateMachine: string,
+  input: string,
+  layers: ReadonlyArray<{ name: string; image: string; x: number; y: number; w: number; h: number; speed: number; parent?: string }>,
+) {
+  for (const l of layers) {
+    A("addBone", { name: l.name, ...(l.parent ? { parent: l.parent } : {}), x: l.x, y: l.y, length: 0, color: "#7fb7ff" });
+    for (const [k, dx] of [["a", 0], ["b", l.w]] as const) {
+      A("addSlot", { bone: l.name, name: `${l.name}-${k}` });
+      A("addRegion", { slot: `${l.name}-${k}`, image: l.image, x: dx, width: l.w, height: l.h });
+    }
+  }
+  return () => {
+    A("addScript", {
+      name: "scroll",
+      code: `// Parallax scrolling: layers slide at their own speed while "${input}" is on, wrapping every tile width.
+const layers = ${JSON.stringify(layers.map((l) => ({ bone: l.name, x: l.x, y: l.y, w: l.w, speed: l.speed })))};
+const off = layers.map(() => 0);
+let v = 0;
+function onUpdate(dt) {
+  const target = Number(ob.input("${input}")) || 0;
+  v += (target - v) * Math.min(1, dt * 5);
+  for (let i = 0; i < layers.length; i++) {
+    const l = layers[i];
+    off[i] = (off[i] - l.speed * v * dt) % l.w;
+    ob.setBone(l.bone, { x: l.x + off[i], y: l.y });
+  }
+}`,
+    });
+    A("attachScript", { stateMachine, script: "scroll" });
+  };
 }
 
 /** Button audio: a click on the press event and a soft shimmer when the pointer enters. */
@@ -254,57 +576,60 @@ function button() {
 
 // ---------- tail (path constraint + physics) ----------
 function tail() {
-  const s = new DocumentStore(createDocument("Tail", { background: "#f3efe6" }));
+  const s = new DocumentStore(createDocument("Tail", { background: "#bfe3ff" }));
   const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
   A("setDocument", { width: 800, height: 500, originX: 470, originY: 380 });
+  // Painted creature and meadow (see assets/eleven/LICENSE.md). The tail and antenna art is stored already turned to
+  // lie along its bones, so the mesh grids map straight onto the chains.
+  A("addImage", { name: "tail-body", src: "assets/eleven/tail-body.png", width: 420, height: 436 });
+  A("addImage", { name: "tail-tail", src: "assets/eleven/tail-tail.png", width: 520, height: 213 });
+  A("addImage", { name: "tail-antenna", src: "assets/eleven/tail-antenna.png", width: 260, height: 60 });
+  A("addImage", { name: "tail-bg-far", src: "assets/eleven/tail-bg-far.jpg", width: 1600, height: 900 });
+  const nearGrass = existsSync(path.join(here, "assets/eleven/tail-bg-near.png"));
+  if (nearGrass) A("addImage", { name: "tail-bg-near", src: "assets/eleven/tail-bg-near.png", width: 1400, height: 261 });
+
+  // Parallax layers hang off their own bones; a script moves them with the pointer (far a little, near a lot).
+  A("addBone", { name: "bg-far", x: -70, y: 130, length: 0, color: "#7fb7ff" });
+  A("addBone", { name: "bg-near", x: -70, y: -70, length: 0, color: "#7fb7ff" });
   A("addBone", { name: "body", y: 120, length: 0, color: "#ff9f43" });
-  A("addBone", { name: "head", parent: "body", x: 95, y: 30, length: 0 });
+  A("addBone", { name: "head", parent: "body", x: 52, y: 92, length: 0 });
   // Tail chain: 8 bones placed along the path by the path constraint.
-  const SEG = 32;
-  A("addBone", { name: "tail1", parent: "body", x: -70, y: 10, rotation: 165, length: SEG });
+  const SEG = 38;
+  A("addBone", { name: "tail1", parent: "body", x: -100, y: -20, rotation: 165, length: SEG });
   for (let i = 2; i <= 8; i++) A("addBone", { name: `tail${i}`, parent: `tail${i - 1}`, x: SEG, length: SEG });
   // The path lives on `tail-base`; its knots are bound to control bones that the animations move.
-  A("addBone", { name: "tail-base", parent: "body", x: -70, y: 10, rotation: 165, length: 0, color: "#ff7a00" });
-  for (let i = 1; i <= 3; i++) A("addBone", { name: `ctrl${i}`, parent: "tail-base", x: i * 90, length: 0, color: "#ff7a00" });
-  // Antennae: two-bone chains with spring physics.
-  for (const [side, y, rot] of [["l", 14, 70], ["r", -6, 55]] as const) {
-    A("addBone", { name: `antenna-${side}1`, parent: "head", x: 10, y, rotation: rot, length: 34 });
-    A("addBone", { name: `antenna-${side}2`, parent: `antenna-${side}1`, x: 34, rotation: -25, length: 30 });
+  A("addBone", { name: "tail-base", parent: "body", x: -100, y: -20, rotation: 165, length: 0, color: "#ff7a00" });
+  for (let i = 1; i <= 3; i++) A("addBone", { name: `ctrl${i}`, parent: "tail-base", x: i * 102, length: 0, color: "#ff7a00" });
+  // Antennae: two-bone chains with spring physics, from the top of the head.
+  for (const [side, x, y, rot] of [["l", -10, 0, 104], ["r", 10, -6, 72]] as const) {
+    A("addBone", { name: `antenna-${side}1`, parent: "head", x, y, rotation: rot, length: 55 });
+    A("addBone", { name: `antenna-${side}2`, parent: `antenna-${side}1`, x: 55, rotation: -18, length: 55 });
   }
 
-  // Visuals (back to front).
+  // Visuals, back to front: far meadow, tail, antennae, body, near grass.
+  A("addSlot", { bone: "bg-far", name: "bg-far" });
+  A("addRegion", { slot: "bg-far", image: "tail-bg-far", width: 900, height: 506 });
   A("addSlot", { bone: "tail-base", name: "tail-path" });
-  A("addPath", { slot: "tail-path", anchors: [0, 0, 90, 0, 180, 0, 270, 0], color: "#ff7a00" });
+  A("addPath", { slot: "tail-path", anchors: [0, 0, 102, 0, 204, 0, 306, 0], color: "#ff7a00" });
   for (let k = 1; k <= 3; k++)
     for (let v = k * 3; v < k * 3 + 3; v++)
       A("setWeights", { slot: "tail-path", attachment: "path", vertex: v, influences: [{ bone: `ctrl${k}`, weight: 1 }] });
-  for (let i = 8; i >= 1; i--) {
-    const w = 34 - i * 3;
-    A("addSlot", { bone: `tail${i}`, name: `tail${i}` });
-    A("addShape", { slot: `tail${i}`, shape: "rect", x: SEG / 2, width: SEG + w * 0.7, height: w, radius: w / 2, fill: i % 2 ? "#7c5cbf" : "#6a4dad" });
-  }
-  A("addSlot", { bone: "tail8", name: "tuft" });
-  A("addShape", { slot: "tuft", shape: "ellipse", x: SEG + 6, width: 34, height: 22, fill: "#f7c948" });
+  // The painted tail as one mesh weighted along the chain, so it bends smoothly as the path moves.
+  A("addSlot", { bone: "tail1", name: "tail" });
+  A("addMesh", { slot: "tail", name: "tail", image: "tail-tail", x: (SEG * 8) / 2, width: SEG * 8, height: 125, cols: 16, rows: 2 });
+  A("autoWeights", { slot: "tail", attachment: "tail", bones: ["tail1", "tail2", "tail3", "tail4", "tail5", "tail6", "tail7", "tail8"], maxInfluences: 2 });
   for (const side of ["r", "l"]) {
-    for (const n of [1, 2]) {
-      A("addSlot", { bone: `antenna-${side}${n}`, name: `antenna-${side}${n}` });
-      A("addShape", { slot: `antenna-${side}${n}`, shape: "rect", x: 16, width: 36, height: 6, radius: 3, fill: "#4b3a7a" });
-    }
-    A("addSlot", { bone: `antenna-${side}2`, name: `antenna-${side}-tip` });
-    A("addShape", { slot: `antenna-${side}-tip`, shape: "ellipse", x: 31, width: 13, height: 13, fill: "#f7c948" });
+    A("addSlot", { bone: `antenna-${side}1`, name: `antenna-${side}` });
+    A("addMesh", { slot: `antenna-${side}`, name: "antenna", image: "tail-antenna", x: 55, width: 110, height: 26, cols: 6, rows: 1 });
+    A("autoWeights", { slot: `antenna-${side}`, attachment: "antenna", bones: [`antenna-${side}1`, `antenna-${side}2`], maxInfluences: 2 });
   }
   A("addSlot", { bone: "body", name: "body" });
-  A("addShape", { slot: "body", shape: "ellipse", width: 190, height: 120, fill: "#8b6fd1", stroke: "#5b45a0", strokeWidth: 3 });
-  A("addSlot", { bone: "body", name: "belly" });
-  A("addShape", { slot: "belly", shape: "ellipse", y: -22, width: 120, height: 54, fill: "#c9b8f0" });
-  A("addSlot", { bone: "head", name: "head" });
-  A("addShape", { slot: "head", shape: "ellipse", width: 96, height: 86, fill: "#8b6fd1", stroke: "#5b45a0", strokeWidth: 3 });
-  A("addSlot", { bone: "head", name: "eye" });
-  A("addShape", { slot: "eye", shape: "ellipse", x: 18, y: 8, width: 24, height: 26, fill: "#ffffff" });
-  A("addSlot", { bone: "head", name: "pupil" });
-  A("addShape", { slot: "pupil", shape: "ellipse", x: 23, y: 6, width: 11, height: 13, fill: "#1f1640" });
-  A("addSlot", { bone: "head", name: "smile" });
-  A("addShape", { slot: "smile", shape: "polygon", points: [8, -18, 40, -12, 36, -20, 12, -24], fill: "#5b45a0" });
+  A("addRegion", { slot: "body", image: "tail-body", y: 15, width: 260, height: 270 });
+  A("addBoundingBox", { slot: "body", name: "body-hit", y: 15, width: 230, height: 250 });
+  if (nearGrass) {
+    A("addSlot", { bone: "bg-near", name: "bg-near" });
+    A("addRegion", { slot: "bg-near", image: "tail-bg-near", y: 22, width: 1000, height: 186 });
+  }
 
   A("addPathConstraint", {
     name: "tail-path",
@@ -328,20 +653,41 @@ function tail() {
   K("wag", "bone", "ctrl1", "y", wave(22, 0));
   K("wag", "bone", "ctrl2", "y", wave(45, 1));
   K("wag", "bone", "ctrl3", "y", wave(75, 2));
-  K("wag", "bone", "body", "y", [[0, 120], [0.4, 128], [0.8, 120], [1.2, 128], [1.6, 120]]);
+  K("wag", "bone", "body", "y", [[0, 120], [0.4, 123], [0.8, 120], [1.2, 123], [1.6, 120]]);
+  K("wag", "bone", "body", "scaleY", [[0, 1], [0.4, 0.98], [0.8, 1], [1.2, 0.98], [1.6, 1]]);
   K("wag", "bone", "head", "rotation", [[0, 0], [0.8, -6], [1.6, 0]]);
   // ---- curl: control points sweep up over the back; spacing tightens (keyed path field) ----
   A("createAnimation", { name: "curl", duration: 2 });
-  K("curl", "bone", "ctrl1", "x", [[0, 90], [1, 80], [2, 90]]);
-  K("curl", "bone", "ctrl1", "y", [[0, 0], [1, -40], [2, 0]]);
-  K("curl", "bone", "ctrl2", "x", [[0, 180], [1, 120], [2, 180]]);
-  K("curl", "bone", "ctrl2", "y", [[0, 0], [1, -130], [2, 0]]);
-  K("curl", "bone", "ctrl3", "x", [[0, 270], [1, 50], [2, 270]]);
-  K("curl", "bone", "ctrl3", "y", [[0, 0], [1, -170], [2, 0]]);
+  K("curl", "bone", "ctrl1", "x", [[0, 102], [1, 90], [2, 102]]);
+  K("curl", "bone", "ctrl1", "y", [[0, 0], [1, -45], [2, 0]]);
+  K("curl", "bone", "ctrl2", "x", [[0, 204], [1, 135], [2, 204]]);
+  K("curl", "bone", "ctrl2", "y", [[0, 0], [1, -145], [2, 0]]);
+  K("curl", "bone", "ctrl3", "x", [[0, 306], [1, 55], [2, 306]]);
+  K("curl", "bone", "ctrl3", "y", [[0, 0], [1, -190], [2, 0]]);
   K("curl", "path", "tail-path", "spacing", [[0, 0], [1, -6], [2, 0]]);
-  K("curl", "bone", "body", "y", [[0, 120], [0.5, 150], [1, 120], [2, 120]]);
+  // A happy hop: crouch, spring up, land with a squash.
+  K("curl", "bone", "body", "y", [[0, 120], [0.2, 114], [0.5, 165], [0.85, 120], [1, 120], [2, 120]]);
+  K("curl", "bone", "body", "scaleY", [[0, 1], [0.2, 0.9], [0.35, 1.08], [0.85, 0.9], [1.05, 1], [2, 1]]);
+  K("curl", "bone", "body", "scaleX", [[0, 1], [0.2, 1.06], [0.35, 0.95], [0.85, 1.06], [1.05, 1], [2, 1]]);
   sfx(A, "chirp", "tail-chirp", { volume: 0.7 });
   A("addAudioKey", { animation: "curl", sound: "chirp", time: 0.35 });
+  // Click the creature: it hops and curls its tail, then wags again.
+  A("createStateMachine", { name: "creature" });
+  A("addInput", { stateMachine: "creature", name: "curl", type: "trigger" });
+  A("addState", { stateMachine: "creature", animation: "wag", x: 120, y: 120 });
+  A("addState", { stateMachine: "creature", animation: "curl", loop: false, onComplete: "wag", x: 380, y: 120 });
+  A("addTransition", { stateMachine: "creature", from: "wag", to: "curl", conditions: [{ input: "curl" }], duration: 0.15 });
+  A("addListener", { stateMachine: "creature", slot: "body", event: "click", actions: [{ type: "fireTrigger", input: "curl" }] });
+  // Parallax: a slow camera pan on its own state-machine layer. Each depth moves by its own amount (the meadow a
+  // little, the creature more, the grass in front most), so the scene reads as layers in depth.
+  A("createAnimation", { name: "camera-pan", duration: 10 });
+  const pan = (id: string, base: number, amp: number) =>
+    A("setKeys", { animation: "camera-pan", target: "bone", id, property: "x", keys: [[0, base], [5, base - amp], [10, base]].map(([time, value]) => ({ time, value, curve: "easeInOut" })) });
+  pan("bg-far", -70, -24);
+  pan("body", 0, -55);
+  if (nearGrass) pan("bg-near", -70, -95);
+  A("addLayer", { stateMachine: "creature", name: "camera" });
+  A("addState", { stateMachine: "creature", layer: "camera", animation: "camera-pan", x: 120, y: 120 });
   return s.doc;
 }
 
@@ -455,28 +801,43 @@ function campfire() {
 }
 
 // ---------- rocket (particles) ----------
+/** Height of the launch pad's deck above the ground (the rocket stands on it). */
+const DECK = 75;
+
 function rocket() {
-  const s = new DocumentStore(createDocument("Rocket", { background: "#101828" }));
+  const s = new DocumentStore(createDocument("Rocket", { background: "#1b1440" }));
   const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
   A("setDocument", { width: 600, height: 700, originX: 300, originY: 620 });
-  A("addBone", { name: "rocket", y: 40, length: 0, color: "#ff9f43" });
-  A("addBone", { name: "nozzle", parent: "rocket", y: 6, length: 0 });
+  // Painted rocket, launch pad and dusk space centre (see assets/eleven/LICENSE.md). The sky, the space centre and the
+  // pad sit on their own bones: on launch they drop away at different speeds, so the camera seems to follow the rocket.
+  A("addImage", { name: "rocket-bg-far", src: "assets/eleven/rocket-bg-far.jpg", width: 900, height: 1355 });
+  A("addImage", { name: "rocket-bg-mid", src: "assets/eleven/rocket-bg-mid.png", width: 2000, height: 320 });
+  A("addImage", { name: "rocket-pad", src: "assets/eleven/rocket-pad.png", width: 560, height: 564 });
+  A("addImage", { name: "rocket-ship", src: "assets/eleven/rocket-ship.png", width: 197, height: 435 });
+  A("addBone", { name: "bg-far", y: 200, length: 0, color: "#7fb7ff" });
+  A("addBone", { name: "bg-mid", y: 60, length: 0, color: "#7fb7ff" });
   A("addBone", { name: "pad", length: 0 });
-  // Back to front: ground, smoke, exhaust, sparks, then the rocket over its own flame.
+  A("addBone", { name: "rocket", y: DECK, length: 0, color: "#ff9f43" });
+  A("addBone", { name: "nozzle", parent: "rocket", y: 6, length: 0 });
+  // Back to front: sky, space centre, ground, launch pad, smoke, exhaust, sparks, then the rocket over its own flame.
+  A("addSlot", { bone: "bg-far", name: "sky" });
+  A("addRegion", { slot: "sky", image: "rocket-bg-far", width: 640, height: 964 });
+  A("addSlot", { bone: "bg-mid", name: "space-centre" });
+  A("addRegion", { slot: "space-centre", image: "rocket-bg-mid", width: 1200, height: 192 });
   A("addSlot", { bone: "pad", name: "ground" });
-  A("addShape", { slot: "ground", shape: "rect", y: -40, width: 600, height: 80, fill: "#1f2937" });
+  A("addShape", { slot: "ground", shape: "rect", y: -60, width: 700, height: 120, fill: "#231c3a" });
+  A("addSlot", { bone: "pad", name: "launch-pad" });
+  A("addRegion", { slot: "launch-pad", image: "rocket-pad", x: -48, y: 201.5, width: 400, height: 403 });
   A("addSlot", { bone: "pad", name: "smoke" });
-  A("addParticles", { slot: "smoke", name: "smoke", preset: "smoke", emitting: false, prewarm: false, shape: "box", width: 180, height: 6, rate: 30, angle: 60, speed: [40, 90], seed: 3 });
+  A("addParticles", { slot: "smoke", name: "smoke", preset: "smoke", emitting: false, prewarm: false, shape: "box", y: DECK, width: 180, height: 6, rate: 30, angle: 60, speed: [40, 90], seed: 3 });
   A("addSlot", { bone: "nozzle", name: "exhaust" });
   A("addParticles", { slot: "exhaust", name: "exhaust", preset: "exhaust", emitting: false, seed: 11 });
   A("addSlot", { bone: "nozzle", name: "sparks" });
   A("addParticles", { slot: "sparks", name: "sparks", preset: "sparks", emitting: false, rotation: -90, angle: 120, loop: true, duration: 0.35, bursts: [{ time: 0, count: 14 }], gravity: 300, seed: 5 });
-  // Painted rocket (see assets/canva/LICENSE.md): nozzle at the bone, nose up.
-  A("addImage", { name: "rocket", src: "assets/canva/rocket.png", width: 204, height: 352 });
   A("addSlot", { bone: "rocket", name: "body" });
-  A("addRegion", { slot: "body", image: "rocket", y: 112, width: 132, height: 228 });
+  A("addRegion", { slot: "body", image: "rocket-ship", y: 130, width: 118, height: 260 });
   A("addSlot", { bone: "rocket", name: "hit" });
-  A("addBoundingBox", { slot: "hit", y: 100, width: 120, height: 230 });
+  A("addBoundingBox", { slot: "hit", y: 130, width: 110, height: 260 });
 
   const K = (anim: string, target: string, id: string, property: string, keys: [number, number | boolean][], curve = "easeInOut") =>
     A("setKeys", { animation: anim, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve: typeof value === "boolean" ? "stepped" : curve })) });
@@ -486,16 +847,20 @@ function rocket() {
   K("launch", "particles", "exhaust", "rate", [[0.5, 40], [1.2, 110]]);
   K("launch", "particles", "sparks", "emitting", [[0, false], [0.45, true], [1.4, false]]);
   K("launch", "particles", "smoke", "emitting", [[0, false], [0.5, true], [1.8, false]]);
-  K("launch", "bone", "rocket", "y", [[0, 40], [0.5, 40], [3, 760]], "easeIn");
+  K("launch", "bone", "rocket", "y", [[0, DECK], [0.5, DECK], [3, 600]], "easeIn");
+  // The world falls away: the pad fastest, the space centre slower, the sky barely (parallax).
+  K("launch", "bone", "pad", "y", [[0, 0], [0.6, 0], [3, -520]], "easeIn");
+  K("launch", "bone", "bg-mid", "y", [[0, 60], [0.6, 60], [3, -180]], "easeIn");
+  K("launch", "bone", "bg-far", "y", [[0, 200], [0.6, 200], [3, 140]], "easeIn");
   K("launch", "bone", "rocket", "x", [[0, 0], [0.6, 0], [3, 60]], "easeIn");
   K("launch", "bone", "rocket", "rotation", [[0, 0], [0.5, 0], [0.55, 2], [0.6, -2], [0.65, 0], [3, -8]], "linear");
   // ---- hover: engine on, gentle bob and sway (loops) ----
   A("createAnimation", { name: "hover", duration: 2 });
-  K("hover", "bone", "rocket", "y", [[0, 220], [1, 250], [2, 220]]);
+  K("hover", "bone", "rocket", "y", [[0, 240], [1, 270], [2, 240]]);
   K("hover", "bone", "rocket", "rotation", [[0, -4], [1, 4], [2, -4]]);
   K("hover", "particles", "exhaust", "rate", [[0, 70], [1, 100], [2, 70]]);
   A("createAnimation", { name: "parked", duration: 1 });
-  K("parked", "bone", "rocket", "y", [[0, 40]]);
+  K("parked", "bone", "rocket", "y", [[0, DECK]]);
   // ---- state machine: click the rocket to toggle the engine; each click also throws sparks ----
   A("createStateMachine", { name: "engine" });
   A("addInput", { stateMachine: "engine", name: "thrust", type: "bool" });
@@ -530,17 +895,26 @@ function crash() {
   A("addBone", { name: "status", x: 290, y: 236, length: 0 });
   A("addBone", { name: "button", x: 570, y: -40, length: 0 });
 
-  // Backdrop (its colour is bound to the multiplier), ground and launch pad.
-  // Painted art (see assets/canva/LICENSE.md). The sky's tint is bound to the multiplier.
-  A("addImage", { name: "crash-sky", src: "assets/canva/crash-sky.jpg", width: 800, height: 655 });
-  A("addImage", { name: "rocket", src: "assets/canva/rocket.png", width: 204, height: 352 });
+  // Painted night sky, clouds, space centre and rocket (see assets/eleven/LICENSE.md); the explosion frames are Canva
+  // art (assets/canva/LICENSE.md). The layers sit on their own bones, bound to the multiplier at different rates, so
+  // the rocket seems to climb through them (parallax). The sky's tint is bound too.
+  A("addImage", { name: "crash-sky", src: "assets/eleven/crash-bg-sky.jpg", width: 1600, height: 900 });
+  A("addImage", { name: "crash-clouds", src: "assets/eleven/crash-bg-clouds.png", width: 2000, height: 379 });
+  A("addImage", { name: "crash-ground", src: "assets/eleven/rocket-bg-mid.png", width: 2000, height: 320 });
+  A("addImage", { name: "crash-pad", src: "assets/eleven/rocket-pad.png", width: 560, height: 564 });
+  A("addImage", { name: "rocket", src: "assets/eleven/rocket-ship.png", width: 197, height: 435 });
   for (let i = 1; i <= 4; i++) A("addImage", { name: `explosion_${String(i).padStart(4, "0")}`, src: `assets/canva/explosion_${String(i).padStart(4, "0")}.png`, width: 180, height: 180 });
-  A("addSlot", { bone: "root", name: "sky", color: "#7f8cc8" });
-  A("addRegion", { slot: "sky", image: "crash-sky", x: 290, y: 170, width: 800, height: 655 });
-  A("addSlot", { bone: "root", name: "ground" });
-  A("addShape", { slot: "ground", shape: "rect", x: 290, y: -40, width: 800, height: 80, fill: "#111827" });
-  A("addSlot", { bone: "root", name: "pad" });
-  A("addShape", { slot: "pad", shape: "rect", y: -8, width: 90, height: 14, radius: 4, fill: "#374151" });
+  A("addBone", { name: "sky-layer", x: 290, y: 170, length: 0, color: "#7fb7ff" });
+  A("addBone", { name: "cloud-layer", x: 420, y: 190, length: 0, color: "#7fb7ff" });
+  A("addBone", { name: "ground-layer", x: 290, y: 0, length: 0, color: "#7fb7ff" });
+  A("addSlot", { bone: "sky-layer", name: "sky", color: "#c9d2ff" });
+  A("addRegion", { slot: "sky", image: "crash-sky", width: 1100, height: 619 });
+  A("addSlot", { bone: "cloud-layer", name: "clouds", color: "#ffffffa0" });
+  A("addRegion", { slot: "clouds", image: "crash-clouds", width: 1700, height: 322 });
+  A("addSlot", { bone: "ground-layer", name: "ground" });
+  A("addRegion", { slot: "ground", image: "crash-ground", y: 18, width: 1300, height: 208 });
+  A("addSlot", { bone: "ground-layer", name: "pad" });
+  A("addRegion", { slot: "pad", image: "crash-pad", x: -308, y: 38, width: 150, height: 151 });
 
   // Rocket.
   A("addSlot", { bone: "flame", name: "flame" });
@@ -549,7 +923,7 @@ function crash() {
   A("addShape", { slot: "flame-core", shape: "polygon", points: [0, 6, 26, 0, 0, -6], fill: "#fde047" });
   // The rocket image points up; the bone points along the flight path (nose at +x).
   A("addSlot", { bone: "rocket", name: "body" });
-  A("addRegion", { slot: "body", image: "rocket", x: 10, rotation: -90, width: 54, height: 94 });
+  A("addRegion", { slot: "body", image: "rocket", x: 10, rotation: -90, width: 46, height: 102 });
   // Explosion: a 4-frame painted sequence, additive so its dark backdrop disappears.
   A("addSlot", { bone: "boom", name: "boom", color: "#ffffff00", blend: "additive" });
   A("addSequence", { slot: "boom", name: "boom", frames: ["explosion_0001", "explosion_0002", "explosion_0003", "explosion_0004"], fps: 6, mode: "holdLast", width: 120, height: 120 });
@@ -630,7 +1004,12 @@ function crash() {
   // Live data: 1x → 10x carries the rocket up and right, and the sky warms up.
   A("addBinding", { stateMachine: "game", input: "multiplier", target: "bone", object: "climb", property: "x", inMin: 1, inMax: 10, outMin: 0, outMax: 520 });
   A("addBinding", { stateMachine: "game", input: "multiplier", target: "bone", object: "climb", property: "y", inMin: 1, inMax: 10, outMin: 0, outMax: 300 });
-  A("addBinding", { stateMachine: "game", input: "multiplier", target: "slot", object: "sky", property: "color", inMin: 1, inMax: 10, outMin: "#7f8cc8", outMax: "#ffd9ef" });
+  A("addBinding", { stateMachine: "game", input: "multiplier", target: "slot", object: "sky", property: "color", inMin: 1, inMax: 10, outMin: "#c9d2ff", outMax: "#ffd9ef" });
+  // Parallax: as the multiplier climbs, the ground drops away fast, the clouds drift down and left, the sky barely moves.
+  A("addBinding", { stateMachine: "game", input: "multiplier", target: "bone", object: "ground-layer", property: "y", inMin: 1, inMax: 3, outMin: 0, outMax: -260 });
+  A("addBinding", { stateMachine: "game", input: "multiplier", target: "bone", object: "cloud-layer", property: "x", inMin: 1, inMax: 10, outMin: 420, outMax: -180 });
+  A("addBinding", { stateMachine: "game", input: "multiplier", target: "bone", object: "cloud-layer", property: "y", inMin: 1, inMax: 10, outMin: 190, outMax: 20 });
+  A("addBinding", { stateMachine: "game", input: "multiplier", target: "bone", object: "sky-layer", property: "y", inMin: 1, inMax: 10, outMin: 170, outMax: 130 });
   sfx(A, "click", "button-click", { bus: "ui", volume: 0.8 });
   sfx(A, "liftoff", "crash-liftoff", { volume: 0.7 });
   sfx(A, "engine", "rocket-engine-loop", { loop: true, volume: 0.22, fadeIn: 0.3, fadeOut: 0.15 });
@@ -656,133 +1035,6 @@ function star(n: number, r1: number, r0: number): number[] {
     out.push(Math.round(Math.cos(a) * r * 10) / 10, Math.round(Math.sin(a) * r * 10) / 10);
   }
   return out;
-}
-
-// ---------- knight: painted parts rigged front-facing (Canva art, see assets/canva/LICENSE.md) ----------
-function knight() {
-  const s = new DocumentStore(createDocument("Knight"));
-  const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
-  A("setDocument", { width: 600, height: 700, originX: 300, originY: 660 });
-  // Art is drawn at 0.6x of the Canva sheet so every part keeps the sheet's proportions.
-  const S = 0.6;
-  const img = (name: string, w: number, h: number) => A("addImage", { name: `knight-${name}`, src: `assets/canva/knight-${name}.png`, width: w, height: h });
-  img("helmet", 98, 196);
-  img("torso", 186, 381);
-  img("shoulder", 90, 103);
-  img("arm-upper", 82, 91);
-  img("arm-lower", 71, 91);
-  img("hand", 66, 80);
-  img("thigh", 106, 172);
-  img("shin", 79, 240);
-  img("boot", 90, 88);
-  img("cape", 226, 379);
-
-  // Skeleton (y-up). Torso points up; limbs point down, so their images (drawn upright) rotate by ±90.
-  A("addBone", { name: "hip", y: 300, length: 20, color: "#ff9f43" });
-  A("addBone", { name: "torso", parent: "hip", rotation: 90, length: 160 });
-  A("addBone", { name: "head", parent: "torso", x: 158, length: 60 });
-  A("addBone", { name: "cape-root", parent: "torso", x: 150, rotation: -90, length: 0 });
-  A("addBone", { name: "cape1", parent: "torso", x: 150, rotation: 180, length: 95 });
-  A("addBone", { name: "cape2", parent: "cape1", x: 95, length: 95 });
-  A("addBone", { name: "cape3", parent: "cape2", x: 95, length: 95 });
-  for (const [side, dy] of [["right", 1], ["left", -1]] as const) {
-    A("addBone", { name: `${side}-arm`, parent: "torso", x: 132, y: dy * 58, rotation: 180 - dy * 6, length: 66 });
-    A("addBone", { name: `${side}-forearm`, parent: `${side}-arm`, x: 66, rotation: dy * 4, length: 62 });
-    A("addBone", { name: `${side}-hand`, parent: `${side}-forearm`, x: 62, length: 34 });
-    A("addBone", { name: `${side}-thigh`, parent: "hip", x: dy * -34, rotation: -90, length: 100 });
-    A("addBone", { name: `${side}-shin`, parent: `${side}-thigh`, x: 100, length: 140 });
-  }
-
-  // Back to front: cape, legs, torso, arms, helmet. Right-side parts mirror the right-side art (scaleX -1).
-  const part = (slot: string, bone: string, image: string, w: number, h: number, o: { x?: number; y?: number; rotation?: number; mirror?: boolean; k?: number } = {}) => {
-    A("addSlot", { bone, name: slot });
-    A("addRegion", { slot, image: `knight-${image}`, x: o.x ?? 0, y: o.y ?? 0, rotation: o.rotation ?? 90, scaleX: o.mirror ? -1 : 1, width: w * S * (o.k ?? 1), height: h * S * (o.k ?? 1) });
-  };
-  A("addSlot", { bone: "cape-root", name: "cape" });
-  A("addMesh", { slot: "cape", name: "cape", image: "knight-cape", y: -140, width: 170, height: 285, cols: 3, rows: 6 });
-  A("autoWeights", { slot: "cape", attachment: "cape", bones: ["cape1", "cape2", "cape3"], maxInfluences: 2 });
-  for (const side of ["right", "left"] as const) {
-    const mirror = side === "left";
-    part(`${side}-thigh`, `${side}-thigh`, "thigh", 106, 172, { x: 48, mirror });
-    part(`${side}-shin`, `${side}-shin`, "shin", 79, 240, { x: 64, mirror });
-    part(`${side}-boot`, `${side}-shin`, "boot", 90, 88, { x: 150, y: mirror ? 6 : -6, mirror });
-  }
-  part("torso", "torso", "torso", 186, 381, { x: 44, rotation: -90 });
-  A("addBoundingBox", { slot: "torso", name: "body-hit", x: 60, width: 260, height: 170 });
-  for (const side of ["right", "left"] as const) {
-    const mirror = side === "left";
-    part(`${side}-arm-lower`, `${side}-forearm`, "arm-lower", 71, 91, { x: 28, mirror, k: 1.25 });
-    part(`${side}-hand`, `${side}-hand`, "hand", 66, 80, { x: 10, mirror, k: 1.15 });
-    part(`${side}-arm-upper`, `${side}-arm`, "arm-upper", 82, 91, { x: 34, mirror, k: 1.38 });
-    part(`${side}-shoulder`, `${side}-arm`, "shoulder", 90, 103, { x: 4, y: mirror ? 4 : -4, mirror });
-  }
-  part("helmet", "head", "helmet", 98, 196, { x: 46, rotation: -90 });
-
-  const K = (anim: string, target: string, id: string, property: string, keys: [number, number][], curve = "easeInOut") =>
-    A("setKeys", { animation: anim, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });
-  // ---- idle: breathing, slight sway, cape drifting ----
-  A("createAnimation", { name: "idle", duration: 2.4 });
-  K("idle", "bone", "hip", "y", [[0, 300], [1.2, 296], [2.4, 300]]);
-  K("idle", "bone", "torso", "rotation", [[0, 90], [1.2, 91.5], [2.4, 90]]);
-  K("idle", "bone", "head", "rotation", [[0, 0], [1.2, -2], [2.4, 0]]);
-  K("idle", "bone", "right-arm", "rotation", [[0, 174], [1.2, 171], [2.4, 174]]);
-  K("idle", "bone", "left-arm", "rotation", [[0, 186], [1.2, 189], [2.4, 186]]);
-  K("idle", "bone", "cape2", "rotation", [[0, 0], [1.2, 3], [2.4, 0]]);
-  K("idle", "bone", "cape3", "rotation", [[0, 0], [1.2, 5], [2.4, 0]]);
-  // ---- march in place (loop), seen from the front ----
-  // A knee lifting towards the viewer is foreshortened: the thigh gets shorter (scaleX) and the foot rises straight up.
-  // The shin scales up by the inverse so only the thigh looks shorter. Arms swing opposite to the legs.
-  A("createAnimation", { name: "march", duration: 0.9 });
-  const lift = (leg: string, t0: number, outward: number) => {
-    const up = t0 + 0.225, down = t0 + 0.45;
-    const before = t0 > 0 ? ([[0, 1]] as [number, number][]) : [];
-    const after = down < 0.9 ? ([[0.9, 1]] as [number, number][]) : [];
-    K("march", "bone", `${leg}-thigh`, "scaleX", [...before, [t0, 1], [up, 0.55], [down, 1], ...after]);
-    K("march", "bone", `${leg}-shin`, "scaleX", [...before, [t0, 1], [up, 1 / 0.55], [down, 1], ...after]);
-    K("march", "bone", `${leg}-thigh`, "rotation", [...before.map(([t]) => [t, -90] as [number, number]), [t0, -90], [up, -90 + outward], [down, -90], ...after.map(([t]) => [t, -90] as [number, number])]);
-  };
-  lift("right", 0, -4);
-  lift("left", 0.45, 4);
-  // Only the upper body bobs, so the planted foot stays on the ground.
-  K("march", "bone", "torso", "y", [[0, 0], [0.225, 4], [0.45, 0], [0.675, 4], [0.9, 0]]);
-  K("march", "bone", "torso", "rotation", [[0, 90], [0.225, 91.5], [0.45, 90], [0.675, 88.5], [0.9, 90]]);
-  K("march", "bone", "head", "rotation", [[0, 0], [0.225, -1], [0.45, 0], [0.675, 1], [0.9, 0]]);
-  // The arm opposite the lifted knee swings forward: the hand comes in towards the body and up a little.
-  K("march", "bone", "left-forearm", "rotation", [[0, -4], [0.225, -18], [0.45, -4], [0.9, -4]]);
-  K("march", "bone", "left-arm", "rotation", [[0, 186], [0.225, 182], [0.45, 186], [0.675, 189], [0.9, 186]]);
-  K("march", "bone", "right-forearm", "rotation", [[0, 4], [0.45, 4], [0.675, 18], [0.9, 4]]);
-  K("march", "bone", "right-arm", "rotation", [[0, 174], [0.225, 171], [0.45, 174], [0.675, 178], [0.9, 174]]);
-  K("march", "bone", "cape2", "rotation", [[0, 0], [0.225, 2], [0.45, 0], [0.675, -2], [0.9, 0]]);
-  K("march", "bone", "cape3", "rotation", [[0, 0], [0.225, 4], [0.45, 0], [0.675, -4], [0.9, 0]]);
-  // ---- wave: left arm up, hand waves, cape flicks (plays once) ----
-  A("createAnimation", { name: "wave", duration: 1.6 });
-  K("wave", "bone", "right-arm", "rotation", [[0, 174], [0.35, 32], [1.25, 32], [1.6, 174]]);
-  K("wave", "bone", "right-forearm", "rotation", [[0, 4], [0.35, -12], [1.25, -12], [1.6, 4]]);
-  // The hanging hand shows its back; flip it across the arm when raised so the open palm faces the viewer.
-  K("wave", "bone", "right-hand", "scaleY", [[0, 1], [0.2, 1], [0.21, -1], [1.39, -1], [1.4, 1]], "stepped");
-  K("wave", "bone", "right-hand", "rotation", [[0, 0], [0.35, 0], [0.55, -22], [0.75, 14], [0.95, -22], [1.15, 14], [1.35, 0]]);
-  K("wave", "bone", "torso", "rotation", [[0, 90], [0.35, 87], [1.25, 87], [1.6, 90]]);
-  K("wave", "bone", "head", "rotation", [[0, 0], [0.35, -4], [1.25, -4], [1.6, 0]]);
-  K("wave", "bone", "cape3", "rotation", [[0, 0], [0.4, -8], [0.9, 6], [1.6, 0]]);
-
-  // ---- state machine: click the knight to wave; "march" toggles marching ----
-  A("createStateMachine", { name: "knight" });
-  A("addInput", { stateMachine: "knight", name: "march", type: "bool" });
-  A("addInput", { stateMachine: "knight", name: "wave", type: "trigger" });
-  A("addState", { stateMachine: "knight", name: "idle", animation: "idle", x: 120, y: 140 });
-  A("addState", { stateMachine: "knight", name: "march", animation: "march", x: 380, y: 60 });
-  A("addState", { stateMachine: "knight", name: "wave", animation: "wave", loop: false, onComplete: "idle", x: 380, y: 220 });
-  A("addTransition", { stateMachine: "knight", from: "idle", to: "march", conditions: [{ input: "march", value: true }], duration: 0.25 });
-  A("addTransition", { stateMachine: "knight", from: "march", to: "idle", conditions: [{ input: "march", value: false }], duration: 0.25 });
-  A("addTransition", { stateMachine: "knight", from: "@any", to: "wave", conditions: [{ input: "wave" }], duration: 0.2 });
-  A("addListener", { stateMachine: "knight", slot: "torso", event: "click", actions: [{ type: "fireTrigger", input: "wave" }] });
-  // Sounds: an armoured step as each foot comes down, and a greeting as the arm goes up.
-  sfx(A, "step", "knight-step", { volume: 0.6 });
-  sfx(A, "hail", "knight-hail");
-  A("addAudioKey", { animation: "march", sound: "step", time: 0.44 });
-  A("addAudioKey", { animation: "march", sound: "step", time: 0.89 });
-  A("addAudioKey", { animation: "wave", sound: "hail", time: 0.25 });
-  return s.doc;
 }
 
 /** Mono samples of a 16-bit PCM WAV file. */

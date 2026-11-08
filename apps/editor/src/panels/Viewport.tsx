@@ -1,6 +1,7 @@
 import { type BoneData, RAD, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint, textureAssets } from "@openbone/core";
 import { toggleBackground } from "../background.ts";
 import { checkerPattern, fillArtboard } from "../checker.ts";
+import { slotOpacity } from "../visibility.ts";
 import { applySequencePreview } from "../sequence-import.ts";
 import { type Guide, clearGuides, guides, newGuideId, removeGuide, setViewAid, toggleViewAid, upsertGuide, viewAids } from "../guides.ts";
 import { CanvasRenderer } from "@openbone/render-canvas";
@@ -97,7 +98,7 @@ createQuickJsHost({ timeoutMs: 30 })
 
 type Drag =
   | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
-  | { kind: "bone"; op: "rotate" | "translate" | "scale"; bone: Bone; start: [number, number]; startWorld: [number, number]; base: Partial<BoneData>; cur: Partial<BoneData>; axis?: "x" | "y"; group?: { bone: Bone; base: Partial<BoneData>; cur: Partial<BoneData> }[] }
+  | { kind: "bone"; op: "rotate" | "translate" | "scale"; bone: Bone; start: [number, number]; startWorld: [number, number]; base: Partial<BoneData>; cur: Partial<BoneData>; axis?: "x" | "y"; uniform?: boolean; group?: { bone: Bone; base: Partial<BoneData>; cur: Partial<BoneData> }[] }
   /** Box selection in screen px. */
   | { kind: "marquee"; start: [number, number]; end: [number, number]; mode: "replace" | "add" | "remove" }
   | { kind: "guide"; guide: Guide; isNew: boolean }
@@ -289,6 +290,7 @@ export function Viewport() {
       boundingBoxes: showBones(),
       wireframe: showMesh(),
       selectedBone: selectedBoneId(),
+      slotAlpha: slotOpacity,
     });
     // selection outline
     const sel = selection();
@@ -359,24 +361,54 @@ export function Viewport() {
     const id = selectedBoneId();
     return (id && sk_.boneById_(id)) || null;
   }
-  /** Which part of the gizmo is under a screen point: "x"/"y" arrow, "xy" centre, or null. */
-  function gizmoHit(b: Bone, mx: number, my: number): "x" | "y" | "xy" | null {
+  type GizmoPart = "x" | "y" | "xy" | "ring";
+  /** The selected tool's gizmo: rotate = a ring, translate = X/Y arrows, scale = X/Y handles along the bone. */
+  const gizmoKind = (): "rotate" | "translate" | "scale" | null => {
+    const t = tool();
+    return t === "select" ? "rotate" : t === "translate" ? "translate" : t === "scale" ? "scale" : null;
+  };
+  /** Screen-space unit vectors of the bone's own X and Y axes (scale handles follow the bone). */
+  function boneAxes(b: Bone): [[number, number], [number, number]] {
+    const [ox, oy] = [b.world.x, b.world.y];
+    const [ax, ay] = applyM(b.world, 1, 0);
+    const [bx, by] = applyM(b.world, 0, 1);
+    const norm = (x: number, y: number): [number, number] => {
+      const l = Math.hypot(x, -y) || 1;
+      return [x / l, -y / l]; // y flips: skeleton is y-up, the screen is y-down
+    };
+    return [norm(ax - ox, ay - oy), norm(bx - ox, by - oy)];
+  }
+  /** Which part of the gizmo is under a screen point, or null. */
+  function gizmoHit(b: Bone, mx: number, my: number): GizmoPart | null {
+    const kind = gizmoKind();
     const sx = skToScreenX(b.world.x);
     const sy = skToScreenY(b.world.y);
     const dx = mx - sx;
     const dy = my - sy;
+    if (kind === "rotate") return Math.abs(Math.hypot(dx, dy) - GIZMO_LEN) <= 7 ? "ring" : null;
     if (Math.abs(dx) <= 7 && Math.abs(dy) <= 7) return "xy";
+    if (kind === "scale") {
+      const [u, v] = boneAxes(b);
+      const along = (a: [number, number]) => dx * a[0] + dy * a[1];
+      const across = (a: [number, number]) => Math.abs(-dx * a[1] + dy * a[0]);
+      if (along(u) > 7 && along(u) <= GIZMO_LEN + 7 && across(u) <= 6) return "x";
+      if (along(v) > 7 && along(v) <= GIZMO_LEN + 7 && across(v) <= 6) return "y";
+      return null;
+    }
     if (dx > 7 && dx <= GIZMO_LEN + 6 && Math.abs(dy) <= 6) return "x";
     if (-dy > 7 && -dy <= GIZMO_LEN + 6 && Math.abs(dx) <= 6) return "y";
     return null;
   }
   function drawGizmo(ctx: CanvasRenderingContext2D, dpr: number, b: Bone) {
+    const kind = gizmoKind();
+    if (!kind) return;
     const sx = skToScreenX(b.world.x);
     const sy = skToScreenY(b.world.y);
-    const active = drag?.kind === "bone" && drag.bone === b && drag.op === "translate" ? (drag.axis ?? "xy") : null;
+    const dragging = drag?.kind === "bone" && drag.bone === b ? drag : null;
+    const active = dragging && dragging.op === kind ? (dragging.axis ?? "xy") : null;
     ctx.save();
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const arrow = (ex: number, ey: number, color: string, on: boolean) => {
+    const line = (ex: number, ey: number, color: string, on: boolean, head: "arrow" | "box") => {
       ctx.strokeStyle = color;
       ctx.fillStyle = color;
       ctx.lineWidth = on ? 3 : 2;
@@ -384,6 +416,10 @@ export function Viewport() {
       ctx.moveTo(sx, sy);
       ctx.lineTo(ex, ey);
       ctx.stroke();
+      if (head === "box") {
+        ctx.fillRect(ex - 5, ey - 5, 10, 10);
+        return;
+      }
       const ang = Math.atan2(ey - sy, ex - sx);
       ctx.beginPath();
       ctx.moveTo(ex + Math.cos(ang) * 8, ey + Math.sin(ang) * 8);
@@ -392,13 +428,33 @@ export function Viewport() {
       ctx.closePath();
       ctx.fill();
     };
-    arrow(sx + GIZMO_LEN, sy, "#ff5d5d", active === "x");
-    arrow(sx, sy - GIZMO_LEN, "#3ddc84", active === "y");
-    ctx.fillStyle = active === "xy" ? "#ffcc00" : "#ffcc00cc";
-    ctx.strokeStyle = "#000a";
-    ctx.lineWidth = 1;
-    ctx.fillRect(sx - 4.5, sy - 4.5, 9, 9);
-    ctx.strokeRect(sx - 4.5, sy - 4.5, 9, 9);
+    if (kind === "rotate") {
+      // A ring around the joint with a handle where the bone points; drag anywhere on the ring to rotate.
+      const [u] = boneAxes(b);
+      ctx.strokeStyle = dragging?.op === "rotate" ? "#ffcc00" : "#5ab0ffcc";
+      ctx.lineWidth = dragging?.op === "rotate" ? 3 : 2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, GIZMO_LEN, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "#ffcc00";
+      ctx.beginPath();
+      ctx.arc(sx + u[0] * GIZMO_LEN, sy + u[1] * GIZMO_LEN, 5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (kind === "scale") {
+      const [u, v] = boneAxes(b);
+      line(sx + u[0] * GIZMO_LEN, sy + u[1] * GIZMO_LEN, "#ff5d5d", active === "x", "box");
+      line(sx + v[0] * GIZMO_LEN, sy + v[1] * GIZMO_LEN, "#3ddc84", active === "y", "box");
+    } else {
+      line(sx + GIZMO_LEN, sy, "#ff5d5d", active === "x", "arrow");
+      line(sx, sy - GIZMO_LEN, "#3ddc84", active === "y", "arrow");
+    }
+    if (kind !== "rotate") {
+      ctx.fillStyle = active === "xy" ? "#ffcc00" : "#ffcc00cc";
+      ctx.strokeStyle = "#000a";
+      ctx.lineWidth = 1;
+      ctx.fillRect(sx - 4.5, sy - 4.5, 9, 9);
+      ctx.strokeRect(sx - 4.5, sy - 4.5, 9, 9);
+    }
     ctx.restore();
   }
 
@@ -971,6 +1027,8 @@ export function Viewport() {
   function pickSlot(x: number, y: number) {
     if (!sk) return null;
     for (const it of [...sk.drawList()].reverse()) {
+      // Hidden slots (Skeleton tree eye) can't be clicked; dimmed ones still can.
+      if (slotOpacity(it.slot.data.id) <= 0) continue;
       const poly = sk.hitPolygon(it.slot);
       if (poly && pointIn(x, y, poly)) return it.slot;
     }
@@ -1024,7 +1082,9 @@ export function Viewport() {
     const gzPart = gz ? gizmoHit(gz, mx, my) : null;
     if (gz && gzPart) {
       const base = { x: gz.x, y: gz.y, rotation: gz.rotation, scaleX: gz.scaleX, scaleY: gz.scaleY };
-      drag = { kind: "bone", op: "translate", bone: gz, start: [x, y], startWorld: [gz.world.x, gz.world.y], base, cur: { ...base }, axis: gzPart === "xy" ? undefined : gzPart, group: selectionGroup(gz, "translate") };
+      const op = gizmoKind() ?? "translate";
+      const axis = gzPart === "x" || gzPart === "y" ? gzPart : undefined;
+      drag = { kind: "bone", op, bone: gz, start: [x, y], startWorld: [gz.world.x, gz.world.y], base, cur: { ...base }, axis, uniform: op === "scale" && gzPart === "xy", group: selectionGroup(gz, op) };
       return;
     }
     const bone = pickBone(x, y);
@@ -1238,8 +1298,13 @@ export function Viewport() {
         const d0 = Math.hypot(drag.start[0] - b.world.x, drag.start[1] - b.world.y) || 1;
         const d1 = Math.hypot(x - b.world.x, y - b.world.y);
         const k = d1 / d0;
-        drag.cur = e.shiftKey ? { ...drag.cur, scaleX: round2(drag.base.scaleX! * k), scaleY: round2(drag.base.scaleY! * k) } : { ...drag.cur, scaleX: round2(drag.base.scaleX! * k) };
-        groupApply((g) => (e.shiftKey ? { scaleX: round2(g.base.scaleX! * k), scaleY: round2(g.base.scaleY! * k) } : { scaleX: round2(g.base.scaleX! * k) }));
+        // Gizmo: the X handle scales along the bone, Y across it, the centre square uniformly; Shift is uniform too.
+        const both = e.shiftKey || drag.uniform;
+        const onlyY = drag.axis === "y" && !both;
+        const pick = (bs: Partial<BoneData>) =>
+          both ? { scaleX: round2(bs.scaleX! * k), scaleY: round2(bs.scaleY! * k) } : onlyY ? { scaleY: round2(bs.scaleY! * k) } : { scaleX: round2(bs.scaleX! * k) };
+        drag.cur = { ...drag.cur, ...pick(drag.base) };
+        groupApply((g) => pick(g.base));
       }
     }
   }

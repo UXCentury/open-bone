@@ -18,7 +18,10 @@ export async function imageAsDataUrl(asset: ImageAsset): Promise<string> {
   if (asset.src.startsWith("data:")) return asset.src;
   const res = await fetch(resolveImageUrl(asset));
   if (!res.ok) throw new Error(`Could not read image "${asset.name}" (${res.status})`);
-  const blob = await res.blob();
+  let blob = await res.blob();
+  const ext = asset.src.split(/[?#]/)[0].split(".").pop()?.toLowerCase() ?? "";
+  const byExt: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", svg: "image/svg+xml" };
+  if (!blob.type.startsWith("image/") && byExt[ext]) blob = new Blob([blob], { type: byExt[ext] });
   return new Promise((ok, fail) => {
     const r = new FileReader();
     r.onload = () => ok(String(r.result));

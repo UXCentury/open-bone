@@ -58,6 +58,57 @@ export function previewAudioStep(anim: AnimationData, prev: number, next: number
     if (ev.audio) preview.play(ev.audio, { volume: ev.volume, owner: "preview", source: `event:${ev.name}` });
 }
 
+// ---------- Scrubbing ----------
+
+const SCRUB_KEY = "openbone.scrubSound";
+const readScrub = () => {
+  try {
+    return localStorage.getItem(SCRUB_KEY) !== "0";
+  } catch {
+    return true;
+  }
+};
+const [scrubSound, setScrubSignal] = createSignal(readScrub());
+/** Whether dragging the timeline's playhead plays the audio under it (remembered per browser). */
+export { scrubSound };
+export function setScrubSound(on: boolean) {
+  setScrubSignal(on);
+  try {
+    localStorage.setItem(SCRUB_KEY, on ? "1" : "0");
+  } catch {
+    /* private mode: just this session */
+  }
+}
+
+let lastScrub = 0;
+/**
+ * Scrub feedback: a short grain of every audio key sounding at time `t` (from the right point in its file), and the
+ * sounds of events the playhead just crossed. Called while the playhead is dragged; throttled.
+ */
+export function scrubAudio(anim: AnimationData, prev: number, t: number) {
+  if (!scrubSound() || muted()) return;
+  const now = performance.now();
+  if (now - lastScrub < 40) return;
+  lastScrub = now;
+  const ctx = audio.activate();
+  if (!ctx) return;
+  const doc = store.doc;
+  for (const k of anim.audio ?? []) {
+    const snd = findSound(doc, k.sound);
+    const asset = snd && doc.audio?.assets.find((a) => a.id === snd.asset);
+    if (!snd || !asset) continue;
+    const off = (t - k.time) * (snd.rate || 1);
+    const dur = asset.duration || Infinity;
+    if (off < 0 || (!snd.loop && off >= dur)) continue;
+    audio.scrub(asset.id, snd.loop && Number.isFinite(dur) ? off % dur : off, { volume: (snd.volume ?? 1) * (k.volume ?? 1), rate: snd.rate || 1, bus: snd.bus });
+  }
+  // Event sounds (footsteps…) play once when the playhead passes their key, in either direction.
+  const [a, b] = prev <= t ? [prev, t] : [t, prev];
+  if (b - a < 0.5)
+    for (const ev of eventsBetween(doc, anim, a, b, false))
+      if (ev.audio) preview.play(ev.audio, { volume: ev.volume, owner: "scrub", source: `event:${ev.name}` });
+}
+
 /** Stop the preview's sounds (playback paused, animation or mode changed). */
 export function stopPreviewAudio() {
   if (preview.playing.size) preview.stopAll();
@@ -114,7 +165,11 @@ export async function audioAsDataUrl(asset: AudioAsset): Promise<string> {
   if (asset.src.startsWith("data:")) return asset.src;
   const res = await fetch(resolveAudioUrl(asset));
   if (!res.ok) throw new Error(`Could not read audio "${asset.name}" (${res.status})`);
-  const blob = await res.blob();
+  let blob = await res.blob();
+  // Servers often label audio files generically: name the type from the extension so the data URL says what it is.
+  const ext = asset.src.split(/[?#]/)[0].split(".").pop()?.toLowerCase() ?? "";
+  const byExt: Record<string, string> = { wav: "audio/wav", mp3: "audio/mpeg", ogg: "audio/ogg", oga: "audio/ogg", opus: "audio/ogg", m4a: "audio/mp4", aac: "audio/aac", flac: "audio/flac", webm: "audio/webm" };
+  if (!blob.type.startsWith("audio/") && byExt[ext]) blob = new Blob([blob], { type: byExt[ext] });
   return new Promise((ok, fail) => {
     const r = new FileReader();
     r.onload = () => ok(String(r.result));

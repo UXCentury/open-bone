@@ -21,6 +21,8 @@ import { showPanel } from "../layout.ts";
 import { Section } from "./fields.tsx";
 import { askConfirm, askText, uniqueName } from "../dialogs.tsx";
 import { AudioSection } from "./AudioPanel.tsx";
+import { cycleVis, visOf } from "../visibility.ts";
+import { resolveImageUrl } from "../images.ts";
 import { StatsSection } from "./Stats.tsx";
 
 // ---- skeleton tree: guide lines and collapsible nodes (bones and slots), like Spine's tree ----
@@ -134,6 +136,49 @@ function Twisty(p: { id: string; has: boolean; subtree?: () => string[] }) {
   );
 }
 
+/** Eye button: shown → dimmed → hidden in the viewport (editor only). Alt-click goes the other way. */
+function EyeBtn(p: { id: string; name: string }) {
+  const v = () => visOf(p.id);
+  const path = () =>
+    v() === "hidden"
+      ? "M2 8c1.6-2.6 3.6-4 6-4s4.4 1.4 6 4c-1.6 2.6-3.6 4-6 4s-4.4-1.4-6-4zM3 13L13 3"
+      : "M2 8c1.6-2.6 3.6-4 6-4s4.4 1.4 6 4c-1.6 2.6-3.6 4-6 4s-4.4-1.4-6-4zM8 6.2a1.8 1.8 0 1 0 0.01 0z";
+  return (
+    <button
+      class="eye-btn"
+      classList={{ off: v() !== "shown" }}
+      title={`${p.name}: ${v() === "shown" ? "shown" : v() === "dim" ? "dimmed" : "hidden"} in the viewport. Click: ${v() === "shown" ? "dim" : v() === "dim" ? "hide" : "show"} (editor only; Alt-click goes back)`}
+      onClick={(e) => {
+        e.stopPropagation();
+        cycleVis(p.id, e.altKey);
+      }}
+    >
+      <svg viewBox="0 0 16 16" width="14" height="14" style={{ opacity: v() === "dim" ? 0.5 : 1 }}>
+        <path d={path()} fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+    </button>
+  );
+}
+
+/** Small preview of an attachment's image (regions, meshes, sequences), from wherever the editor loads it. */
+function Thumb(p: { image?: string }) {
+  const img = () => doc().images.find((i) => i.id === p.image);
+  return (
+    <Show when={img()?.src}>
+      <img class="tree-thumb" src={resolveImageUrl(img()!)} alt="" loading="lazy" draggable={false} />
+    </Show>
+  );
+}
+
+/** Sounds a slot's listeners play (click, hover…), so they can be found and edited from the slot. */
+function slotSounds(slotId: string) {
+  const d = doc();
+  const ids = new Set<string>();
+  for (const sm of d.stateMachines)
+    for (const l of sm.listeners) if (l.slot === slotId) for (const a of l.actions) if (a.type === "playSound" || a.type === "stopSound") ids.add(a.sound);
+  return (d.audio?.sounds ?? []).filter((x) => ids.has(x.id) || ids.has(x.name));
+}
+
 function BoneNode(p: { bone: BoneData }) {
   const children = () => doc().skeleton.bones.filter((b) => b.parent === p.bone.id && shown(b.id));
   const slots = () => doc().skeleton.slots.filter((s) => s.bone === p.bone.id && shown(s.id));
@@ -142,9 +187,10 @@ function BoneNode(p: { bone: BoneData }) {
   const boneSelected = () => (sel()?.kind === "bone" && sel()!.id === p.bone.id) || multiBones().includes(p.bone.id);
   return (
     <div class="tnode">
-      <div class="tree-row" ref={(el) => scrollWhenSelected(el, boneSelected)} classList={{ selected: boneSelected() }} onClick={() => setSelection({ kind: "bone", id: p.bone.id })}>
+      <div class="tree-row" ref={(el) => scrollWhenSelected(el, boneSelected)} classList={{ selected: boneSelected(), "vis-off": visOf(p.bone.id) !== "shown" }} onClick={() => setSelection({ kind: "bone", id: p.bone.id })}>
         <Twisty id={p.bone.id} has={has()} subtree={() => subtreeIds(p.bone.id)} />
         <span class="icon bone-icon">🦴</span> <Name text={p.bone.name} />
+        <EyeBtn id={p.bone.id} name={p.bone.name} />
       </div>
       <Show when={has() && isOpen(p.bone.id)}>
         <div class="tchildren">
@@ -152,13 +198,39 @@ function BoneNode(p: { bone: BoneData }) {
             {(s) => {
               const atts = () => slotAttachments(doc(), s.id, activeSkin()?.id).filter((a) => shown(`${s.id}/${a.name}`) || (!!searchHits() && matches(s.name)));
               const slotSelected = () => sel()?.kind === "slot" && sel()!.id === s.id && !(sel() as { attachment?: string }).attachment;
+              const sounds = () => slotSounds(s.id);
               return (
                 <div class="tnode">
-                  <div class="tree-row slot-row" ref={(el) => scrollWhenSelected(el, slotSelected)} classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id }} onClick={() => setSelection({ kind: "slot", id: s.id })}>
-                    <Twisty id={s.id} has={atts().length > 0} />
+                  <div
+                    class="tree-row slot-row"
+                    ref={(el) => scrollWhenSelected(el, slotSelected)}
+                    classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id, "vis-off": visOf(s.id) !== "shown" }}
+                    onClick={() => setSelection({ kind: "slot", id: s.id })}
+                  >
+                    <Twisty id={s.id} has={atts().length + sounds().length > 0} />
                     <span class="icon">▣</span> <Name text={s.name} />
                     <span class="muted"> {s.attachment ? `· ${s.attachment}` : "· hidden"}</span>
+                    <EyeBtn id={s.id} name={s.name} />
                   </div>
+                  <Show when={sounds().length > 0 && isOpen(s.id)}>
+                    <div class="tchildren">
+                      <For each={sounds()}>
+                        {(snd) => (
+                          <div class="tnode">
+                            <div
+                              class="tree-row sound-row"
+                              classList={{ selected: sel()?.kind === "sound" && sel()!.id === snd.id }}
+                              title="Played by this slot's listeners: click to edit the sound"
+                              onClick={() => setSelection({ kind: "sound", id: snd.id })}
+                            >
+                              <span class="icon">♪</span> {snd.name}
+                              <span class="muted"> · sound</span>
+                            </div>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
                   <Show when={atts().length > 0 && isOpen(s.id)}>
                     <div class="tchildren">
                       <For each={atts()}>
@@ -172,6 +244,7 @@ function BoneNode(p: { bone: BoneData }) {
                               onClick={() => setSelection({ kind: "slot", id: s.id, attachment: a.name })}
                             >
                               <span class="icon">{({ boundingBox: "⬚", clipping: "✂", sequence: "🎞", particles: "✺" } as Record<string, string>)[a.attachment.type] ?? "◇"}</span> <Name text={a.name} />
+                              <Thumb image={(a.attachment as { image?: string; frames?: { image: string }[] }).image ?? (a.attachment as { frames?: (string | { image: string })[] }).frames?.map((f) => (typeof f === "string" ? f : f.image))[0]} />
                               <Show when={a.skin.id !== doc().skeleton.skins[0].id}>
                                 <span class="skin-badge">{a.skin.name}</span>
                               </Show>

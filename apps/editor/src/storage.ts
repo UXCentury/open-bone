@@ -1,7 +1,66 @@
-import { type OpenBoneDocument, parseDocument, textureAssets } from "@openbone/core";
-import { registerAudioOverride } from "./audio.ts";
-import { registerImageOverride } from "./images.ts";
-import { exportJson, fileName, loadDocument, setFileName, toast } from "./state.ts";
+import { type OpenBoneDocument, parseDocument, serialize, textureAssets } from "@openbone/core";
+import { audioAsDataUrl, registerAudioOverride, resolveAudioUrl } from "./audio.ts";
+import { imageAsDataUrl, registerImageOverride, resolveImageUrl } from "./images.ts";
+import { fileName, loadDocument, setFileName, store, toast } from "./state.ts";
+
+const isRelative = (src: string) => !!src && !/^(data:|https?:|blob:)/.test(src);
+
+/**
+ * A copy of the document with every image, atlas page and sound stored inside it (data: URLs), so a file saved from
+ * the browser opens anywhere with its art and audio. Assets that can't be read are left as they are.
+ */
+export async function bundledDocument(doc: OpenBoneDocument): Promise<{ doc: OpenBoneDocument; missing: string[] }> {
+  const out = structuredClone(doc);
+  const missing: string[] = [];
+  for (const t of textureAssets(out)) {
+    if (!isRelative(t.src)) continue;
+    try {
+      t.src = await imageAsDataUrl(t as never);
+    } catch {
+      missing.push(t.src);
+    }
+  }
+  for (const a of out.audio?.assets ?? []) {
+    if (!isRelative(a.src)) continue;
+    try {
+      a.src = await audioAsDataUrl(a);
+    } catch {
+      missing.push(a.src);
+    }
+  }
+  return { doc: out, missing };
+}
+
+/**
+ * Desktop: copy every relative image and sound next to the saved file (same relative path), so the project folder is
+ * complete wherever it is saved. Reads each asset from wherever the editor loads it now.
+ */
+async function copyAssetsTo(dir: string, doc: OpenBoneDocument): Promise<string[]> {
+  const { writeFile, mkdir } = await import("@tauri-apps/plugin-fs");
+  const missing: string[] = [];
+  const jobs: { src: string; url: string }[] = [
+    ...textureAssets(doc).filter((t) => isRelative(t.src)).map((t) => ({ src: t.src, url: resolveImageUrl(t as never) })),
+    ...(doc.audio?.assets ?? []).filter((a) => isRelative(a.src)).map((a) => ({ src: a.src, url: resolveAudioUrl(a) })),
+  ];
+  for (const j of jobs) {
+    try {
+      const res = await fetch(j.url);
+      if (!res.ok) throw new Error(String(res.status));
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      const target = `${dir}/${j.src}`;
+      const parent = target.replace(/[\\/][^\\/]*$/, "");
+      await mkdir(parent, { recursive: true }).catch(() => {});
+      await writeFile(target, bytes);
+    } catch {
+      missing.push(j.src);
+    }
+  }
+  return missing;
+}
+
+const warnMissing = (missing: string[]) => {
+  if (missing.length) toast(`Saved, but ${missing.length} asset${missing.length > 1 ? "s" : ""} could not be read: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? "…" : ""}`, "error");
+};
 
 /** True inside the Tauri desktop shell. */
 export const isDesktop = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
@@ -39,8 +98,9 @@ export async function openProject(webFallback: () => void) {
 }
 
 export async function saveProject(saveAs = false) {
-  const json = exportJson();
+  const doc = store.doc;
   if (isDesktop()) {
+    const json = serialize(doc);
     const { save } = await import("@tauri-apps/plugin-dialog");
     const { writeTextFile } = await import("@tauri-apps/plugin-fs");
     let path = desktopPath;
@@ -49,11 +109,17 @@ export async function saveProject(saveAs = false) {
       if (!path) return;
     }
     await writeTextFile(path, json);
+    // The images and sounds go into the same folder, so the project opens complete from there.
+    warnMissing(await copyAssetsTo(path.replace(/[\\/][^\\/]*$/, ""), doc));
     desktopPath = path;
     setFileName(path.split(/[\\/]/).pop()!);
     toast(`Saved ${path}`);
     return;
   }
+  // In the browser the file is all we can write: it carries its images and sounds inside.
+  const bundled = await bundledDocument(doc);
+  warnMissing(bundled.missing);
+  const json = serialize(bundled.doc);
   const w = window as unknown as { showSaveFilePicker?: (o: object) => Promise<FileSystemFileHandle> };
   if (w.showSaveFilePicker) {
     try {

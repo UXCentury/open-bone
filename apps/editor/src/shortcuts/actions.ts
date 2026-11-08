@@ -34,6 +34,7 @@ import { multiBones,
   transaction,
 } from "../state.ts";
 import { saveProject } from "../storage.ts";
+import { reorderSlot } from "../visibility.ts";
 import { redo, undo } from "../panels/Toolbar.tsx";
 import { type Scope, installShortcuts, shortcuts } from "./index.ts";
 
@@ -174,6 +175,13 @@ export function setupShortcuts(): () => void {
     b("edit.redo", redo),
     b("edit.delete", deleteSelection),
     b("edit.duplicate", duplicate),
+    ...([["edit.bringForward", "forward"], ["edit.sendBackward", "backward"], ["edit.bringToFront", "front"], ["edit.sendToBack", "back"]] as const).map(([id, where]) =>
+      b(id, () => {
+        const sl = selection();
+        if (sl?.kind !== "slot") return toast("Select a slot (an image or shape) to change its draw order", "info");
+        reorderSlot(sl.id, where);
+      }),
+    ),
     b("edit.deselect", () => {
       if (tool() === "mesh" && meshSel().length) setMeshSel([]);
       else if (selection()) setSelection(null);

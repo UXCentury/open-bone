@@ -626,3 +626,16 @@ input.small { width: 90px; }
 .mini-tag { font-size: 10.5px; padding: 1px 6px; border-radius: 9px; background: #2a2f3b; color: #c9cfdb; }
 .mini-tag:first-of-type { margin-left: auto; }
 .mini-tag.warn { background: #4a2a1f; color: #ffb38a; }
+.icon-svg { vertical-align: -2px; display: inline-block; }
+.timeline-bar .scrub-btn.on, .scrub-btn.on { color: var(--accent, #7c9cff); border-color: var(--accent, #7c9cff); }
+
+/* Skeleton tree: eye (show / dim / hide in the viewport), image thumbnails, linked sounds. */
+.tree-row { position: relative; }
+.eye-btn { margin-left: auto; flex: none; width: 22px; height: 18px; padding: 0; display: grid; place-items: center; background: none; border: 0; color: var(--muted); opacity: 0; cursor: pointer; }
+.tree-row:hover .eye-btn, .eye-btn.off { opacity: 1; }
+.eye-btn.off { color: #ffb36b; }
+.eye-btn:hover { color: var(--text, #e6e8ee); }
+.tree-row.vis-off > :not(.eye-btn) { opacity: 0.5; }
+.tree-thumb { width: 18px; height: 18px; object-fit: contain; margin-left: 6px; border-radius: 3px; background: #0004; flex: none; }
+.sound-row .icon { color: #7fd1a8; }
+.draw-order button { padding: 2px 8px; min-width: 28px; }

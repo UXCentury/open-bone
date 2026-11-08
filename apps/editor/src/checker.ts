@@ -26,12 +26,13 @@ export function checkerPattern(ctx: CanvasRenderingContext2D, a: string, b: stri
 export const isTranslucent = (hex: string) => hex.length >= 9 && parseInt(hex.slice(7, 9), 16) < 255;
 
 /**
- * Fill an artboard rectangle: the light checkerboard where it is transparent (no background, or a translucent one),
+ * Fill an artboard rectangle: a dark checkerboard where it is transparent (no background, or a translucent one),
  * then the background colour on top, so opacity reads as transparency rather than as a darker colour.
  */
 export function fillArtboard(ctx: CanvasRenderingContext2D, background: string | null, x: number, y: number, w: number, h: number, cell = 10) {
   if (!background || isTranslucent(background)) {
-    ctx.fillStyle = checkerPattern(ctx, "#d6d9df", "#eceef2", cell);
+    // A dark checkerboard a shade lighter than the stage: reads as "transparent" without a glaring white box.
+    ctx.fillStyle = checkerPattern(ctx, "#2b2f38", "#353a45", cell);
     ctx.fillRect(x, y, w, h);
   }
   if (background) {

@@ -14,6 +14,19 @@ const soundName = (id: string) => sounds().find((s) => s.id === id)?.name ?? id;
 const busName = (id: string | null) => buses().find((b) => b.id === id)?.name ?? "master";
 const fmt = (n: number) => `${Math.round(n * 100) / 100}`;
 
+/** Small inline icons (some symbol glyphs are missing from common Linux fonts and show as boxes). */
+const svg = (d: string, title: string) => (
+  <svg class="icon-svg" viewBox="0 0 16 16" width="13" height="13" aria-label={title} role="img">
+    <path d={d} fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+  </svg>
+);
+/** Mixer: three faders. */
+const MixerIcon = () => svg("M3 2v12M8 2v12M13 2v12M1.5 10h3M6.5 5h3M11.5 8h3", "master");
+/** Bus: one fader. */
+const BusIcon = () => svg("M8 2v12M5.5 6h5", "bus");
+/** Audio file: a waveform. */
+const WaveIcon = () => svg("M1.5 8h1.5M4.5 5v6M7 3v10M9.5 6v4M12 4.5v7M14.5 8h0", "audio file");
+
 let fileInput: HTMLInputElement | undefined;
 /** Open the file picker for WAV/MP3/OGG. */
 export const pickAudio = () => fileInput?.click();
@@ -75,7 +88,7 @@ export function AudioSection() {
           onClick={() => setSelection({ kind: "bus", id: "master" })}
           title="Master volume and mute"
         >
-          <span class="icon">🎚</span> master <span class="muted">{fmt(doc().audio!.master)}{doc().audio!.muted ? " · muted" : ""}</span>
+          <span class="icon"><MixerIcon /></span> master <span class="muted">{fmt(doc().audio!.master)}{doc().audio!.muted ? " · muted" : ""}</span>
         </div>
         <For each={buses()}>
           {(b) => {
@@ -88,7 +101,7 @@ export function AudioSection() {
                 onClick={() => setSelection({ kind: "bus", id: b.id })}
                 title="Bus: volume and mute apply to every sound routed to it"
               >
-                <span class="icon">⫶</span> {live().name} <span class="muted">{fmt(live().volume)}</span>
+                <span class="icon"><BusIcon /></span> {live().name} <span class="muted">{fmt(live().volume)}</span>
                 <span class="row-actions" style={{ visibility: "visible" }}>
                   <button class="row-btn" title={live().muted ? "Unmute bus" : "Mute bus"} onClick={(e) => { e.stopPropagation(); apply("updateBus", { bus: b.id, muted: !live().muted }); }}>
                     {live().muted ? "🔇" : "🔈"}
@@ -101,7 +114,7 @@ export function AudioSection() {
         <For each={assets()}>
           {(a) => (
             <div class="tree-row" classList={{ selected: sel()?.kind === "audio" && sel()!.id === a.id }} onClick={() => setSelection({ kind: "audio", id: a.id })} title="Audio file">
-              <span class="icon">🎵</span> {(doc(), a).name} <span class="muted">{fmt(a.duration)}s</span>
+              <span class="icon"><WaveIcon /></span> {(doc(), a).name} <span class="muted">{fmt(a.duration)}s</span>
             </div>
           )}
         </For>

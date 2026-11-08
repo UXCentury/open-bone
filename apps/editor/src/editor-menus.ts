@@ -5,6 +5,7 @@ import { askConfirm } from "./dialogs.tsx";
 import { toggleViewAid, viewAids } from "./guides.ts";
 import { PANELS, type PanelId, movePanel, resetLayout, showPanel, swapSides, whereIs } from "./layout.ts";
 import type { MenuItem } from "./menu.tsx";
+import { cycleVisTo, visOf } from "./visibility.ts";
 import { playActive } from "./play.ts";
 import { setShortcutsOpen } from "./shortcuts/actions.ts";
 import { loadDocument, mode, onionSkin, selection, setSelection, showBones, showMesh, store, apply, tool, setTool, type Tool } from "./state.ts";
@@ -91,7 +92,21 @@ function selectionItems(): MenuItem[] {
   if (s.kind === "slot") {
     const slot = d.skeleton.slots.find((x) => x.id === s.id);
     if (!slot) return [];
+    const slots = d.skeleton.slots;
+    const at = slots.indexOf(slot);
     return [
+      {
+        label: "Arrange",
+        submenu: [
+          { label: "Bring to front", shortcut: "edit.bringToFront", disabled: at === slots.length - 1 },
+          { label: "Bring forward", shortcut: "edit.bringForward", disabled: at === slots.length - 1 },
+          { label: "Send backward", shortcut: "edit.sendBackward", disabled: at === 0 },
+          { label: "Send to back", shortcut: "edit.sendToBack", disabled: at === 0 },
+        ],
+      },
+      { label: visOf(slot.id) === "hidden" ? "Show" : "Hide", action: () => cycleVisTo(slot.id, visOf(slot.id) === "hidden" ? "shown" : "hidden") },
+      { label: visOf(slot.id) === "dim" ? "Undim" : "Dim", action: () => cycleVisTo(slot.id, visOf(slot.id) === "dim" ? "shown" : "dim") },
+      "sep",
       { label: "Duplicate", shortcut: "edit.duplicate" },
       { label: "Focus in viewport", shortcut: "view.focus" },
       ...(mode() === "animate" ? [{ label: "Set key", shortcut: "anim.setKey" } as MenuItem] : []),

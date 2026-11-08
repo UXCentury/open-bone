@@ -20,3 +20,10 @@ of this repository, so you can reuse them in your own OpenBone projects.
 | `crash-liftoff.wav`, `crash-explosion.wav`, `crash-cashout.wav` | `crash.obone` | Lift-off, explosion and cash-out chime |
 | `walker-step.wav`, `walker-jump.wav`, `walker-land.wav` | `walker.obone` | Footstep, jump and landing |
 | `tail-chirp.wav` | `tail.obone` | Creature chirp as the tail curls |
+| `knight-{helmet,torso,arm-upper,forearm,fist,thigh,shin,boot,sword,shield,cape}.png` | `knight.obone` | Side-view knight parts, cut from one parts sheet |
+| `knight-swoosh.wav`, `knight-clang.wav` | `knight.obone` | Sword swing and clang |
+| `walker-{head,torso,arm-upper,forearm,thigh,shin,shoe,scarf}.png` | `walker.obone` | Side-view adventurer parts, cut from one parts sheet |
+| `tail-body.png`, `tail-tail.png`, `tail-antenna.png` | `tail.obone` | The creature, its tail and antenna (tail and antenna stored turned to lie along their bones) |
+| `rocket-ship.png`, `rocket-pad.png` | `rocket.obone`, `crash.obone` | Rocket and launch pad with gantry |
+| `*-bg-far.jpg`, `*-bg-mid.png`, `*-bg-ground.png`, `*-bg-near.png` | knight, walker, tail, rocket | Parallax background layers; scrolling ones are stored as the art plus a mirrored copy so they wrap seamlessly |
+| `crash-bg-sky.jpg`, `crash-bg-clouds.png` | `crash.obone` | Night sky and cloud layer |

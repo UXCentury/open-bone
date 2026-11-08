@@ -6,15 +6,15 @@ import { openExample } from "../state.ts";
 import { renderInstance } from "./Preview.tsx";
 
 const EXAMPLES: { id: string; title: string; text: string; tags: string[] }[] = [
-  { id: "knight", title: "Knight", text: "Painted parts on a full skeleton, a cape mesh that bends, idle, wave and march.", tags: ["Meshes", "Painted art"] },
+  { id: "knight", title: "Knight", text: "Side-view knight with sword and shield: walk on a scrolling castle road (click it), attack (click him), salute (click the helmet).", tags: ["IK legs", "Parallax", "Audio"] },
+  { id: "walker", title: "Walker", text: "An adventurer walking through a forest with parallax scrolling and a proper jump: crouch, take-off, tuck, land.", tags: ["IK", "Blend", "Script"] },
   { id: "fox", title: "Pip the fox", text: "Click the head: a real recorded voice with mouth shapes keyed by lip sync.", tags: ["Lip sync", "Audio", "State machine"] },
-  { id: "robot", title: "Robot", text: "Lip sync from a synthesised voice, mouth shapes swapped per frame.", tags: ["Lip sync", "Audio"] },
-  { id: "walker", title: "Walker", text: "A walk cycle with IK legs, a mesh body, blended animations and a script.", tags: ["IK", "Mesh", "Script"] },
+  { id: "robot", title: "Robot", text: "A painted robot with a screen face, lip-synced to a robot voice.", tags: ["Lip sync", "Audio"] },
+  { id: "tail", title: "Tail", text: "A creature whose painted tail bends along a path; click it to hop. A slow camera pan moves the meadow, the creature and the grass at different depths.", tags: ["Path", "Mesh", "Physics", "Parallax"] },
+  { id: "rocket", title: "Rocket", text: "A rocket on its launch pad: click to fire the engine. On launch the space centre falls away beneath it.", tags: ["Particles", "Parallax", "Audio"] },
+  { id: "crash", title: "Crash game", text: "Stages, live text and input bindings: a betting game where the rocket climbs through layered clouds.", tags: ["Stages", "Bindings", "Text"] },
   { id: "button", title: "Interactive button", text: "Hover and press states driven by pointer listeners, with click sounds.", tags: ["State machine", "Audio"] },
-  { id: "crash", title: "Crash game", text: "Stages, live text and input bindings: a betting game from bet to cash out.", tags: ["Stages", "Bindings", "Text"] },
-  { id: "campfire", title: "Campfire", text: "Flames and smoke from sprite sequences, looping at their own speeds.", tags: ["Sequences"] },
-  { id: "tail", title: "Tail", text: "A tail that follows a path and swings with physics.", tags: ["Path", "Physics"] },
-  { id: "rocket", title: "Rocket", text: "Exhaust and sparks from particle emitters.", tags: ["Particles"] },
+  { id: "campfire", title: "Campfire", text: "Flames burning on painted logs, firelight flicker, a bending flame mesh and a crackle loop.", tags: ["Sequences", "Mesh"] },
 ];
 
 /** Images of the gallery's documents, loaded from /examples/ (kept apart from the editor's own image cache). */

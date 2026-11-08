@@ -10,49 +10,49 @@
   "fps": 30,
   "images": [
     {
-      "id": "img_p5m7v9u",
+      "id": "img_hd9j8bt",
       "name": "fox-head",
       "src": "assets/eleven/fox-head.png",
       "width": 497,
       "height": 532
     },
     {
-      "id": "img_8xwbu9v",
+      "id": "img_gmh9rbu",
       "name": "fox-mouth-rest",
       "src": "assets/eleven/fox-mouth-rest.png",
       "width": 185,
       "height": 98
     },
     {
-      "id": "img_dx2h09w",
+      "id": "img_isjntbv",
       "name": "fox-mouth-closed",
       "src": "assets/eleven/fox-mouth-closed.png",
       "width": 185,
       "height": 98
     },
     {
-      "id": "img_92pjz9x",
+      "id": "img_2jyclbw",
       "name": "fox-mouth-small",
       "src": "assets/eleven/fox-mouth-small.png",
       "width": 185,
       "height": 98
     },
     {
-      "id": "img_roxwf9y",
+      "id": "img_o4hdxbx",
       "name": "fox-mouth-open",
       "src": "assets/eleven/fox-mouth-open.png",
       "width": 185,
       "height": 98
     },
     {
-      "id": "img_kb3w39z",
+      "id": "img_a9jgrby",
       "name": "fox-mouth-wide",
       "src": "assets/eleven/fox-mouth-wide.png",
       "width": 185,
       "height": 98
     },
     {
-      "id": "img_0vdtxa0",
+      "id": "img_f6ys8bz",
       "name": "fox-mouth-round",
       "src": "assets/eleven/fox-mouth-round.png",
       "width": 185,
@@ -62,7 +62,7 @@
   "skeleton": {
     "bones": [
       {
-        "id": "bone_0nyf49t",
+        "id": "bone_t8x4wbs",
         "name": "root",
         "parent": null,
         "length": 0,
@@ -76,9 +76,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_p9erqa1",
+        "id": "bone_ykawzc0",
         "name": "fox",
-        "parent": "bone_0nyf49t",
+        "parent": "bone_t8x4wbs",
         "length": 0,
         "x": 0,
         "y": 30,
@@ -90,9 +90,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_0uvcga2",
+        "id": "bone_g194dc1",
         "name": "head",
-        "parent": "bone_p9erqa1",
+        "parent": "bone_ykawzc0",
         "length": 300,
         "x": 0,
         "y": 0,
@@ -104,9 +104,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_27eo0a3",
+        "id": "bone_1821bc2",
         "name": "face",
-        "parent": "bone_0uvcga2",
+        "parent": "bone_g194dc1",
         "length": 0,
         "x": 240,
         "y": 0,
@@ -118,9 +118,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_o1876a5",
+        "id": "bone_231hec4",
         "name": "mouth",
-        "parent": "bone_27eo0a3",
+        "parent": "bone_1821bc2",
         "length": 0,
         "x": 0.45,
         "y": -95.4,
@@ -134,17 +134,17 @@
     ],
     "slots": [
       {
-        "id": "slot_ksjjva4",
+        "id": "slot_ia5e1c3",
         "name": "head",
-        "bone": "bone_27eo0a3",
+        "bone": "bone_1821bc2",
         "color": "#ffffff",
         "attachment": "fox-head",
         "blend": "normal"
       },
       {
-        "id": "slot_20bxda6",
+        "id": "slot_2vgexc5",
         "name": "mouth",
-        "bone": "bone_o1876a5",
+        "bone": "bone_231hec4",
         "color": "#ffffff",
         "attachment": "mouth-rest",
         "blend": "normal"
@@ -155,11 +155,11 @@
         "id": "skin_default",
         "name": "default",
         "attachments": {
-          "slot_ksjjva4": {
+          "slot_ia5e1c3": {
             "fox-head": {
               "type": "region",
               "name": "fox-head",
-              "image": "img_p5m7v9u",
+              "image": "img_hd9j8bt",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -184,11 +184,11 @@
               ]
             }
           },
-          "slot_20bxda6": {
+          "slot_2vgexc5": {
             "mouth-rest": {
               "type": "region",
               "name": "mouth-rest",
-              "image": "img_8xwbu9v",
+              "image": "img_gmh9rbu",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -201,7 +201,7 @@
             "mouth-closed": {
               "type": "region",
               "name": "mouth-closed",
-              "image": "img_dx2h09w",
+              "image": "img_isjntbv",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -214,7 +214,7 @@
             "mouth-small": {
               "type": "region",
               "name": "mouth-small",
-              "image": "img_92pjz9x",
+              "image": "img_2jyclbw",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -227,7 +227,7 @@
             "mouth-open": {
               "type": "region",
               "name": "mouth-open",
-              "image": "img_roxwf9y",
+              "image": "img_o4hdxbx",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -240,7 +240,7 @@
             "mouth-wide": {
               "type": "region",
               "name": "mouth-wide",
-              "image": "img_kb3w39z",
+              "image": "img_a9jgrby",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -253,7 +253,7 @@
             "mouth-round": {
               "type": "region",
               "name": "mouth-round",
-              "image": "img_0vdtxa0",
+              "image": "img_f6ys8bz",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -275,13 +275,13 @@
   "events": [],
   "animations": [
     {
-      "id": "anim_d122ba9",
+      "id": "anim_h78zfc8",
       "name": "idle",
       "duration": 3,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_0uvcga2",
+          "id": "bone_g194dc1",
           "property": "rotation",
           "keys": [
             {
@@ -318,7 +318,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_p9erqa1",
+          "id": "bone_ykawzc0",
           "property": "y",
           "keys": [
             {
@@ -357,13 +357,13 @@
       "events": []
     },
     {
-      "id": "anim_4jooiaa",
+      "id": "anim_21yjwc9",
       "name": "talk",
       "duration": 8.866666666666667,
       "timelines": [
         {
           "target": "slot",
-          "id": "slot_20bxda6",
+          "id": "slot_2vgexc5",
           "property": "attachment",
           "keys": [
             {
@@ -705,7 +705,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_0uvcga2",
+          "id": "bone_g194dc1",
           "property": "rotation",
           "keys": [
             {
@@ -842,7 +842,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_p9erqa1",
+          "id": "bone_ykawzc0",
           "property": "y",
           "keys": [
             {
@@ -1112,18 +1112,18 @@
       "audio": [
         {
           "time": 0,
-          "sound": "snd_7khvja8"
+          "sound": "snd_j6yync7"
         }
       ]
     }
   ],
   "stateMachines": [
     {
-      "id": "sm_baca7ab",
+      "id": "sm_poearca",
       "name": "fox",
       "inputs": [
         {
-          "id": "in_ro3ckac",
+          "id": "in_uugjgcb",
           "name": "talk",
           "type": "trigger",
           "default": false
@@ -1132,40 +1132,40 @@
       "bindings": [],
       "layers": [
         {
-          "id": "sm_baca7ab_layer1",
+          "id": "sm_poearca_layer1",
           "name": "Layer 1",
-          "entry": "st_mupe0ad",
+          "entry": "st_kbtlbcc",
           "states": [
             {
-              "id": "st_mupe0ad",
+              "id": "st_kbtlbcc",
               "name": "idle",
               "type": "animation",
-              "animation": "anim_d122ba9",
+              "animation": "anim_h78zfc8",
               "loop": true,
               "speed": 1,
               "x": 120,
               "y": 120
             },
             {
-              "id": "st_6izljae",
+              "id": "st_02r53cd",
               "name": "talk",
               "type": "animation",
-              "animation": "anim_4jooiaa",
+              "animation": "anim_21yjwc9",
               "loop": false,
               "speed": 1,
-              "onComplete": "st_mupe0ad",
+              "onComplete": "st_kbtlbcc",
               "x": 380,
               "y": 120
             }
           ],
           "transitions": [
             {
-              "id": "tr_5pfheaf",
-              "from": "st_mupe0ad",
-              "to": "st_6izljae",
+              "id": "tr_tcwmkce",
+              "from": "st_kbtlbcc",
+              "to": "st_02r53cd",
               "conditions": [
                 {
-                  "input": "in_ro3ckac",
+                  "input": "in_uugjgcb",
                   "op": "==",
                   "value": true
                 }
@@ -1178,14 +1178,14 @@
       ],
       "listeners": [
         {
-          "id": "lis_y39bpag",
+          "id": "lis_2v41ocf",
           "name": "click",
-          "slot": "slot_ksjjva4",
+          "slot": "slot_ia5e1c3",
           "event": "click",
           "actions": [
             {
               "type": "fireTrigger",
-              "input": "in_ro3ckac"
+              "input": "in_uugjgcb"
             }
           ]
         }
@@ -1199,7 +1199,7 @@
     "muted": false,
     "assets": [
       {
-        "id": "aud_19xnva7",
+        "id": "aud_mi5qzc6",
         "name": "pip-voice",
         "src": "assets/eleven/fox-voice.wav",
         "duration": 8.88
@@ -1227,9 +1227,9 @@
     ],
     "sounds": [
       {
-        "id": "snd_7khvja8",
+        "id": "snd_j6yync7",
         "name": "pip-voice",
-        "asset": "aud_19xnva7",
+        "asset": "aud_mi5qzc6",
         "bus": "bus_sfx",
         "volume": 1,
         "rate": 1,
