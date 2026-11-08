@@ -234,19 +234,17 @@ function button() {
   A("setDocument", { width: 400, height: 200, originX: 200, originY: 100 });
   A("addBone", { name: "btn", length: 0 });
   A("addBone", { name: "shine", parent: "btn", x: -140, length: 0 });
-  A("addSlot", { bone: "btn", name: "shadow" });
-  A("addShape", { slot: "shadow", shape: "rect", y: -6, width: 220, height: 74, radius: 24, fill: "#00000066" });
+  // Painted button art (see assets/canva/LICENSE.md); its own drop shadow is part of the image.
+  A("addImage", { name: "button-play", src: "assets/canva/button-play.png", width: 262, height: 109 });
   A("addSlot", { bone: "btn", name: "bg" });
-  A("addShape", { slot: "bg", shape: "rect", width: 220, height: 74, radius: 24, fill: "#6366f1" });
+  A("addRegion", { slot: "bg", image: "button-play", width: 236, height: 98 });
   // Glass sweep: the shine slides across on hover, clipped to the button's rounded outline.
   A("addSlot", { bone: "btn", name: "glass-mask" });
   A("addSlot", { bone: "shine", name: "shine", color: "#ffffff00" });
-  A("addClipping", { slot: "glass-mask", name: "mask", width: 220, height: 74, radius: 24, end: "shine" });
-  A("addShape", { slot: "shine", shape: "polygon", points: [-10, 37, 20, 37, 0, -37, -30, -37], fill: "#ffffff55" });
-  A("addSlot", { bone: "btn", name: "icon" });
-  A("addShape", { slot: "icon", shape: "polygon", points: [-12, 18, 20, 0, -12, -18], fill: "#ffffff" });
+  A("addClipping", { slot: "glass-mask", name: "mask", y: 3, width: 222, height: 80, radius: 38, end: "shine" });
+  A("addShape", { slot: "shine", shape: "polygon", points: [-10, 45, 20, 45, 0, -45, -30, -45], fill: "#ffffff66" });
   A("addSlot", { bone: "btn", name: "hit" });
-  A("addBoundingBox", { slot: "hit", width: 220, height: 74 });
+  A("addBoundingBox", { slot: "hit", width: 230, height: 90 });
   const K = (anim: string, target: string, id: string, property: string, keys: [number, number | string][], curve: string = "easeOut") =>
     A("setKeys", { animation: anim, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });
   A("createAnimation", { name: "idle", duration: 1.5 });
@@ -255,7 +253,7 @@ function button() {
   A("createAnimation", { name: "hover", duration: 0.6 });
   K("hover", "bone", "btn", "scaleX", [[0, 1], [0.25, 1.08]], "backOut");
   K("hover", "bone", "btn", "scaleY", [[0, 1], [0.25, 1.08]], "backOut");
-  K("hover", "slot", "bg", "color", [[0, "#ffffff"], [0.25, "#c7d2fe"]]);
+  K("hover", "slot", "bg", "color", [[0, "#ffffff"], [0.25, "#ffe7b3"]]);
   K("hover", "slot", "shine", "color", [[0, "#ffffffff"], [0.6, "#ffffffff"]]);
   K("hover", "bone", "shine", "x", [[0, -140], [0.6, 140]], "easeInOut");
   A("createAnimation", { name: "press", duration: 0.25 });
@@ -465,14 +463,10 @@ function rocket() {
   A("addParticles", { slot: "exhaust", name: "exhaust", preset: "exhaust", emitting: false, seed: 11 });
   A("addSlot", { bone: "nozzle", name: "sparks" });
   A("addParticles", { slot: "sparks", name: "sparks", preset: "sparks", emitting: false, rotation: -90, angle: 120, loop: true, duration: 0.35, bursts: [{ time: 0, count: 14 }], gravity: 300, seed: 5 });
-  A("addSlot", { bone: "rocket", name: "fins" });
-  A("addShape", { slot: "fins", shape: "polygon", points: [-56, 0, -26, 50, -26, 10, 26, 10, 26, 50, 56, 0, 30, 20, -30, 20], fill: "#e11d48" });
+  // Painted rocket (see assets/canva/LICENSE.md): nozzle at the bone, nose up.
+  A("addImage", { name: "rocket", src: "assets/canva/rocket.png", width: 204, height: 352 });
   A("addSlot", { bone: "rocket", name: "body" });
-  A("addShape", { slot: "body", shape: "rect", y: 90, width: 64, height: 170, radius: 30, fill: "#e5e7eb", stroke: "#94a3b8", strokeWidth: 3 });
-  A("addSlot", { bone: "rocket", name: "nose" });
-  A("addShape", { slot: "nose", shape: "polygon", points: [-31, 150, 31, 150, 0, 215], fill: "#e11d48" });
-  A("addSlot", { bone: "rocket", name: "window" });
-  A("addShape", { slot: "window", shape: "ellipse", y: 110, width: 30, height: 30, fill: "#38bdf8", stroke: "#475569", strokeWidth: 4 });
+  A("addRegion", { slot: "body", image: "rocket", y: 112, width: 132, height: 228 });
   A("addSlot", { bone: "rocket", name: "hit" });
   A("addBoundingBox", { slot: "hit", y: 100, width: 120, height: 230 });
 
@@ -523,8 +517,12 @@ function crash() {
   A("addBone", { name: "button", x: 570, y: -40, length: 0 });
 
   // Backdrop (its colour is bound to the multiplier), ground and launch pad.
-  A("addSlot", { bone: "root", name: "sky", color: "#0b1020" });
-  A("addShape", { slot: "sky", shape: "rect", x: 290, y: 170, width: 800, height: 500, fill: "#ffffff" });
+  // Painted art (see assets/canva/LICENSE.md). The sky's tint is bound to the multiplier.
+  A("addImage", { name: "crash-sky", src: "assets/canva/crash-sky.jpg", width: 800, height: 655 });
+  A("addImage", { name: "rocket", src: "assets/canva/rocket.png", width: 204, height: 352 });
+  for (let i = 1; i <= 4; i++) A("addImage", { name: `explosion_${String(i).padStart(4, "0")}`, src: `assets/canva/explosion_${String(i).padStart(4, "0")}.png`, width: 180, height: 180 });
+  A("addSlot", { bone: "root", name: "sky", color: "#7f8cc8" });
+  A("addRegion", { slot: "sky", image: "crash-sky", x: 290, y: 170, width: 800, height: 655 });
   A("addSlot", { bone: "root", name: "ground" });
   A("addShape", { slot: "ground", shape: "rect", x: 290, y: -40, width: 800, height: 80, fill: "#111827" });
   A("addSlot", { bone: "root", name: "pad" });
@@ -535,18 +533,12 @@ function crash() {
   A("addShape", { slot: "flame", shape: "polygon", points: [0, 12, 46, 0, 0, -12], fill: "#f97316" });
   A("addSlot", { bone: "flame", name: "flame-core" });
   A("addShape", { slot: "flame-core", shape: "polygon", points: [0, 6, 26, 0, 0, -6], fill: "#fde047" });
-  A("addSlot", { bone: "rocket", name: "fins" });
-  A("addShape", { slot: "fins", shape: "polygon", points: [-34, 0, -18, 24, -6, 0, -18, -24], fill: "#dc2626" });
+  // The rocket image points up; the bone points along the flight path (nose at +x).
   A("addSlot", { bone: "rocket", name: "body" });
-  A("addShape", { slot: "body", shape: "rect", width: 76, height: 26, radius: 13, fill: "#e5e7eb", stroke: "#9ca3af", strokeWidth: 2 });
-  A("addSlot", { bone: "rocket", name: "nose" });
-  A("addShape", { slot: "nose", shape: "polygon", points: [30, 11, 52, 0, 30, -11], fill: "#dc2626" });
-  A("addSlot", { bone: "rocket", name: "window" });
-  A("addShape", { slot: "window", shape: "ellipse", x: 12, width: 14, height: 14, fill: "#38bdf8", stroke: "#1e3a8a", strokeWidth: 2 });
-  A("addSlot", { bone: "boom", name: "boom", color: "#ffffff00" });
-  A("addShape", { slot: "boom", shape: "polygon", points: star(10, 60, 26), fill: "#fb923c" });
-  A("addSlot", { bone: "boom", name: "boom-core", color: "#ffffff00" });
-  A("addShape", { slot: "boom-core", shape: "ellipse", width: 50, height: 50, fill: "#fef08a" });
+  A("addRegion", { slot: "body", image: "rocket", x: 10, rotation: -90, width: 54, height: 94 });
+  // Explosion: a 4-frame painted sequence, additive so its dark backdrop disappears.
+  A("addSlot", { bone: "boom", name: "boom", color: "#ffffff00", blend: "additive" });
+  A("addSequence", { slot: "boom", name: "boom", frames: ["explosion_0001", "explosion_0002", "explosion_0003", "explosion_0004"], fps: 6, mode: "holdLast", width: 120, height: 120 });
 
   // HUD: the live multiplier and a status line (a string input), both text templates.
   A("addSlot", { bone: "hud", name: "multiplier" });
@@ -588,9 +580,8 @@ function crash() {
   K("crash", "bone", "rocket", "rotation", [[0, 35], [0.6, -160]], "easeOut");
   K("crash", "bone", "rocket", "y", [[0, 0], [0.6, -40]], "easeIn");
   K("crash", "bone", "flame", "scaleX", [[0, 1.4], [0.2, 0]]);
-  for (const slot of ["body", "nose", "fins", "window"]) K("crash", "slot", slot, "color", [[0.2, "#ffffffff"], [0.5, "#ffffff00"]]);
-  K("crash", "slot", "boom", "color", [[0, "#ffffff00"], [0.1, "#ffffffff"], [0.9, "#ffffff00"]]);
-  K("crash", "slot", "boom-core", "color", [[0, "#ffffff00"], [0.1, "#ffffffff"], [0.6, "#ffffff00"]]);
+  K("crash", "slot", "body", "color", [[0.2, "#ffffffff"], [0.5, "#ffffff00"]]);
+  K("crash", "slot", "boom", "color", [[0, "#ffffff00"], [0.05, "#ffffffff"], [1.1, "#ffffffff"], [1.5, "#ffffff00"]]);
   K("crash", "bone", "boom", "scaleX", [[0, 0.2], [0.5, 1.8]], "easeOut");
   K("crash", "bone", "boom", "scaleY", [[0, 0.2], [0.5, 1.8]], "easeOut");
   K("crash", "bone", "boom", "rotation", [[0, 0], [0.9, 40]]);
@@ -625,8 +616,11 @@ function crash() {
   // Live data: 1x → 10x carries the rocket up and right, and the sky warms up.
   A("addBinding", { stateMachine: "game", input: "multiplier", target: "bone", object: "climb", property: "x", inMin: 1, inMax: 10, outMin: 0, outMax: 520 });
   A("addBinding", { stateMachine: "game", input: "multiplier", target: "bone", object: "climb", property: "y", inMin: 1, inMax: 10, outMin: 0, outMax: 300 });
-  A("addBinding", { stateMachine: "game", input: "multiplier", target: "slot", object: "sky", property: "color", inMin: 1, inMax: 10, outMin: "#0b1020", outMax: "#4c1d95" });
+  A("addBinding", { stateMachine: "game", input: "multiplier", target: "slot", object: "sky", property: "color", inMin: 1, inMax: 10, outMin: "#7f8cc8", outMax: "#ffd9ef" });
   A("addListener", { stateMachine: "game", name: "start button", slot: "button-label", event: "click", actions: [{ type: "fireTrigger", input: "start" }] });
+  // Back to idle after a crash or cash-out: reset the round so the rocket returns to the pad and the HUD to 1.00x.
+  A("setStateInput", { stateMachine: "game", state: "idle", input: "multiplier", value: 1 });
+  A("setStateInput", { stateMachine: "game", state: "idle", input: "status", value: "Press START" });
   return s.doc;
 }
 
@@ -641,6 +635,127 @@ function star(n: number, r1: number, r0: number): number[] {
   return out;
 }
 
+// ---------- knight: painted parts rigged front-facing (Canva art, see assets/canva/LICENSE.md) ----------
+function knight() {
+  const s = new DocumentStore(createDocument("Knight", { background: "#e9e4da" }));
+  const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
+  A("setDocument", { width: 600, height: 700, originX: 300, originY: 660 });
+  // Art is drawn at 0.6x of the Canva sheet so every part keeps the sheet's proportions.
+  const S = 0.6;
+  const img = (name: string, w: number, h: number) => A("addImage", { name: `knight-${name}`, src: `assets/canva/knight-${name}.png`, width: w, height: h });
+  img("helmet", 98, 196);
+  img("torso", 186, 381);
+  img("shoulder", 90, 103);
+  img("arm-upper", 82, 91);
+  img("arm-lower", 71, 91);
+  img("hand", 66, 80);
+  img("thigh", 106, 172);
+  img("shin", 79, 240);
+  img("boot", 90, 88);
+  img("cape", 226, 379);
+
+  // Skeleton (y-up). Torso points up; limbs point down, so their images (drawn upright) rotate by ±90.
+  A("addBone", { name: "hip", y: 300, length: 20, color: "#ff9f43" });
+  A("addBone", { name: "torso", parent: "hip", rotation: 90, length: 160 });
+  A("addBone", { name: "head", parent: "torso", x: 158, length: 60 });
+  A("addBone", { name: "cape-root", parent: "torso", x: 150, rotation: -90, length: 0 });
+  A("addBone", { name: "cape1", parent: "torso", x: 150, rotation: 180, length: 95 });
+  A("addBone", { name: "cape2", parent: "cape1", x: 95, length: 95 });
+  A("addBone", { name: "cape3", parent: "cape2", x: 95, length: 95 });
+  for (const [side, dy] of [["right", 1], ["left", -1]] as const) {
+    A("addBone", { name: `${side}-arm`, parent: "torso", x: 132, y: dy * 58, rotation: 180 - dy * 6, length: 66 });
+    A("addBone", { name: `${side}-forearm`, parent: `${side}-arm`, x: 66, rotation: dy * 4, length: 62 });
+    A("addBone", { name: `${side}-hand`, parent: `${side}-forearm`, x: 62, length: 34 });
+    A("addBone", { name: `${side}-thigh`, parent: "hip", x: dy * -34, rotation: -90, length: 100 });
+    A("addBone", { name: `${side}-shin`, parent: `${side}-thigh`, x: 100, length: 140 });
+  }
+
+  // Back to front: cape, legs, torso, arms, helmet. Right-side parts mirror the right-side art (scaleX -1).
+  const part = (slot: string, bone: string, image: string, w: number, h: number, o: { x?: number; y?: number; rotation?: number; mirror?: boolean; k?: number } = {}) => {
+    A("addSlot", { bone, name: slot });
+    A("addRegion", { slot, image: `knight-${image}`, x: o.x ?? 0, y: o.y ?? 0, rotation: o.rotation ?? 90, scaleX: o.mirror ? -1 : 1, width: w * S * (o.k ?? 1), height: h * S * (o.k ?? 1) });
+  };
+  A("addSlot", { bone: "cape-root", name: "cape" });
+  A("addMesh", { slot: "cape", name: "cape", image: "knight-cape", y: -140, width: 170, height: 285, cols: 3, rows: 6 });
+  A("autoWeights", { slot: "cape", attachment: "cape", bones: ["cape1", "cape2", "cape3"], maxInfluences: 2 });
+  for (const side of ["right", "left"] as const) {
+    const mirror = side === "left";
+    part(`${side}-thigh`, `${side}-thigh`, "thigh", 106, 172, { x: 48, mirror });
+    part(`${side}-shin`, `${side}-shin`, "shin", 79, 240, { x: 64, mirror });
+    part(`${side}-boot`, `${side}-shin`, "boot", 90, 88, { x: 150, y: mirror ? 6 : -6, mirror });
+  }
+  part("torso", "torso", "torso", 186, 381, { x: 44, rotation: -90 });
+  A("addBoundingBox", { slot: "torso", name: "body-hit", x: 60, width: 260, height: 170 });
+  for (const side of ["right", "left"] as const) {
+    const mirror = side === "left";
+    part(`${side}-arm-lower`, `${side}-forearm`, "arm-lower", 71, 91, { x: 28, mirror, k: 1.25 });
+    part(`${side}-hand`, `${side}-hand`, "hand", 66, 80, { x: 10, mirror, k: 1.15 });
+    part(`${side}-arm-upper`, `${side}-arm`, "arm-upper", 82, 91, { x: 34, mirror, k: 1.38 });
+    part(`${side}-shoulder`, `${side}-arm`, "shoulder", 90, 103, { x: 4, y: mirror ? 4 : -4, mirror });
+  }
+  part("helmet", "head", "helmet", 98, 196, { x: 46, rotation: -90 });
+
+  const K = (anim: string, target: string, id: string, property: string, keys: [number, number][], curve = "easeInOut") =>
+    A("setKeys", { animation: anim, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });
+  // ---- idle: breathing, slight sway, cape drifting ----
+  A("createAnimation", { name: "idle", duration: 2.4 });
+  K("idle", "bone", "hip", "y", [[0, 300], [1.2, 296], [2.4, 300]]);
+  K("idle", "bone", "torso", "rotation", [[0, 90], [1.2, 91.5], [2.4, 90]]);
+  K("idle", "bone", "head", "rotation", [[0, 0], [1.2, -2], [2.4, 0]]);
+  K("idle", "bone", "right-arm", "rotation", [[0, 174], [1.2, 171], [2.4, 174]]);
+  K("idle", "bone", "left-arm", "rotation", [[0, 186], [1.2, 189], [2.4, 186]]);
+  K("idle", "bone", "cape2", "rotation", [[0, 0], [1.2, 3], [2.4, 0]]);
+  K("idle", "bone", "cape3", "rotation", [[0, 0], [1.2, 5], [2.4, 0]]);
+  // ---- march in place (loop), seen from the front ----
+  // A knee lifting towards the viewer is foreshortened: the thigh gets shorter (scaleX) and the foot rises straight up.
+  // The shin scales up by the inverse so only the thigh looks shorter. Arms swing opposite to the legs.
+  A("createAnimation", { name: "march", duration: 0.9 });
+  const lift = (leg: string, t0: number, outward: number) => {
+    const up = t0 + 0.225, down = t0 + 0.45;
+    const before = t0 > 0 ? ([[0, 1]] as [number, number][]) : [];
+    const after = down < 0.9 ? ([[0.9, 1]] as [number, number][]) : [];
+    K("march", "bone", `${leg}-thigh`, "scaleX", [...before, [t0, 1], [up, 0.55], [down, 1], ...after]);
+    K("march", "bone", `${leg}-shin`, "scaleX", [...before, [t0, 1], [up, 1 / 0.55], [down, 1], ...after]);
+    K("march", "bone", `${leg}-thigh`, "rotation", [...before.map(([t]) => [t, -90] as [number, number]), [t0, -90], [up, -90 + outward], [down, -90], ...after.map(([t]) => [t, -90] as [number, number])]);
+  };
+  lift("right", 0, -4);
+  lift("left", 0.45, 4);
+  // Only the upper body bobs, so the planted foot stays on the ground.
+  K("march", "bone", "torso", "y", [[0, 0], [0.225, 4], [0.45, 0], [0.675, 4], [0.9, 0]]);
+  K("march", "bone", "torso", "rotation", [[0, 90], [0.225, 91.5], [0.45, 90], [0.675, 88.5], [0.9, 90]]);
+  K("march", "bone", "head", "rotation", [[0, 0], [0.225, -1], [0.45, 0], [0.675, 1], [0.9, 0]]);
+  // The arm opposite the lifted knee swings forward: the hand comes in towards the body and up a little.
+  K("march", "bone", "left-forearm", "rotation", [[0, -4], [0.225, -18], [0.45, -4], [0.9, -4]]);
+  K("march", "bone", "left-arm", "rotation", [[0, 186], [0.225, 182], [0.45, 186], [0.675, 189], [0.9, 186]]);
+  K("march", "bone", "right-forearm", "rotation", [[0, 4], [0.45, 4], [0.675, 18], [0.9, 4]]);
+  K("march", "bone", "right-arm", "rotation", [[0, 174], [0.225, 171], [0.45, 174], [0.675, 178], [0.9, 174]]);
+  K("march", "bone", "cape2", "rotation", [[0, 0], [0.225, 2], [0.45, 0], [0.675, -2], [0.9, 0]]);
+  K("march", "bone", "cape3", "rotation", [[0, 0], [0.225, 4], [0.45, 0], [0.675, -4], [0.9, 0]]);
+  // ---- wave: left arm up, hand waves, cape flicks (plays once) ----
+  A("createAnimation", { name: "wave", duration: 1.6 });
+  K("wave", "bone", "right-arm", "rotation", [[0, 174], [0.35, 32], [1.25, 32], [1.6, 174]]);
+  K("wave", "bone", "right-forearm", "rotation", [[0, 4], [0.35, -12], [1.25, -12], [1.6, 4]]);
+  // The hanging hand shows its back; flip it across the arm when raised so the open palm faces the viewer.
+  K("wave", "bone", "right-hand", "scaleY", [[0, 1], [0.2, 1], [0.21, -1], [1.39, -1], [1.4, 1]], "stepped");
+  K("wave", "bone", "right-hand", "rotation", [[0, 0], [0.35, 0], [0.55, -22], [0.75, 14], [0.95, -22], [1.15, 14], [1.35, 0]]);
+  K("wave", "bone", "torso", "rotation", [[0, 90], [0.35, 87], [1.25, 87], [1.6, 90]]);
+  K("wave", "bone", "head", "rotation", [[0, 0], [0.35, -4], [1.25, -4], [1.6, 0]]);
+  K("wave", "bone", "cape3", "rotation", [[0, 0], [0.4, -8], [0.9, 6], [1.6, 0]]);
+
+  // ---- state machine: click the knight to wave; "march" toggles marching ----
+  A("createStateMachine", { name: "knight" });
+  A("addInput", { stateMachine: "knight", name: "march", type: "bool" });
+  A("addInput", { stateMachine: "knight", name: "wave", type: "trigger" });
+  A("addState", { stateMachine: "knight", name: "idle", animation: "idle", x: 120, y: 140 });
+  A("addState", { stateMachine: "knight", name: "march", animation: "march", x: 380, y: 60 });
+  A("addState", { stateMachine: "knight", name: "wave", animation: "wave", loop: false, onComplete: "idle", x: 380, y: 220 });
+  A("addTransition", { stateMachine: "knight", from: "idle", to: "march", conditions: [{ input: "march", value: true }], duration: 0.25 });
+  A("addTransition", { stateMachine: "knight", from: "march", to: "idle", conditions: [{ input: "march", value: false }], duration: 0.25 });
+  A("addTransition", { stateMachine: "knight", from: "@any", to: "wave", conditions: [{ input: "wave" }], duration: 0.2 });
+  A("addListener", { stateMachine: "knight", slot: "torso", event: "click", actions: [{ type: "fireTrigger", input: "wave" }] });
+  return s.doc;
+}
+
 // Build only when run as a script (tests import the example builders).
 const runAsScript = process.argv[1] === fileURLToPath(import.meta.url);
 if (runAsScript) {
@@ -648,7 +763,7 @@ if (runAsScript) {
   for (let i = 0; i < SMOKE_FRAMES; i++) writeFileSync(path.join(here, `assets/${frameName("smoke", i)}.png`), makeSmoke(i));
 }
 if (runAsScript)
-for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()], ["campfire.obone", campfire()], ["rocket.obone", rocket()], ["crash.obone", crash()]] as const) {
+for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()], ["campfire.obone", campfire()], ["rocket.obone", rocket()], ["crash.obone", crash()], ["knight.obone", knight()]] as const) {
   const issues = validate(doc);
   if (issues.some((i) => i.level === "error")) throw new Error(`${file}: ${JSON.stringify(issues)}`);
   writeFileSync(path.join(here, file), serialize(doc));

@@ -1,5 +1,5 @@
 import { ANY_STATE, type Condition, type ConditionOp, type InputData, type InputValue, type LayerData, type StateData, type TransitionData } from "@openbone/core";
-import { For, Match, Show, Switch, createSignal, onCleanup } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { apply, currentStateMachine, doc, running, setRunning, setStateMachineId, toast } from "../state.ts";
 import { eventLog, smInstance } from "./Viewport.tsx";
 import { askForm, askText, uniqueName } from "../dialogs.tsx";
@@ -9,6 +9,10 @@ import { BindingList } from "./Bindings.tsx";
 
 const W = 130;
 const H = 40;
+
+type GraphView = { x: number; y: number; z: number };
+/** Pan/zoom per state machine + layer, kept across panel remounts (fit only the first time a graph is shown). */
+const graphViews = new Map<string, GraphView>();
 
 type Sel = { kind: "state"; id: string } | { kind: "transition"; id: string } | null;
 
@@ -60,10 +64,114 @@ export function StateMachinePanel() {
   const [dragPos, setDragPos] = createSignal<{ id: string; x: number; y: number } | null>(null);
   const [linking, setLinking] = createSignal<{ from: string; x: number; y: number } | null>(null);
   const pos = (s: StateData) => (dragPos()?.id === s.id ? dragPos()! : { x: s.x, y: s.y });
-  const local = (e: PointerEvent) => {
-    const r = svg.getBoundingClientRect();
-    return { x: e.clientX - r.left + svg.parentElement!.scrollLeft, y: e.clientY - r.top + svg.parentElement!.scrollTop };
+  // ---- graph view: pan (drag empty space), zoom (wheel, buttons), fit ----
+  const viewKey = () => `${sm()?.id}/${layer()?.id}`;
+  const [view, setViewRaw] = createSignal<GraphView>(graphViews.get(viewKey()) ?? { x: 0, y: 0, z: 1 });
+  const setView = (v: GraphView | ((v: GraphView) => GraphView)) => {
+    const next = typeof v === "function" ? v(view()) : v;
+    setViewRaw(next);
+    graphViews.set(viewKey(), next);
   };
+  /** Show the saved view of the current graph, or fit it if it has none yet. */
+  const showView = () => {
+    const saved = graphViews.get(viewKey());
+    if (saved) {
+      fitted = true;
+      setViewRaw(saved);
+    } else fit();
+  };
+  const ZMIN = 0.2;
+  const ZMAX = 2.5;
+  const clampZ = (z: number) => Math.min(ZMAX, Math.max(ZMIN, z));
+  const local = (e: { clientX: number; clientY: number }) => {
+    const r = svg.getBoundingClientRect();
+    const v = view();
+    return { x: (e.clientX - r.left - v.x) / v.z, y: (e.clientY - r.top - v.y) / v.z };
+  };
+  /** Zoom by `f` keeping the graph point under (sx, sy) (svg pixels) in place; default: the view centre. */
+  const zoomBy = (f: number, sx?: number, sy?: number) => {
+    const r = svg.getBoundingClientRect();
+    const cx = sx ?? r.width / 2;
+    const cy = sy ?? r.height / 2;
+    const v = view();
+    const z = clampZ(v.z * f);
+    setView({ z, x: cx - ((cx - v.x) * z) / v.z, y: cy - ((cy - v.y) * z) / v.z });
+  };
+  let fitted = graphViews.has(viewKey());
+  // The panel may be in a hidden tab at first: fit the first time the graph gets a real size.
+  const ro = new ResizeObserver(() => {
+    if (!fitted) showView();
+  });
+  onCleanup(() => ro.disconnect());
+  const fit = () => {
+    if (!svg) return;
+    const r = svg.getBoundingClientRect();
+    if (r.width < 10 || r.height < 10) return;
+    const sts = layer()?.states ?? [];
+    let x0 = 40, y0 = 20, x1 = 100, y1 = 50; // the Any node
+    for (const st of sts) {
+      x0 = Math.min(x0, st.x);
+      y0 = Math.min(y0, st.y - 14); // ENTRY tag
+      x1 = Math.max(x1, st.x + W);
+      y1 = Math.max(y1, st.y + H);
+    }
+    fitted = true;
+    const pad = 32;
+    const z = clampZ(Math.min((r.width - pad * 2) / (x1 - x0), (r.height - pad * 2) / (y1 - y0), 1.25));
+    setView({ z, x: (r.width - (x1 - x0) * z) / 2 - x0 * z, y: (r.height - (y1 - y0) * z) / 2 - y0 * z });
+  };
+  const onWheel = (e: WheelEvent) => {
+    e.preventDefault();
+    const r = svg.getBoundingClientRect();
+    // Pinch / ctrl-wheel and mouse wheels zoom at the cursor; a plain two-finger trackpad scroll pans.
+    const trackpadPan = !e.ctrlKey && e.deltaMode === 0 && Math.abs(e.deltaX) > 0;
+    if (trackpadPan) setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }));
+    else zoomBy(Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)), e.clientX - r.left, e.clientY - r.top);
+  };
+  const bgDown = (e: PointerEvent) => {
+    if (e.button !== 0 && e.button !== 1) return;
+    const start = { x: e.clientX, y: e.clientY };
+    const v0 = view();
+    let moved = false;
+    const move = (m: PointerEvent) => {
+      const dx = m.clientX - start.x;
+      const dy = m.clientY - start.y;
+      if (!moved && Math.hypot(dx, dy) < 3) return;
+      moved = true;
+      setPanning(true);
+      setView({ ...v0, x: v0.x + dx, y: v0.y + dy });
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setPanning(false);
+      if (!moved) setSel(null);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  const [panning, setPanning] = createSignal(false);
+  const graphKey = (e: KeyboardEvent) => {
+    if ((e.target as HTMLElement).closest("input, select, textarea")) return;
+    if (e.key === "f" || e.key === "F" || e.key === "0") fit();
+    else if (e.key === "+" || e.key === "=") zoomBy(1.2);
+    else if (e.key === "-" || e.key === "_") zoomBy(1 / 1.2);
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  // Fit when the graph appears, and whenever another state machine or layer is shown.
+  onMount(() => setTimeout(showView));
+  createEffect(
+    on(
+      () => `${sm()?.id}/${layer()?.id}`,
+      () => {
+        fitted = false; // if the graph is hidden now, the ResizeObserver fits it once it is shown
+        setTimeout(showView);
+      },
+      { defer: true },
+    ),
+  );
 
   const nodeDown = (e: PointerEvent, s: StateData | "any") => {
     e.stopPropagation();
@@ -92,7 +200,7 @@ export function StateMachinePanel() {
     const start = local(e);
     const move = (m: PointerEvent) => {
       const p = local(m);
-      setDragPos({ id: st.id, x: Math.max(0, st.x + p.x - start.x), y: Math.max(0, st.y + p.y - start.y) });
+      setDragPos({ id: st.id, x: st.x + p.x - start.x, y: st.y + p.y - start.y });
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
@@ -285,14 +393,26 @@ export function StateMachinePanel() {
               + Layer
             </button>
             <button onClick={addState}>+ State</button>
-            <span class="muted">Shift-drag between states (or drag from Any) to add a transition</span>
+            <span class="muted">Shift-drag between states (or drag from Any) to add a transition · drag empty space to pan, wheel to zoom</span>
             <span class="spacer" />
             <button class={running() ? "live" : "primary"} onClick={() => setRunning(!running())}>
               {running() ? "■ Stop" : "▶ Run"}
             </button>
           </div>
-          <div class="sm-graph" onPointerDown={() => setSel(null)}>
-            <svg ref={svg} width={Math.max(900, ...(layer()?.states.map((s) => s.x + W + 40) ?? [0]))} height={Math.max(260, ...(layer()?.states.map((s) => s.y + H + 40) ?? [0]))}>
+          <div
+            class="sm-graph"
+            classList={{ panning: panning() }}
+            tabIndex={0}
+            onKeyDown={graphKey}
+            style={{ "background-position": `${view().x}px ${view().y}px`, "background-size": `${18 * view().z}px ${18 * view().z}px, auto` }}
+          >
+            <svg
+              ref={(el) => {
+                if (svg) ro.unobserve(svg);
+                svg = el;
+                ro.observe(el);
+              }}
+              onPointerDown={bgDown} onWheel={onWheel} onDblClick={(e) => e.target === svg && fit()}>
               <defs>
                 <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
                   <path d="M 0 0 L 10 5 L 0 10 z" fill="#8a93a6" />
@@ -301,6 +421,7 @@ export function StateMachinePanel() {
                   <path d="M 0 0 L 10 5 L 0 10 z" fill="#ffcc00" />
                 </marker>
               </defs>
+              <g transform={`translate(${view().x} ${view().y}) scale(${view().z})`}>
               <Show when={layer()}>
                 <g class="any-node" onPointerDown={(e) => nodeDown(e, "any")}>
                   <rect x={40} y={20} width={60} height={30} rx={15} />
@@ -375,7 +496,16 @@ export function StateMachinePanel() {
                   }}
                 </Show>
               </Show>
+              </g>
             </svg>
+            <div class="sm-zoom" onPointerDown={(e) => e.stopPropagation()}>
+              <button title="Zoom out (-)" onClick={() => zoomBy(1 / 1.2)}>−</button>
+              <button class="sm-zoom-pct" title="Reset to 100%" onClick={() => zoomBy(1 / view().z)}>
+                {Math.round(view().z * 100)}%
+              </button>
+              <button title="Zoom in (+)" onClick={() => zoomBy(1.2)}>+</button>
+              <button title="Fit to view (F, or double-click empty space)" onClick={fit}>⛶</button>
+            </div>
           </div>
         </div>
 
@@ -477,6 +607,35 @@ function StateProps(p: { state: StateData; layer: LayerData; onDeleted: () => vo
                   <option value="off" selected={cur()?.emitting === false}>stop</option>
                 </select>
               </label>
+            );
+          }}
+        </For>
+      </Show>
+      <Show when={p.state.type !== "exit" && sm().inputs.some((i) => i.type !== "trigger")}>
+        <div class="col-title" title="Values applied every time this state is entered, e.g. reset a round's multiplier when going back to idle.">Set inputs on enter</div>
+        <For each={sm().inputs.filter((i) => i.type !== "trigger")}>
+          {(input) => {
+            const cur = () => p.state.inputs?.find((x) => x.input === input.id);
+            const set = (value: boolean | number | string | null) => apply("setStateInput", { ...args(), input: input.id, value });
+            return (
+              <div class="field">
+                <span>{input.name}</span>
+                <span class="state-input">
+                  <input type="checkbox" title="Set this input on enter" checked={!!cur()} onChange={(e) => set(e.currentTarget.checked ? input.default : null)} />
+                  <Show when={cur()}>
+                    {input.type === "bool" ? (
+                      <input type="checkbox" title="Value" checked={cur()!.value === true} onChange={(e) => set(e.currentTarget.checked)} />
+                    ) : (
+                      <input
+                        type={input.type === "number" ? "number" : "text"}
+                        step="any"
+                        value={String(cur()!.value)}
+                        onChange={(e) => set(input.type === "number" ? Number(e.currentTarget.value) : e.currentTarget.value)}
+                      />
+                    )}
+                  </Show>
+                </span>
+              </div>
             );
           }}
         </For>

@@ -77,8 +77,8 @@ describe("WebGL batching with an atlas", () => {
     expect(atlas.calls).toBe(2);
   });
 
-  it("button example: no images, nothing changes", () => {
-    const doc = example("button.obone");
+  it("tail example: no images, nothing changes", () => {
+    const doc = example("tail.obone");
     expect(packed(doc).atlas).toBeUndefined();
     expect(drawCalls(packed(doc))).toEqual(drawCalls(doc));
   });

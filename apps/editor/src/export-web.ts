@@ -15,6 +15,8 @@ export interface WebExportOptions {
   stateMachine: string | null;
   pack: boolean;
   binary: boolean;
+  /** Re-encode images as WebP at this quality (0..1) when smaller; null keeps them as they are. */
+  webpQuality: number | null;
   /** Player background, or null for transparent; undefined keeps the document's. */
   background: string | null | undefined;
 }
@@ -29,15 +31,32 @@ const BUNDLES: Record<string, () => Promise<{ default: string }>> = {
   "esm/min/noqjs": () => import("virtual:openbone-web-player/esm/min/noqjs"),
   "esm/full/qjs": () => import("virtual:openbone-web-player/esm/full/qjs"),
   "esm/full/noqjs": () => import("virtual:openbone-web-player/esm/full/noqjs"),
+  "iife/min/lazy": () => import("virtual:openbone-web-player/iife/min/lazy"),
+  "iife/full/lazy": () => import("virtual:openbone-web-player/iife/full/lazy"),
+  "esm/min/lazy": () => import("virtual:openbone-web-player/esm/min/lazy"),
+  "esm/full/lazy": () => import("virtual:openbone-web-player/esm/full/lazy"),
 };
 
-/** Player library source for a variant. */
-export async function webPlayerCode(format: WebPlayerFormat, minify: boolean, scripts: boolean): Promise<string> {
-  return (await BUNDLES[`${format}/${minify ? "min" : "full"}/${scripts ? "qjs" : "noqjs"}`]()).default;
+/** The sandbox add-on (openbone-scripts.js) and quickjs.wasm that "lazy" players load when an animation has scripts. */
+async function scriptsAddon(minify: boolean): Promise<{ code: string; wasm: Uint8Array }> {
+  const code = (await (minify ? import("virtual:openbone-web-player/scripts/min") : import("virtual:openbone-web-player/scripts/full"))).default;
+  const b64 = (await import("virtual:openbone-web-player/quickjs-wasm")).default;
+  const bin = atob(b64);
+  const wasm = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) wasm[i] = bin.charCodeAt(i);
+  return { code, wasm };
 }
 
-/** Approximate player size in KB, for the dialog (measured builds). */
-export const playerSizeKb = (minify: boolean, scripts: boolean) => (minify ? 89 : 170) + (scripts ? 710 : 0);
+/** Player library source for a variant ("lazy": the sandbox ships as separate files, loaded only when needed). */
+export async function webPlayerCode(format: WebPlayerFormat, minify: boolean, scripts: boolean | "lazy"): Promise<string> {
+  return (await BUNDLES[`${format}/${minify ? "min" : "full"}/${scripts === "lazy" ? "lazy" : scripts ? "qjs" : "noqjs"}`]()).default;
+}
+
+/**
+ * Approximate player size in KB, for the dialog (measured builds). ZIP exports keep the sandbox in separate files
+ * (≈ 55 KB + 491 KB .wasm) that are downloaded only for animations with scripts; single files inline it (+710 KB).
+ */
+export const playerSizeKb = (minify: boolean, scripts: boolean, singleFile: boolean) => (minify ? 90 : 175) + (scripts && singleFile ? 710 : 0);
 
 export async function exportWebPack(
   source: OpenBoneDocument,
@@ -47,9 +66,12 @@ export async function exportWebPack(
   onProgress?: (stage: string, p: number) => void,
 ): Promise<{ data: Uint8Array; name: string; ext: string; mime: string; description: string }> {
   onProgress?.("Preparing animation", 0);
-  const { bytes, doc } = await webViewDocument(source, { pack: o.pack, binary: o.binary });
+  const { bytes, doc } = await webViewDocument(source, { pack: o.pack, binary: o.binary, webpQuality: o.webpQuality });
   onProgress?.("Building player", 0.4);
-  const playerCode = await webPlayerCode(o.format, o.minify, o.scripts);
+  // ZIP: keep the sandbox out of the player and ship it as files loaded on demand. Single file: inline it.
+  const lazy = o.scripts && !o.singleFile;
+  const playerCode = await webPlayerCode(o.format, o.minify, lazy ? "lazy" : o.scripts);
+  const addon = lazy ? await scriptsAddon(o.minify) : undefined;
   const sm = (o.stateMachine ? doc.stateMachines.find((s) => s.name === o.stateMachine) : null) ?? doc.stateMachines[0];
   const pack: WebPackOptions = {
     title,
@@ -58,6 +80,7 @@ export async function exportWebPack(
     format: o.format,
     minified: o.minify,
     scripts: o.scripts,
+    scriptsAddon: addon,
     doc: bytes,
     docExt: o.binary ? "obonb" : "obone",
     singleFile: o.singleFile,

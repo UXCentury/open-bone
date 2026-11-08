@@ -57,6 +57,17 @@ describe("web pack", () => {
     expect(html).toContain(`src="data:application/octet-stream;base64,${btoa('{"format":"openbone"}')}"`);
   });
 
+  it("ZIP packs can ship the script sandbox as separate files loaded on demand", () => {
+    const o = { ...base, scripts: true, hasScripts: true, scriptsAddon: { code: "/*! sandbox */", wasm: new Uint8Array([0, 97, 115, 109]) } };
+    expect(names(o)).toEqual(["index.html", "openbone-player.min.js", "crash.obone", "openbone-scripts.js", "quickjs.wasm", "README.md", "THIRD-PARTY-NOTICES.txt"]);
+    expect(webPackFiles(o).find((f) => f.name === "quickjs.wasm")!.data).toEqual(new Uint8Array([0, 97, 115, 109]));
+    const readme = webReadme(o);
+    expect(readme).toContain("only for animations with scripts");
+    expect(readme).not.toContain("with the script sandbox (QuickJS)");
+    // single-file pages never ship the add-on files
+    expect(names({ ...o, singleFile: true })).toEqual(["index.html", "README.md", "THIRD-PARTY-NOTICES.txt"]);
+  });
+
   it("adds third-party notices with the sandbox and warns when scripts are skipped", () => {
     expect(names({ ...base, scripts: true })).toContain("THIRD-PARTY-NOTICES.txt");
     const readme = webReadme({ ...base, hasScripts: true, scripts: false });

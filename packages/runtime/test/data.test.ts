@@ -68,6 +68,30 @@ describe("staged flow", () => {
     expect(seen).toEqual(["idle", "flyout", "flying", "crash", "idle", "flyout", "cashout"]);
   });
 
+  it("a state can reset inputs when entered (back to idle after a round)", () => {
+    const s = crash();
+    s.apply("setStateInput", { stateMachine: "game", state: "idle", input: "multiplier", value: 1 });
+    s.apply("setStateInput", { stateMachine: "game", state: "idle", input: "player", value: "Next" });
+    expect(() => s.apply("setStateInput", { stateMachine: "game", state: "idle", input: "start", value: true })).toThrow(/trigger/);
+    const sm = new OpenBoneInstance(s.doc).useStateMachine("game");
+    sm.advance(0.1);
+    sm.fire("start");
+    sm.advance(0.6);
+    sm.setInput("multiplier", 4.2);
+    sm.setInput("player", "Ada");
+    sm.fire("crash");
+    sm.advance(0.05);
+    expect(sm.getInput("multiplier")).toBe(4.2);
+    for (let i = 0; i < 5; i++) sm.advance(0.1);
+    expect(state(sm)).toBe("idle");
+    expect(sm.getInput("multiplier")).toBe(1);
+    expect(sm.getInput("player")).toBe("Next");
+    // value null removes the reset; deleting the input removes it too
+    s.apply("setStateInput", { stateMachine: "game", state: "idle", input: "player", value: null });
+    s.apply("deleteInput", { stateMachine: "game", input: "multiplier" });
+    expect(s.doc.stateMachines[0].layers[0].states.find((x) => x.name === "idle")!.inputs).toBeUndefined();
+  });
+
   it("onComplete leaves a looping state after its first cycle", () => {
     const s = crash();
     s.apply("updateState", { stateMachine: "game", state: "idle", onComplete: "flying" });

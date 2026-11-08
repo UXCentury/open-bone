@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { type Plugin, defineConfig } from "vite";
 import solid from "vite-plugin-solid";
-import { type WebBundleFormat, buildPlayerBundle, buildWebBundle } from "../../packages/player/src/bundle/build.ts";
+import { type WebBundleFormat, buildPlayerBundle, buildScriptsAddon, buildWebBundle, quickJsWasmBytes } from "../../packages/player/src/bundle/build.ts";
 
 const EXAMPLES = path.resolve(__dirname, "../../examples");
 const MIME: Record<string, string> = { ".obone": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp" };
@@ -58,8 +58,10 @@ function playerBundle(): Plugin {
 }
 
 /**
- * `virtual:openbone-web-player/<iife|esm>/<min|full>/<qjs|noqjs>`: the web player library for the Web export, one
+ * `virtual:openbone-web-player/<iife|esm>/<min|full>/<qjs|noqjs|lazy>`: the web player library for the Web export, one
  * module per variant, each built with esbuild only when an export first asks for it (dev) or at build time.
+ * `virtual:openbone-web-player/scripts/<min|full>`: the lazy-loaded sandbox add-on (openbone-scripts.js);
+ * `virtual:openbone-web-player/quickjs-wasm`: its quickjs.wasm, as base64.
  */
 function webPlayerBundle(): Plugin {
   const prefix = "virtual:openbone-web-player/";
@@ -72,7 +74,12 @@ function webPlayerBundle(): Plugin {
       const [format, min, qjs] = id.slice(prefix.length + 1).split("/");
       let code = cache.get(id);
       if (!code) {
-        code = buildWebBundle({ format: format as WebBundleFormat, minify: min === "min", scripts: qjs === "qjs" });
+        code =
+          format === "quickjs-wasm"
+            ? Promise.resolve(Buffer.from(quickJsWasmBytes()).toString("base64"))
+            : format === "scripts"
+              ? buildScriptsAddon({ minify: min === "min" })
+              : buildWebBundle({ format: format as WebBundleFormat, minify: min === "min", scripts: qjs === "lazy" ? "lazy" : qjs === "qjs" });
         cache.set(id, code);
       }
       return `export default ${JSON.stringify(await code)};`;

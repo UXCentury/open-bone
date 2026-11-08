@@ -32,7 +32,7 @@
 - **Onion skin**: ghost poses before (red) and after (green) the current frame.
 
 ### Interactivity (Rive-style)
-- **State machines** with layers, bool/number/string/trigger inputs, animation and 1D blend states, any-state transitions, conditions, exit times, cross-fades and **"on complete" hand-offs** for staged flows (play once, then continue).
+- **State machines** with layers, bool/number/string/trigger inputs, animation and 1D blend states, any-state transitions, conditions, exit times, cross-fades, **"on complete" hand-offs** for staged flows (play once, then continue) and **inputs set on enter** (reset a round when going back to idle). The graph pans, zooms and fits to view.
 - **Live data**: **text attachments** whose content is a template bound to inputs (`{multiplier:0.00}x`, thousands separators, signs, percent), and **input bindings** that drive bone, slot (colour, alpha) and constraint properties from a number input with a clamped linear mapping. See the crash-game example.
 - **Pointer listeners** on hit boxes (down, up, enter, exit, move, click) that set inputs, fire triggers, report events, play or stop sounds, start or stop particles, or run scripts.
 - **Sandboxed scripts** (QuickJS-WASM, memory cap and per-call deadline) with an `ob` API: `onStart`, `onUpdate`, `onEvent`, `onPointer`.
@@ -56,14 +56,14 @@
 - **Data**: JSON (`.json`) or compact **binary** (`.obonb`, about 40% of JSON), with a choice of animations, state machines, scripts and skins, plus nonessential-data stripping, animation clean-up, embedded images and atlas packing.
 - **Images**: PNG and JPEG (one frame or a ZIP of every frame), animated **GIF** and **APNG**, layered **PSD** (one layer per frame).
 - **Video**: **AVI** and **MOV** (Motion-JPEG).
-- **Web**: the `<openbone-player>` web component as a classic script (`window.OpenBone`) or an ES module, **minified (≈ 89 KB) or readable**, with or without the script sandbox (+0.7 MB), plus your animation, a demo page with controls for the inputs and a README with embed snippets (ZIP), or **one self-contained HTML file** that works without a server.
+- **Web**: the `<openbone-player>` web component as a classic script (`window.OpenBone`) or an ES module, **minified (≈ 90 KB, 32 KB gzipped) or readable**, plus your animation, a demo page with controls for the inputs and a README with embed snippets (ZIP), or **one self-contained HTML file** that works without a server. In ZIPs the script sandbox ships as separate files (`openbone-scripts.js` + `quickjs.wasm`) that are downloaded only when an animation has scripts. Embedded images are re-encoded as **WebP** when smaller (the knight example: 470 KB → 71 KB), or kept lossless.
 - **Engines**: sprite-sheet packs (trimmed, packed sheets with frame metadata) for **Unity** (TexturePacker/Unity JSON + import guide), **Godot 4** (ready `SpriteFrames` `.tres` and an `AnimatedSprite2D` scene), **Flutter** (sheet + JSON + Flame snippet) and generic engines (TexturePacker hash/array JSON for Phaser, PixiJS, Cocos); plus **interactive WebView packages** for **Flutter**, **Android** (Kotlin `OpenBoneView`) and **iOS** (Swift, UIKit and SwiftUI) that run the full file (state machines, inputs, scripts) through a small JS bridge (`setInput`, `fire`, `play`, events back to the app). The native templates are not compiled in CI; see their READMEs.
 - Animation, skin, frame rate, scale, artboard or fit-to-content area, transparent or coloured background, quality and looping options; a live preview; export settings can be saved to a file and loaded again.
 
 ### Runtime and tools
 - Renderer-agnostic TypeScript runtime with **WebGL2** (batched) and **Canvas2D** renderers.
 - **`<openbone-player>`** web component and a `Player` class (loads `.obone`, `.json` and `.obonb`).
-- **MCP server** (105 tools; every editing op becomes a tool automatically) with render/simulate tools and a live WebSocket bridge to the editor.
+- **MCP server** (106 tools; every editing op becomes a tool automatically) with render/simulate tools and a live WebSocket bridge to the editor.
 - **CLI**: validate, summarize, render PNG/GIF, simulate state machines, apply any op.
 - **Desktop app** (Tauri 2) with native file dialogs.
 
@@ -79,7 +79,7 @@ pnpm install
 pnpm dev
 ```
 
-The editor opens at http://localhost:5180 with the *Walker* example (IK legs, weighted cape mesh, idle/walk blend, jump trigger, eye-follow script). The *Examples* menu also has an interactive button (state machine, clipping mask, click sound), a tail (path and physics constraints), a campfire (sprite sequences), a rocket (particles, click to toggle the engine) and a **crash game** (staged flow idle → fly-out → flying → crash or cash-out, a live multiplier text and input bindings). Press **▶ Play** to try any of them. The player demo is at http://localhost:5180/player.html.
+The editor opens at http://localhost:5180 with the *Walker* example (IK legs, weighted cape mesh, idle/walk blend, jump trigger, eye-follow script). The *Examples* menu also has a **knight** (painted parts, weighted cape mesh, idle/march/wave, click to wave), an interactive button (state machine, clipping mask, click sound), a tail (path and physics constraints), a campfire (sprite sequences), a rocket (particles, click to toggle the engine) and a **crash game** (staged flow idle → fly-out → flying → crash or cash-out, a live multiplier text, input bindings and a sprite-sequence explosion). The knight, button, rocket and crash-game art is painted (see [examples/assets/canva/LICENSE.md](examples/assets/canva/LICENSE.md); MIT like the rest of the repo). Press **▶ Play** to try any of them. The player demo is at http://localhost:5180/player.html.
 
 ```bash
 pnpm test
@@ -145,7 +145,7 @@ Requires Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3
 | `packages/cli` | `openbone` command line |
 | `apps/editor` | SolidJS editor |
 | `apps/desktop` | Tauri 2 shell around the editor, with native file dialogs |
-| `examples` | Walker, button, tail, campfire, rocket and crash-game projects, plus the script that builds them |
+| `examples` | Walker, knight, button, tail, campfire, rocket and crash-game projects, their art, and the script that builds them |
 
 Read [docs/architecture.md](docs/architecture.md) for the design and [docs/format.md](docs/format.md) for the file format.
 

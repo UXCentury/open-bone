@@ -359,6 +359,7 @@ export class StateMachineInstance extends Emitter<SMEvents> {
       l.exited = false;
       this.stateSounds(state, "enter", inst.uid);
       for (const e of state.emitters ?? []) this.setEmitter(e.slot, e.emitting);
+      for (const x of state.inputs ?? []) if (this.input(x.input)) this.setInput(x.input, x.value);
       for (const id of state.scripts ?? []) {
         const s = this.doc.scripts.find((x) => x.id === id);
         if (!s || !this.opts.scriptHost) continue;

@@ -131,8 +131,14 @@ input.tiny { width: 52px; }
 .event-log { font-family: ui-monospace, monospace; font-size: 11px; padding: 4px 10px; max-height: 140px; overflow: auto; color: #c7d0e0; }
 .sm-graph-wrap { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .sm-bar { display: flex; gap: 6px; align-items: center; padding: 5px 8px; border-bottom: 1px solid var(--line); }
-.sm-graph { flex: 1; overflow: auto; background: radial-gradient(#2a2f3a 1px, transparent 1px) 0 0/18px 18px, #181b21; }
-.sm-graph svg { display: block; user-select: none; }
+.sm-graph { flex: 1; position: relative; overflow: hidden; min-height: 0; outline: none; cursor: grab; background: radial-gradient(#2a2f3a 1px, transparent 1px) 0 0/18px 18px, #181b21; }
+.sm-graph svg { display: block; width: 100%; height: 100%; user-select: none; touch-action: none; }
+.sm-graph.panning { cursor: grabbing; }
+.sm-graph .state-node, .sm-graph .any-node, .sm-graph .edge { cursor: pointer; }
+.sm-zoom { position: absolute; right: 10px; bottom: 10px; display: flex; gap: 2px; padding: 3px; border-radius: 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); border: 1px solid var(--line); box-shadow: 0 4px 14px #0006; cursor: default; }
+.sm-zoom button { min-width: 28px; height: 26px; padding: 0 6px; background: transparent; border: 0; border-radius: 5px; font-size: 14px; line-height: 1; }
+.sm-zoom button:hover { background: var(--panel-2); }
+.sm-zoom .sm-zoom-pct { min-width: 48px; font-size: 11px; font-variant-numeric: tabular-nums; color: var(--muted); }
 .state-node rect { fill: #2a3040; stroke: #4a5263; stroke-width: 1.5; cursor: grab; }
 .state-node text { fill: var(--text); text-anchor: middle; font-size: 12px; pointer-events: none; }
 .state-node text.sub { fill: var(--muted); font-size: 10px; }
@@ -151,6 +157,8 @@ input.tiny { width: 52px; }
 .sm-props { width: 280px; border-left: 1px solid var(--line); overflow: auto; }
 .props { display: flex; flex-direction: column; gap: 6px; padding: 4px 10px 10px; }
 .props .col-title { padding: 4px 0; }
+.props .state-input { display: flex; gap: 6px; align-items: center; min-width: 0; }
+.props .state-input input[type="number"], .props .state-input input[type="text"] { flex: 1; min-width: 0; }
 .cond select { flex: 1; }
 /* scripts */
 .scripts-panel { display: flex; height: 100%; }

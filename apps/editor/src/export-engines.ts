@@ -1,4 +1,5 @@
 import { type OpenBoneDocument, exportDocument, serialize, serializeBinary } from "@openbone/core";
+import { compressImages } from "./image-compress.ts";
 import { type SheetClipInput, type SheetEngine, type SpriteSheetSet, buildSpriteSheets, enginePackZip, safeName, webViewPackZip } from "@openbone/export";
 import { Skeleton, applyAnimation } from "@openbone/runtime";
 import { packForExport } from "./atlas.ts";
@@ -118,6 +119,8 @@ export interface WebViewExportOptions {
   binary: boolean;
   background: string | null;
   androidPackage: string;
+  /** Re-encode images as WebP at this quality (0..1) when smaller; null keeps them as they are. */
+  webpQuality?: number | null;
 }
 
 /** The player bundle source: built by the Vite plugin in apps/editor/vite.config.ts, loaded on first use. */
@@ -126,7 +129,10 @@ export async function playerBundle(): Promise<string> {
 }
 
 /** The runtime document for a WebView package: everything interactive kept, images embedded or packed. */
-export async function webViewDocument(source: OpenBoneDocument, o: Pick<WebViewExportOptions, "pack" | "binary">): Promise<{ bytes: Uint8Array; doc: OpenBoneDocument }> {
+export async function webViewDocument(
+  source: OpenBoneDocument,
+  o: Pick<WebViewExportOptions, "pack" | "binary"> & { webpQuality?: number | null },
+): Promise<{ bytes: Uint8Array; doc: OpenBoneDocument }> {
   const { doc } = exportDocument(source, { pruneUnused: true, nonessential: false, cleanUpAnimations: false });
   let d: OpenBoneDocument;
   if (o.pack && doc.images.length) d = (await packForExport(doc, { padding: 2, maxSize: 2048, powerOfTwo: false })).doc;
@@ -135,6 +141,7 @@ export async function webViewDocument(source: OpenBoneDocument, o: Pick<WebViewE
     for (const img of d.images) if (img.src) img.src = await imageAsDataUrl(img);
     for (const page of d.atlas?.pages ?? []) page.src = await imageAsDataUrl(page);
   }
+  if (o.webpQuality) await compressImages(d, o.webpQuality);
   const bytes = o.binary ? serializeBinary(d, { precision: "float32" }) : new TextEncoder().encode(serialize(d));
   return { bytes, doc: d };
 }

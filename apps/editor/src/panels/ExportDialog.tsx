@@ -136,6 +136,8 @@ interface SavedSettings {
     binary?: boolean;
     transparent?: boolean;
     androidPackage?: string;
+    /** WebP quality (0..1) for embedded images, or null to keep them as they are. */
+    webp?: number | null;
   };
   web?: { format?: "iife" | "esm"; minify?: boolean; scripts?: boolean; singleFile?: boolean; demo?: boolean };
 }
@@ -208,6 +210,7 @@ export function ExportDialog() {
   const [wvPack, setWvPack] = createSignal(se.pack ?? true);
   const [wvBinary, setWvBinary] = createSignal(se.binary ?? true);
   const [wvTransparent, setWvTransparent] = createSignal(se.transparent ?? true);
+  const [wvWebp, setWvWebp] = createSignal<number | null>(se.webp === undefined ? 0.85 : se.webp);
   const [androidPackage, setAndroidPackage] = createSignal(se.androidPackage ?? "com.openbone");
   // ---- web options ----
   const sw = saved.web ?? {};
@@ -447,6 +450,7 @@ export function ExportDialog() {
       binary: wvBinary(),
       transparent: wvTransparent(),
       androidPackage: androidPackage(),
+      webp: wvWebp(),
     },
     web: { format: webFmt(), minify: webMin(), scripts: webScripts(), singleFile: webSingle(), demo: webDemo() },
   });
@@ -503,6 +507,7 @@ export function ExportDialog() {
       if (e.pack !== undefined) setWvPack(e.pack);
       if (e.binary !== undefined) setWvBinary(e.binary);
       if (e.transparent !== undefined) setWvTransparent(e.transparent);
+      if (e.webp !== undefined) setWvWebp(e.webp);
       if (e.androidPackage) setAndroidPackage(e.androidPackage);
     }
     const w = s.web;
@@ -572,7 +577,7 @@ export function ExportDialog() {
         const title = fileName().replace(/\.obone$/i, "") || base;
         const f = await exportWebPack(
           source,
-          { format: webFmt(), minify: webMin(), scripts: webScripts(), singleFile: webSingle(), demoControls: webDemo(), stateMachine: wvSm(), pack: wvPack(), binary: wvBinary(), background: wvTransparent() ? null : bgColor() },
+          { format: webFmt(), minify: webMin(), scripts: webScripts(), singleFile: webSingle(), demoControls: webDemo(), stateMachine: wvSm(), pack: wvPack(), binary: wvBinary(), webpQuality: wvWebp(), background: wvTransparent() ? null : bgColor() },
           base,
           title,
           onProgress,
@@ -589,7 +594,7 @@ export function ExportDialog() {
       if (e) {
         const data = sheetMode()
           ? (await exportSpritePack(e === "unity" || e === "godot" || e === "flutter" ? e : "generic", source, sheetOptions(), base, onProgress)).data
-          : await exportWebViewPack(e as "flutter" | "android" | "ios", source, { stateMachine: wvSm(), pack: wvPack(), binary: wvBinary(), background: wvTransparent() ? null : bgColor(), androidPackage: androidPackage().trim() || "com.openbone" }, base, fileName().replace(/\.obone$/i, "") || base, onProgress);
+          : await exportWebViewPack(e as "flutter" | "android" | "ios", source, { stateMachine: wvSm(), pack: wvPack(), binary: wvBinary(), webpQuality: wvWebp(), background: wvTransparent() ? null : bgColor(), androidPackage: androidPackage().trim() || "com.openbone" }, base, fileName().replace(/\.obone$/i, "") || base, onProgress);
         setProgress("Saving…");
         const label = `${formatLabel()} ${sheetMode() ? "sprite sheet" : "WebView"} package (ZIP)`;
         const savedName = await saveFile(`${base}.zip`, data, { ext: "zip", description: label, mime: "application/zip" });
@@ -993,6 +998,18 @@ export function ExportDialog() {
                       <label class="check" title="Draw every image from a few shared textures: faster WebGL playback">
                         <input type="checkbox" checked={wvPack()} onChange={(ev) => setWvPack(ev.currentTarget.checked)} /> Pack images into a texture atlas
                       </label>
+                      <Row label="Images">
+                        <select
+                          title="Re-encode embedded images as WebP (alpha kept); each image keeps whichever encoding is smaller"
+                          value={wvWebp() === null ? "" : String(wvWebp())}
+                          onChange={(ev) => setWvWebp(ev.currentTarget.value ? Number(ev.currentTarget.value) : null)}
+                        >
+                          <option value="0.92" selected={wvWebp() === 0.92}>WebP, high quality</option>
+                          <option value="0.85" selected={wvWebp() === 0.85}>WebP, balanced (recommended)</option>
+                          <option value="0.7" selected={wvWebp() === 0.7}>WebP, smallest</option>
+                          <option value="" selected={wvWebp() === null}>Original (lossless PNG)</option>
+                        </select>
+                      </Row>
                       <label class="check">
                         <input type="checkbox" checked={wvTransparent()} onChange={(ev) => setWvTransparent(ev.currentTarget.checked)} /> Transparent background
                         <span class="muted small">{e() === "web" ? "(the page shows through)" : "(the app's view shows through)"}</span>
@@ -1033,13 +1050,19 @@ export function ExportDialog() {
                         </div>
                         <label class="check" title="QuickJS sandbox that runs the document's scripts">
                           <input type="checkbox" checked={webScripts()} onChange={(ev) => setWebScripts(ev.currentTarget.checked)} /> Include script sandbox
-                          <span class="muted small">{source.scripts.length ? `(this file has ${plural(source.scripts.length, "script")}; +0.7 MB)` : "(no scripts in this file; +0.7 MB)"}</span>
+                          <span class="muted small">
+                            {webSingle()
+                              ? source.scripts.length
+                                ? `(this file has ${plural(source.scripts.length, "script")}; +0.7 MB inlined)`
+                                : "(no scripts in this file; +0.7 MB inlined)"
+                              : `(${source.scripts.length ? plural(source.scripts.length, "script") : "no scripts"}; separate files, loaded only when needed)`}
+                          </span>
                         </label>
                         <Show when={source.scripts.length && !webScripts()}>
                           <div class="muted small">⚠ Without the sandbox this file's scripts are skipped; everything else plays.</div>
                         </Show>
                         <div class="muted small">
-                          Player ≈ {playerSizeKb(webMin(), webScripts())} KB · {webFmt() === "esm" ? "openbone-player" + (webMin() ? ".min" : "") + ".mjs" : "openbone-player" + (webMin() ? ".min" : "") + ".js"}
+                          Player ≈ {playerSizeKb(webMin(), webScripts(), webSingle())} KB · {webFmt() === "esm" ? "openbone-player" + (webMin() ? ".min" : "") + ".mjs" : "openbone-player" + (webMin() ? ".min" : "") + ".js"}
                         </div>
                       </fieldset>
                       <fieldset class="export-group">
@@ -1117,7 +1140,7 @@ export function ExportDialog() {
                             <span>{plural(source.animations.length, "animation")}</span>
                             <span>{plural(source.stateMachines.length, "state machine")}</span>
                             <span>{plural(source.scripts.length, "script")}</span>
-                            <span>{format() === "web" ? `${webSingle() ? "HTML" : "ZIP"} · player ≈ ${playerSizeKb(webMin(), webScripts())} KB` : "ZIP"}</span>
+                            <span>{format() === "web" ? `${webSingle() ? "HTML" : "ZIP"} · player ≈ ${playerSizeKb(webMin(), webScripts(), webSingle())} KB` : "ZIP"}</span>
                           </>
                         }
                       >

@@ -121,7 +121,13 @@ defineOp({
     sm.inputs = sm.inputs.filter((i) => i !== input);
     for (const l of sm.layers) {
       for (const t of l.transitions) t.conditions = t.conditions.filter((c) => c.input !== input.id);
-      for (const s of l.states) if (s.blendInput === input.id) s.blendInput = undefined;
+      for (const s of l.states) {
+        if (s.blendInput === input.id) s.blendInput = undefined;
+        if (s.inputs) {
+          s.inputs = s.inputs.filter((x) => x.input !== input.id);
+          if (!s.inputs.length) delete s.inputs;
+        }
+      }
     }
     for (const li of sm.listeners) li.actions = li.actions.filter((x) => !("input" in x) || x.input !== input.id);
     sm.bindings = (sm.bindings ?? []).filter((b) => b.input !== input.id);
@@ -451,6 +457,31 @@ defineOp({
       for (const l of sm.layers) for (const st of l.states) if (st.scripts) st.scripts = st.scripts.filter((x) => x !== s.id);
       for (const li of sm.listeners) li.actions = li.actions.filter((x) => x.type !== "runScript" || x.script !== s.id);
     }
+    return {};
+  },
+});
+
+defineOp({
+  name: "setStateInput",
+  group: "interactivity",
+  description:
+    "Make a state set a bool/number/string input when it is entered (value null removes it). Use it to reset a round: e.g. the idle state sets multiplier back to 1 and status to 'Press START' after a crash or cash-out.",
+  schema: z.object({
+    stateMachine: smRef,
+    layer: ref("Layer").optional(),
+    state: ref("State"),
+    input: ref("Input"),
+    value: inputValue.nullable(),
+  }),
+  apply(doc, a) {
+    const sm = get.stateMachine(doc, a.stateMachine);
+    const st = get.state(get.layer(sm, a.layer), a.state);
+    const input = get.input(sm, a.input);
+    if (input.type === "trigger") throw new Error(`"${input.name}" is a trigger; states can only set bool, number and string inputs on enter`);
+    const list = (st.inputs ?? []).filter((x) => x.input !== input.id);
+    if (a.value !== null) list.push({ input: input.id, value: coerceInput(input.type, a.value) });
+    if (list.length) st.inputs = list;
+    else delete st.inputs;
     return {};
   },
 });

@@ -666,6 +666,8 @@ export interface StateData {
   sounds?: StateSound[];
   /** Particle emitters switched on/off when this state is entered. */
   emitters?: StateEmitter[];
+  /** Inputs set when this state is entered (for example, reset a round's multiplier when going back to idle). */
+  inputs?: StateInput[];
   /**
    * State to go to once the animation has played through once (for looping states: after the first cycle).
    * Checked after the state's own transitions, so a trigger can still interrupt it.
@@ -710,6 +712,12 @@ export type ListenerAction =
   | { type: "setEmitter"; slot: Id; emitting: boolean }
   /** Spawn `count` particles from a slot's emitter right away. */
   | { type: "emitParticles"; slot: Id; count: number };
+
+/** Input value applied when a state is entered (bool, number or string inputs; not triggers). */
+export interface StateInput {
+  input: Id;
+  value: InputValue;
+}
 
 /** Emitter switch applied when a state is entered. */
 export interface StateEmitter {

@@ -124,6 +124,7 @@ export function Toolbar() {
           <option value="tail">Tail (path constraint, physics)</option>
           <option value="rocket">Rocket (particles)</option>
           <option value="crash">Crash game (stages, live text, bindings)</option>
+          <option value="knight">Knight (painted parts, cape mesh)</option>
         </select>
         <input ref={fileInput} type="file" accept=".obone,.obonb,.json,application/json,application/octet-stream" hidden onChange={(e) => open(e.currentTarget.files)} />
       </div>

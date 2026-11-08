@@ -19,8 +19,13 @@ export interface WebPackOptions {
   playerCode: string;
   format: WebPlayerFormat;
   minified: boolean;
-  /** The bundle includes the QuickJS script sandbox. */
+  /** Scripts can run: the bundle includes the QuickJS sandbox, or loads it from `scriptsAddon`'s files. */
   scripts: boolean;
+  /**
+   * The sandbox as separate files (`openbone-scripts.js` + `quickjs.wasm`) that the player loads only when an
+   * animation has scripts. ZIP packs only; single-file pages inline the sandbox in the player instead.
+   */
+  scriptsAddon?: { code: string; wasm: Uint8Array };
   /** Animation file bytes and extension. */
   doc: Uint8Array;
   docExt: "obone" | "obonb";
@@ -164,7 +169,7 @@ ${o.singleFile ? "" : "\n> Serve this folder over http(s) (for example `npx serv
 | File | What it is |
 |---|---|
 | \`index.html\` | Demo page${o.demoControls ? " with controls for the inputs and an event log" : ""}${o.singleFile ? ", with the player and the animation inlined" : ""} |
-${o.singleFile ? "" : `| \`${playerFile}\` | The player library, ${o.format === "esm" ? "ES module" : "classic script"}, ${o.minified ? "minified" : "readable (not minified)"}${o.scripts ? ", with the script sandbox (QuickJS)" : ""} |\n| \`${docFile}\` | The animation (${o.docExt === "obonb" ? "binary" : "JSON"}) |\n`}| \`README.md\` | This file |
+${o.singleFile ? "" : `| \`${playerFile}\` | The player library, ${o.format === "esm" ? "ES module" : "classic script"}, ${o.minified ? "minified" : "readable (not minified)"}${o.scripts && !o.scriptsAddon ? ", with the script sandbox (QuickJS)" : ""} |\n${o.scriptsAddon ? "| `openbone-scripts.js`, `quickjs.wasm` | The script sandbox. The player loads them from its own folder, and only for animations with scripts |\n" : ""}| \`${docFile}\` | The animation (${o.docExt === "obonb" ? "binary" : "JSON"}) |\n`}| \`README.md\` | This file |
 ${o.scripts ? "| `THIRD-PARTY-NOTICES.txt` | Licences of bundled code |\n" : ""}
 ## Embed it in your site
 
@@ -193,7 +198,7 @@ ${firstValue ? `player.setInput("${firstValue.name}", ${exampleValue});\n` : 'pl
 player.addEventListener("openbone-event", (e) => console.log("event", e.detail.name));
 player.addEventListener("openbone-state", (e) => console.log("state", e.detail.to));
 \`\`\`
-${o.inputs.length ? `\nInputs of this animation: ${o.inputs.map((i) => `\`${i.name}\` (${i.type})`).join(", ")}.\n` : ""}${o.hasScripts && !o.scripts ? "\n> This animation has scripts, but this player build has no script sandbox, so they are skipped. Export with **Include script sandbox** to run them.\n" : ""}
+${o.inputs.length ? `\nInputs of this animation: ${o.inputs.map((i) => `\`${i.name}\` (${i.type})`).join(", ")}.\n` : ""}${o.scriptsAddon ? "\n> Keep `openbone-scripts.js` and `quickjs.wasm` next to the player (or set `window.OPENBONE_SCRIPTS_BASE` to their folder before the player loads an animation). Pages whose animations have no scripts never download them.\n" : ""}${o.hasScripts && !o.scripts ? "\n> This animation has scripts, but this player build has no script sandbox, so they are skipped. Export with **Include script sandbox** to run them.\n" : ""}
 ## License
 
 The player is MIT licensed (OpenBone).${o.scripts ? " It includes quickjs-emscripten (MIT); see THIRD-PARTY-NOTICES.txt." : ""}
@@ -216,6 +221,10 @@ export function webPackFiles(o: WebPackOptions): PackFile[] {
   if (!o.singleFile) {
     files.push({ name: playerFileName(o), data: text(o.playerCode) });
     files.push({ name: `${o.baseName}.${o.docExt}`, data: o.doc });
+    if (o.scriptsAddon) {
+      files.push({ name: "openbone-scripts.js", data: text(o.scriptsAddon.code) });
+      files.push({ name: "quickjs.wasm", data: o.scriptsAddon.wasm });
+    }
   }
   files.push({ name: "README.md", data: text(webReadme(o)) });
   if (o.scripts) files.push({ name: "THIRD-PARTY-NOTICES.txt", data: text(NOTICES) });

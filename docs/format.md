@@ -56,6 +56,8 @@ A UTF-8 JSON document. The TypeScript source of truth is `packages/core/src/type
 
 State machines can also start/stop emitters: a state's optional `emitters: [{slot, emitting}]` are applied when it is entered, and listeners have the actions `{type: "setEmitter", slot, emitting}` and `{type: "emitParticles", slot, count}`.
 
+A state can also set inputs when it is entered: `inputs: [{input, value}]` (bool, number or string inputs, not triggers), e.g. an idle state that puts `multiplier` back to 1 after a crash or cash-out (op `setStateInput`).
+
 Images can be embedded as `data:` URIs or stored as paths relative to the `.obone` file.
 
 **Audio** (optional): `assets` are files (WAV, MP3, OGG; `data:` URI or relative path, `duration` in seconds, 0 if unknown). A **sound** plays an asset through a **bus** (`null` = straight into the master) with its own `volume`, `rate` (pitch), `loop` and `fadeIn`/`fadeOut` seconds. The gain of a playing sound is `master × bus.volume × sound.volume × key volume`, and 0 when the document, the bus or the host mutes it. New documents get the buses `sfx` (`bus_sfx`), `music` and `ui`. Sounds are played by: animation `audio` keys (unset fields use the sound's), an event's `audio` (every time it fires), state `sounds: [{ "sound", "on": "enter"|"exit", "action": "play"|"stop", "volume?" }]` and listener actions `{ "type": "playSound", "sound", "volume?" }` / `{ "type": "stopSound", "sound", "fade?" }`. Looping sounds started by a state or an animation stop (with their fade-out, or the transition's cross-fade if longer) when it ends. Binary files store embedded audio as raw bytes.

@@ -8,11 +8,19 @@
   "originY": 620,
   "background": "#101828",
   "fps": 30,
-  "images": [],
+  "images": [
+    {
+      "id": "img_qoyay4o",
+      "name": "rocket",
+      "src": "assets/canva/rocket.png",
+      "width": 204,
+      "height": 352
+    }
+  ],
   "skeleton": {
     "bones": [
       {
-        "id": "bone_lmin93l",
+        "id": "bone_lu9cf4g",
         "name": "root",
         "parent": null,
         "length": 0,
@@ -26,9 +34,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_80wlt3m",
+        "id": "bone_urrh14h",
         "name": "rocket",
-        "parent": "bone_lmin93l",
+        "parent": "bone_lu9cf4g",
         "length": 0,
         "x": 0,
         "y": 40,
@@ -41,9 +49,9 @@
         "color": "#ff9f43"
       },
       {
-        "id": "bone_hzjch3n",
+        "id": "bone_8fun84i",
         "name": "nozzle",
-        "parent": "bone_80wlt3m",
+        "parent": "bone_urrh14h",
         "length": 0,
         "x": 0,
         "y": 6,
@@ -55,9 +63,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_x0ovo3o",
+        "id": "bone_ovsi94j",
         "name": "pad",
-        "parent": "bone_lmin93l",
+        "parent": "bone_lu9cf4g",
         "length": 0,
         "x": 0,
         "y": 0,
@@ -71,73 +79,49 @@
     ],
     "slots": [
       {
-        "id": "slot_y1tsi3p",
+        "id": "slot_lpcfj4k",
         "name": "ground",
-        "bone": "bone_x0ovo3o",
+        "bone": "bone_ovsi94j",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_0r32e3q",
+        "id": "slot_z1f9t4l",
         "name": "smoke",
-        "bone": "bone_x0ovo3o",
+        "bone": "bone_ovsi94j",
         "color": "#ffffff",
         "attachment": "smoke",
         "blend": "normal"
       },
       {
-        "id": "slot_i07be3r",
+        "id": "slot_7fiqi4m",
         "name": "exhaust",
-        "bone": "bone_hzjch3n",
+        "bone": "bone_8fun84i",
         "color": "#ffffff",
         "attachment": "exhaust",
         "blend": "normal"
       },
       {
-        "id": "slot_fjv1y3s",
+        "id": "slot_21npf4n",
         "name": "sparks",
-        "bone": "bone_hzjch3n",
+        "bone": "bone_8fun84i",
         "color": "#ffffff",
         "attachment": "sparks",
         "blend": "normal"
       },
       {
-        "id": "slot_gxkdc3t",
-        "name": "fins",
-        "bone": "bone_80wlt3m",
-        "color": "#ffffff",
-        "attachment": "polygon",
-        "blend": "normal"
-      },
-      {
-        "id": "slot_phcpu3u",
+        "id": "slot_fxlul4p",
         "name": "body",
-        "bone": "bone_80wlt3m",
+        "bone": "bone_urrh14h",
         "color": "#ffffff",
-        "attachment": "rect",
+        "attachment": "rocket",
         "blend": "normal"
       },
       {
-        "id": "slot_b10803v",
-        "name": "nose",
-        "bone": "bone_80wlt3m",
-        "color": "#ffffff",
-        "attachment": "polygon",
-        "blend": "normal"
-      },
-      {
-        "id": "slot_fyvz83w",
-        "name": "window",
-        "bone": "bone_80wlt3m",
-        "color": "#ffffff",
-        "attachment": "ellipse",
-        "blend": "normal"
-      },
-      {
-        "id": "slot_pjmwr3x",
+        "id": "slot_w6l2k4q",
         "name": "hit",
-        "bone": "bone_80wlt3m",
+        "bone": "bone_urrh14h",
         "color": "#ffffff",
         "attachment": null,
         "blend": "normal"
@@ -148,7 +132,7 @@
         "id": "skin_default",
         "name": "default",
         "attachments": {
-          "slot_y1tsi3p": {
+          "slot_lpcfj4k": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -162,7 +146,7 @@
               "fill": "#1f2937"
             }
           },
-          "slot_0r32e3q": {
+          "slot_z1f9t4l": {
             "smoke": {
               "type": "particles",
               "name": "smoke",
@@ -232,7 +216,7 @@
               "seed": 3
             }
           },
-          "slot_i07be3r": {
+          "slot_7fiqi4m": {
             "exhaust": {
               "type": "particles",
               "name": "exhaust",
@@ -306,7 +290,7 @@
               "seed": 11
             }
           },
-          "slot_fjv1y3s": {
+          "slot_21npf4n": {
             "sparks": {
               "type": "particles",
               "name": "sparks",
@@ -381,93 +365,22 @@
               "seed": 5
             }
           },
-          "slot_gxkdc3t": {
-            "polygon": {
-              "type": "shape",
-              "name": "polygon",
-              "shape": "polygon",
+          "slot_fxlul4p": {
+            "rocket": {
+              "type": "region",
+              "name": "rocket",
+              "image": "img_qoyay4o",
               "x": 0,
-              "y": 0,
+              "y": 112,
               "rotation": 0,
-              "width": 50,
-              "height": 50,
-              "radius": 0,
-              "points": [
-                -56,
-                0,
-                -26,
-                50,
-                -26,
-                10,
-                26,
-                10,
-                26,
-                50,
-                56,
-                0,
-                30,
-                20,
-                -30,
-                20
-              ],
-              "fill": "#e11d48"
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 132,
+              "height": 228,
+              "color": "#ffffff"
             }
           },
-          "slot_phcpu3u": {
-            "rect": {
-              "type": "shape",
-              "name": "rect",
-              "shape": "rect",
-              "x": 0,
-              "y": 90,
-              "rotation": 0,
-              "width": 64,
-              "height": 170,
-              "radius": 30,
-              "fill": "#e5e7eb",
-              "stroke": "#94a3b8",
-              "strokeWidth": 3
-            }
-          },
-          "slot_b10803v": {
-            "polygon": {
-              "type": "shape",
-              "name": "polygon",
-              "shape": "polygon",
-              "x": 0,
-              "y": 0,
-              "rotation": 0,
-              "width": 50,
-              "height": 50,
-              "radius": 0,
-              "points": [
-                -31,
-                150,
-                31,
-                150,
-                0,
-                215
-              ],
-              "fill": "#e11d48"
-            }
-          },
-          "slot_fyvz83w": {
-            "ellipse": {
-              "type": "shape",
-              "name": "ellipse",
-              "shape": "ellipse",
-              "x": 0,
-              "y": 110,
-              "rotation": 0,
-              "width": 30,
-              "height": 30,
-              "radius": 0,
-              "fill": "#38bdf8",
-              "stroke": "#475569",
-              "strokeWidth": 4
-            }
-          },
-          "slot_pjmwr3x": {
+          "slot_w6l2k4q": {
             "hitbox": {
               "type": "boundingBox",
               "name": "hitbox",
@@ -494,13 +407,13 @@
   "events": [],
   "animations": [
     {
-      "id": "anim_esyzz3y",
+      "id": "anim_9nprt4r",
       "name": "launch",
       "duration": 3,
       "timelines": [
         {
           "target": "particles",
-          "id": "slot_i07be3r",
+          "id": "slot_7fiqi4m",
           "property": "emitting",
           "keys": [
             {
@@ -517,7 +430,7 @@
         },
         {
           "target": "particles",
-          "id": "slot_i07be3r",
+          "id": "slot_7fiqi4m",
           "property": "rate",
           "keys": [
             {
@@ -544,7 +457,7 @@
         },
         {
           "target": "particles",
-          "id": "slot_fjv1y3s",
+          "id": "slot_21npf4n",
           "property": "emitting",
           "keys": [
             {
@@ -566,7 +479,7 @@
         },
         {
           "target": "particles",
-          "id": "slot_0r32e3q",
+          "id": "slot_z1f9t4l",
           "property": "emitting",
           "keys": [
             {
@@ -588,7 +501,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_80wlt3m",
+          "id": "bone_urrh14h",
           "property": "y",
           "keys": [
             {
@@ -625,7 +538,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_80wlt3m",
+          "id": "bone_urrh14h",
           "property": "x",
           "keys": [
             {
@@ -662,7 +575,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_80wlt3m",
+          "id": "bone_urrh14h",
           "property": "rotation",
           "keys": [
             {
@@ -701,13 +614,13 @@
       "events": []
     },
     {
-      "id": "anim_x9q8l3z",
+      "id": "anim_a5yiw4s",
       "name": "hover",
       "duration": 2,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_80wlt3m",
+          "id": "bone_urrh14h",
           "property": "y",
           "keys": [
             {
@@ -744,7 +657,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_80wlt3m",
+          "id": "bone_urrh14h",
           "property": "rotation",
           "keys": [
             {
@@ -781,7 +694,7 @@
         },
         {
           "target": "particles",
-          "id": "slot_i07be3r",
+          "id": "slot_7fiqi4m",
           "property": "rate",
           "keys": [
             {
@@ -820,13 +733,13 @@
       "events": []
     },
     {
-      "id": "anim_zhjgp40",
+      "id": "anim_c1ikc4t",
       "name": "parked",
       "duration": 1,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_80wlt3m",
+          "id": "bone_urrh14h",
           "property": "y",
           "keys": [
             {
@@ -847,50 +760,51 @@
   ],
   "stateMachines": [
     {
-      "id": "sm_afxss41",
+      "id": "sm_brgqg4u",
       "name": "engine",
       "inputs": [
         {
-          "id": "in_q87fs42",
+          "id": "in_yshgs4v",
           "name": "thrust",
           "type": "bool",
           "default": false
         }
       ],
+      "bindings": [],
       "layers": [
         {
-          "id": "sm_afxss41_layer1",
+          "id": "sm_brgqg4u_layer1",
           "name": "Layer 1",
-          "entry": "st_iwnf043",
+          "entry": "st_8y9yl4w",
           "states": [
             {
-              "id": "st_iwnf043",
+              "id": "st_8y9yl4w",
               "name": "parked",
               "type": "animation",
-              "animation": "anim_zhjgp40",
+              "animation": "anim_c1ikc4t",
               "loop": true,
               "speed": 1,
               "x": 120,
               "y": 120,
               "emitters": [
                 {
-                  "slot": "slot_i07be3r",
+                  "slot": "slot_7fiqi4m",
                   "emitting": false
                 }
               ]
             },
             {
-              "id": "st_dttc544",
+              "id": "st_t3xiz4x",
               "name": "hover",
               "type": "animation",
-              "animation": "anim_x9q8l3z",
+              "animation": "anim_a5yiw4s",
               "loop": true,
               "speed": 1,
               "x": 360,
               "y": 120,
               "emitters": [
                 {
-                  "slot": "slot_i07be3r",
+                  "slot": "slot_7fiqi4m",
                   "emitting": true
                 }
               ]
@@ -898,12 +812,12 @@
           ],
           "transitions": [
             {
-              "id": "tr_zeo2145",
-              "from": "st_iwnf043",
-              "to": "st_dttc544",
+              "id": "tr_4vhb24y",
+              "from": "st_8y9yl4w",
+              "to": "st_t3xiz4x",
               "conditions": [
                 {
-                  "input": "in_q87fs42",
+                  "input": "in_yshgs4v",
                   "op": "==",
                   "value": true
                 }
@@ -912,12 +826,12 @@
               "exitTime": null
             },
             {
-              "id": "tr_2muzy46",
-              "from": "st_dttc544",
-              "to": "st_iwnf043",
+              "id": "tr_esgnm4z",
+              "from": "st_t3xiz4x",
+              "to": "st_8y9yl4w",
               "conditions": [
                 {
-                  "input": "in_q87fs42",
+                  "input": "in_yshgs4v",
                   "op": "==",
                   "value": false
                 }
@@ -930,18 +844,18 @@
       ],
       "listeners": [
         {
-          "id": "lis_j78dg47",
+          "id": "lis_almn150",
           "name": "down",
-          "slot": "slot_pjmwr3x",
+          "slot": "slot_w6l2k4q",
           "event": "down",
           "actions": [
             {
               "type": "toggleInput",
-              "input": "in_q87fs42"
+              "input": "in_yshgs4v"
             },
             {
               "type": "emitParticles",
-              "slot": "slot_fjv1y3s",
+              "slot": "slot_21npf4n",
               "count": 24
             }
           ]
