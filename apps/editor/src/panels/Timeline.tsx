@@ -1,6 +1,7 @@
 import { type Curve, EASINGS, type Key, type Timeline as TL, animationDuration } from "@openbone/core";
 import { For, Show, createSignal } from "solid-js";
 import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey } from "../state.ts";
+import { askText } from "../dialogs.tsx";
 
 type KeyRef = { tl: TL; time: number } | { event: string; time: number };
 
@@ -188,9 +189,16 @@ export function Timeline() {
         <button
           title="Add an event key at the current time"
           disabled={!anim()}
-          onClick={() => {
-            const name = prompt("Event name", doc().events[0]?.name ?? "event");
-            if (name && anim()) apply("addEventKey", { animation: anim()!.id, event: name, time: snap(time()) });
+          onClick={async () => {
+            const at = snap(time());
+            const name = await askText({
+              title: "Add event key",
+              message: `At ${at}s. Use an existing event name or type a new one.`,
+              label: "Event",
+              value: doc().events[0]?.name ?? "event",
+              confirmLabel: "Add",
+            });
+            if (name && anim()) apply("addEventKey", { animation: anim()!.id, event: name, time: at });
           }}
         >
           + Event

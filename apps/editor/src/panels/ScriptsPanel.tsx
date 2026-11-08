@@ -1,5 +1,6 @@
 import { For, Show, createEffect, createSignal } from "solid-js";
 import { apply, currentStateMachine, doc } from "../state.ts";
+import { askConfirm, askText, uniqueName } from "../dialogs.tsx";
 
 const TEMPLATE = `// Runs inside a sandbox (QuickJS). Global API: ob
 // ob.input(name) · ob.setInput(name, v) · ob.fire(name) · ob.emit(event, {int, float, string})
@@ -47,8 +48,13 @@ export function ScriptsPanel() {
         <div class="col-title">
           Scripts
           <button
-            onClick={() => {
-              const name = prompt("Script name", `script${doc().scripts.length + 1}`);
+            onClick={async () => {
+              const name = await askText({
+                title: "New script",
+                value: `script${doc().scripts.length + 1}`,
+                confirmLabel: "Create",
+                validate: uniqueName(doc().scripts.map((x) => x.name)),
+              });
               if (!name) return;
               const r = apply("addScript", { name, code: TEMPLATE }) as { id: string } | undefined;
               if (r) setSelId(r.id);
@@ -61,7 +67,7 @@ export function ScriptsPanel() {
           {(s) => (
             <div class="tree-row" classList={{ selected: script()?.id === s.id }} onClick={() => setSelId(s.id)}>
               <span class="icon">ƒ</span> {s.name}
-              <button class="row-del" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ${s.name}?`)) apply("deleteScript", { script: s.id }); }}>
+              <button class="row-del" onClick={(e) => { e.stopPropagation(); void askConfirm({ title: `Delete script "${s.name}"?`, message: "States and listeners that run it stop running it. You can undo this.", confirmLabel: "Delete", danger: true }).then((ok) => ok && apply("deleteScript", { script: s.id })); }}>
                 ×
               </button>
             </div>

@@ -26,6 +26,7 @@ import {
   setPlaying,
   setExportOpen,
 } from "../state.ts";
+import { askConfirm } from "../dialogs.tsx";
 
 const TOOLS: { id: Tool; label: string; key: string; title: string }[] = [
   { id: "select", label: "⟲", key: "V", title: "Select / rotate bones (V)" },
@@ -81,7 +82,19 @@ export function Toolbar() {
         <span class="logo">●━</span> OpenBone
       </div>
       <div class="group">
-        <button onClick={() => confirm("Start a new project? Unsaved changes are lost.") && loadDocument(createDocument("Untitled", { background: "#eef2f7" }), "untitled.obone")}>New</button>
+        <button
+          onClick={async () => {
+            const ok = await askConfirm({
+              title: "Start a new project?",
+              message: "Unsaved changes to the current project will be lost. Save first if you want to keep them.",
+              confirmLabel: "Discard and start new",
+              danger: true,
+            });
+            if (ok) loadDocument(createDocument("Untitled", { background: "#eef2f7" }), "untitled.obone");
+          }}
+        >
+          New
+        </button>
         <button onClick={() => openProject(() => fileInput.click())}>Open</button>
         <button onClick={() => saveProject()} title="Save (Ctrl+S)">Save</button>
         <button onClick={() => setExportOpen(true)} title="Export a file with the parts you choose, with a live preview (Ctrl+E)">

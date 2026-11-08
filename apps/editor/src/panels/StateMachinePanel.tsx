@@ -2,6 +2,7 @@ import { ANY_STATE, type Condition, type ConditionOp, type LayerData, type State
 import { For, Match, Show, Switch, createSignal, onCleanup } from "solid-js";
 import { apply, currentStateMachine, doc, running, setRunning, setStateMachineId, toast } from "../state.ts";
 import { eventLog, smInstance } from "./Viewport.tsx";
+import { askForm, askText, uniqueName } from "../dialogs.tsx";
 
 const W = 130;
 const H = 40;
@@ -148,12 +149,26 @@ export function StateMachinePanel() {
           <div class="col-title">
             Inputs
             <button
-              onClick={() => {
-                const name = prompt("Input name");
-                if (!name) return;
-                const type = (prompt("Type: bool, number or trigger", "bool") ?? "bool") as "bool" | "number" | "trigger";
-                if (!["bool", "number", "trigger"].includes(type)) return toast("Type must be bool, number or trigger", "error");
-                apply("addInput", { stateMachine: sm()!.id, name, type });
+              onClick={async () => {
+                const r = await askForm({
+                  title: "New input",
+                  confirmLabel: "Add input",
+                  fields: [
+                    { key: "name", type: "text", label: "Name", placeholder: "e.g. hover", validate: uniqueName(sm()!.inputs.map((i) => i.name)) },
+                    {
+                      key: "type",
+                      type: "choice",
+                      label: "Type",
+                      value: "bool",
+                      options: [
+                        { value: "bool", label: "Boolean", description: "On / off, e.g. hover" },
+                        { value: "number", label: "Number", description: "A value, e.g. speed" },
+                        { value: "trigger", label: "Trigger", description: "Fires once, e.g. jump" },
+                      ],
+                    },
+                  ],
+                });
+                if (r) apply("addInput", { stateMachine: sm()!.id, name: r.name, type: r.type });
               }}
             >
               +
@@ -216,8 +231,14 @@ export function StateMachinePanel() {
               <For each={sm()!.layers}>{(l) => <option value={l.id} selected={l.id === (layer()?.id)}>{l.name}</option>}</For>
             </select>
             <button
-              onClick={() => {
-                const name = prompt("Layer name", `Layer ${sm()!.layers.length + 1}`);
+              onClick={async () => {
+                const name = await askText({
+                  title: "New layer",
+                  message: "Layers run in parallel, e.g. one for the body and one for the face.",
+                  value: `Layer ${sm()!.layers.length + 1}`,
+                  confirmLabel: "Create",
+                  validate: uniqueName(sm()!.layers.map((l) => l.name)),
+                });
                 if (name) {
                   const r = apply("addLayer", { stateMachine: sm()!.id, name }) as { id: string } | undefined;
                   if (r) setLayerId(r.id);

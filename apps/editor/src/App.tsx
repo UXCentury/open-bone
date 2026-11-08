@@ -6,6 +6,8 @@ import { ExportDialog } from "./panels/ExportDialog.tsx";
 import { saveProject } from "./storage.ts";
 import { deleteSelectedVertices, nudgeSelected, selectAllVertices } from "./mesh-edit.ts";
 import { apply, exportOpen, setExportOpen, mode, playing, selection, setPlaying, setSelection, setTool, toasts, tool, meshSel, setMeshSel } from "./state.ts";
+import { DialogHost } from "./dialogs.tsx";
+import { toggleViewAid } from "./guides.ts";
 
 export function App() {
   const key = (e: KeyboardEvent) => {
@@ -29,7 +31,9 @@ export function App() {
       redo();
     } else if (!mod) {
       const k = e.key.toLowerCase();
-      if (k === "v" || k === "r") setTool("select");
+      if (k === "r" && e.shiftKey) toggleViewAid("rulers");
+      else if (k === "g") toggleViewAid("grid");
+      else if (k === "v" || k === "r") setTool("select");
       else if (k === "t") setTool("translate");
       else if (k === "s") setTool("scale");
       else if (k === "b") setTool("bone");
@@ -81,6 +85,7 @@ export function App() {
         <Dock id="right" />
       </div>
       <DragOverlay />
+      <DialogHost />
       <Show when={exportOpen()}>
         <ExportDialog />
       </Show>

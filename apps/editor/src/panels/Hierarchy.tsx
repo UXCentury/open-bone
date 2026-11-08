@@ -15,6 +15,7 @@ import {
 } from "../state.ts";
 import { showPanel } from "../layout.ts";
 import { Section } from "./fields.tsx";
+import { askConfirm, askText, uniqueName } from "../dialogs.tsx";
 
 function BoneNode(p: { bone: BoneData; depth: number }) {
   const children = () => doc().skeleton.bones.filter((b) => b.parent === p.bone.id);
@@ -67,8 +68,13 @@ function BoneNode(p: { bone: BoneData; depth: number }) {
 
 export function Hierarchy() {
   const roots = () => doc().skeleton.bones.filter((b) => b.parent === null);
-  const newAnimation = () => {
-    const name = prompt("Animation name", `anim${doc().animations.length + 1}`);
+  const newAnimation = async () => {
+    const name = await askText({
+      title: "New animation",
+      value: `anim${doc().animations.length + 1}`,
+      confirmLabel: "Create",
+      validate: uniqueName(doc().animations.map((a) => a.name)),
+    });
     if (!name) return;
     const r = apply("createAnimation", { name }) as { id: string } | undefined;
     if (r) {
@@ -78,8 +84,14 @@ export function Hierarchy() {
       setTime(0);
     }
   };
-  const newSM = () => {
-    const name = prompt("State machine name", `State Machine ${doc().stateMachines.length + 1}`);
+  const newSM = async () => {
+    const name = await askText({
+      title: "New state machine",
+      message: "State machines make the rig interactive: inputs, states and transitions.",
+      value: `State Machine ${doc().stateMachines.length + 1}`,
+      confirmLabel: "Create",
+      validate: uniqueName(doc().stateMachines.map((s) => s.name)),
+    });
     if (!name) return;
     const r = apply("createStateMachine", { name }) as { id: string } | undefined;
     if (r) {
@@ -145,13 +157,19 @@ export function Hierarchy() {
                 setMode("animate");
                 showPanel("timeline");
               }}
-              onDblClick={() => {
-                const name = prompt("Rename animation", a.name);
-                if (name) apply("updateAnimation", { animation: a.id, name });
+              title="Double-click to rename"
+              onDblClick={async () => {
+                const name = await askText({
+                  title: "Rename animation",
+                  value: a.name,
+                  confirmLabel: "Rename",
+                  validate: uniqueName(doc().animations.map((x) => x.name), a.name),
+                });
+                if (name && name !== a.name) apply("updateAnimation", { animation: a.id, name });
               }}
             >
               <span class="icon">▶</span> {a.name}
-              <button class="row-del" title="Delete" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ${a.name}?`)) apply("deleteAnimation", { animation: a.id }); }}>×</button>
+              <button class="row-del" title="Delete" onClick={(e) => { e.stopPropagation(); void askConfirm({ title: `Delete animation "${a.name}"?`, message: "Its keys are removed and state machine states that play it are left empty. You can undo this.", confirmLabel: "Delete", danger: true }).then((ok) => ok && apply("deleteAnimation", { animation: a.id })); }}>×</button>
             </div>
           )}
         </For>
@@ -168,7 +186,7 @@ export function Hierarchy() {
               }}
             >
               <span class="icon">◈</span> {s.name}
-              <button class="row-del" title="Delete" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ${s.name}?`)) apply("deleteStateMachine", { stateMachine: s.id }); }}>×</button>
+              <button class="row-del" title="Delete" onClick={(e) => { e.stopPropagation(); void askConfirm({ title: `Delete state machine "${s.name}"?`, message: "Its inputs, states, transitions and listeners are removed. You can undo this.", confirmLabel: "Delete", danger: true }).then((ok) => ok && apply("deleteStateMachine", { stateMachine: s.id })); }}>×</button>
             </div>
           )}
         </For>

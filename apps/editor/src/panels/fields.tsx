@@ -1,4 +1,4 @@
-import { type JSX, Show } from "solid-js";
+import { type JSX, Show, createSignal } from "solid-js";
 
 /** Numeric input with drag-to-scrub label. Commits on change / Enter / drag end. */
 export function NumberField(p: {
@@ -112,14 +112,49 @@ export function SelectField<T extends string>(p: {
   );
 }
 
-export function Section(p: { title: string; children: JSX.Element; actions?: JSX.Element }) {
+// Collapsed sections, remembered per browser. Keyed by `id` or the title (text before " · ").
+const COLLAPSE_KEY = "openbone.collapsed.v1";
+const [collapsed, setCollapsed] = createSignal<Set<string>>(
+  (() => {
+    try {
+      return new Set<string>(JSON.parse(localStorage.getItem(COLLAPSE_KEY) ?? "[]"));
+    } catch {
+      return new Set<string>();
+    }
+  })(),
+);
+function toggleCollapsed(key: string) {
+  const next = new Set(collapsed());
+  next.has(key) ? next.delete(key) : next.add(key);
+  setCollapsed(next);
+  try {
+    localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...next]));
+  } catch {
+    /* storage unavailable: still works for this session */
+  }
+}
+
+/** Panel section with a header that collapses it (click the title; state is remembered). */
+export function Section(p: { title: string; id?: string; children: JSX.Element; actions?: JSX.Element }) {
+  const key = () => p.id ?? p.title.split(" · ")[0];
+  const open = () => !collapsed().has(key());
+  const bodyId = `sec-${Math.random().toString(36).slice(2, 8)}`;
   return (
-    <section class="section">
+    <section class="section" classList={{ collapsed: !open() }}>
       <h3>
-        <span>{p.title}</span>
+        <button class="section-toggle" aria-expanded={open()} aria-controls={bodyId} title={open() ? "Collapse" : "Expand"} onClick={() => toggleCollapsed(key())}>
+          <span class="chevron" aria-hidden="true">
+            ▾
+          </span>
+          <span>{p.title}</span>
+        </button>
         <span class="actions">{p.actions}</span>
       </h3>
-      <div class="section-body">{p.children}</div>
+      <Show when={open()}>
+        <div class="section-body" id={bodyId}>
+          {p.children}
+        </div>
+      </Show>
     </section>
   );
 }

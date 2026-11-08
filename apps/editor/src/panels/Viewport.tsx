@@ -1,4 +1,5 @@
-import { type BoneData, RAD, animationDuration, apply as applyM, invert, pointInPolygon } from "@openbone/core";
+import { type BoneData, RAD, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint } from "@openbone/core";
+import { type Guide, clearGuides, guides, newGuideId, removeGuide, setViewAid, toggleViewAid, upsertGuide, viewAids } from "../guides.ts";
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { type Bone, type ScriptHost, Skeleton, StateMachineInstance, applyAnimation, trustedFunctionHost } from "@openbone/runtime";
 import { createQuickJsHost } from "@openbone/scripting";
@@ -68,10 +69,11 @@ createQuickJsHost({ timeoutMs: 30 })
 
 type Drag =
   | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
-  | { kind: "bone"; op: "rotate" | "translate" | "scale"; bone: Bone; start: [number, number]; base: Partial<BoneData>; cur: Partial<BoneData> }
-  | { kind: "attachment"; slotId: string; name: string; start: [number, number]; base: [number, number]; cur: [number, number]; inv: ReturnType<typeof invert>; preview: Skeleton | null }
+  | { kind: "bone"; op: "rotate" | "translate" | "scale"; bone: Bone; start: [number, number]; startWorld: [number, number]; base: Partial<BoneData>; cur: Partial<BoneData> }
+  | { kind: "guide"; guide: Guide; isNew: boolean }
+  | { kind: "attachment"; slotId: string; name: string; start: [number, number]; base: [number, number]; cur: [number, number]; inv: ReturnType<typeof invert>; preview: Skeleton | null; startWorld: [number, number] }
   | { kind: "create"; parent: Bone | null; start: [number, number]; end: [number, number] }
-  | { kind: "vertex"; t: MeshTarget; start: [number, number]; base: Map<number, [number, number]>; moved: Map<number, [number, number]>; preview: Skeleton | null }
+  | { kind: "vertex"; t: MeshTarget; start: [number, number]; anchor: number; base: Map<number, [number, number]>; moved: Map<number, [number, number]>; preview: Skeleton | null }
   | { kind: "paint"; t: MeshTarget; table: WeightTable; world: number[]; changed: Set<number>; last: [number, number]; carry: number };
 
 /** Mesh tool: when on, moving existing vertices keeps their uvs (the image stretches). */
@@ -81,6 +83,9 @@ const [hoverVertex, setHoverVertex] = createSignal(-1);
 /** Weight colour: blue (0) → green → red (1). */
 const heat = (w: number, a = 1) => `hsla(${Math.round((1 - Math.min(1, Math.max(0, w))) * 240)}, 90%, 52%, ${a})`;
 const identity = (n: number) => Array.from({ length: n }, (_, i) => i);
+/** Ruler thickness in CSS px. */
+const RULER = 18;
+const SNAP_COLORS: Record<string, string> = { guide: "#22d3ee", center: "#ff4fa3", origin: "#ff4fa3", edge: "#ff4fa3", grid: "#8b9dff", point: "#ff4fa3" };
 
 export function Viewport() {
   let canvas!: HTMLCanvasElement;
@@ -94,6 +99,9 @@ export function Viewport() {
   let last = performance.now();
   let hoverInfo = "";
   let hoverPt: [number, number] | null = null;
+  let snapLines: SnapLine[] = [];
+  const [aidsOpen, setAidsOpen] = createSignal(false);
+  const [cursorHint, setCursorHint] = createSignal<string | null>(null);
   let ghost: Skeleton | null = null;
   let ghostRev = -1;
   let ghostCanvas: HTMLCanvasElement | null = null;
@@ -187,6 +195,7 @@ export function Viewport() {
     ctx.fillRect(view.x, view.y, d.width * view.zoom, d.height * view.zoom);
     ctx.strokeStyle = "#3a3f4b";
     ctx.strokeRect(view.x, view.y, d.width * view.zoom, d.height * view.zoom);
+    if (viewAids().grid) drawGrid(ctx, w, h);
     const resolveImage = (id: string) => {
       const a = d.images.find((i) => i.id === id);
       return a ? imageFor(a) : null;
@@ -228,6 +237,8 @@ export function Viewport() {
       ctx.lineWidth = 3 / v.zoom;
       ctx.stroke();
     }
+    drawGuidesAndSnaps(ctx, w, h, dpr);
+    if (viewAids().rulers) drawRulers(ctx, w, h, dpr);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (hoverInfo) {
       ctx.font = `${11 * dpr}px ui-monospace, monospace`;
@@ -395,7 +406,7 @@ export function Viewport() {
           else if (!sel.includes(hit)) sel = [hit];
           setMeshSel(sel);
           if (sel.includes(hit))
-            drag = { kind: "vertex", t: target, start: [x, y], base: new Map(sel.map((i) => [i, [world[i * 2], world[i * 2 + 1]]])), moved: new Map(), preview: null };
+            drag = { kind: "vertex", t: target, start: [x, y], anchor: hit, base: new Map(sel.map((i) => [i, [world[i * 2], world[i * 2 + 1]]])), moved: new Map(), preview: null };
           return;
         }
         if (e.ctrlKey || e.metaKey) {
@@ -432,6 +443,242 @@ export function Viewport() {
     if (slot && sk?.getAttachment(slot)?.type !== "mesh") toast("Select a mesh attachment to edit its vertices or weights", "info");
   }
 
+  // ---------------- grid, rulers, guides, snapping ----------------
+
+  /** Skeleton-space coordinate of a screen (CSS px) position, per axis. */
+  const screenToSkX = (mx: number) => (mx - view.x) / view.zoom - store.doc.originX;
+  const screenToSkY = (my: number) => store.doc.originY - (my - view.y) / view.zoom;
+  const skToScreenX = (x: number) => view.x + (x + store.doc.originX) * view.zoom;
+  const skToScreenY = (y: number) => view.y + (store.doc.originY - y) * view.zoom;
+
+  /** A "nice" spacing (1, 2, 5 × 10^n) so lines are at least `minPx` apart on screen. */
+  const niceStep = (minPx: number) => {
+    const raw = minPx / view.zoom;
+    const p = 10 ** Math.floor(Math.log10(raw));
+    return [1, 2, 5, 10].map((k) => k * p).find((v) => v >= raw) ?? 10 * p;
+  };
+
+  function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    let step = viewAids().gridSize;
+    // Thin out when zoomed far out so the grid never turns into a solid wash.
+    while (step * view.zoom < 6) step *= 5;
+    const x0 = Math.floor(screenToSkX(0) / step) * step;
+    const x1 = screenToSkX(w);
+    const y0 = Math.floor(screenToSkY(h) / step) * step;
+    const y1 = screenToSkY(0);
+    const line = (major: boolean) => {
+      ctx.strokeStyle = major ? "rgba(110,140,255,0.32)" : "rgba(110,140,255,0.14)";
+    };
+    ctx.lineWidth = 1;
+    for (const major of [false, true]) {
+      line(major);
+      ctx.beginPath();
+      for (let x = x0; x <= x1; x += step) {
+        if (Math.abs(Math.round(x / step) % 5) === 0 !== major) continue;
+        const sx = Math.round(skToScreenX(x)) + 0.5;
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, h);
+      }
+      for (let y = y0; y <= y1; y += step) {
+        if (Math.abs(Math.round(y / step) % 5) === 0 !== major) continue;
+        const sy = Math.round(skToScreenY(y)) + 0.5;
+        ctx.moveTo(0, sy);
+        ctx.lineTo(w, sy);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function drawGuidesAndSnaps(ctx: CanvasRenderingContext2D, w: number, h: number, dpr: number) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (viewAids().rulers) {
+      const live = drag?.kind === "guide" ? drag.guide : null;
+      const list = live ? [...guides().filter((g) => g.id !== live.id), live] : guides();
+      ctx.lineWidth = 1;
+      for (const g of list) {
+        ctx.strokeStyle = g === live ? "#67e8f9" : "rgba(34,211,238,0.85)";
+        ctx.beginPath();
+        if (g.axis === "x") {
+          const sx = Math.round(skToScreenX(g.pos)) + 0.5;
+          ctx.moveTo(sx, 0);
+          ctx.lineTo(sx, h);
+        } else {
+          const sy = Math.round(skToScreenY(g.pos)) + 0.5;
+          ctx.moveTo(0, sy);
+          ctx.lineTo(w, sy);
+        }
+        ctx.stroke();
+      }
+    }
+    if (!snapLines.length) return;
+    ctx.setLineDash([5, 4]);
+    ctx.lineWidth = 1;
+    for (const l of snapLines) {
+      ctx.strokeStyle = SNAP_COLORS[l.kind] ?? "#ff4fa3";
+      ctx.beginPath();
+      if (l.axis === "x") {
+        const sx = Math.round(skToScreenX(l.value)) + 0.5;
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, h);
+      } else {
+        const sy = Math.round(skToScreenY(l.value)) + 0.5;
+        ctx.moveTo(0, sy);
+        ctx.lineTo(w, sy);
+      }
+      ctx.stroke();
+      if (l.kind === "point" && l.other !== undefined) {
+        // Mark the point we aligned with.
+        const [px, py] = l.axis === "x" ? [skToScreenX(l.value), skToScreenY(l.other)] : [skToScreenX(l.other), skToScreenY(l.value)];
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(px - 4, py - 4);
+        ctx.lineTo(px + 4, py + 4);
+        ctx.moveTo(px + 4, py - 4);
+        ctx.lineTo(px - 4, py + 4);
+        ctx.stroke();
+        ctx.setLineDash([5, 4]);
+      }
+    }
+    ctx.setLineDash([]);
+  }
+
+  function drawRulers(ctx: CanvasRenderingContext2D, w: number, h: number, dpr: number) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "#16181dee";
+    ctx.fillRect(0, 0, w, RULER);
+    ctx.fillRect(0, 0, RULER, h);
+    ctx.strokeStyle = "#2f3440";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, RULER + 0.5);
+    ctx.lineTo(w, RULER + 0.5);
+    ctx.moveTo(RULER + 0.5, 0);
+    ctx.lineTo(RULER + 0.5, h);
+    ctx.stroke();
+    // Artboard span highlighted on both rulers.
+    ctx.fillStyle = "rgba(91,140,255,0.12)";
+    ctx.fillRect(view.x, 0, store.doc.width * view.zoom, RULER);
+    ctx.fillRect(0, view.y, RULER, store.doc.height * view.zoom);
+    const step = niceStep(60);
+    const minor = step / 5;
+    ctx.font = "10px ui-monospace, monospace";
+    ctx.fillStyle = "#8a93a6";
+    ctx.strokeStyle = "#4a5263";
+    ctx.beginPath();
+    for (let x = Math.floor(screenToSkX(RULER) / minor) * minor; x <= screenToSkX(w); x += minor) {
+      const sx = Math.round(skToScreenX(x)) + 0.5;
+      if (sx < RULER) continue;
+      const major = Math.abs(Math.round(x / minor) % 5) === 0;
+      ctx.moveTo(sx, RULER);
+      ctx.lineTo(sx, major ? 4 : RULER - 4);
+      if (major) ctx.fillText(fmtRuler(x), sx + 3, 10);
+    }
+    for (let y = Math.floor(screenToSkY(h) / minor) * minor; y <= screenToSkY(RULER); y += minor) {
+      const sy = Math.round(skToScreenY(y)) + 0.5;
+      if (sy < RULER) continue;
+      const major = Math.abs(Math.round(y / minor) % 5) === 0;
+      ctx.moveTo(RULER, sy);
+      ctx.lineTo(major ? 4 : RULER - 4, sy);
+      if (major) {
+        ctx.save();
+        ctx.translate(11, sy - 3);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText(fmtRuler(y), 0, 0);
+        ctx.restore();
+      }
+    }
+    ctx.stroke();
+    // Guide markers and the live cursor position.
+    ctx.fillStyle = "#22d3ee";
+    for (const g of guides()) {
+      if (g.axis === "x") ctx.fillRect(Math.round(skToScreenX(g.pos)) - 1, 0, 3, RULER);
+      else ctx.fillRect(0, Math.round(skToScreenY(g.pos)) - 1, RULER, 3);
+    }
+    if (hoverPt) {
+      ctx.fillStyle = "#ffcc00";
+      ctx.fillRect(Math.round(skToScreenX(hoverPt[0])), 0, 1, RULER);
+      ctx.fillRect(0, Math.round(skToScreenY(hoverPt[1])), RULER, 1);
+    }
+    ctx.fillStyle = "#1e2128";
+    ctx.fillRect(0, 0, RULER, RULER);
+  }
+
+  /** Lines and points a drag can snap to; `movingBones` are excluded from the bone smart guides. */
+  function snapTargets(movingBones: Set<string> = new Set(), extraPoints: [number, number][] = []): SnapTarget[] {
+    const a = viewAids();
+    const out: SnapTarget[] = [];
+    if (a.snapArtboard) out.push(...artboardTargets(store.doc));
+    if (a.snapGuides && a.rulers) for (const g of guides()) out.push({ axis: g.axis, value: g.pos, kind: "guide" });
+    if (a.snapBones && sk) {
+      const pts: [number, number][] = [];
+      for (const b of sk.bones) {
+        if (movingBones.has(b.data.id)) continue;
+        pts.push([b.world.x, b.world.y]);
+        if (b.data.length > 0) pts.push(applyM(b.world, b.data.length, 0) as [number, number]);
+      }
+      out.push(...pointTargets([...pts, ...extraPoints]));
+    } else if (extraPoints.length) out.push(...pointTargets(extraPoints));
+    return out;
+  }
+
+  /** Snap a skeleton-space point for a drag (hold Ctrl/⌘ to bypass). Records the lines to draw. */
+  function snap(x: number, y: number, e: { ctrlKey: boolean; metaKey: boolean }, targets: () => SnapTarget[]): [number, number] {
+    const a = viewAids();
+    if (!a.snap || e.ctrlKey || e.metaKey) {
+      snapLines = [];
+      return [x, y];
+    }
+    const r = snapPoint(x, y, targets(), 6 / view.zoom, a.grid && a.snapGrid ? a.gridSize : undefined);
+    snapLines = r.lines;
+    return [r.x, r.y];
+  }
+
+  /** The bone and all bones below it (they move together). */
+  function subtree(bone: Bone): Set<string> {
+    const out = new Set<string>([bone.data.id]);
+    const walk = (b: Bone) => b.children.forEach((c) => (out.add(c.data.id), walk(c)));
+    walk(bone);
+    return out;
+  }
+
+  /**
+   * Guide under a screen point (within 4px). Only the select/translate/scale tools grab guides, so drawing
+   * bones or editing meshes next to a guide snaps to it instead of moving it.
+   */
+  function guideAt(mx: number, my: number): Guide | null {
+    if (!viewAids().rulers || !["select", "translate", "scale"].includes(tool())) return null;
+    let best: Guide | null = null;
+    let bestD = 4;
+    for (const g of guides()) {
+      const d = g.axis === "x" ? Math.abs(skToScreenX(g.pos) - mx) : Math.abs(skToScreenY(g.pos) - my);
+      if (d <= bestD) {
+        bestD = d;
+        best = g;
+      }
+    }
+    return best;
+  }
+
+  /** Pointer-down on a ruler (creates a guide) or on a guide (moves it). Returns true when handled. */
+  function guideDown(mx: number, my: number): boolean {
+    if (!viewAids().rulers) return false;
+    if (my < RULER && mx > RULER) {
+      drag = { kind: "guide", guide: { id: newGuideId(), axis: "y", pos: screenToSkY(my) }, isNew: true };
+      return true;
+    }
+    if (mx < RULER && my > RULER) {
+      drag = { kind: "guide", guide: { id: newGuideId(), axis: "x", pos: screenToSkX(mx) }, isNew: true };
+      return true;
+    }
+    if (mx < RULER && my < RULER) return true; // corner
+    const g = guideAt(mx, my);
+    if (g) {
+      drag = { kind: "guide", guide: { ...g }, isNew: false };
+      return true;
+    }
+    return false;
+  }
+
   function pickBone(x: number, y: number): Bone | null {
     if (!sk) return null;
     let best: Bone | null = null;
@@ -462,12 +709,17 @@ export function Viewport() {
   };
 
   function onDown(e: PointerEvent) {
-    canvas.setPointerCapture(e.pointerId);
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {
+      /* pointer already released (or synthetic): dragging still works without capture */
+    }
     const [mx, my] = local(e);
     if (e.button === 1 || e.button === 2 || e.altKey || spaceDown) {
       drag = { kind: "pan", sx: mx, sy: my, vx: view.x, vy: view.y };
       return;
     }
+    if (!running() && guideDown(mx, my)) return;
     const [x, y] = toSkeleton(mx, my);
     if (running()) {
       smInstance()?.pointer("down", x, y);
@@ -489,7 +741,8 @@ export function Viewport() {
     if (t === "bone") {
       const parentId = selectedBoneId();
       const parent = (parentId && sk?.boneById_(parentId)) || sk?.bones[0] || null;
-      drag = { kind: "create", parent, start: [x, y], end: [x, y] };
+      const start = snap(x, y, e, () => snapTargets());
+      drag = { kind: "create", parent, start, end: start };
       return;
     }
     const bone = pickBone(x, y);
@@ -503,14 +756,14 @@ export function Viewport() {
     if (slot && t === "translate" && mode() === "setup") {
       const att = sk!.getAttachment(slot);
       if (att && (att.type === "region" || att.type === "shape" || att.type === "point")) {
-        drag = { kind: "attachment", slotId: slot.data.id, name: att.name, start: [x, y], base: [att.x, att.y], cur: [att.x, att.y], inv: invert(slot.bone.world), preview: null };
+        drag = { kind: "attachment", slotId: slot.data.id, name: att.name, start: [x, y], base: [att.x, att.y], cur: [att.x, att.y], inv: invert(slot.bone.world), preview: null, startWorld: applyM(slot.bone.world, att.x, att.y) as [number, number] };
         return;
       }
     }
     const target = bone ?? slot!.bone;
     const op = t === "translate" ? "translate" : t === "scale" ? "scale" : "rotate";
     const base = { x: target.x, y: target.y, rotation: target.rotation, scaleX: target.scaleX, scaleY: target.scaleY };
-    drag = { kind: "bone", op, bone: target, start: [x, y], base, cur: { ...base } };
+    drag = { kind: "bone", op, bone: target, start: [x, y], startWorld: [target.world.x, target.world.y], base, cur: { ...base } };
   }
 
   function onMove(e: PointerEvent) {
@@ -527,15 +780,38 @@ export function Viewport() {
       smInstance()?.pointer("move", x, y);
       if (!drag) return;
     }
-    if (!drag) return;
+    if (!drag) {
+      const g = guideAt(mx, my);
+      const onRuler = viewAids().rulers && (mx < RULER || my < RULER);
+      setCursorHint(g ? (g.axis === "x" ? "ew-resize" : "ns-resize") : onRuler ? (my < RULER ? "ns-resize" : "ew-resize") : null);
+      return;
+    }
+    if (drag.kind === "guide") {
+      const a = viewAids();
+      let pos = drag.guide.axis === "x" ? screenToSkX(mx) : screenToSkY(my);
+      // Guides snap to the grid (when shown) and to whole units.
+      if (a.snap && !e.ctrlKey && !e.metaKey && a.grid && a.snapGrid && Math.abs(pos - Math.round(pos / a.gridSize) * a.gridSize) < 6 / view.zoom) pos = Math.round(pos / a.gridSize) * a.gridSize;
+      drag.guide = { ...drag.guide, pos: Math.round(pos) };
+      hoverInfo = `guide ${drag.guide.axis} = ${drag.guide.pos}${(drag.guide.axis === "x" ? mx < RULER : my < RULER) ? "  (release to remove)" : ""}`;
+      return;
+    }
     if (drag.kind === "pan") {
       view.x = drag.vx + (mx - drag.sx);
       view.y = drag.vy + (my - drag.sy);
     } else if (drag.kind === "create") {
-      drag.end = [x, y];
+      drag.end = snap(x, y, e, () => snapTargets());
     } else if (drag.kind === "vertex") {
-      const dx = x - drag.start[0];
-      const dy = y - drag.start[1];
+      // Snap the grabbed vertex; the rest of the selection follows by the same offset.
+      const [ax, ay] = drag.base.get(drag.anchor)!;
+      const vdrag = drag;
+      const [sx, sy] = snap(ax + x - drag.start[0], ay + y - drag.start[1], e, () => {
+        const world = setupVertices(vdrag.t);
+        const others: [number, number][] = [];
+        for (let i = 0; i < world.length / 2; i++) if (!vdrag.base.has(i)) others.push([world[i * 2], world[i * 2 + 1]]);
+        return snapTargets(new Set(), others);
+      });
+      const dx = sx - ax;
+      const dy = sy - ay;
       for (const [i, [bx, by]] of drag.base) drag.moved.set(i, [bx + dx, by + dy]);
       const t = drag.t;
       const g = buildGeometry(t, movedWorld(t, drag.moved), t.att.hull, identity(t.att.vertices.length / 2), meshWarp());
@@ -562,9 +838,10 @@ export function Viewport() {
       drag.carry = spacing - (s2 - dist);
       drag.last = [x, y];
     } else if (drag.kind === "attachment") {
-      const [lx0, ly0] = applyM(drag.inv, ...drag.start);
-      const [lx1, ly1] = applyM(drag.inv, x, y);
-      drag.cur = [drag.base[0] + lx1 - lx0, drag.base[1] + ly1 - ly0];
+      // Snap the attachment's origin, then convert back to slot-bone space.
+      const [wx, wy] = snap(drag.startWorld[0] + x - drag.start[0], drag.startWorld[1] + y - drag.start[1], e, () => snapTargets());
+      const [lx, ly] = applyM(drag.inv, wx, wy);
+      drag.cur = [lx, ly];
       // Preview on a throwaway copy of the document; the real edit is one op on release.
       drag.preview ??= new Skeleton(structuredClone(store.doc));
       const ps = drag.preview;
@@ -585,8 +862,10 @@ export function Viewport() {
         drag.cur = { ...drag.cur, rotation: round2(drag.base.rotation! + delta * det) };
       } else if (drag.op === "translate") {
         const inv = invert(pw);
-        const dx = x - drag.start[0];
-        const dy = y - drag.start[1];
+        const moving = subtree(b);
+        const [sx, sy] = snap(drag.startWorld[0] + x - drag.start[0], drag.startWorld[1] + y - drag.start[1], e, () => snapTargets(moving));
+        const dx = sx - drag.startWorld[0];
+        const dy = sy - drag.startWorld[1];
         drag.cur = { ...drag.cur, x: round2(drag.base.x! + inv.a * dx + inv.b * dy), y: round2(drag.base.y! + inv.c * dx + inv.d * dy) };
       } else {
         const d0 = Math.hypot(drag.start[0] - b.world.x, drag.start[1] - b.world.y) || 1;
@@ -599,12 +878,21 @@ export function Viewport() {
 
   function onUp(e: PointerEvent) {
     const [mx, my] = local(e);
-    const [x, y] = toSkeleton(mx, my);
+    let [x, y] = toSkeleton(mx, my);
     if (running() && drag?.kind !== "pan") smInstance()?.pointer("up", x, y);
     const d = drag;
     drag = null;
+    snapLines = [];
     if (!d) return;
+    if (d.kind === "guide") {
+      const overRuler = d.guide.axis === "x" ? mx < RULER : my < RULER;
+      if (overRuler) {
+        if (!d.isNew) removeGuide(d.guide.id);
+      } else upsertGuide(d.guide);
+      return;
+    }
     if (d.kind === "create") {
+      [x, y] = d.end;
       const [sx, sy] = d.start;
       const len = Math.hypot(x - sx, y - sy);
       const pw = d.parent?.world ?? { a: 1, b: 0, c: 0, d: 1, x: 0, y: 0 };
@@ -694,7 +982,7 @@ export function Viewport() {
   );
 
   return (
-    <div class="viewport" ref={wrap}>
+    <div class="viewport" classList={{ "with-rulers": viewAids().rulers }} ref={wrap}>
       <canvas
         ref={canvas}
         onPointerDown={onDown}
@@ -702,12 +990,45 @@ export function Viewport() {
         onPointerUp={onUp}
         onWheel={onWheel}
         onContextMenu={(e) => e.preventDefault()}
-        style={{ cursor: running() ? "pointer" : tool() === "bone" || tool() === "weights" ? "crosshair" : "default" }}
+        style={{ cursor: running() ? "pointer" : (cursorHint() ?? (tool() === "bone" || tool() === "weights" ? "crosshair" : "default")) }}
       />
       <Show when={meshToolOn()}>
         <MeshPanel />
       </Show>
-      <div class="onion-ctl">
+      <div class="view-bar" onPointerDown={(e) => e.stopPropagation()}>
+        <div class="seg">
+          <button classList={{ active: viewAids().grid }} aria-pressed={viewAids().grid} title="Grid (G)" onClick={() => toggleViewAid("grid")}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 5.5h14M1 10.5h14M5.5 1v14M10.5 1v14" /></svg>
+          </button>
+          <button classList={{ active: viewAids().rulers }} aria-pressed={viewAids().rulers} title="Rulers and guides (Shift+R). Drag from a ruler to add a guide; drag it back to remove." onClick={() => toggleViewAid("rulers")}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 11.5l10-10 3 3-10 10z M4 9l1.5 1.5M6 7l2 2M8 5l1.5 1.5M10 3l2 2" /></svg>
+          </button>
+          <button classList={{ active: viewAids().snap }} aria-pressed={viewAids().snap} title="Snapping (hold Ctrl/⌘ while dragging to bypass)" onClick={() => toggleViewAid("snap")}>
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2v6a4 4 0 0 0 8 0V2M4 5h3M9 5h3" /></svg>
+          </button>
+          <button classList={{ active: aidsOpen() }} aria-expanded={aidsOpen()} title="Grid and snapping options" onClick={() => setAidsOpen(!aidsOpen())}>
+            ▾
+          </button>
+        </div>
+        <Show when={aidsOpen()}>
+          <div class="aids-pop" role="dialog" aria-label="Grid and snapping options">
+            <label class="field">
+              <span>Grid size</span>
+              <input type="number" min="1" max="1000" value={viewAids().gridSize} onChange={(e) => setViewAid("gridSize", Number(e.currentTarget.value))} />
+            </label>
+            <div class="muted small">Snap to</div>
+            <label class="check"><input type="checkbox" checked={viewAids().snapArtboard} onChange={(e) => setViewAid("snapArtboard", e.currentTarget.checked)} /> Artboard centre, edges, origin</label>
+            <label class="check"><input type="checkbox" checked={viewAids().snapGuides} onChange={(e) => setViewAid("snapGuides", e.currentTarget.checked)} /> Guides</label>
+            <label class="check"><input type="checkbox" checked={viewAids().snapGrid} onChange={(e) => setViewAid("snapGrid", e.currentTarget.checked)} /> Grid (when shown)</label>
+            <label class="check"><input type="checkbox" checked={viewAids().snapBones} onChange={(e) => setViewAid("snapBones", e.currentTarget.checked)} /> Bone joints and vertices</label>
+            <div class="btn-row">
+              <button disabled={!guides().length} onClick={() => clearGuides()}>
+                Clear {guides().length || ""} guide{guides().length === 1 ? "" : "s"}
+              </button>
+            </div>
+          </div>
+        </Show>
+        <span class="bar-sep" />
         <button classList={{ active: onionSkin() }} disabled={mode() !== "animate"} title="Onion skin: show ghost poses before (red) and after (green) the current frame (Animate mode)" onClick={() => setOnionSkin(!onionSkin())}>
           Onion
         </button>
@@ -722,20 +1043,21 @@ export function Viewport() {
             fr
           </label>
         </Show>
+        <button onClick={fit} title="Fit artboard (F)">
+          ⤢
+        </button>
       </div>
       <div class="viewport-hint">
         {running()
           ? "▶ Running state machine — interact with the artboard"
           : `${mode() === "animate" ? `ANIMATE${currentAnimation() ? ` · ${currentAnimation()!.name} @ ${time().toFixed(2)}s` : " · no animation"}` : "SETUP"} · wheel: zoom · alt/right-drag: pan · F: fit`}
       </div>
-      <button class="fit-btn" onClick={fit} title="Fit artboard (F)">
-        ⤢
-      </button>
     </div>
   );
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const fmtRuler = (n: number) => String(Math.round(n * 100) / 100);
 const clampInt = (v: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(Number(v) || lo)));
 
 /** Floating panel for the mesh and weights tools. */
