@@ -378,3 +378,17 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
 .export-options .field > span:first-child { width: 72px; }
 /* Fieldsets default to min-width: min-content and would push past the column. */
 .export-group { min-width: 0; }
+
+/* Sprite sequences */
+.seq-preview { display: flex; gap: 8px; align-items: center; }
+.seq-meta { display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
+.seq-thumb-box { display: flex; align-items: center; justify-content: center; flex-shrink: 0; border-radius: 3px;
+  background: repeating-conic-gradient(#2a2e37 0 25%, #20232a 0 50%) 0 0 / 10px 10px; }
+.seq-thumb { background-repeat: no-repeat; }
+.seq-scrub { width: 100%; }
+.seq-frames { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; }
+.seq-frame { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 3px; cursor: pointer; }
+.seq-frame:hover { background: #22262e; }
+.seq-frame.current { background: #2b3445; }
+.seq-frame .row-actions { margin-left: auto; }
+.seq-num { color: var(--muted); font-size: 11px; }

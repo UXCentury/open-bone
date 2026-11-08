@@ -5,3 +5,4 @@ export { encodeGif } from "./gif.ts";
 export { encodePsd } from "./psd.ts";
 export { encodeAviMjpeg } from "./avi.ts";
 export { encodeMovMjpeg } from "./mov.ts";
+export { type ZipEntry, readZip } from "./unzip.ts";

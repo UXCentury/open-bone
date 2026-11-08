@@ -1,4 +1,5 @@
 import { type BoneData, RAD, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint, textureAssets } from "@openbone/core";
+import { applySequencePreview } from "../sequence-import.ts";
 import { type Guide, clearGuides, guides, newGuideId, removeGuide, setViewAid, toggleViewAid, upsertGuide, viewAids } from "../guides.ts";
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { type Bone, type ScriptHost, Skeleton, StateMachineInstance, applyAnimation, trustedFunctionHost } from "@openbone/runtime";
@@ -190,6 +191,7 @@ export function Viewport() {
     const d = store.doc;
     const s = ensureSkeleton();
     pose(s, dt);
+    applySequencePreview(s);
     const ctx = canvas.getContext("2d")!;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.fillStyle = "#1b1e24";
@@ -761,7 +763,7 @@ export function Viewport() {
     }
     if (slot && t === "translate" && mode() === "setup") {
       const att = sk!.getAttachment(slot);
-      if (att && (att.type === "region" || att.type === "shape" || att.type === "point")) {
+      if (att && (att.type === "region" || att.type === "sequence" || att.type === "shape" || att.type === "point")) {
         drag = { kind: "attachment", slotId: slot.data.id, name: att.name, start: [x, y], base: [att.x, att.y], cur: [att.x, att.y], inv: invert(slot.bone.world), preview: null, startWorld: applyM(slot.bone.world, att.x, att.y) as [number, number] };
         return;
       }

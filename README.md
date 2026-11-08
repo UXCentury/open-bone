@@ -19,10 +19,11 @@
 - **Meshes**: deformable, weighted to bones, with free-form deform keys.
 - **Clipping masks**: slots after the mask, up to an end slot, are drawn only inside its outline (Canvas2D clip, WebGL2 stencil).
 - **Bezier paths** for path constraints, optionally weighted to bones.
+- **Sprite sequences**: frame-by-frame animation from numbered image files (After Effects / render output, sorted naturally), sprite sheets cut by a grid or read from TexturePacker / Aseprite JSON (hash or array, trimmed frames), or a ZIP of frames. Own fps, loop / once / ping-pong / hold-last, start offset; driven by animation or state time, by frame keys, or by a number input. Works with skins, clipping, draw order and the atlas.
 - **Texture atlas packing** (MaxRects): fewer GPU draw calls and single-file exports.
 
 ### Animation
-- Per-property timelines: bone rotate/translate/scale/shear, slot colour and attachment, IK/transform/path/physics constraint values, mesh and path deform, draw order.
+- Per-property timelines: bone rotate/translate/scale/shear, slot colour and attachment, IK/transform/path/physics constraint values, mesh and path deform, sequence frame, draw order.
 - Linear, stepped and bezier curves with a **curve graph editor** (draggable handles).
 - **Dopesheet timeline** with auto-key, key dragging, events (with int/float/string payloads and audio references).
 - Track mixing and cross-fades at runtime.
@@ -50,7 +51,7 @@
 ### Runtime and tools
 - Renderer-agnostic TypeScript runtime with **WebGL2** (batched) and **Canvas2D** renderers.
 - **`<openbone-player>`** web component and a `Player` class (loads `.obone`, `.json` and `.obonb`).
-- **MCP server** (78 tools; every editing op becomes a tool automatically) with render/simulate tools and a live WebSocket bridge to the editor.
+- **MCP server** (80 tools; every editing op becomes a tool automatically) with render/simulate tools and a live WebSocket bridge to the editor.
 - **CLI**: validate, summarize, render PNG/GIF, simulate state machines, apply any op.
 - **Desktop app** (Tauri 2) with native file dialogs.
 

@@ -68,6 +68,15 @@ describe("WebGL batching with an atlas", () => {
     expect(atlas.calls).toBe(1);
   });
 
+  it("campfire example: sequence frames batch from the atlas page", () => {
+    const loose = drawCalls(example("campfire.obone"));
+    const atlas = drawCalls(packed(example("campfire.obone")));
+    // Each frame image is its own texture loose; packed, only blend changes (additive flames) split batches.
+    expect(atlas.textures).toBe(1);
+    expect(atlas.calls).toBeLessThan(loose.calls);
+    expect(atlas.calls).toBe(2);
+  });
+
   it("button example: no images, nothing changes", () => {
     const doc = example("button.obone");
     expect(packed(doc).atlas).toBeUndefined();

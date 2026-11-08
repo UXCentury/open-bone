@@ -1,0 +1,507 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "Campfire",
+  "width": 400,
+  "height": 400,
+  "originX": 200,
+  "originY": 330,
+  "background": "#1d2333",
+  "fps": 30,
+  "images": [
+    {
+      "id": "img_o8bwa3s",
+      "name": "smoke_0001",
+      "src": "assets/smoke_0001.png",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "id": "img_r8nbh3t",
+      "name": "smoke_0002",
+      "src": "assets/smoke_0002.png",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "id": "img_4wnf93u",
+      "name": "smoke_0003",
+      "src": "assets/smoke_0003.png",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "id": "img_rnfra3v",
+      "name": "smoke_0004",
+      "src": "assets/smoke_0004.png",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "id": "img_383623w",
+      "name": "smoke_0005",
+      "src": "assets/smoke_0005.png",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "id": "img_uno393x",
+      "name": "smoke_0006",
+      "src": "assets/smoke_0006.png",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "id": "img_n176c3y",
+      "name": "flame_0001",
+      "src": "assets/flame_0001.png",
+      "width": 64,
+      "height": 96
+    },
+    {
+      "id": "img_5bd4e3z",
+      "name": "flame_0002",
+      "src": "assets/flame_0002.png",
+      "width": 64,
+      "height": 96
+    },
+    {
+      "id": "img_6sgww40",
+      "name": "flame_0003",
+      "src": "assets/flame_0003.png",
+      "width": 64,
+      "height": 96
+    },
+    {
+      "id": "img_j6oep41",
+      "name": "flame_0004",
+      "src": "assets/flame_0004.png",
+      "width": 64,
+      "height": 96
+    },
+    {
+      "id": "img_94pt342",
+      "name": "flame_0005",
+      "src": "assets/flame_0005.png",
+      "width": 64,
+      "height": 96
+    },
+    {
+      "id": "img_9axih43",
+      "name": "flame_0006",
+      "src": "assets/flame_0006.png",
+      "width": 64,
+      "height": 96
+    },
+    {
+      "id": "img_82ggt44",
+      "name": "flame_0007",
+      "src": "assets/flame_0007.png",
+      "width": 64,
+      "height": 96
+    },
+    {
+      "id": "img_yc3rc45",
+      "name": "flame_0008",
+      "src": "assets/flame_0008.png",
+      "width": 64,
+      "height": 96
+    },
+    {
+      "id": "img_nju4646",
+      "name": "flame_0009",
+      "src": "assets/flame_0009.png",
+      "width": 64,
+      "height": 96
+    },
+    {
+      "id": "img_acrr347",
+      "name": "flame_0010",
+      "src": "assets/flame_0010.png",
+      "width": 64,
+      "height": 96
+    },
+    {
+      "id": "img_n1idk48",
+      "name": "flame_0011",
+      "src": "assets/flame_0011.png",
+      "width": 64,
+      "height": 96
+    },
+    {
+      "id": "img_aovpi49",
+      "name": "flame_0012",
+      "src": "assets/flame_0012.png",
+      "width": 64,
+      "height": 96
+    }
+  ],
+  "skeleton": {
+    "bones": [
+      {
+        "id": "bone_k7rer3l",
+        "name": "root",
+        "parent": null,
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_q4fix3m",
+        "name": "fire",
+        "parent": "bone_k7rer3l",
+        "length": 0,
+        "x": 0,
+        "y": 10,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_e613l3n",
+        "name": "smoke",
+        "parent": "bone_q4fix3m",
+        "length": 0,
+        "x": 0,
+        "y": 150,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot_66k9i3o",
+        "name": "glow",
+        "bone": "bone_k7rer3l",
+        "color": "#ffffff",
+        "attachment": "ellipse",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_jdbjn3p",
+        "name": "log1",
+        "bone": "bone_k7rer3l",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_f1gbt3q",
+        "name": "log2",
+        "bone": "bone_k7rer3l",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_5am6d3r",
+        "name": "smoke",
+        "bone": "bone_e613l3n",
+        "color": "#ffffff",
+        "attachment": "smoke",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_oqwwi4a",
+        "name": "flame",
+        "bone": "bone_q4fix3m",
+        "color": "#ffffff",
+        "attachment": "flame",
+        "blend": "additive"
+      },
+      {
+        "id": "slot_ktmz94b",
+        "name": "flame-small",
+        "bone": "bone_q4fix3m",
+        "color": "#ffffff",
+        "attachment": "flame",
+        "blend": "additive"
+      }
+    ],
+    "skins": [
+      {
+        "id": "skin_default",
+        "name": "default",
+        "attachments": {
+          "slot_66k9i3o": {
+            "ellipse": {
+              "type": "shape",
+              "name": "ellipse",
+              "shape": "ellipse",
+              "x": 0,
+              "y": 40,
+              "rotation": 0,
+              "width": 260,
+              "height": 170,
+              "radius": 0,
+              "fill": "#ff8a0033"
+            }
+          },
+          "slot_jdbjn3p": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": 4,
+              "rotation": 18,
+              "width": 150,
+              "height": 22,
+              "radius": 11,
+              "fill": "#6b4226",
+              "stroke": "#3e2615",
+              "strokeWidth": 2
+            }
+          },
+          "slot_f1gbt3q": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": 4,
+              "rotation": -18,
+              "width": 150,
+              "height": 22,
+              "radius": 11,
+              "fill": "#6b4226",
+              "stroke": "#3e2615",
+              "strokeWidth": 2
+            }
+          },
+          "slot_5am6d3r": {
+            "smoke": {
+              "type": "sequence",
+              "name": "smoke",
+              "frames": [
+                {
+                  "image": "img_o8bwa3s"
+                },
+                {
+                  "image": "img_r8nbh3t"
+                },
+                {
+                  "image": "img_4wnf93u"
+                },
+                {
+                  "image": "img_rnfra3v"
+                },
+                {
+                  "image": "img_383623w"
+                },
+                {
+                  "image": "img_uno393x"
+                }
+              ],
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 2,
+              "scaleY": 2,
+              "width": 48,
+              "height": 48,
+              "color": "#ffffff",
+              "fps": 8,
+              "mode": "pingPong",
+              "offset": 0
+            }
+          },
+          "slot_oqwwi4a": {
+            "flame": {
+              "type": "sequence",
+              "name": "flame",
+              "frames": [
+                {
+                  "image": "img_n176c3y"
+                },
+                {
+                  "image": "img_5bd4e3z"
+                },
+                {
+                  "image": "img_6sgww40"
+                },
+                {
+                  "image": "img_j6oep41"
+                },
+                {
+                  "image": "img_94pt342"
+                },
+                {
+                  "image": "img_9axih43"
+                },
+                {
+                  "image": "img_82ggt44"
+                },
+                {
+                  "image": "img_yc3rc45"
+                },
+                {
+                  "image": "img_nju4646"
+                },
+                {
+                  "image": "img_acrr347"
+                },
+                {
+                  "image": "img_n1idk48"
+                },
+                {
+                  "image": "img_aovpi49"
+                }
+              ],
+              "x": 0,
+              "y": 70,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 96,
+              "height": 144,
+              "color": "#ffffff",
+              "fps": 15,
+              "mode": "loop",
+              "offset": 0
+            }
+          },
+          "slot_ktmz94b": {
+            "flame": {
+              "type": "sequence",
+              "name": "flame",
+              "frames": [
+                {
+                  "image": "img_n176c3y"
+                },
+                {
+                  "image": "img_5bd4e3z"
+                },
+                {
+                  "image": "img_6sgww40"
+                },
+                {
+                  "image": "img_j6oep41"
+                },
+                {
+                  "image": "img_94pt342"
+                },
+                {
+                  "image": "img_9axih43"
+                },
+                {
+                  "image": "img_82ggt44"
+                },
+                {
+                  "image": "img_yc3rc45"
+                },
+                {
+                  "image": "img_nju4646"
+                },
+                {
+                  "image": "img_acrr347"
+                },
+                {
+                  "image": "img_n1idk48"
+                },
+                {
+                  "image": "img_aovpi49"
+                }
+              ],
+              "x": 34,
+              "y": 40,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 56,
+              "height": 84,
+              "color": "#ffffff",
+              "fps": 15,
+              "mode": "loop",
+              "offset": 6
+            }
+          }
+        }
+      }
+    ],
+    "ik": [],
+    "transform": [],
+    "path": [],
+    "physics": []
+  },
+  "events": [],
+  "animations": [
+    {
+      "id": "anim_7ujtf4c",
+      "name": "burn",
+      "duration": 1.6,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_q4fix3m",
+          "property": "scaleY",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.8,
+              "value": 1.08,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.6,
+              "value": 1,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_66k9i3o",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 0.8,
+              "value": "#ffffffaa",
+              "curve": "linear"
+            },
+            {
+              "time": 1.6,
+              "value": "#ffffff",
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    }
+  ],
+  "stateMachines": [],
+  "scripts": []
+}

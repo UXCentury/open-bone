@@ -3,7 +3,7 @@
 ```
             ┌──────────── edits (ops) ────────────┐
  Editor ────┤                                     ├──── MCP server ◄── AI agent
- (Solid)    │  @openbone/core  DocumentStore      │     (78 tools)
+ (Solid)    │  @openbone/core  DocumentStore      │     (80 tools)
    ▲        │  op registry · undo · validate      │        │
    │        └─────────────────────────────────────┘        │
    │  live bridge (WebSocket, ops replayed both ways)  ◄───┘

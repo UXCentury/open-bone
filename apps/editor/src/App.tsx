@@ -7,6 +7,7 @@ import { saveProject } from "./storage.ts";
 import { deleteSelectedVertices, nudgeSelected, selectAllVertices } from "./mesh-edit.ts";
 import { apply, exportOpen, setExportOpen, mode, playing, selection, setPlaying, setSelection, setTool, toasts, tool, meshSel, setMeshSel } from "./state.ts";
 import { DialogHost } from "./dialogs.tsx";
+import { importFiles } from "./sequence-import.ts";
 import { toggleViewAid } from "./guides.ts";
 
 export function App() {
@@ -74,7 +75,7 @@ export function App() {
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
-            if (e.dataTransfer?.files.length) importImages(e.dataTransfer.files);
+            if (e.dataTransfer?.files.length) void importFiles(e.dataTransfer.files, importImages);
           }}
         >
           <Viewport />
