@@ -100,7 +100,7 @@ export function Toolbar() {
               confirmLabel: "Discard and start new",
               danger: true,
             });
-            if (ok) loadDocument(createDocument("Untitled", { background: "#eef2f7" }), "untitled.obone");
+            if (ok) loadDocument(createDocument("Untitled"), "untitled.obone");
           }}
         >
           New

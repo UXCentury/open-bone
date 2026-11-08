@@ -1,5 +1,5 @@
 import { type BoneData, slotAttachments } from "@openbone/core";
-import { For, Show } from "solid-js";
+import { For, Show, createEffect, createSignal, untrack } from "solid-js";
 import {
   activeSkin,
   activeSkinId,
@@ -21,57 +21,131 @@ import { Section } from "./fields.tsx";
 import { askConfirm, askText, uniqueName } from "../dialogs.tsx";
 import { AudioSection } from "./AudioPanel.tsx";
 
-function BoneNode(p: { bone: BoneData; depth: number }) {
+// ---- skeleton tree: guide lines and collapsible nodes (bones and slots), like Spine's tree ----
+const [collapsedNodes, setCollapsedNodes] = createSignal<Set<string>>(new Set());
+const isCollapsed = (id: string) => collapsedNodes().has(id);
+function setNodes(ids: string[], collapse: boolean) {
+  const s = new Set(collapsedNodes());
+  for (const id of ids) {
+    if (collapse) s.add(id);
+    else s.delete(id);
+  }
+  setCollapsedNodes(s);
+}
+/** A bone and every bone and slot under it (for Alt-click: open or close a whole branch). */
+function subtreeIds(boneId: string): string[] {
+  const d = doc();
+  const out: string[] = [];
+  const walk = (id: string) => {
+    out.push(id);
+    for (const s of d.skeleton.slots) if (s.bone === id) out.push(s.id);
+    for (const b of d.skeleton.bones) if (b.parent === id) walk(b.id);
+  };
+  walk(boneId);
+  return out;
+}
+/** Every bone and slot that has something under it. */
+function allParentIds(): string[] {
+  const d = doc();
+  return [
+    ...d.skeleton.bones.filter((b) => d.skeleton.bones.some((c) => c.parent === b.id) || d.skeleton.slots.some((s) => s.bone === b.id)).map((b) => b.id),
+    ...d.skeleton.slots.map((s) => s.id),
+  ];
+}
+
+function Twisty(p: { id: string; has: boolean; subtree?: () => string[] }) {
+  return (
+    <span
+      class="twisty"
+      classList={{ empty: !p.has }}
+      title={p.has ? "Collapse / expand (Alt: the whole branch)" : undefined}
+      onClick={(e) => {
+        if (!p.has) return;
+        e.stopPropagation();
+        const collapse = !isCollapsed(p.id);
+        setNodes(e.altKey && p.subtree ? p.subtree() : [p.id], collapse);
+      }}
+    >
+      {p.has ? (isCollapsed(p.id) ? "▸" : "▾") : ""}
+    </span>
+  );
+}
+
+function BoneNode(p: { bone: BoneData }) {
   const children = () => doc().skeleton.bones.filter((b) => b.parent === p.bone.id);
   const slots = () => doc().skeleton.slots.filter((s) => s.bone === p.bone.id);
   const sel = () => selection();
+  const has = () => children().length + slots().length > 0;
   return (
-    <>
-      <div
-        class="tree-row"
-        classList={{ selected: sel()?.kind === "bone" && sel()!.id === p.bone.id }}
-        style={{ "padding-left": `${8 + p.depth * 12}px` }}
-        onClick={() => setSelection({ kind: "bone", id: p.bone.id })}
-      >
+    <div class="tnode">
+      <div class="tree-row" classList={{ selected: sel()?.kind === "bone" && sel()!.id === p.bone.id }} onClick={() => setSelection({ kind: "bone", id: p.bone.id })}>
+        <Twisty id={p.bone.id} has={has()} subtree={() => subtreeIds(p.bone.id)} />
         <span class="icon bone-icon">🦴</span> {p.bone.name}
       </div>
-      <For each={slots()}>
-        {(s) => {
-          const atts = () => slotAttachments(doc(), s.id, activeSkin()?.id);
-          return (
-            <>
-              <div
-                class="tree-row slot-row"
-                classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id }}
-                style={{ "padding-left": `${20 + p.depth * 12}px` }}
-                onClick={() => setSelection({ kind: "slot", id: s.id })}
-              >
-                <span class="icon">▣</span> {s.name}
-                <span class="muted"> {s.attachment ? `· ${s.attachment}` : "· hidden"}</span>
-              </div>
-              <For each={atts()}>
-                {(a) => (
-                  <div
-                    class="tree-row att-row"
-                    classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id && (sel() as { attachment?: string }).attachment === a.name }}
-                    style={{ "padding-left": `${34 + p.depth * 12}px` }}
-                    title={a.skin.id === doc().skeleton.skins[0].id ? "In the default skin" : `In skin “${a.skin.name}”${a.overrides ? " (overrides the default skin)" : ""}`}
-                    onClick={() => setSelection({ kind: "slot", id: s.id, attachment: a.name })}
-                  >
-                    <span class="icon">{({ boundingBox: "⬚", clipping: "✂", sequence: "🎞", particles: "✺" } as Record<string, string>)[a.attachment.type] ?? "◇"}</span> {a.name}
-                    <Show when={a.skin.id !== doc().skeleton.skins[0].id}>
-                      <span class="skin-badge">{a.skin.name}</span>
-                    </Show>
+      <Show when={has() && !isCollapsed(p.bone.id)}>
+        <div class="tchildren">
+          <For each={slots()}>
+            {(s) => {
+              const atts = () => slotAttachments(doc(), s.id, activeSkin()?.id);
+              return (
+                <div class="tnode">
+                  <div class="tree-row slot-row" classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id }} onClick={() => setSelection({ kind: "slot", id: s.id })}>
+                    <Twisty id={s.id} has={atts().length > 0} />
+                    <span class="icon">▣</span> {s.name}
+                    <span class="muted"> {s.attachment ? `· ${s.attachment}` : "· hidden"}</span>
                   </div>
-                )}
-              </For>
-            </>
-          );
-        }}
-      </For>
-      <For each={children()}>{(c) => <BoneNode bone={c} depth={p.depth + 1} />}</For>
-    </>
+                  <Show when={atts().length > 0 && !isCollapsed(s.id)}>
+                    <div class="tchildren">
+                      <For each={atts()}>
+                        {(a) => (
+                          <div class="tnode">
+                            <div
+                              class="tree-row att-row"
+                              classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id && (sel() as { attachment?: string }).attachment === a.name }}
+                              title={a.skin.id === doc().skeleton.skins[0].id ? "In the default skin" : `In skin “${a.skin.name}”${a.overrides ? " (overrides the default skin)" : ""}`}
+                              onClick={() => setSelection({ kind: "slot", id: s.id, attachment: a.name })}
+                            >
+                              <span class="icon">{({ boundingBox: "⬚", clipping: "✂", sequence: "🎞", particles: "✺" } as Record<string, string>)[a.attachment.type] ?? "◇"}</span> {a.name}
+                              <Show when={a.skin.id !== doc().skeleton.skins[0].id}>
+                                <span class="skin-badge">{a.skin.name}</span>
+                              </Show>
+                            </div>
+                          </div>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+                </div>
+              );
+            }}
+          </For>
+          <For each={children()}>{(c) => <BoneNode bone={c} />}</For>
+        </div>
+      </Show>
+    </div>
   );
+}
+
+/** Open the collapsed ancestors of the selected bone or slot, so selecting in the viewport shows it in the tree. */
+function useRevealSelection() {
+  createEffect(() => {
+    const sel = selection();
+    if (!sel || (sel.kind !== "bone" && sel.kind !== "slot")) return;
+    const d = doc();
+    const open: string[] = [];
+    let boneId: string | undefined;
+    if (sel.kind === "slot") {
+      const slot = d.skeleton.slots.find((x) => x.id === sel.id);
+      boneId = slot?.bone;
+      if ((sel as { attachment?: string }).attachment && slot) open.push(slot.id);
+      if (boneId) open.push(boneId);
+    } else boneId = d.skeleton.bones.find((b) => b.id === sel.id)?.parent ?? undefined;
+    for (let b = d.skeleton.bones.find((x) => x.id === boneId); b; b = d.skeleton.bones.find((x) => x.id === b!.parent)) open.push(b.id);
+    // Untracked: collapsing an ancestor by hand must not reopen it right away.
+    untrack(() => {
+      if (open.some((id) => isCollapsed(id))) setNodes(open, false);
+    });
+  });
 }
 
 function SkinsSection() {
@@ -135,6 +209,7 @@ function SkinsSection() {
 }
 
 export function Hierarchy() {
+  useRevealSelection();
   const roots = () => doc().skeleton.bones.filter((b) => b.parent === null);
   const newAnimation = async () => {
     const name = await askText({
@@ -172,6 +247,13 @@ export function Hierarchy() {
       <Section
         title="Skeleton"
         actions={
+          <>
+          <button title="Expand every bone and slot" onClick={() => setCollapsedNodes(new Set<string>())}>
+            ⊞
+          </button>
+          <button title="Collapse every bone and slot" onClick={() => setNodes(allParentIds(), true)}>
+            ⊟
+          </button>
           <button
             title="Add child bone to selection"
             onClick={() => {
@@ -181,10 +263,11 @@ export function Hierarchy() {
           >
             +
           </button>
+          </>
         }
       >
         <div class="tree">
-          <For each={roots()}>{(b) => <BoneNode bone={b} depth={0} />}</For>
+          <For each={roots()}>{(b) => <BoneNode bone={b} />}</For>
         </div>
       </Section>
       <Show when={doc().skeleton.ik.length + doc().skeleton.transform.length + doc().skeleton.path.length + doc().skeleton.physics.length > 0}>

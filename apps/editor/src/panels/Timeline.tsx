@@ -1,5 +1,5 @@
 import { type Curve, EASINGS, type Key, type Timeline as TL, animationDuration } from "@openbone/core";
-import { For, Show, createSignal } from "solid-js";
+import { For, Show, createEffect, createSignal } from "solid-js";
 import { tip } from "../shortcuts/index.ts";
 import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey } from "../state.ts";
 import { askText } from "../dialogs.tsx";
@@ -53,6 +53,18 @@ export function Timeline() {
   const [selKey, setSelKey] = createSignal<KeyRef | null>(null);
   const [showGraph, setShowGraph] = createSignal(true);
   const anim = currentAnimation;
+  // Forget a selected key that no longer exists (undo, another animation, deleted timeline) instead of showing
+  // "Key not found".
+  createEffect(() => {
+    const k = selKey();
+    const a = anim();
+    if (!k) return;
+    if (!a) return setSelKey(null);
+    if ("tl" in k) {
+      const tl = liveTimeline(k.tl);
+      if (!tl || !(tl.keys as { time: number }[]).some((x) => Math.abs(x.time - k.time) < 1e-6)) setSelKey(null);
+    } else if (!a.events.some((x) => x.event === k.event && Math.abs(x.time - k.time) < 1e-6)) setSelKey(null);
+  });
   const duration = () => {
     const a = anim();
     return a ? Math.max(animationDuration(a), 0.001) : 1;

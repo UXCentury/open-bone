@@ -1,4 +1,5 @@
 import { type BoneData, RAD, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint, textureAssets } from "@openbone/core";
+import { toggleBackground } from "../background.ts";
 import { applySequencePreview } from "../sequence-import.ts";
 import { type Guide, clearGuides, guides, newGuideId, removeGuide, setViewAid, toggleViewAid, upsertGuide, viewAids } from "../guides.ts";
 import { CanvasRenderer } from "@openbone/render-canvas";
@@ -1193,6 +1194,15 @@ export function Viewport() {
             ▾
           </button>
         </div>
+        <button
+          class="bg-toggle"
+          aria-pressed={!!doc().background}
+          title={doc().background ? `Background ${doc().background}: click for a transparent background (checkerboard). Change the colour in the Inspector.` : "Transparent background: click to turn the background colour on"}
+          onClick={toggleBackground}
+        >
+          <span class="bg-swatch" classList={{ none: !doc().background }} style={doc().background ? { background: doc().background! } : {}} />
+          BG
+        </button>
         <Show when={aidsOpen()}>
           <div class="aids-pop" role="dialog" aria-label="Grid and snapping options">
             <label class="field">

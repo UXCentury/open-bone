@@ -1,4 +1,5 @@
 import { type Attachment, attachmentOwner, type BindingTarget, type BoneProperty, type ClippingAttachment, CONSTRAINT_PROPERTIES, defaultSkin, descendantIds, estimateTextBox, getAttachment, type SequenceAttachment, shapeOutline, type SkinData, slotAttachments, templateInputs } from "@openbone/core";
+import { lastBackground, setBackground } from "../background.ts";
 import { For, Match, Show, Switch, createSignal } from "solid-js";
 import { commitBone, keyBoneProperty, keyConstraint, keySlot } from "../edit.ts";
 import { imageFor } from "../images.ts";
@@ -666,12 +667,10 @@ function DocumentInspector() {
       <NumberField label="Height" value={d().height} onCommit={(v) => apply("setDocument", { height: v })} />
       <NumberField label="Origin X" value={d().originX} onCommit={(v) => apply("setDocument", { originX: v })} />
       <NumberField label="Origin Y" value={d().originY} onCommit={(v) => apply("setDocument", { originY: v })} />
-      <Show when={d().background !== null}>
-        <ColorField label="Background" value={d().background ?? "#ffffff"} onCommit={(v) => apply("setDocument", { background: v })} />
-      </Show>
-      <label class="field" title="No background: the artboard shows a checkerboard, and the player and exports are transparent">
+      <ColorField label="Background" value={d().background ?? lastBackground()} onCommit={(v) => setBackground(v)} />
+      <label class="field" title="No background: the artboard shows a checkerboard, and the player and exports are transparent. Also the BG button above the viewport.">
         <span>Transparent</span>
-        <input type="checkbox" checked={d().background === null} onChange={(e) => apply("setDocument", { background: e.currentTarget.checked ? null : "#ffffff" })} />
+        <input type="checkbox" checked={d().background === null} onChange={(e) => setBackground(e.currentTarget.checked ? null : lastBackground())} />
       </label>
       <NumberField label="FPS" value={d().fps} onCommit={(v) => apply("setDocument", { fps: v })} />
       <div class="hint">

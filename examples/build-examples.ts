@@ -33,7 +33,7 @@ writeFileSync(path.join(here, "assets/cape.png"), makeCape());
 
 // ---------- walker ----------
 function walker() {
-  const s = new DocumentStore(createDocument("Walker", { background: "#eef2f7" }));
+  const s = new DocumentStore(createDocument("Walker"));
   const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
   A("setDocument", { width: 800, height: 600, originX: 400, originY: 500 });
   A("addBone", { name: "hip", y: 165, length: 20, color: "#ff9f43" });
@@ -637,7 +637,7 @@ function star(n: number, r1: number, r0: number): number[] {
 
 // ---------- knight: painted parts rigged front-facing (Canva art, see assets/canva/LICENSE.md) ----------
 function knight() {
-  const s = new DocumentStore(createDocument("Knight", { background: "#e9e4da" }));
+  const s = new DocumentStore(createDocument("Knight"));
   const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
   A("setDocument", { width: 600, height: 700, originX: 300, originY: 660 });
   // Art is drawn at 0.6x of the Canva sheet so every part keeps the sheet's proportions.

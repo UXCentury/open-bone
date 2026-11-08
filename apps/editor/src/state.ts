@@ -11,7 +11,7 @@ import {
 } from "@openbone/core";
 import { createSignal } from "solid-js";
 
-export const store = new DocumentStore(createDocument("Untitled", { background: "#eef2f7" }));
+export const store = new DocumentStore(createDocument("Untitled"));
 
 const [rev, setRev] = createSignal(0);
 store.subscribe(() => setRev((r) => r + 1));
