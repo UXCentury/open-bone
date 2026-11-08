@@ -184,7 +184,10 @@ function button() {
   A("addShape", { slot: "shadow", shape: "rect", y: -6, width: 220, height: 74, radius: 24, fill: "#00000066" });
   A("addSlot", { bone: "btn", name: "bg" });
   A("addShape", { slot: "bg", shape: "rect", width: 220, height: 74, radius: 24, fill: "#6366f1" });
+  // Glass sweep: the shine slides across on hover, clipped to the button's rounded outline.
+  A("addSlot", { bone: "btn", name: "glass-mask" });
   A("addSlot", { bone: "shine", name: "shine", color: "#ffffff00" });
+  A("addClipping", { slot: "glass-mask", name: "mask", width: 220, height: 74, radius: 24, end: "shine" });
   A("addShape", { slot: "shine", shape: "polygon", points: [-10, 37, 20, 37, 0, -37, -30, -37], fill: "#ffffff55" });
   A("addSlot", { bone: "btn", name: "icon" });
   A("addShape", { slot: "icon", shape: "polygon", points: [-12, 18, 20, 0, -12, -18], fill: "#ffffff" });

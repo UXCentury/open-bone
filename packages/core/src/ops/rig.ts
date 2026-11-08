@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { defaultSkin, descendantIds, get, getAttachment, newId, sortBones } from "../document.ts";
-import { distToSegmentSq, gridMesh } from "../geometry.ts";
+import { distToSegmentSq, gridMesh, shapeOutline, triangulate } from "../geometry.ts";
 import { apply as applyM, invert, worldRotation } from "../math.ts";
 import { setupWorld } from "../setup.ts";
 import type { Attachment, BoneData, OpenBoneDocument, SkinData, VertexWeight } from "../types.ts";
@@ -172,7 +172,12 @@ defineOp({
   apply(doc, a) {
     const s = get.slot(doc, a.slot);
     doc.skeleton.slots = doc.skeleton.slots.filter((x) => x !== s);
-    for (const skin of doc.skeleton.skins) delete skin.attachments[s.id];
+    for (const skin of doc.skeleton.skins) {
+      delete skin.attachments[s.id];
+      // Masks that ended at this slot now clip to the end of the draw order.
+      for (const atts of Object.values(skin.attachments))
+        for (const att of Object.values(atts)) if (att.type === "clipping" && att.end === s.id) att.end = null;
+    }
     for (const anim of doc.animations)
       anim.timelines = anim.timelines.filter((t) => !((t.target === "slot" || t.target === "deform") && t.id === s.id));
     return {};
@@ -337,6 +342,39 @@ defineOp({
 });
 
 defineOp({
+  name: "addClipping",
+  group: "attachment",
+  description:
+    "Add a clipping mask to a slot. It is not drawn; the slots after it in draw order, up to and including `end`, are clipped to its outline (e.g. keep a shine sweep inside a rounded button). Give a rect/ellipse (width, height, radius) or polygon points, or raw vertices.",
+  schema: z.object({
+    ...attTarget,
+    shape: z.enum(["rect", "ellipse", "polygon"]).default("rect"),
+    ...placement,
+    width: z.number().positive().default(100),
+    height: z.number().positive().default(100),
+    radius: z.number().min(0).default(0).describe("Rect corner radius"),
+    points: z.array(z.number()).optional().describe("Polygon points flat [x0,y0,...] (shape polygon)"),
+    vertices: z.array(z.number()).optional().describe("Raw outline flat [x0,y0,...] in slot-bone space; overrides shape"),
+    end: ref("Last clipped slot").nullable().default(null).describe("Last slot that is clipped; null = every slot drawn after this one"),
+  }),
+  apply(doc, a) {
+    const vertices =
+      a.vertices ??
+      shapeOutline({ type: "shape", name: "", shape: a.shape, x: a.x, y: a.y, rotation: a.rotation, width: a.width, height: a.height, radius: a.radius, points: a.points, fill: "#000" }).map(
+        (v) => Math.round(v * 1000) / 1000,
+      );
+    checkClipPolygon(vertices);
+    const end = a.end === null ? null : get.slot(doc, a.end).id;
+    return putAttachment(doc, a.slot, a.skin, { type: "clipping", name: a.name ?? "mask", vertices, end }, a.activate);
+  },
+});
+
+function checkClipPolygon(v: unknown) {
+  if (!Array.isArray(v) || v.length < 6 || v.length % 2 || v.some((x) => typeof x !== "number" || !Number.isFinite(x)))
+    throw new Error("A clipping outline needs at least 3 points as a flat [x0,y0,x1,y1,...] array");
+}
+
+defineOp({
   name: "addPoint",
   group: "attachment",
   description: "Attach a point (a named locator, e.g. a gun muzzle) to a slot.",
@@ -355,7 +393,8 @@ defineOp({
 defineOp({
   name: "updateAttachment",
   group: "attachment",
-  description: "Change properties of an existing attachment (any field of its type, e.g. x, y, width, fill, vertices).",
+  description:
+    "Change properties of an existing attachment (any field of its type, e.g. x, y, width, fill, vertices). Mesh vertices are slot-bone local; on a weighted mesh they are re-bound to the same bones at the new position. When the vertex count changes pass uvs too (triangles are recomputed if omitted).",
   schema: z.object({
     slot: ref("Slot"),
     attachment: z.string(),
@@ -375,10 +414,66 @@ defineOp({
       map[props.name] = att;
       if (slot.attachment === att.name) slot.attachment = props.name;
     }
+    if (att.type === "mesh") return updateMesh(doc, slot.bone, att, props);
+    if (att.type === "clipping") {
+      if ("vertices" in props) checkClipPolygon(props.vertices);
+      if ("end" in props) props.end = props.end == null ? null : get.slot(doc, String(props.end)).id;
+    }
     Object.assign(att, props);
     return {};
   },
 });
+
+/**
+ * Apply props to a mesh and keep it consistent: new `vertices` on a weighted mesh re-bind each vertex to its
+ * bones at the new setup-pose position (same influences; nearest old vertex when the count changes), a changed
+ * vertex count re-triangulates when no `triangles` are given, and the result is validated.
+ */
+function updateMesh(doc: OpenBoneDocument, slotBone: string, att: MeshAtt, props: Record<string, unknown>) {
+  const oldN = att.vertices.length / 2;
+  const next = { ...att, ...props } as MeshAtt;
+  const n = next.vertices.length / 2;
+  const isNums = (v: unknown) => Array.isArray(v) && v.every((x) => typeof x === "number" && Number.isFinite(x));
+  if (!isNums(next.vertices) || next.vertices.length % 2) throw new Error("vertices must be a flat [x0,y0,x1,y1,...] array of numbers");
+  if (n < 3) throw new Error("A mesh needs at least 3 vertices");
+  if ("vertices" in props && n !== oldN) {
+    if (!("uvs" in props)) throw new Error(`The vertex count changed (${oldN} → ${n}): also pass uvs (one u,v pair per vertex)`);
+    if (!("hull" in props)) next.hull = Math.min(att.hull, n);
+    if (!("triangles" in props)) next.triangles = triangulate(next.vertices.slice(0, next.hull * 2), next.vertices.slice(next.hull * 2));
+  }
+  if (!isNums(next.uvs) || next.uvs.length !== next.vertices.length) throw new Error(`uvs must have one u,v pair per vertex (${n})`);
+  if (!Number.isInteger(next.hull) || next.hull < 3 || next.hull > n) throw new Error(`hull must be an integer between 3 and ${n}`);
+  if (!isNums(next.triangles) || next.triangles.length % 3 || next.triangles.some((i) => !Number.isInteger(i) || i < 0 || i >= n))
+    throw new Error(`triangles must be index triples in 0..${n - 1}`);
+  if ("vertices" in props && !("weights" in props) && att.weights) {
+    // Re-bind the weighted mesh so the new vertex positions take effect.
+    const world = setupWorld(doc);
+    const slotM = world.get(slotBone)!;
+    const oldWorld = Array.from({ length: oldN }, (_, v) => vertexSetupWorld(att, world, slotBone, v));
+    next.weights = Array.from({ length: n }, (_, v) => {
+      const [wx, wy] = applyM(slotM, next.vertices[v * 2], next.vertices[v * 2 + 1]);
+      let from = v;
+      if (n !== oldN) {
+        let best = Infinity;
+        oldWorld.forEach(([ox, oy], i) => {
+          const d = (ox - wx) ** 2 + (oy - wy) ** 2;
+          if (d < best) [best, from] = [d, i];
+        });
+      }
+      return att.weights![from].map((inf) => {
+        const [x, y] = applyM(invert(world.get(inf.bone)!), wx, wy);
+        return { ...inf, x, y };
+      });
+    });
+  }
+  if (next.weights) {
+    if (!Array.isArray(next.weights) || next.weights.length !== n) throw new Error(`weights must have one entry per vertex (${n})`);
+    for (const list of next.weights)
+      for (const inf of list) if (!doc.skeleton.bones.some((b) => b.id === inf.bone)) throw new Error(`weights reference unknown bone "${inf.bone}"`);
+  }
+  Object.assign(att, next);
+  return { vertices: n, triangles: next.triangles.length / 3 };
+}
 
 defineOp({
   name: "deleteAttachment",
@@ -437,6 +532,71 @@ defineOp({
   },
 });
 
+type MeshAtt = Extract<Attachment, { type: "mesh" }>;
+type World = ReturnType<typeof setupWorld>;
+
+/** Setup-pose world position of mesh vertex `v`. */
+function vertexSetupWorld(att: MeshAtt, world: World, slotBone: string, v: number): [number, number] {
+  if (att.weights) {
+    let wx = 0;
+    let wy = 0;
+    for (const inf of att.weights[v]) {
+      const [x, y] = applyM(world.get(inf.bone)!, inf.x, inf.y);
+      wx += x * inf.weight;
+      wy += y * inf.weight;
+    }
+    return [wx, wy];
+  }
+  return applyM(world.get(slotBone)!, att.vertices[v * 2], att.vertices[v * 2 + 1]);
+}
+
+/**
+ * Replace the influences of the given vertices. Positions are computed from the setup pose so the mesh
+ * does not move; an unweighted mesh is first bound 100% to its slot bone. Weights are normalised.
+ */
+function writeWeights(
+  doc: OpenBoneDocument,
+  slotRef: string,
+  attachment: string,
+  edits: { vertex: number; influences: { bone: string; weight: number }[] }[],
+  op: string,
+) {
+  const slot = get.slot(doc, slotRef);
+  const att = getAttachment(doc, slot.id, attachment);
+  if (!att || att.type !== "mesh") throw new Error(`${op} needs a mesh attachment`);
+  const n = att.vertices.length / 2;
+  const world = setupWorld(doc);
+  const resolved = edits.map((e) => {
+    if (e.vertex >= n) throw new Error(`Vertex ${e.vertex} out of range (mesh has ${n})`);
+    const infl = e.influences.filter((i) => i.weight > 0);
+    const total = infl.reduce((s, i) => s + i.weight, 0);
+    if (total <= 0) throw new Error(`Vertex ${e.vertex} needs at least one influence with weight > 0`);
+    // Merge duplicate bones.
+    const byBone = new Map<string, number>();
+    for (const i of infl) {
+      const id = get.bone(doc, i.bone).id;
+      byBone.set(id, (byBone.get(id) ?? 0) + i.weight / total);
+    }
+    const [wx, wy] = vertexSetupWorld(att, world, slot.bone, e.vertex);
+    return {
+      vertex: e.vertex,
+      infl: [...byBone].map(([bone, weight]): VertexWeight => {
+        const [x, y] = applyM(invert(world.get(bone)!), wx, wy);
+        return { bone, x, y, weight };
+      }),
+    };
+  });
+  if (!att.weights) {
+    // Initialise all vertices bound 100% to the slot bone (local == slot-bone space).
+    att.weights = [];
+    for (let i = 0; i < n; i++) att.weights.push([{ bone: slot.bone, x: att.vertices[i * 2], y: att.vertices[i * 2 + 1], weight: 1 }]);
+  }
+  for (const r of resolved) att.weights[r.vertex] = r.infl;
+  return { vertices: resolved.length };
+}
+
+const influences = z.array(z.object({ bone: ref("Bone"), weight: z.number().min(0) })).min(1);
+
 defineOp({
   name: "setWeights",
   group: "attachment",
@@ -445,48 +605,26 @@ defineOp({
     slot: ref("Slot"),
     attachment: z.string(),
     vertex: z.number().int().min(0),
-    influences: z.array(z.object({ bone: ref("Bone"), weight: z.number().min(0) })).min(1),
+    influences,
   }),
   apply(doc, a) {
-    const slot = get.slot(doc, a.slot);
-    const att = getAttachment(doc, slot.id, a.attachment);
-    if (!att || att.type !== "mesh") throw new Error("setWeights needs a mesh attachment");
-    const n = att.vertices.length / 2;
-    if (a.vertex >= n) throw new Error(`Vertex ${a.vertex} out of range (mesh has ${n})`);
-    const world = setupWorld(doc);
-    // Current world position of the vertex in setup pose.
-    let wx: number;
-    let wy: number;
-    if (att.weights) {
-      wx = 0;
-      wy = 0;
-      for (const inf of att.weights[a.vertex]) {
-        const [x, y] = applyM(world.get(inf.bone)!, inf.x, inf.y);
-        wx += x * inf.weight;
-        wy += y * inf.weight;
-      }
-    } else {
-      [wx, wy] = applyM(world.get(slot.bone)!, att.vertices[a.vertex * 2], att.vertices[a.vertex * 2 + 1]);
-    }
-    const total = a.influences.reduce((s, i) => s + i.weight, 0) || 1;
-    const infl = a.influences.map((i) => {
-      const b = get.bone(doc, i.bone);
-      const [x, y] = applyM(invert(world.get(b.id)!), wx, wy);
-      return { bone: b.id, x, y, weight: i.weight / total };
-    });
-    if (!att.weights) {
-      // Initialise all vertices bound 100% to the slot bone.
-      const m = world.get(slot.bone)!;
-      const inv = invert(m);
-      att.weights = [];
-      for (let i = 0; i < n; i++) {
-        const [vx, vy] = applyM(m, att.vertices[i * 2], att.vertices[i * 2 + 1]);
-        const [x, y] = applyM(inv, vx, vy);
-        att.weights.push([{ bone: slot.bone, x, y, weight: 1 }]);
-      }
-    }
-    att.weights[a.vertex] = infl;
+    writeWeights(doc, a.slot, a.attachment, [{ vertex: a.vertex, influences: a.influences }], "setWeights");
     return {};
+  },
+});
+
+defineOp({
+  name: "setMeshWeights",
+  group: "attachment",
+  description:
+    "Set bone weights for many mesh vertices at once (e.g. a weight-painting stroke). Each entry replaces that vertex's influences; vertices not listed keep theirs. Weights are normalised per vertex and the mesh keeps its setup-pose shape.",
+  schema: z.object({
+    slot: ref("Slot"),
+    attachment: z.string(),
+    vertices: z.array(z.object({ vertex: z.number().int().min(0), influences })).min(1),
+  }),
+  apply(doc, a) {
+    return writeWeights(doc, a.slot, a.attachment, a.vertices, "setMeshWeights");
   },
 });
 

@@ -2,10 +2,10 @@
 
 **Open-source 2D skeletal animation (Spine-style rigging) + Rive-style interactivity + an MCP server so AI agents can build animations for you.**
 
-- **Rig**: bones, slots, draw order, skins, region/image attachments, vector shapes, weighted meshes, bounding boxes, points, 1- and 2-bone IK, transform constraints.
+- **Rig**: bones, slots, draw order, skins, region/image attachments, vector shapes, weighted meshes, clipping masks, bounding boxes, points, 1- and 2-bone IK, transform constraints.
 - **Animate**: per-property timelines (bone rotate/translate/scale/shear, slot colour/attachment, IK mix, mesh deform, draw order), bezier/stepped curves, events, track mixing.
 - **Make it interactive**: state machines with layers, bool/number/trigger inputs, 1D blend states, any-state transitions, exit times, cross-fades, pointer listeners on hit boxes, reported events, and **sandboxed scripts** (QuickJS) with an `ob` API.
-- **Edit anywhere**: SolidJS web editor, Tauri desktop app, CLI, and a **Model Context Protocol server** (64 tools) with a live bridge: watch an agent rig and animate in the editor in real time.
+- **Edit anywhere**: SolidJS web editor, Tauri desktop app, CLI, and a **Model Context Protocol server** (66 tools) with a live bridge: watch an agent rig and animate in the editor in real time.
 - **Ship it**: renderer-agnostic TypeScript runtime, WebGL2 + Canvas2D renderers, and an `<openbone-player>` web component.
 
 Everything in this repository is **MIT** and built only on permissively licensed open-source dependencies.

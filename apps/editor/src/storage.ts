@@ -66,3 +66,36 @@ export async function saveProject(saveAs = false) {
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+/**
+ * Save a text file somewhere the user picks (native dialog on desktop, file picker or download on the web)
+ * without changing the open project's file. Returns the saved name, or null if cancelled.
+ */
+export async function saveTextFile(suggestedName: string, text: string, ext = "obone", description = "OpenBone"): Promise<string | null> {
+  if (isDesktop()) {
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    const { writeTextFile } = await import("@tauri-apps/plugin-fs");
+    const path = await save({ defaultPath: suggestedName, filters: [{ name: description, extensions: [ext] }] });
+    if (!path) return null;
+    await writeTextFile(path, text);
+    return path;
+  }
+  const w = window as unknown as { showSaveFilePicker?: (o: object) => Promise<FileSystemFileHandle> };
+  if (w.showSaveFilePicker) {
+    try {
+      const h = await w.showSaveFilePicker({ suggestedName, types: [{ description, accept: { "application/json": [`.${ext}`] } }] });
+      const s = await h.createWritable();
+      await s.write(text);
+      await s.close();
+      return h.name;
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return null;
+    }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  a.download = suggestedName;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  return suggestedName;
+}

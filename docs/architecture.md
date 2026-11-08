@@ -3,7 +3,7 @@
 ```
             ┌──────────── edits (ops) ────────────┐
  Editor ────┤                                     ├──── MCP server ◄── AI agent
- (Solid)    │  @openbone/core  DocumentStore      │     (64 tools)
+ (Solid)    │  @openbone/core  DocumentStore      │     (66 tools)
    ▲        │  op registry · undo · validate      │        │
    │        └─────────────────────────────────────┘        │
    │  live bridge (WebSocket, ops replayed both ways)  ◄───┘
@@ -44,4 +44,4 @@ Scripts are plain JavaScript run through a `ScriptHost`. `@openbone/scripting` g
 
 ## Rendering
 
-The runtime produces a renderer-agnostic draw list: world vertices, uvs, indices, colour and blend mode per slot. WebGL2 batches by texture and blend mode. Canvas2D maps each textured triangle with an affine transform and fills vector shapes as paths.
+The runtime produces a renderer-agnostic draw list: world vertices, uvs, indices, colour and blend mode per slot. Draw items under a clipping mask share a `clip` region (world outline plus its triangulation). WebGL2 batches by texture, blend mode and mask, writing each mask into the stencil buffer; Canvas2D clips to the outline path and maps each textured triangle with an affine transform and fills vector shapes as paths.

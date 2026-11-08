@@ -115,6 +115,15 @@ export interface DrawItem {
   color: RGBA;
   blend: SlotData["blend"];
   stroke?: { color: RGBA; width: number; outline: Float32Array };
+  /** Clipping mask this item is drawn inside (shared object for consecutive items under the same mask). */
+  clip?: ClipRegion;
+}
+
+/** A clipping mask in world space: outline polygon plus its triangulation (for stencil-based renderers). */
+export interface ClipRegion {
+  slot: Slot;
+  polygon: Float32Array;
+  indices: Uint16Array;
 }
 
 export class Skeleton {
@@ -342,7 +351,7 @@ export class Skeleton {
       }
       return out;
     }
-    const local = att.type === "shape" ? shapeOutline(att) : att.type === "boundingBox" ? att.vertices : [att.x, att.y];
+    const local = att.type === "shape" ? shapeOutline(att) : att.type === "boundingBox" || att.type === "clipping" ? att.vertices : [att.x, att.y];
     const out = new Float32Array(local.length);
     for (let i = 0; i < local.length; i += 2) {
       out[i] = m.a * local[i] + m.b * local[i + 1] + m.x;
@@ -356,14 +365,31 @@ export class Skeleton {
   /** Renderable geometry in draw order. */
   drawList(): DrawItem[] {
     const items: DrawItem[] = [];
+    let clip: ClipRegion | null = null;
+    let clipEnd: Id | null = null;
     for (const slot of this.drawOrder) {
       const att = this.getAttachment(slot);
-      if (!att) continue;
+      const first = items.length;
+      draw: if (att) {
+      if (att.type === "clipping") {
+        // One mask at a time (as in Spine): a mask inside another mask's range is ignored.
+        if (!clip && att.vertices.length >= 6) {
+          const key = att.vertices.join(",");
+          let cached = this.clipCache.get(att);
+          if (!cached || cached.key !== key) {
+            cached = { key, indices: new Uint16Array(triangulate(att.vertices)) };
+            this.clipCache.set(att, cached);
+          }
+          clip = { slot, polygon: this.attachmentWorldVertices(slot, att), indices: cached.indices };
+          clipEnd = att.end;
+        }
+        break draw;
+      }
       if (att.type === "region" || att.type === "mesh") {
         const image = this.images.get(att.image) ?? null;
         const ac = parseHex(att.color);
         const color = mulColor(slot.color, ac);
-        if (color[3] <= 0) continue;
+        if (color[3] <= 0) break draw;
         const vertices = this.attachmentWorldVertices(slot, att);
         const uvs = att.type === "region" ? REGION_UVS : new Float32Array(att.uvs);
         const indices = att.type === "region" ? REGION_INDICES : new Uint16Array(att.triangles);
@@ -391,9 +417,17 @@ export class Skeleton {
             : {}),
         });
       }
+      }
+      if (clip && clip.slot !== slot) for (let i = first; i < items.length; i++) items[i].clip = clip;
+      if (clip && slot.data.id === clipEnd) {
+        clip = null;
+        clipEnd = null;
+      }
     }
     return items;
   }
+
+  private clipCache = new WeakMap<object, { key: string; indices: Uint16Array }>();
 
   /** World polygon of the slot's bounding box: the active attachment if it is one, else the first bbox on the slot. */
   hitPolygon(slot: Slot): Float32Array | null {
@@ -403,7 +437,7 @@ export class Skeleton {
       att = Object.values(all).find((a) => a.type === "boundingBox") ?? att;
     }
     if (!att) return null;
-    if (att.type === "boundingBox" || att.type === "shape") return this.attachmentWorldVertices(slot, att);
+    if (att.type === "boundingBox" || att.type === "shape" || att.type === "clipping") return this.attachmentWorldVertices(slot, att);
     if (att.type === "region") return this.attachmentWorldVertices(slot, att);
     if (att.type === "mesh") {
       const v = this.attachmentWorldVertices(slot, att);

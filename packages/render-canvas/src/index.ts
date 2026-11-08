@@ -1,5 +1,5 @@
 import { type OpenBoneDocument, apply } from "@openbone/core";
-import type { DrawItem, Skeleton } from "@openbone/runtime";
+import type { ClipRegion, DrawItem, Skeleton } from "@openbone/runtime";
 
 /** Minimal 2D context surface (browser CanvasRenderingContext2D or @napi-rs/canvas SKRSContext2D). */
 export type Ctx2D = CanvasRenderingContext2D;
@@ -61,7 +61,24 @@ export class CanvasRenderer {
       }
     }
     this.setView(doc, view);
-    for (const item of sk.drawList()) this.drawItem(item, opts.wireframe ?? false, view.zoom);
+    let clip: ClipRegion | undefined;
+    for (const item of sk.drawList()) {
+      if (item.clip !== clip) {
+        if (clip) ctx.restore();
+        clip = item.clip;
+        if (clip) {
+          // Clip to the mask outline until the next item with a different (or no) mask.
+          ctx.save();
+          ctx.beginPath();
+          const p = clip.polygon;
+          for (let i = 0; i < p.length; i += 2) (i ? ctx.lineTo : ctx.moveTo).call(ctx, p[i], p[i + 1]);
+          ctx.closePath();
+          ctx.clip();
+        }
+      }
+      this.drawItem(item, opts.wireframe ?? false, view.zoom);
+    }
+    if (clip) ctx.restore();
     if (opts.boundingBoxes) this.drawBoundingBoxes(sk, view.zoom);
     if (opts.bones) this.drawBones(sk, view.zoom, opts.selectedBone ?? null);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -180,6 +197,18 @@ export class CanvasRenderer {
       const hasBox = Object.values(sk.doc.skeleton.skins[0].attachments[slot.data.id] ?? {}).some((a) => a.type === "boundingBox");
       const poly = hasBox ? sk.hitPolygon(slot) : null;
       if (!poly) continue;
+      ctx.beginPath();
+      for (let i = 0; i < poly.length; i += 2) (i ? ctx.lineTo : ctx.moveTo).call(ctx, poly[i], poly[i + 1]);
+      ctx.closePath();
+      ctx.stroke();
+    }
+    // Clipping masks: dashed violet outline.
+    ctx.strokeStyle = "rgba(190,120,255,0.95)";
+    ctx.setLineDash([6 / zoom, 3 / zoom]);
+    for (const slot of sk.slots) {
+      const att = sk.getAttachment(slot);
+      if (att?.type !== "clipping") continue;
+      const poly = sk.attachmentWorldVertices(slot, att);
       ctx.beginPath();
       for (let i = 0; i < poly.length; i += 2) (i ? ctx.lineTo : ctx.moveTo).call(ctx, poly[i], poly[i + 1]);
       ctx.closePath();

@@ -6,6 +6,7 @@ export * from "./setup.ts";
 export * from "./validate.ts";
 export * from "./summary.ts";
 export * from "./store.ts";
+export * from "./export.ts";
 export { registry, applyOp, defineOp, OpError, EASINGS, type OpDef, type OpCall, type OpGroup } from "./ops/registry.ts";
 import "./ops/project.ts";
 import "./ops/rig.ts";

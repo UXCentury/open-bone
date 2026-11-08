@@ -1,4 +1,4 @@
-import type { DrawItem, Skeleton } from "@openbone/runtime";
+import type { ClipRegion, DrawItem, Skeleton } from "@openbone/runtime";
 
 const VS = `#version 300 es
 in vec2 aPos; in vec2 aUv; in vec4 aColor;
@@ -30,12 +30,13 @@ export class WebGLRenderer {
   private ni = 0;
   private curTex: WebGLTexture | null = null;
   private curBlend = "";
+  private curClip: ClipRegion | undefined;
 
   constructor(
     public canvas: HTMLCanvasElement | OffscreenCanvas,
     public images: (id: string) => TexSource | null | undefined,
   ) {
-    const gl = canvas.getContext("webgl2", { premultipliedAlpha: true, alpha: true, antialias: true }) as WebGL2RenderingContext | null;
+    const gl = canvas.getContext("webgl2", { premultipliedAlpha: true, alpha: true, antialias: true, stencil: true }) as WebGL2RenderingContext | null;
     if (!gl) throw new Error("WebGL2 not available");
     this.gl = gl;
     this.prog = link(gl, VS, FS);
@@ -111,11 +112,50 @@ export class WebGLRenderer {
     gl.uniformMatrix3fv(this.uView, false, [z * sx, 0, 0, 0, -z * sy, 0, tx * sx - 1, ty * sy + 1, 1]);
     this.curTex = null;
     this.curBlend = "";
+    this.curClip = undefined;
+    gl.disable(gl.STENCIL_TEST);
     for (const it of sk.drawList()) this.push(it);
     this.flush();
+    gl.disable(gl.STENCIL_TEST);
+  }
+
+  /** Switch the stencil mask: write the clip polygon into the stencil buffer, then draw only where it is set. */
+  private setClip(clip: ClipRegion | undefined) {
+    const gl = this.gl;
+    this.flush();
+    this.curClip = clip;
+    if (!clip) {
+      gl.disable(gl.STENCIL_TEST);
+      return;
+    }
+    gl.enable(gl.STENCIL_TEST);
+    gl.clearStencil(0);
+    gl.clear(gl.STENCIL_BUFFER_BIT);
+    gl.stencilMask(0xff);
+    gl.stencilFunc(gl.ALWAYS, 1, 0xff);
+    gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+    gl.colorMask(false, false, false, false);
+    const n = clip.polygon.length / 2;
+    for (let i = 0; i < n; i++) {
+      const o = i * 8;
+      this.verts[o] = clip.polygon[i * 2];
+      this.verts[o + 1] = clip.polygon[i * 2 + 1];
+      this.verts.fill(1, o + 2, o + 8);
+    }
+    this.idx.set(clip.indices);
+    this.nv = n;
+    this.ni = clip.indices.length;
+    const tex = this.curTex;
+    this.curTex = this.white;
+    this.flush();
+    this.curTex = tex;
+    gl.colorMask(true, true, true, true);
+    gl.stencilFunc(gl.EQUAL, 1, 0xff);
+    gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
   }
 
   private push(it: DrawItem) {
+    if (it.clip !== this.curClip) this.setClip(it.clip);
     const tex = it.image ? (this.texture(it.image.id) ?? this.white) : this.white;
     if (tex !== this.curTex || it.blend !== this.curBlend) {
       this.flush();

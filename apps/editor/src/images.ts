@@ -9,9 +9,27 @@ const cache = new Map<string, { src: string; img: HTMLImageElement; ready: boole
 let onReady: () => void = () => {};
 export const setImageReadyCallback = (fn: () => void) => (onReady = fn);
 
+/** URL the editor loads an image asset from (desktop overrides, absolute URLs, or relative to the project). */
+export const resolveImageUrl = (asset: ImageAsset) =>
+  overrides.get(asset.src) ?? (/^(data:|https?:|blob:|\/)/.test(asset.src) ? asset.src : `${baseUrl()}${asset.src}`);
+
+/** Image asset as a data: URL (for embedding in an exported file). */
+export async function imageAsDataUrl(asset: ImageAsset): Promise<string> {
+  if (asset.src.startsWith("data:")) return asset.src;
+  const res = await fetch(resolveImageUrl(asset));
+  if (!res.ok) throw new Error(`Could not read image "${asset.name}" (${res.status})`);
+  const blob = await res.blob();
+  return new Promise((ok, fail) => {
+    const r = new FileReader();
+    r.onload = () => ok(String(r.result));
+    r.onerror = () => fail(new Error(`Could not read image "${asset.name}"`));
+    r.readAsDataURL(blob);
+  });
+}
+
 /** Resolve an image asset to a loaded HTMLImageElement (null while loading/missing). */
 export function imageFor(asset: ImageAsset): HTMLImageElement | null {
-  const src = overrides.get(asset.src) ?? (/^(data:|https?:|blob:|\/)/.test(asset.src) ? asset.src : `${baseUrl()}${asset.src}`);
+  const src = resolveImageUrl(asset);
   let e = cache.get(asset.id);
   if (!e || e.src !== src) {
     const img = new Image();

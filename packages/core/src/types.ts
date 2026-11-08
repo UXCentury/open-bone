@@ -116,7 +116,20 @@ export interface PointAttachment extends AttachmentBase {
   rotation: number;
 }
 
+/**
+ * Clipping mask (Spine-style). Not drawn itself: the slots that come after its slot in draw order, up to and
+ * including `end`, are clipped to the polygon.
+ */
+export interface ClippingAttachment extends AttachmentBase {
+  type: "clipping";
+  /** Flat [x0,y0,...] polygon in slot-bone local space. */
+  vertices: number[];
+  /** Last slot (id) that is clipped; null clips every slot drawn after this one. */
+  end: Id | null;
+}
+
 export type Attachment =
+  | ClippingAttachment
   | RegionAttachment
   | MeshAttachment
   | ShapeAttachment

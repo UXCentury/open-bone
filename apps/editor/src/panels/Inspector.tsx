@@ -1,4 +1,4 @@
-import { type Attachment, type BoneProperty, defaultSkin, getAttachment } from "@openbone/core";
+import { type Attachment, type BoneProperty, type ClippingAttachment, defaultSkin, getAttachment, shapeOutline } from "@openbone/core";
 import { For, Match, Show, Switch, createSignal } from "solid-js";
 import { commitBone, keyBoneProperty, keySlot } from "../edit.ts";
 import { imageFor } from "../images.ts";
@@ -80,8 +80,8 @@ function BoneInspector(p: { id: string }) {
         <div class="field">
           <span>IK target</span>
           <select value={ikTarget()} onChange={(e) => setIkTarget(e.currentTarget.value)}>
-            <option value="">choose bone…</option>
-            <For each={doc().skeleton.bones.filter((b) => b.id !== p.id)}>{(b) => <option value={b.id}>{b.name}</option>}</For>
+            <option value="" selected={!(ikTarget())}>choose bone…</option>
+            <For each={doc().skeleton.bones.filter((b) => b.id !== p.id)}>{(b) => <option value={b.id} selected={b.id === (ikTarget())}>{b.name}</option>}</For>
           </select>
         </div>
         <div class="btn-row">
@@ -160,11 +160,12 @@ function AttachmentEditor(p: { slotId: string; att: Attachment }) {
         </Match>
         <Match when={p.att.type === "mesh" && p.att}>
           {(a) => {
-            const m = a() as Extract<Attachment, { type: "mesh" }>;
+            // Read through doc() so the hint updates after in-place edits (same attachment object) and undo.
+            const m = () => (doc(), a() as Extract<Attachment, { type: "mesh" }>);
             return (
               <>
                 <div class="hint">
-                  {m.vertices.length / 2} vertices · {m.triangles.length / 3} triangles · {m.weights ? "weighted" : "unweighted (follows slot bone)"}
+                  {m().vertices.length / 2} vertices · {m().triangles.length / 3} triangles · {m().weights ? "weighted" : "unweighted (follows slot bone)"}
                 </div>
                 <div class="field col">
                   <span>Bind to bones</span>
@@ -172,12 +173,15 @@ function AttachmentEditor(p: { slotId: string; att: Attachment }) {
                     <For each={doc().skeleton.bones}>{(b) => <option value={b.id}>{b.name}</option>}</For>
                   </select>
                 </div>
-                <button disabled={weightBones().length === 0} onClick={() => apply("autoWeights", { slot: p.slotId, attachment: m.name, bones: weightBones(), maxInfluences: 2 })}>
+                <button disabled={weightBones().length === 0} onClick={() => apply("autoWeights", { slot: p.slotId, attachment: m().name, bones: weightBones(), maxInfluences: 2 })}>
                   Auto weights
                 </button>
               </>
             );
           }}
+        </Match>
+        <Match when={p.att.type === "clipping" && p.att}>
+          {(a) => <ClippingEditor slotId={p.slotId} att={a() as ClippingAttachment} set={set} />}
         </Match>
         <Match when={p.att.type === "boundingBox"}>
           <div class="hint">Hit area for state-machine listeners. Edit vertices via MCP/JSON for now.</div>
@@ -235,6 +239,12 @@ function SlotInspector(p: { id: string; attachment?: string }) {
           <button onClick={() => apply("addShape", { slot: p.id, name: `shape${atts().length + 1}`, shape: "ellipse", width: 50, height: 50, fill: "#ff9f43" })}>+ Shape</button>
           <button onClick={() => apply("addBoundingBox", { slot: p.id, width: 100, height: 100 })}>+ Hit box</button>
           <button onClick={() => apply("addPoint", { slot: p.id })}>+ Point</button>
+          <button
+            title="Add a clipping mask: slots after this one in draw order are drawn only inside its outline"
+            onClick={() => apply("addClipping", { slot: p.id, name: atts().includes("mask") ? `mask${atts().length + 1}` : "mask", width: 120, height: 60, radius: 12 })}
+          >
+            + Mask
+          </button>
         </div>
       </Section>
       <Show when={att()}>{(a) => <AttachmentEditor slotId={p.id} att={a()} />}</Show>
@@ -305,7 +315,7 @@ function DocumentInspector() {
 
 export function Inspector() {
   return (
-    <aside class="panel right">
+    <div class="panel inspector">
       <Switch fallback={<DocumentInspector />}>
         <Match when={selection()?.kind === "bone" && selection()}>{(s) => <BoneInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "slot" && selection()}>
@@ -314,6 +324,82 @@ export function Inspector() {
         <Match when={selection()?.kind === "ik" && selection()}>{(s) => <IkInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "image" && selection()}>{(s) => <ImageInspector id={s().id} />}</Match>
       </Switch>
-    </aside>
+    </div>
+  );
+}
+
+/** Clipping mask: which slots it clips, and its outline (regenerated as a rect or ellipse). */
+function ClippingEditor(p: { slotId: string; att: ClippingAttachment; set: (props: Record<string, unknown>) => void }) {
+  const att = () => (doc(), p.att);
+  const slots = () => doc().skeleton.slots;
+  const after = () => slots().slice(slots().findIndex((s) => s.id === p.slotId) + 1);
+  const clippedCount = () => {
+    const list = after();
+    const end = att().end;
+    const i = end ? list.findIndex((s) => s.id === end) : -1;
+    return i >= 0 ? i + 1 : list.length;
+  };
+  // Outline parameters are seeded from the current polygon's bounds.
+  const bounds = () => {
+    const v = att().vertices;
+    const xs = v.filter((_, i) => i % 2 === 0);
+    const ys = v.filter((_, i) => i % 2 === 1);
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    return { x: (x0 + x1) / 2, y: (y0 + y1) / 2, width: x1 - x0, height: y1 - y0 };
+  };
+  /** What the outline looks like: a (rounded) rect or ellipse made by this panel, or a custom polygon. */
+  const kind = (): { shape: "rect" | "ellipse" | "custom"; radius: number } => {
+    const v = att().vertices;
+    const b = bounds();
+    const top = v.filter((_, i) => i % 2 === 0).filter((_, k) => Math.abs(v[k * 2 + 1] - (b.y + b.height / 2)) < 1e-3);
+    const n = v.length / 2;
+    if (n === 4 && top.length === 2) return { shape: "rect", radius: 0 };
+    if (top.length === 2 && n > 4 && n % 4 === 0) return { shape: "rect", radius: Math.max(0, Math.min(...top) - (b.x - b.width / 2)) };
+    if (n === 32 && top.length === 1) return { shape: "ellipse", radius: 0 };
+    return { shape: "custom", radius: 0 };
+  };
+  const regen = (o: Partial<{ x: number; y: number; width: number; height: number; radius: number; shape: "rect" | "ellipse" }>) => {
+    const k = kind();
+    const b = { ...bounds(), radius: k.radius, shape: k.shape === "custom" ? "rect" : k.shape, ...o };
+    const vertices = shapeOutline({ type: "shape", name: "", shape: b.shape, x: b.x, y: b.y, rotation: 0, width: Math.max(1, b.width), height: Math.max(1, b.height), radius: b.radius, fill: "#000" }).map(
+      (v) => Math.round(v * 1000) / 1000,
+    );
+    p.set({ vertices });
+  };
+  /** Move/resize: regenerate made shapes (keeps corner radius exact), scale/translate custom polygons. */
+  const reshape = (o: Partial<{ x: number; y: number; width: number; height: number }>) => {
+    if (kind().shape !== "custom") return regen(o);
+    const b = bounds();
+    const t = { ...b, ...o };
+    const sx = b.width ? t.width / b.width : 1;
+    const sy = b.height ? t.height / b.height : 1;
+    p.set({ vertices: att().vertices.map((v, i) => Math.round((i % 2 === 0 ? t.x + (v - b.x) * sx : t.y + (v - b.y) * sy) * 1000) / 1000) });
+  };
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  return (
+    <>
+      <div class="hint">
+        Not drawn. Clips {clippedCount()} slot{clippedCount() === 1 ? "" : "s"} drawn after this one (draw order) to its outline.
+      </div>
+      <SelectField
+        label="Clip until"
+        value={att().end ?? ""}
+        options={[{ value: "", label: "every slot after it" }, ...after().map((s) => ({ value: s.id, label: s.name }))]}
+        onCommit={(v) => p.set({ end: v || null })}
+      />
+      <SelectField
+        label="Outline"
+        value={kind().shape}
+        options={[{ value: "rect", label: "rectangle" }, { value: "ellipse", label: "ellipse" }, ...(kind().shape === "custom" ? [{ value: "custom" as const, label: "custom polygon" }] : [])]}
+        onCommit={(v) => v !== "custom" && regen({ shape: v, radius: v === "rect" ? kind().radius : 0 })}
+      />
+      <NumberField label="X" value={r2(bounds().x)} onCommit={(v) => reshape({ x: v })} />
+      <NumberField label="Y" value={r2(bounds().y)} onCommit={(v) => reshape({ y: v })} />
+      <NumberField label="Width" value={r2(bounds().width)} onCommit={(v) => reshape({ width: v })} />
+      <NumberField label="Height" value={r2(bounds().height)} onCommit={(v) => reshape({ height: v })} />
+      <Show when={kind().shape === "rect"}>
+        <NumberField label="Radius" value={r2(kind().radius)} onCommit={(v) => regen({ radius: Math.max(0, v) })} />
+      </Show>
+    </>
   );
 }

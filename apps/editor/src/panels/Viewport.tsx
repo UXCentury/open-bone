@@ -1,10 +1,24 @@
-import { type BoneData, RAD, animationDuration, apply as applyM, invert } from "@openbone/core";
+import { type BoneData, RAD, animationDuration, apply as applyM, invert, pointInPolygon } from "@openbone/core";
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { type Bone, type ScriptHost, Skeleton, StateMachineInstance, applyAnimation, trustedFunctionHost } from "@openbone/runtime";
 import { createQuickJsHost } from "@openbone/scripting";
-import { createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
+import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { imageFor, setImageReadyCallback } from "../images.ts";
 import { commitBone, commitAttachmentMove } from "../edit.ts";
+import {
+  type MeshTarget,
+  type WeightTable,
+  addVertex,
+  buildGeometry,
+  commitWeights,
+  deleteSelectedVertices,
+  meshTarget,
+  movedWorld,
+  moveVertices,
+  paintDab,
+  setupVertices,
+  weightTable,
+} from "../mesh-edit.ts";
 import {
   currentAnimation,
   currentStateMachine,
@@ -24,6 +38,25 @@ import {
   apply,
   setRunning,
   toast,
+  doc,
+  setMode,
+  setPlaying,
+  meshSel,
+  setMeshSel,
+  weightBone,
+  setWeightBone,
+  brushRadius,
+  setBrushRadius,
+  brushStrength,
+  setBrushStrength,
+  brushMode,
+  setBrushMode,
+  onionSkin,
+  setOnionSkin,
+  onionCount,
+  setOnionCount,
+  onionStep,
+  setOnionStep,
 } from "../state.ts";
 
 export const [smInstance, setSmInstance] = createSignal<StateMachineInstance | null>(null);
@@ -36,8 +69,18 @@ createQuickJsHost({ timeoutMs: 30 })
 type Drag =
   | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
   | { kind: "bone"; op: "rotate" | "translate" | "scale"; bone: Bone; start: [number, number]; base: Partial<BoneData>; cur: Partial<BoneData> }
-  | { kind: "attachment"; slotId: string; name: string; start: [number, number]; base: [number, number]; cur: [number, number]; inv: ReturnType<typeof invert> }
-  | { kind: "create"; parent: Bone | null; start: [number, number]; end: [number, number] };
+  | { kind: "attachment"; slotId: string; name: string; start: [number, number]; base: [number, number]; cur: [number, number]; inv: ReturnType<typeof invert>; preview: Skeleton | null }
+  | { kind: "create"; parent: Bone | null; start: [number, number]; end: [number, number] }
+  | { kind: "vertex"; t: MeshTarget; start: [number, number]; base: Map<number, [number, number]>; moved: Map<number, [number, number]>; preview: Skeleton | null }
+  | { kind: "paint"; t: MeshTarget; table: WeightTable; world: number[]; changed: Set<number>; last: [number, number]; carry: number };
+
+/** Mesh tool: when on, moving existing vertices keeps their uvs (the image stretches). */
+export const [meshWarp, setMeshWarp] = createSignal(false);
+const [hoverVertex, setHoverVertex] = createSignal(-1);
+
+/** Weight colour: blue (0) → green → red (1). */
+const heat = (w: number, a = 1) => `hsla(${Math.round((1 - Math.min(1, Math.max(0, w))) * 240)}, 90%, 52%, ${a})`;
+const identity = (n: number) => Array.from({ length: n }, (_, i) => i);
 
 export function Viewport() {
   let canvas!: HTMLCanvasElement;
@@ -50,6 +93,12 @@ export function Viewport() {
   let raf = 0;
   let last = performance.now();
   let hoverInfo = "";
+  let hoverPt: [number, number] | null = null;
+  let ghost: Skeleton | null = null;
+  let ghostRev = -1;
+  let ghostCanvas: HTMLCanvasElement | null = null;
+  let wtCache: { rev: number; key: string; table: WeightTable } | null = null;
+  const meshToolOn = () => (tool() === "mesh" || tool() === "weights") && mode() === "setup" && !running();
 
   const toSkeleton = (mx: number, my: number): [number, number] => {
     const d = store.doc;
@@ -138,12 +187,15 @@ export function Viewport() {
     ctx.fillRect(view.x, view.y, d.width * view.zoom, d.height * view.zoom);
     ctx.strokeStyle = "#3a3f4b";
     ctx.strokeRect(view.x, view.y, d.width * view.zoom, d.height * view.zoom);
-    const r = new CanvasRenderer(ctx, (id) => {
+    const resolveImage = (id: string) => {
       const a = d.images.find((i) => i.id === id);
       return a ? imageFor(a) : null;
-    });
+    };
+    const r = new CanvasRenderer(ctx, resolveImage);
     const v = { x: view.x * dpr, y: view.y * dpr, zoom: view.zoom * dpr };
-    r.render(s, {
+    if (onionSkin() && mode() === "animate" && !running()) drawOnionSkins(ctx, v, resolveImage);
+    const shown = (drag?.kind === "vertex" || drag?.kind === "attachment") && drag.preview ? drag.preview : s;
+    r.render(shown, {
       view: v,
       clear: false,
       bones: showBones() && !running(),
@@ -153,9 +205,9 @@ export function Viewport() {
     });
     // selection outline
     const sel = selection();
-    if (sel?.kind === "slot" && !running()) {
-      const slot = s.slotById_(sel.id);
-      const poly = slot && s.hitPolygon(slot);
+    if (sel?.kind === "slot" && !running() && !meshToolOn()) {
+      const slot = shown.slotById_(sel.id);
+      const poly = slot && shown.hitPolygon(slot);
       if (poly) {
         ctx.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
         ctx.beginPath();
@@ -166,6 +218,7 @@ export function Viewport() {
         ctx.stroke();
       }
     }
+    if (meshToolOn()) drawMeshOverlay(ctx, v, shown);
     if (drag?.kind === "create") {
       ctx.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
       ctx.beginPath();
@@ -181,6 +234,202 @@ export function Viewport() {
       ctx.fillStyle = "#9aa3b2";
       ctx.fillText(hoverInfo, 8 * dpr, canvas.height - 8 * dpr);
     }
+  }
+
+  /** Ghost poses at ±step·i frames, tinted (past = red, future = green), drawn under the current pose. */
+  function drawOnionSkins(ctx: CanvasRenderingContext2D, v: { x: number; y: number; zoom: number }, images: (id: string) => CanvasImageSource | null) {
+    const anim = currentAnimation();
+    if (!anim) return;
+    if (!ghost || ghostRev !== rev()) {
+      ghost = new Skeleton(store.doc);
+      ghostRev = rev();
+    }
+    ghostCanvas ??= document.createElement("canvas");
+    if (ghostCanvas.width !== canvas.width || ghostCanvas.height !== canvas.height) {
+      ghostCanvas.width = canvas.width;
+      ghostCanvas.height = canvas.height;
+    }
+    const gctx = ghostCanvas.getContext("2d")!;
+    const gr = new CanvasRenderer(gctx, images);
+    const fps = store.doc.fps || 30;
+    const dur = animationDuration(anim);
+    const count = onionCount();
+    // Farthest first so nearer ghosts sit on top.
+    for (let i = count; i >= 1; i--)
+      for (const dir of [-1, 1]) {
+        const t = time() + (dir * i * onionStep()) / fps;
+        if (t < -1e-6 || t > dur + 1e-6) continue;
+        ghost.setToSetupPose();
+        applyAnimation(ghost, anim, t);
+        ghost.updateWorldTransform();
+        gr.render(ghost, { view: v, clear: true, background: null });
+        gctx.setTransform(1, 0, 0, 1, 0, 0);
+        gctx.globalCompositeOperation = "source-atop";
+        gctx.globalAlpha = 0.55;
+        gctx.fillStyle = dir < 0 ? "#ff4a6a" : "#2fd47a";
+        gctx.fillRect(0, 0, ghostCanvas.width, ghostCanvas.height);
+        gctx.globalAlpha = 1;
+        gctx.globalCompositeOperation = "source-over";
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 0.45 * (1 - (i - 1) / (count + 1));
+        ctx.drawImage(ghostCanvas, 0, 0);
+        ctx.globalAlpha = 1;
+      }
+  }
+
+  function currentWeights(t: MeshTarget): WeightTable {
+    if (drag?.kind === "paint") return drag.table;
+    const key = `${t.slotId}|${t.name}`;
+    if (!wtCache || wtCache.rev !== rev() || wtCache.key !== key) wtCache = { rev: rev(), key, table: weightTable(t) };
+    return wtCache.table;
+  }
+
+  /** Vertices, edges and (weights tool) weight heat map of the selected mesh. */
+  function drawMeshOverlay(ctx: CanvasRenderingContext2D, v: { x: number; y: number; zoom: number }, shown: Skeleton) {
+    const t = meshTarget();
+    if (!t) return;
+    const slot = shown.slotById_(t.slotId);
+    const att = slot && shown.getAttachment(slot, t.name);
+    if (!slot || !att || att.type !== "mesh") return;
+    const d = store.doc;
+    const wv = shown.attachmentWorldVertices(slot, att);
+    const tris = att.triangles;
+    const px = 1 / v.zoom;
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
+    const painting = tool() === "weights";
+    const bone = weightBone();
+    const table = painting ? currentWeights(t) : null;
+    const w = (i: number) => (table && bone ? (table[i]?.get(bone) ?? 0) : 0);
+    if (table) {
+      for (let k = 0; k < tris.length; k += 3) {
+        const [a, b, c] = [tris[k], tris[k + 1], tris[k + 2]];
+        ctx.beginPath();
+        ctx.moveTo(wv[a * 2], wv[a * 2 + 1]);
+        ctx.lineTo(wv[b * 2], wv[b * 2 + 1]);
+        ctx.lineTo(wv[c * 2], wv[c * 2 + 1]);
+        ctx.closePath();
+        ctx.fillStyle = heat((w(a) + w(b) + w(c)) / 3, 0.5);
+        ctx.fill();
+      }
+    }
+    ctx.beginPath();
+    for (let k = 0; k < tris.length; k += 3)
+      for (let e = 0; e < 3; e++) {
+        const a = tris[k + e];
+        const b = tris[k + ((e + 1) % 3)];
+        ctx.moveTo(wv[a * 2], wv[a * 2 + 1]);
+        ctx.lineTo(wv[b * 2], wv[b * 2 + 1]);
+      }
+    ctx.strokeStyle = "#ffffff66";
+    ctx.lineWidth = px * dpr;
+    ctx.stroke();
+    ctx.beginPath();
+    for (let i = 0; i < att.hull; i++) (i ? ctx.lineTo : ctx.moveTo).call(ctx, wv[i * 2], wv[i * 2 + 1]);
+    ctx.closePath();
+    ctx.strokeStyle = "#5b8cff";
+    ctx.lineWidth = 2 * px * dpr;
+    ctx.stroke();
+    const sel = new Set(meshSel());
+    const hv = hoverVertex();
+    const sz = 3.5 * px * dpr;
+    for (let i = 0; i < wv.length / 2; i++) {
+      const x = wv[i * 2];
+      const y = wv[i * 2 + 1];
+      ctx.fillStyle = painting ? heat(w(i)) : sel.has(i) ? "#ffcc00" : i < att.hull ? "#8ad4ff" : "#ffffff";
+      ctx.strokeStyle = "#000000aa";
+      ctx.lineWidth = px * dpr;
+      if (painting) {
+        ctx.beginPath();
+        ctx.arc(x, y, sz, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.fillRect(x - sz, y - sz, sz * 2, sz * 2);
+        ctx.strokeRect(x - sz, y - sz, sz * 2, sz * 2);
+      }
+      if (i === hv) {
+        ctx.beginPath();
+        ctx.arc(x, y, sz * 2.2, 0, Math.PI * 2);
+        ctx.strokeStyle = "#ffcc00";
+        ctx.lineWidth = 1.5 * px * dpr;
+        ctx.stroke();
+      }
+    }
+    if (painting && hoverPt) {
+      ctx.beginPath();
+      ctx.arc(hoverPt[0], hoverPt[1], (brushRadius() / view.zoom), 0, Math.PI * 2);
+      ctx.strokeStyle = brushMode() === "add" ? "#ffffffcc" : "#ff8a8acc";
+      ctx.setLineDash([4 * px * dpr, 3 * px * dpr]);
+      ctx.lineWidth = 1.5 * px * dpr;
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  /** Index of the mesh vertex under (x, y) in skeleton space, or -1. */
+  function pickVertex(world: ArrayLike<number>, x: number, y: number): number {
+    let best = -1;
+    let bestD = 8 / view.zoom;
+    for (let i = 0; i < world.length / 2; i++) {
+      const d = Math.hypot(world[i * 2] - x, world[i * 2 + 1] - y);
+      if (d <= bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  /** Mesh / weights tool pointer-down. */
+  function meshDown(e: PointerEvent, x: number, y: number) {
+    const target = meshTarget();
+    if (target) {
+      const world = setupVertices(target);
+      const hull = world.slice(0, target.att.hull * 2);
+      if (tool() === "mesh") {
+        const hit = pickVertex(world, x, y);
+        if (hit >= 0) {
+          let sel = meshSel();
+          if (e.shiftKey) sel = sel.includes(hit) ? sel.filter((i) => i !== hit) : [...sel, hit];
+          else if (!sel.includes(hit)) sel = [hit];
+          setMeshSel(sel);
+          if (sel.includes(hit))
+            drag = { kind: "vertex", t: target, start: [x, y], base: new Map(sel.map((i) => [i, [world[i * 2], world[i * 2 + 1]]])), moved: new Map(), preview: null };
+          return;
+        }
+        if (e.ctrlKey || e.metaKey) {
+          const idx = addVertex(target, x, y, pointInPolygon(x, y, hull));
+          if (idx >= 0) setMeshSel([idx]);
+          return;
+        }
+        const slot = pickSlot(x, y);
+        if (!slot || slot.data.id === target.slotId) {
+          setMeshSel([]);
+          return;
+        }
+      } else {
+        if (e.shiftKey) {
+          const b = pickBone(x, y);
+          if (b) setWeightBone(b.data.id);
+          return;
+        }
+        const r = brushRadius() / view.zoom;
+        const near = pointInPolygon(x, y, hull) || world.some((_, i) => i % 2 === 0 && Math.hypot(world[i] - x, world[i + 1] - y) <= r);
+        if (near) {
+          const bone = weightBone();
+          if (!bone) return void toast("Pick a bone to paint in the weights panel", "error");
+          const table = weightTable(target);
+          const changed = new Set(paintDab(table, world, x, y, r, brushStrength(), bone, brushMode()));
+          drag = { kind: "paint", t: target, table, world, changed, last: [x, y], carry: 0 };
+          return;
+        }
+      }
+    }
+    // No mesh under the cursor: select whatever slot is there.
+    const slot = pickSlot(x, y);
+    setSelection(slot ? { kind: "slot", id: slot.data.id } : null);
+    if (slot && sk?.getAttachment(slot)?.type !== "mesh") toast("Select a mesh attachment to edit its vertices or weights", "info");
   }
 
   function pickBone(x: number, y: number): Bone | null {
@@ -227,6 +476,16 @@ export function Viewport() {
     // Make sure picking sees the latest document even if no frame has been drawn since the last edit.
     pose(ensureSkeleton(), 0);
     const t = tool();
+    if (t === "mesh" || t === "weights") {
+      if (mode() !== "setup") {
+        setMode("setup");
+        setPlaying(false);
+        toast("Mesh editing works in Setup mode", "info");
+        pose(ensureSkeleton(), 0);
+      }
+      meshDown(e, x, y);
+      return;
+    }
     if (t === "bone") {
       const parentId = selectedBoneId();
       const parent = (parentId && sk?.boneById_(parentId)) || sk?.bones[0] || null;
@@ -244,7 +503,7 @@ export function Viewport() {
     if (slot && t === "translate" && mode() === "setup") {
       const att = sk!.getAttachment(slot);
       if (att && (att.type === "region" || att.type === "shape" || att.type === "point")) {
-        drag = { kind: "attachment", slotId: slot.data.id, name: att.name, start: [x, y], base: [att.x, att.y], cur: [att.x, att.y], inv: invert(slot.bone.world) };
+        drag = { kind: "attachment", slotId: slot.data.id, name: att.name, start: [x, y], base: [att.x, att.y], cur: [att.x, att.y], inv: invert(slot.bone.world), preview: null };
         return;
       }
     }
@@ -258,6 +517,12 @@ export function Viewport() {
     const [mx, my] = local(e);
     const [x, y] = toSkeleton(mx, my);
     hoverInfo = `x ${x.toFixed(1)}  y ${y.toFixed(1)}  zoom ${(view.zoom * 100).toFixed(0)}%`;
+    hoverPt = [x, y];
+    if (meshToolOn() && drag?.kind !== "vertex") {
+      const t = meshTarget();
+      const hv = t ? pickVertex(setupVertices(t), x, y) : -1;
+      if (hv !== hoverVertex()) setHoverVertex(hv);
+    } else if (hoverVertex() !== -1) setHoverVertex(-1);
     if (running()) {
       smInstance()?.pointer("move", x, y);
       if (!drag) return;
@@ -268,11 +533,42 @@ export function Viewport() {
       view.y = drag.vy + (my - drag.sy);
     } else if (drag.kind === "create") {
       drag.end = [x, y];
+    } else if (drag.kind === "vertex") {
+      const dx = x - drag.start[0];
+      const dy = y - drag.start[1];
+      for (const [i, [bx, by]] of drag.base) drag.moved.set(i, [bx + dx, by + dy]);
+      const t = drag.t;
+      const g = buildGeometry(t, movedWorld(t, drag.moved), t.att.hull, identity(t.att.vertices.length / 2), meshWarp());
+      if (typeof g !== "string") {
+        // Preview on a throwaway copy of the document; the real edit is one op on release.
+        drag.preview ??= new Skeleton(structuredClone(store.doc));
+        const ps = drag.preview;
+        const slot = ps.slotById_(t.slotId);
+        const att = slot && ps.getAttachment(slot, t.name);
+        if (att && att.type === "mesh") Object.assign(att, g);
+      }
+    } else if (drag.kind === "paint") {
+      // Dabs at a fixed spacing along the stroke, so the result doesn't depend on mouse speed or event rate.
+      const r = brushRadius() / view.zoom;
+      const spacing = r * 0.25;
+      const [lx, ly] = drag.last;
+      const dist = Math.hypot(x - lx, y - ly);
+      let s2 = spacing - drag.carry;
+      while (s2 <= dist) {
+        const f = s2 / dist;
+        for (const v of paintDab(drag.table, drag.world, lx + (x - lx) * f, ly + (y - ly) * f, r, brushStrength() * 0.25, weightBone()!, brushMode())) drag.changed.add(v);
+        s2 += spacing;
+      }
+      drag.carry = spacing - (s2 - dist);
+      drag.last = [x, y];
     } else if (drag.kind === "attachment") {
       const [lx0, ly0] = applyM(drag.inv, ...drag.start);
       const [lx1, ly1] = applyM(drag.inv, x, y);
       drag.cur = [drag.base[0] + lx1 - lx0, drag.base[1] + ly1 - ly0];
-      const att = sk && sk.getAttachment(sk.slotById_(drag.slotId)!, drag.name);
+      // Preview on a throwaway copy of the document; the real edit is one op on release.
+      drag.preview ??= new Skeleton(structuredClone(store.doc));
+      const ps = drag.preview;
+      const att = ps.getAttachment(ps.slotById_(drag.slotId)!, drag.name);
       if (att && "x" in att) {
         att.x = drag.cur[0];
         att.y = drag.cur[1];
@@ -327,6 +623,10 @@ export function Viewport() {
       const changed: Partial<BoneData> = {};
       for (const k of Object.keys(d.cur) as (keyof BoneData)[]) if (d.cur[k] !== d.base[k]) (changed as Record<string, unknown>)[k] = d.cur[k];
       if (Object.keys(changed).length) commitBone(d.bone.data.id, changed as Record<string, number>);
+    } else if (d.kind === "vertex") {
+      if ([...d.moved].some(([i, [mx2, my2]]) => mx2 !== d.base.get(i)![0] || my2 !== d.base.get(i)![1])) moveVertices(d.t, d.moved, meshWarp());
+    } else if (d.kind === "paint") {
+      commitWeights(d.t, d.table, d.changed);
     } else if (d.kind === "attachment") {
       if (d.cur[0] !== d.base[0] || d.cur[1] !== d.base[1]) commitAttachmentMove(d.slotId, d.name, round2(d.cur[0]), round2(d.cur[1]));
     }
@@ -363,6 +663,19 @@ export function Viewport() {
     window.removeEventListener("keyup", ku);
   });
 
+  createEffect(on(selection, () => setMeshSel([]), { defer: true }));
+  createEffect(
+    on([tool, () => meshTarget()?.slotBone], ([t, slotBone]) => {
+      if (t !== "mesh" && t !== "weights") return;
+      if (mode() !== "setup") {
+        setMode("setup");
+        setPlaying(false);
+      }
+      const wb = weightBone();
+      if (slotBone && (!wb || !store.doc.skeleton.bones.some((b) => b.id === wb))) setWeightBone(slotBone);
+    }),
+  );
+
   // (Re)start the state machine when "running" toggles on or the chosen machine changes.
   createEffect(
     on([running, () => currentStateMachine()?.id], ([isRunning]) => {
@@ -389,8 +702,27 @@ export function Viewport() {
         onPointerUp={onUp}
         onWheel={onWheel}
         onContextMenu={(e) => e.preventDefault()}
-        style={{ cursor: running() ? "pointer" : tool() === "bone" ? "crosshair" : "default" }}
+        style={{ cursor: running() ? "pointer" : tool() === "bone" || tool() === "weights" ? "crosshair" : "default" }}
       />
+      <Show when={meshToolOn()}>
+        <MeshPanel />
+      </Show>
+      <div class="onion-ctl">
+        <button classList={{ active: onionSkin() }} disabled={mode() !== "animate"} title="Onion skin: show ghost poses before (red) and after (green) the current frame (Animate mode)" onClick={() => setOnionSkin(!onionSkin())}>
+          Onion
+        </button>
+        <Show when={onionSkin() && mode() === "animate"}>
+          <label class="check" title="Ghosts on each side">
+            ±
+            <input class="tiny" type="number" min="1" max="6" value={onionCount()} onChange={(e) => setOnionCount(clampInt(e.currentTarget.value, 1, 6))} />
+          </label>
+          <label class="check" title="Frames between ghosts">
+            every
+            <input class="tiny" type="number" min="1" max="30" value={onionStep()} onChange={(e) => setOnionStep(clampInt(e.currentTarget.value, 1, 30))} />
+            fr
+          </label>
+        </Show>
+      </div>
       <div class="viewport-hint">
         {running()
           ? "▶ Running state machine — interact with the artboard"
@@ -404,6 +736,94 @@ export function Viewport() {
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+const clampInt = (v: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(Number(v) || lo)));
+
+/** Floating panel for the mesh and weights tools. */
+function MeshPanel() {
+  const target = () => (doc(), meshTarget());
+  const influences = () => {
+    const t = target();
+    const v = hoverVertex();
+    if (!t || v < 0 || v >= t.att.vertices.length / 2) return null;
+    const list = t.att.weights ? t.att.weights[v].map((i) => [i.bone, i.weight] as const) : [[t.slotBone, 1] as const];
+    const name = (id: string) => doc().skeleton.bones.find((b) => b.id === id)?.name ?? id;
+    return { v, list: [...list].sort((a, b) => b[1] - a[1]).map(([b, w]) => ({ bone: name(b), w })) };
+  };
+  return (
+    <div class="mesh-panel" onPointerDown={(e) => e.stopPropagation()}>
+      <Show when={target()} fallback={<div class="muted">Click a mesh attachment to edit it.</div>}>
+        {(t) => (
+          <>
+            <div class="mesh-title">
+              {tool() === "mesh" ? "Mesh" : "Weights"} · <b>{t().name}</b> · {t().att.vertices.length / 2} vertices ({t().att.hull} hull)
+              {t().att.weights ? " · weighted" : ""}
+            </div>
+            <Show when={tool() === "mesh"}>
+              <div class="hint">Click a vertex to select (shift: add, Ctrl/⌘+A: all), drag or arrow keys to move, Ctrl/⌘-click to add (outside the hull extends the outline), Delete removes, Esc deselects.</div>
+              <div class="btn-row">
+                <label class="check" title="Moving vertices keeps their image coordinates, so the image stretches">
+                  <input type="checkbox" checked={meshWarp()} onChange={(e) => setMeshWarp(e.currentTarget.checked)} /> Warp image
+                </label>
+                <button class="danger" disabled={!meshSel().length} onClick={() => deleteSelectedVertices()}>
+                  Delete {meshSel().length || ""}
+                </button>
+              </div>
+            </Show>
+            <Show when={tool() === "weights"}>
+              <label class="field">
+                <span>Bone</span>
+                <select value={weightBone() ?? ""} onChange={(e) => setWeightBone(e.currentTarget.value || null)}>
+                  <For each={doc().skeleton.bones}>{(b) => <option value={b.id} selected={b.id === (weightBone() ?? "")}>{b.name}</option>}</For>
+                </select>
+              </label>
+              <div class="field">
+                <span>Brush</span>
+                <div class="segmented group">
+                  <button classList={{ active: brushMode() === "add" }} onClick={() => setBrushMode("add")}>Add</button>
+                  <button classList={{ active: brushMode() === "subtract" }} onClick={() => setBrushMode("subtract")}>Remove</button>
+                </div>
+              </div>
+              <label class="field">
+                <span>Radius</span>
+                <input type="range" min="5" max="150" value={brushRadius()} onInput={(e) => setBrushRadius(Number(e.currentTarget.value))} />
+                <span class="num">{brushRadius()}px</span>
+              </label>
+              <label class="field">
+                <span>Strength</span>
+                <input type="range" min="0.05" max="1" step="0.05" value={brushStrength()} onInput={(e) => setBrushStrength(Number(e.currentTarget.value))} />
+                <span class="num">{Math.round(brushStrength() * 100)}%</span>
+              </label>
+              <div class="weight-legend">
+                <span>0</span>
+                <div class="ramp" />
+                <span>1</span>
+              </div>
+              <div class="hint">Drag over the mesh to paint. Shift-click a bone to paint it.</div>
+            </Show>
+            <Show when={influences()}>
+              {(inf) => (
+                <div class="vertex-info">
+                  <div class="muted">vertex {inf().v}</div>
+                  <For each={inf().list}>
+                    {(i) => (
+                      <div class="inf-row">
+                        <span>{i.bone}</span>
+                        <div class="bar">
+                          <div style={{ width: `${i.w * 100}%`, background: heat(i.w) }} />
+                        </div>
+                        <span class="num">{(i.w * 100).toFixed(0)}%</span>
+                      </div>
+                    )}
+                  </For>
+                </div>
+              )}
+            </Show>
+          </>
+        )}
+      </Show>
+    </div>
+  );
+}
 
 function segDist(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
   const dx = bx - ax;

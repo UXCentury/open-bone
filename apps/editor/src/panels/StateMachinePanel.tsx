@@ -210,10 +210,10 @@ export function StateMachinePanel() {
         <div class="sm-graph-wrap">
           <div class="sm-bar">
             <select value={sm()!.id} onChange={(e) => setStateMachineId(e.currentTarget.value)}>
-              <For each={doc().stateMachines}>{(s) => <option value={s.id}>{s.name}</option>}</For>
+              <For each={doc().stateMachines}>{(s) => <option value={s.id} selected={s.id === (sm()!.id)}>{s.name}</option>}</For>
             </select>
             <select value={layer()?.id} onChange={(e) => setLayerId(e.currentTarget.value)}>
-              <For each={sm()!.layers}>{(l) => <option value={l.id}>{l.name}</option>}</For>
+              <For each={sm()!.layers}>{(l) => <option value={l.id} selected={l.id === (layer()?.id)}>{l.name}</option>}</For>
             </select>
             <button
               onClick={() => {
@@ -338,8 +338,8 @@ function StateProps(p: { state: StateData; layer: LayerData; onDeleted: () => vo
         <label class="field">
           <span>Animation</span>
           <select value={p.state.animation ?? ""} onChange={(e) => apply("updateState", { ...args(), animation: e.currentTarget.value || null })}>
-            <option value="">—</option>
-            <For each={doc().animations}>{(a) => <option value={a.id}>{a.name}</option>}</For>
+            <option value="" selected={!(p.state.animation ?? "")}>—</option>
+            <For each={doc().animations}>{(a) => <option value={a.id} selected={a.id === (p.state.animation ?? "")}>{a.name}</option>}</For>
           </select>
         </label>
       </Show>
@@ -347,7 +347,7 @@ function StateProps(p: { state: StateData; layer: LayerData; onDeleted: () => vo
         <label class="field">
           <span>Blend input</span>
           <select value={p.state.blendInput ?? ""} onChange={(e) => apply("updateState", { ...args(), blendInput: e.currentTarget.value })}>
-            <For each={sm().inputs.filter((i) => i.type === "number")}>{(i) => <option value={i.id}>{i.name}</option>}</For>
+            <For each={sm().inputs.filter((i) => i.type === "number")}>{(i) => <option value={i.id} selected={i.id === (p.state.blendInput ?? "")}>{i.name}</option>}</For>
           </select>
         </label>
         <For each={p.state.blend ?? []}>
@@ -357,7 +357,7 @@ function StateProps(p: { state: StateData; layer: LayerData; onDeleted: () => vo
                 value={b.animation}
                 onChange={(e) => apply("updateState", { ...args(), blend: (p.state.blend ?? []).map((x, j) => (j === i() ? { ...x, animation: e.currentTarget.value } : x)) })}
               >
-                <For each={doc().animations}>{(a) => <option value={a.id}>{a.name}</option>}</For>
+                <For each={doc().animations}>{(a) => <option value={a.id} selected={a.id === (b.animation)}>{a.name}</option>}</For>
               </select>
               <input
                 class="tiny"
@@ -440,7 +440,7 @@ function TransitionProps(p: { t: TransitionData; layer: LayerData; onDeleted: ()
           return (
             <div class="field cond">
               <select value={c.input} onChange={(e) => update({ input: e.currentTarget.value })}>
-                <For each={sm().inputs}>{(x) => <option value={x.id}>{x.name}</option>}</For>
+                <For each={sm().inputs}>{(x) => <option value={x.id} selected={x.id === (c.input)}>{x.name}</option>}</For>
               </select>
               <Switch>
                 <Match when={input()?.type === "trigger"}>
@@ -454,7 +454,7 @@ function TransitionProps(p: { t: TransitionData; layer: LayerData; onDeleted: ()
                 </Match>
                 <Match when={input()?.type === "number"}>
                   <select value={c.op} onChange={(e) => update({ op: e.currentTarget.value as ConditionOp })}>
-                    <For each={OPS}>{(o) => <option>{o}</option>}</For>
+                    <For each={OPS}>{(o) => <option selected={o === (c.op)}>{o}</option>}</For>
                   </select>
                   <input class="tiny" type="number" step="0.1" value={Number(c.value)} onChange={(e) => update({ value: Number(e.currentTarget.value) })} />
                 </Match>
@@ -532,11 +532,11 @@ function ListenerList() {
       </For>
       <div class="listener-form">
         <select value={event()} onChange={(e) => setEvent(e.currentTarget.value)}>
-          <For each={["click", "down", "up", "enter", "exit", "move"]}>{(x) => <option>{x}</option>}</For>
+          <For each={["click", "down", "up", "enter", "exit", "move"]}>{(x) => <option selected={x === (event())}>{x}</option>}</For>
         </select>
         <select value={slot()} onChange={(e) => setSlot(e.currentTarget.value)}>
-          <option value="">artboard</option>
-          <For each={doc().skeleton.slots}>{(s) => <option value={s.id}>{s.name}</option>}</For>
+          <option value="" selected={!(slot())}>artboard</option>
+          <For each={doc().skeleton.slots}>{(s) => <option value={s.id} selected={s.id === (slot())}>{s.name}</option>}</For>
         </select>
         <select value={action()} onChange={(e) => { setAction(e.currentTarget.value); setTarget(""); }}>
           <option value="fireTrigger">fire trigger</option>
@@ -546,16 +546,16 @@ function ListenerList() {
           <option value="runScript">run script</option>
         </select>
         <select value={target()} onChange={(e) => setTarget(e.currentTarget.value)}>
-          <option value="">…</option>
+          <option value="" selected={!(target())}>…</option>
           <Switch>
             <Match when={action() === "reportEvent"}>
-              <For each={doc().events}>{(x) => <option value={x.name}>{x.name}</option>}</For>
+              <For each={doc().events}>{(x) => <option value={x.name} selected={x.name === (target())}>{x.name}</option>}</For>
             </Match>
             <Match when={action() === "runScript"}>
-              <For each={doc().scripts}>{(x) => <option value={x.id}>{x.name}</option>}</For>
+              <For each={doc().scripts}>{(x) => <option value={x.id} selected={x.id === (target())}>{x.name}</option>}</For>
             </Match>
             <Match when={true}>
-              <For each={sm().inputs}>{(x) => <option value={x.id}>{x.name}</option>}</For>
+              <For each={sm().inputs}>{(x) => <option value={x.id} selected={x.id === (target())}>{x.name}</option>}</For>
             </Match>
           </Switch>
         </select>

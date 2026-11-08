@@ -189,7 +189,7 @@ export function createServer(opts: ServerOptions = {}) {
     "render_frame",
     {
       description:
-        "Render the artboard to a PNG you can look at. Setup pose by default; or an animation at `time`; or a state machine after `steps`. Bones are drawn as blue wedges, bounding boxes dashed orange.",
+        "Render the artboard to a PNG you can look at. Setup pose by default; or an animation at `time`; or a state machine after `steps`. Bones are drawn as blue wedges, bounding boxes dashed orange, clipping masks dashed violet.",
       inputSchema: {
         animation: z.string().optional(),
         time: z.number().min(0).optional(),

@@ -50,7 +50,7 @@ export function transaction(label: string, fn: () => void) {
 
 // ---------- editor UI state ----------
 export type Mode = "setup" | "animate";
-export type Tool = "select" | "rotate" | "translate" | "scale" | "bone";
+export type Tool = "select" | "rotate" | "translate" | "scale" | "bone" | "mesh" | "weights";
 export type Selection =
   | { kind: "bone"; id: string }
   | { kind: "slot"; id: string; attachment?: string }
@@ -68,12 +68,23 @@ export const [playing, setPlaying] = createSignal(false);
 export const [autoKey, setAutoKey] = createSignal(true);
 export const [showBones, setShowBones] = createSignal(true);
 export const [showMesh, setShowMesh] = createSignal(false);
-export const [bottomTab, setBottomTab] = createSignal<"timeline" | "statemachine" | "scripts">("timeline");
+/** Mesh tool: indices of the selected vertices of the selected mesh attachment. */
+export const [meshSel, setMeshSel] = createSignal<number[]>([]);
+/** Weights tool: bone being painted, brush settings. */
+export const [weightBone, setWeightBone] = createSignal<string | null>(null);
+export const [brushRadius, setBrushRadius] = createSignal(30);
+export const [brushStrength, setBrushStrength] = createSignal(0.5);
+export const [brushMode, setBrushMode] = createSignal<"add" | "subtract">("add");
+/** Onion skin: ghost poses at ±step·i frames for i = 1..count (Animate mode). */
+export const [onionSkin, setOnionSkin] = createSignal(false);
+export const [onionCount, setOnionCount] = createSignal(2);
+export const [onionStep, setOnionStep] = createSignal(2);
 export const [stateMachineId, setStateMachineId] = createSignal<string | null>(null);
 /** When true the viewport runs the selected state machine live. */
 export const [running, setRunning] = createSignal(false);
 export const [baseUrl, setBaseUrl] = createSignal<string>("");
 export const [fileName, setFileName] = createSignal<string>("untitled.obone");
+export const [exportOpen, setExportOpen] = createSignal(false);
 
 export const selectedBoneId = () => {
   const s = selection();

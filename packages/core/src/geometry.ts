@@ -1,6 +1,6 @@
 import earcut from "earcut";
 import type { ShapeAttachment } from "./types.ts";
-import { DEG } from "./math.ts";
+import { DEG, pointInPolygon } from "./math.ts";
 
 /** Outline polygon (flat x,y) of a shape attachment in its slot-bone local space. */
 export function shapeOutline(s: ShapeAttachment, segments = 32): number[] {
@@ -43,8 +43,68 @@ export function shapeOutline(s: ShapeAttachment, segments = 32): number[] {
   return pts;
 }
 
-export function triangulate(polygon: number[]): number[] {
-  return earcut(polygon);
+/**
+ * Triangulate a simple polygon (flat x,y). With `interior` points (flat x,y, indexed after the polygon
+ * vertices) it builds a Delaunay triangulation of all points and keeps the triangles inside the polygon,
+ * which is how mesh attachments with a hull plus interior vertices are re-triangulated.
+ */
+export function triangulate(polygon: number[], interior: number[] = []): number[] {
+  if (!interior.length) return earcut(polygon);
+  const pts = [...polygon, ...interior];
+  const out: number[] = [];
+  for (const [a, b, c] of delaunay(pts)) {
+    const cx = (pts[a * 2] + pts[b * 2] + pts[c * 2]) / 3;
+    const cy = (pts[a * 2 + 1] + pts[b * 2 + 1] + pts[c * 2 + 1]) / 3;
+    if (pointInPolygon(cx, cy, polygon)) out.push(a, b, c);
+  }
+  return out;
+}
+
+/** Bowyer–Watson Delaunay triangulation of flat x,y points. Returns counter-clockwise index triples. */
+function delaunay(pts: number[]): [number, number, number][] {
+  const n = pts.length / 2;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (let i = 0; i < n; i++) {
+    minX = Math.min(minX, pts[i * 2]);
+    maxX = Math.max(maxX, pts[i * 2]);
+    minY = Math.min(minY, pts[i * 2 + 1]);
+    maxY = Math.max(maxY, pts[i * 2 + 1]);
+  }
+  const d = Math.max(maxX - minX, maxY - minY, 1) * 20;
+  const mx = (minX + maxX) / 2;
+  const my = (minY + maxY) / 2;
+  const P = [...pts, mx - d, my - d, mx + d, my - d, mx, my + d];
+  const x = (i: number) => P[i * 2];
+  const y = (i: number) => P[i * 2 + 1];
+  type Tri = { v: [number, number, number]; cx: number; cy: number; r2: number };
+  const make = (a: number, b: number, c: number): Tri => {
+    // Orient counter-clockwise.
+    if ((x(b) - x(a)) * (y(c) - y(a)) - (y(b) - y(a)) * (x(c) - x(a)) < 0) [b, c] = [c, b];
+    const ax = x(a), ay = y(a), bx = x(b), by = y(b), cx = x(c), cy = y(c);
+    const D = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by)) || 1e-12;
+    const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / D;
+    const uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / D;
+    return { v: [a, b, c], cx: ux, cy: uy, r2: (ax - ux) ** 2 + (ay - uy) ** 2 };
+  };
+  let tris: Tri[] = [make(n, n + 1, n + 2)];
+  for (let i = 0; i < n; i++) {
+    const px = x(i), py = y(i);
+    const bad: Tri[] = [];
+    const keep: Tri[] = [];
+    for (const t of tris) ((px - t.cx) ** 2 + (py - t.cy) ** 2 < t.r2 * (1 + 1e-9) ? bad : keep).push(t);
+    // Boundary edges of the cavity = edges used by exactly one bad triangle.
+    const edges = new Map<string, [number, number]>();
+    for (const t of bad)
+      for (let e = 0; e < 3; e++) {
+        const a = t.v[e], b = t.v[(e + 1) % 3];
+        const k = a < b ? `${a},${b}` : `${b},${a}`;
+        if (edges.has(k)) edges.delete(k);
+        else edges.set(k, [a, b]);
+      }
+    for (const [a, b] of edges.values()) keep.push(make(a, b, i));
+    tris = keep;
+  }
+  return tris.filter((t) => t.v.every((v) => v < n)).map((t) => t.v);
 }
 
 /** Regular grid mesh covering a width x height rect centred at (x,y). Returns hull-first vertex order. */

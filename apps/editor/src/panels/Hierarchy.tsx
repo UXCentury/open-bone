@@ -6,7 +6,6 @@ import {
   doc,
   selection,
   setAnimationId,
-  setBottomTab,
   setMode,
   setSelection,
   setStateMachineId,
@@ -14,6 +13,7 @@ import {
   stateMachineId,
   selectedBoneId,
 } from "../state.ts";
+import { showPanel } from "../layout.ts";
 import { Section } from "./fields.tsx";
 
 function BoneNode(p: { bone: BoneData; depth: number }) {
@@ -52,7 +52,7 @@ function BoneNode(p: { bone: BoneData; depth: number }) {
                     style={{ "padding-left": `${34 + p.depth * 12}px` }}
                     onClick={() => setSelection({ kind: "slot", id: s.id, attachment: a })}
                   >
-                    <span class="icon">{defaultSkin(doc()).attachments[s.id][a].type === "boundingBox" ? "⬚" : "◇"}</span> {a}
+                    <span class="icon">{({ boundingBox: "⬚", clipping: "✂" } as Record<string, string>)[defaultSkin(doc()).attachments[s.id][a].type] ?? "◇"}</span> {a}
                   </div>
                 )}
               </For>
@@ -74,7 +74,7 @@ export function Hierarchy() {
     if (r) {
       setAnimationId(r.id);
       setMode("animate");
-      setBottomTab("timeline");
+      showPanel("timeline");
       setTime(0);
     }
   };
@@ -84,11 +84,11 @@ export function Hierarchy() {
     const r = apply("createStateMachine", { name }) as { id: string } | undefined;
     if (r) {
       setStateMachineId(r.id);
-      setBottomTab("statemachine");
+      showPanel("statemachine");
     }
   };
   return (
-    <aside class="panel left">
+    <div class="panel hierarchy">
       <Section
         title="Skeleton"
         actions={
@@ -143,7 +143,7 @@ export function Hierarchy() {
               onClick={() => {
                 setAnimationId(a.id);
                 setMode("animate");
-                setBottomTab("timeline");
+                showPanel("timeline");
               }}
               onDblClick={() => {
                 const name = prompt("Rename animation", a.name);
@@ -164,7 +164,7 @@ export function Hierarchy() {
               classList={{ selected: stateMachineId() === s.id }}
               onClick={() => {
                 setStateMachineId(s.id);
-                setBottomTab("statemachine");
+                showPanel("statemachine");
               }}
             >
               <span class="icon">◈</span> {s.name}
@@ -173,6 +173,6 @@ export function Hierarchy() {
           )}
         </For>
       </Section>
-    </aside>
+    </div>
   );
 }

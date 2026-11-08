@@ -33,6 +33,10 @@ export function validate(d: OpenBoneDocument): Issue[] {
       for (const a of Object.values(atts)) {
         if ((a.type === "region" || a.type === "mesh") && !imageIds.has(a.image))
           err(`skins.${skin.name}.${a.name}`, `image ${a.image} missing`);
+        if (a.type === "clipping") {
+          if (a.vertices.length < 6 || a.vertices.length % 2) err(`clipping ${a.name}`, "needs at least 3 points");
+          if (a.end && !slotIds.has(a.end)) err(`clipping ${a.name}`, `end slot ${a.end} missing`);
+        }
         if (a.type === "mesh") {
           if (a.uvs.length !== a.vertices.length) err(`mesh ${a.name}`, "uvs/vertices length mismatch");
           const n = a.vertices.length / 2;

@@ -206,3 +206,47 @@ describe("blend events", () => {
     expect(ev).toEqual(["step"]);
   });
 });
+
+describe("clipping masks", () => {
+  function clipRig(end: string | null) {
+    const s = new DocumentStore(createDocument("clip"));
+    for (const name of ["before", "mask", "a", "b", "after"]) {
+      s.apply("addSlot", { bone: "root", name });
+      if (name !== "mask") s.apply("addShape", { slot: name, shape: "rect", width: 40, height: 40 });
+    }
+    s.apply("addClipping", { slot: "mask", width: 20, height: 20, end });
+    return new Skeleton(s.doc);
+  }
+  const clipped = (sk: Skeleton) => sk.drawList().map((it) => [it.slot.data.name, !!it.clip]);
+
+  it("clips the slots after the mask through the end slot, and does not draw the mask", () => {
+    expect(clipped(clipRig("b"))).toEqual([
+      ["before", false],
+      ["a", true],
+      ["b", true],
+      ["after", false],
+    ]);
+  });
+
+  it("clips to the end of the draw order when end is null, sharing one region", () => {
+    const sk = clipRig(null);
+    expect(clipped(sk).slice(1).every(([, c]) => c)).toBe(true);
+    const list = sk.drawList();
+    expect(list[1].clip).toBe(list[2].clip);
+    const r = list[1].clip!;
+    expect(r.polygon.length).toBe(8);
+    expect(r.indices.length).toBe(6);
+  });
+
+  it("follows the mask slot's bone in world space", () => {
+    const s = new DocumentStore(createDocument("clip"));
+    s.apply("addBone", { name: "m", x: 50, y: 10 });
+    s.apply("addSlot", { bone: "m", name: "mask" });
+    s.apply("addSlot", { bone: "root", name: "a" });
+    s.apply("addShape", { slot: "a", shape: "rect" });
+    s.apply("addClipping", { slot: "mask", width: 20, height: 20 });
+    const p = new Skeleton(s.doc).drawList()[0].clip!.polygon;
+    expect(Math.min(p[0], p[2], p[4], p[6])).toBeCloseTo(40);
+    expect(Math.max(p[1], p[3], p[5], p[7])).toBeCloseTo(20);
+  });
+});

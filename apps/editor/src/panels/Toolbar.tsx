@@ -2,6 +2,7 @@ import { createDocument, deserialize } from "@openbone/core";
 import { For, Show } from "solid-js";
 import { bridgeStatus, connectBridge, disconnectBridge, bridgeUndo, bridgeRedo } from "../bridge.ts";
 import { imageSize, readFileAsDataUrl } from "../images.ts";
+import { resetLayout, swapSides } from "../layout.ts";
 import { openProject, saveProject } from "../storage.ts";
 import {
   apply,
@@ -23,6 +24,7 @@ import {
   type Tool,
   transaction,
   setPlaying,
+  setExportOpen,
 } from "../state.ts";
 
 const TOOLS: { id: Tool; label: string; key: string; title: string }[] = [
@@ -30,6 +32,8 @@ const TOOLS: { id: Tool; label: string; key: string; title: string }[] = [
   { id: "translate", label: "✥", key: "T", title: "Translate bones / move attachments (T)" },
   { id: "scale", label: "⤡", key: "S", title: "Scale bones, shift = uniform (S)" },
   { id: "bone", label: "🦴", key: "B", title: "Create bone: drag from parent (B)" },
+  { id: "mesh", label: "◇", key: "M", title: "Edit mesh vertices: select, drag, Ctrl-click to add, Delete to remove (M)" },
+  { id: "weights", label: "◐", key: "W", title: "Paint mesh weights for a bone (W)" },
 ];
 
 export function undo() {
@@ -80,6 +84,9 @@ export function Toolbar() {
         <button onClick={() => confirm("Start a new project? Unsaved changes are lost.") && loadDocument(createDocument("Untitled", { background: "#eef2f7" }), "untitled.obone")}>New</button>
         <button onClick={() => openProject(() => fileInput.click())}>Open</button>
         <button onClick={() => saveProject()} title="Save (Ctrl+S)">Save</button>
+        <button onClick={() => setExportOpen(true)} title="Export a file with the parts you choose, with a live preview (Ctrl+E)">
+          Export…
+        </button>
         <select
           onChange={(e) => {
             if (e.currentTarget.value) openExample(e.currentTarget.value);
@@ -129,6 +136,21 @@ export function Toolbar() {
       <div class="group">
         <label class="check"><input type="checkbox" checked={showBones()} onChange={(e) => setShowBones(e.currentTarget.checked)} /> Bones</label>
         <label class="check"><input type="checkbox" checked={showMesh()} onChange={(e) => setShowMesh(e.currentTarget.checked)} /> Mesh</label>
+      </div>
+      <div class="group">
+        <select
+          title="Panel layout: drag panel tabs to move them, drag the dividers to resize"
+          onChange={(e) => {
+            const v = e.currentTarget.value;
+            if (v === "reset") resetLayout();
+            else if (v === "swap") swapSides();
+            e.currentTarget.value = "";
+          }}
+        >
+          <option value="">Layout…</option>
+          <option value="swap">Swap left and right panels</option>
+          <option value="reset">Reset to default layout</option>
+        </select>
       </div>
       <div class="spacer" />
       <div class="group">

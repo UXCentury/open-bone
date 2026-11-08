@@ -1,4 +1,4 @@
-import { type Curve, EASINGS, type Timeline as TL, animationDuration } from "@openbone/core";
+import { type Curve, EASINGS, type Key, type Timeline as TL, animationDuration } from "@openbone/core";
 import { For, Show, createSignal } from "solid-js";
 import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey } from "../state.ts";
 
@@ -23,6 +23,13 @@ const keyArgs = (tl: TL) => ({
   ...(tl.target === "deform" ? { attachment: tl.attachment } : {}),
 });
 
+/** The live timeline matching a (possibly stale, e.g. after undo) timeline reference. */
+function liveTimeline(tl: TL): TL | undefined {
+  return currentAnimation()?.timelines.find(
+    (t) => t.target === tl.target && t.id === tl.id && t.property === tl.property && (t.target !== "deform" || tl.target !== "deform" || t.attachment === tl.attachment),
+  );
+}
+
 function curveName(c: Curve): string {
   if (typeof c === "string") return c;
   const hit = Object.entries(EASINGS).find(([, v]) => v.every((x, i) => Math.abs(x - c[i]) < 1e-6));
@@ -32,6 +39,7 @@ function curveName(c: Curve): string {
 export function Timeline() {
   const [pps, setPps] = createSignal(220); // pixels per second
   const [selKey, setSelKey] = createSignal<KeyRef | null>(null);
+  const [showGraph, setShowGraph] = createSignal(true);
   const anim = currentAnimation;
   const duration = () => {
     const a = anim();
@@ -101,7 +109,7 @@ export function Timeline() {
   const selectedCurve = () => {
     const k = selKey();
     if (!k || !("tl" in k)) return null;
-    const key = (k.tl.keys as { time: number; curve: Curve }[]).find((x) => Math.abs(x.time - k.time) < 1e-6);
+    const key = (liveTimeline(k.tl)?.keys as { time: number; curve: Curve }[] | undefined)?.find((x) => Math.abs(x.time - k.time) < 1e-6);
     return key ? curveName(key.curve) : null;
   };
 
@@ -116,8 +124,8 @@ export function Timeline() {
     <div class="timeline" onKeyDown={(e) => (e.key === "Delete" || e.key === "Backspace") && deleteSelected()} tabIndex={0}>
       <div class="timeline-bar">
         <select value={anim()?.id ?? ""} onChange={(e) => setAnimationId(e.currentTarget.value || null)}>
-          <option value="">— animation —</option>
-          <For each={doc().animations}>{(a) => <option value={a.id}>{a.name}</option>}</For>
+          <option value="" selected={!(anim()?.id ?? "")}>— animation —</option>
+          <For each={doc().animations}>{(a) => <option value={a.id} selected={a.id === (anim()?.id ?? "")}>{a.name}</option>}</For>
         </select>
         <button onClick={() => setTime(0)} title="To start">⏮</button>
         <button
@@ -162,8 +170,8 @@ export function Timeline() {
                   if (k && a && "tl" in k) apply("moveKey", { animation: a.id, ...keyArgs(k.tl), time: k.time, curve: e.currentTarget.value });
                 }}
               >
-                <For each={["linear", "stepped", ...Object.keys(EASINGS)]}>{(c) => <option value={c}>{c}</option>}</For>
-                <option value="custom" disabled>
+                <For each={["linear", "stepped", ...Object.keys(EASINGS)]}>{(c) => <option value={c} selected={c === (selectedCurve()!)}>{c}</option>}</For>
+                <option value="custom" disabled selected={selectedCurve() === "custom"}>
                   custom
                 </option>
               </select>
@@ -174,6 +182,9 @@ export function Timeline() {
           </button>
         </Show>
         <span class="spacer" />
+        <label class="check" title="Show the curve graph editor for the selected key">
+          <input type="checkbox" checked={showGraph()} onChange={(e) => setShowGraph(e.currentTarget.checked)} /> Graph
+        </label>
         <button
           title="Add an event key at the current time"
           disabled={!anim()}
@@ -197,6 +208,7 @@ export function Timeline() {
           </div>
         }
       >
+        <div class="timeline-body">
         <div class="timeline-area" ref={area}>
           <div class="ruler-row" style={{ width: `${LABEL_W + span() * pps()}px` }}>
             <div class="row-label" />
@@ -265,6 +277,140 @@ export function Timeline() {
           </For>
           <div class="playhead" style={{ left: `${LABEL_W + time() * pps()}px`, height: `${(anim()!.timelines.length + (anim()!.events.length ? 2 : 1)) * 24}px` }} />
         </div>
+        <Show when={showGraph() && (() => { const k = selKey(); return k && "tl" in k ? k : null; })()}>
+          {(k) => <CurveEditor tl={(k() as { tl: TL }).tl} time={k().time} />}
+        </Show>
+        </div>
+      </Show>
+    </div>
+  );
+}
+
+// ---------------- curve graph editor ----------------
+
+const GW = 260;
+const GH = 180;
+const PAD = 14;
+/** Visible value range of the normalised graph (handles may overshoot for back/elastic eases). */
+const Y_MIN = -0.5;
+const Y_MAX = 1.5;
+const gx = (x: number) => PAD + x * (GW - 2 * PAD);
+const gy = (y: number) => PAD + ((Y_MAX - y) / (Y_MAX - Y_MIN)) * (GH - 2 * PAD);
+const r3 = (n: number) => Math.round(n * 1000) / 1000;
+
+/** Bezier handle editor for the segment that starts at the selected key. Saves through `moveKey`. */
+function CurveEditor(props: { tl: TL; time: number }) {
+  const [draft, setDraft] = createSignal<[number, number, number, number] | null>(null);
+  let svg!: SVGSVGElement;
+  const keys = () => (liveTimeline(props.tl)?.keys ?? []) as Key<unknown>[];
+  const index = () => keys().findIndex((k) => Math.abs(k.time - props.time) < 1e-6);
+  const key = () => keys()[index()];
+  const next = () => keys()[index() + 1];
+  const discrete = () => props.tl.target === "drawOrder" || (props.tl.target === "slot" && props.tl.property === "attachment");
+  const handles = (): [number, number, number, number] => {
+    const d = draft();
+    if (d) return d;
+    const c = key()?.curve;
+    return Array.isArray(c) ? c : [1 / 3, 1 / 3, 2 / 3, 2 / 3];
+  };
+  const stepped = () => !draft() && key()?.curve === "stepped";
+  const fmt = (v: unknown) => (typeof v === "number" ? `${Math.round(v * 100) / 100}` : typeof v === "string" ? v : Array.isArray(v) ? `[${v.length}]` : String(v));
+
+  const startDrag = (e: PointerEvent, which: 0 | 1) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const el = e.currentTarget as Element;
+    el.setPointerCapture(e.pointerId);
+    const start = handles();
+    setDraft([...start]);
+    const move = (m: PointerEvent) => {
+      // Client → SVG user space (the graph scales with the panel).
+      const ctm = svg.getScreenCTM();
+      if (!ctm) return;
+      const p = new DOMPoint(m.clientX, m.clientY).matrixTransform(ctm.inverse());
+      const x = Math.min(1, Math.max(0, (p.x - PAD) / (GW - 2 * PAD)));
+      let y = Y_MAX - ((p.y - PAD) / (GH - 2 * PAD)) * (Y_MAX - Y_MIN);
+      if (m.shiftKey) y = Math.abs(y) < 0.06 ? 0 : Math.abs(y - 1) < 0.06 ? 1 : y;
+      const c = [...draft()!] as [number, number, number, number];
+      c[which * 2] = r3(x);
+      c[which * 2 + 1] = r3(y);
+      setDraft(c);
+    };
+    const up = () => {
+      el.removeEventListener("pointermove", move as EventListener);
+      el.removeEventListener("pointerup", up);
+      const c = draft();
+      setDraft(null);
+      const a = currentAnimation();
+      if (!a || !c || c.every((v, i) => v === start[i])) return;
+      apply("moveKey", { animation: a.id, ...keyArgs(props.tl), time: props.time, curve: c });
+    };
+    el.addEventListener("pointermove", move as EventListener);
+    el.addEventListener("pointerup", up);
+  };
+
+  const preset = (c: Curve | string) => {
+    const a = currentAnimation();
+    if (a) apply("moveKey", { animation: a.id, ...keyArgs(props.tl), time: props.time, curve: c });
+  };
+
+  return (
+    <div class="curve-editor" onKeyDown={(e) => e.stopPropagation()}>
+      <Show when={key()} fallback={<div class="muted pad">Key not found.</div>}>
+        <div class="curve-head">
+          <span>
+            {label(props.tl)} <span class="muted">@ {props.time}s</span>
+          </span>
+          <span class="muted">{curveName(key()!.curve)}</span>
+        </div>
+        <Show
+          when={next() && !discrete()}
+          fallback={
+            <div class="muted pad">
+              {discrete() ? "This property switches values and has no curve." : "Last key: its curve shapes the motion to the next key. Add a later key to edit it."}
+            </div>
+          }
+        >
+          <svg ref={svg} viewBox={`0 0 ${GW} ${GH}`} class="curve-graph">
+            <rect x={gx(0)} y={gy(1)} width={gx(1) - gx(0)} height={gy(0) - gy(1)} class="curve-box" />
+            <For each={[0.25, 0.5, 0.75]}>
+              {(f) => (
+                <>
+                  <line x1={gx(f)} x2={gx(f)} y1={gy(Y_MAX)} y2={gy(Y_MIN)} class="curve-grid" />
+                  <line x1={gx(0)} x2={gx(1)} y1={gy(f)} y2={gy(f)} class="curve-grid" />
+                </>
+              )}
+            </For>
+            <text x={gx(0) + 3} y={gy(0) - 4} class="curve-label">{fmt(key()!.value)}</text>
+            <text x={gx(1) - 3} y={gy(1) + 12} class="curve-label end">{fmt(next()!.value)}</text>
+            <Show
+              when={!stepped()}
+              fallback={<path d={`M${gx(0)},${gy(0)} H${gx(1)} V${gy(1)}`} class="curve-path" />}
+            >
+              <path
+                d={`M${gx(0)},${gy(0)} C${gx(handles()[0])},${gy(handles()[1])} ${gx(handles()[2])},${gy(handles()[3])} ${gx(1)},${gy(1)}`}
+                class="curve-path"
+              />
+            </Show>
+            <line x1={gx(0)} y1={gy(0)} x2={gx(handles()[0])} y2={gy(handles()[1])} class="curve-arm" />
+            <line x1={gx(1)} y1={gy(1)} x2={gx(handles()[2])} y2={gy(handles()[3])} class="curve-arm" />
+            <circle cx={gx(0)} cy={gy(0)} r={3} class="curve-end" />
+            <circle cx={gx(1)} cy={gy(1)} r={3} class="curve-end" />
+            <circle cx={gx(handles()[0])} cy={gy(handles()[1])} r={6} class="curve-handle" data-handle="1" onPointerDown={(e) => startDrag(e, 0)}>
+              <title>Out handle of this key (shift snaps to 0/1)</title>
+            </circle>
+            <circle cx={gx(handles()[2])} cy={gy(handles()[3])} r={6} class="curve-handle" data-handle="2" onPointerDown={(e) => startDrag(e, 1)}>
+              <title>In handle of the next key (shift snaps to 0/1)</title>
+            </circle>
+          </svg>
+          <div class="curve-foot">
+            <span class="muted mono">[{handles().map((v) => v.toFixed(2)).join(", ")}]</span>
+            <span class="spacer" />
+            <button onClick={() => preset("linear")}>Linear</button>
+            <button onClick={() => preset("stepped")}>Step</button>
+            <button onClick={() => preset("easeInOut")}>Ease</button>
+          </div>
+        </Show>
       </Show>
     </div>
   );
