@@ -2,6 +2,8 @@ import {
   type Attachment,
   DocumentStore,
   type OpenBoneDocument,
+  type SkinData,
+  attachmentOwner,
   createDocument,
   deserialize,
   getAttachment,
@@ -75,6 +77,28 @@ export const [running, setRunning] = createSignal(false);
 export const [baseUrl, setBaseUrl] = createSignal<string>("");
 export const [fileName, setFileName] = createSignal<string>("untitled.obone");
 
+/** Skin shown in the viewport and receiving new attachments. null = default skin only. */
+export const [activeSkinId, setActiveSkinId] = createSignal<string | null>(null);
+
+/** The active non-default skin, or null when only the default skin is shown (or the skin was deleted). */
+export const activeSkin = (): SkinData | null => {
+  const id = activeSkinId();
+  const skins = doc().skeleton.skins;
+  return (id && skins.slice(1).find((s) => s.id === id)) || null;
+};
+
+/** `{ skin }` op argument for the active skin, so new attachments land in it. Empty for the default skin. */
+export const skinArg = (): { skin?: string } => {
+  const s = activeSkin();
+  return s ? { skin: s.id } : {};
+};
+
+/** `{ skin }` op argument for the skin that owns the attachment a slot shows under the active skin. */
+export function ownerSkinArg(slotId: string, name: string): { skin?: string } {
+  const owner = attachmentOwner(store.doc, slotId, name, activeSkin()?.id);
+  return owner && owner !== store.doc.skeleton.skins[0] ? { skin: owner.id } : {};
+}
+
 export const selectedBoneId = () => {
   const s = selection();
   if (!s) return null;
@@ -100,7 +124,7 @@ export function selectedAttachment(): { slotId: string; att: Attachment } | null
   const slot = doc().skeleton.slots.find((x) => x.id === s.id);
   if (!slot) return null;
   const name = s.attachment ?? slot.attachment;
-  const att = getAttachment(doc(), slot.id, name);
+  const att = getAttachment(doc(), slot.id, name, activeSkin()?.id);
   return att ? { slotId: slot.id, att } : null;
 }
 
@@ -110,6 +134,7 @@ export function loadDocument(d: OpenBoneDocument, name = `${d.name}.obone`, base
   store.load(d);
   setFileName(name);
   setSelection(null);
+  setActiveSkinId(null);
   setAnimationId(d.animations[0]?.id ?? null);
   setStateMachineId(d.stateMachines[0]?.id ?? null);
   setTime(0);

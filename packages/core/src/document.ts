@@ -125,6 +125,37 @@ export function getAttachment(d: OpenBoneDocument, slotId: Id, name: string | nu
   return defaultSkin(d).attachments[slotId]?.[name] ?? null;
 }
 
+/** The skin that holds the attachment a slot resolves to (active skin first, then default skin). */
+export function attachmentOwner(d: OpenBoneDocument, slotId: Id, name: string | null, skinId?: Id | null): SkinData | null {
+  if (name == null) return null;
+  if (skinId) {
+    const s = d.skeleton.skins.find((k) => k.id === skinId);
+    if (s?.attachments[slotId]?.[name]) return s;
+  }
+  const def = defaultSkin(d);
+  return def.attachments[slotId]?.[name] ? def : null;
+}
+
+/**
+ * Attachments visible on a slot with `skinId` active: the default skin's, overridden by the active skin's
+ * attachments of the same name. Each entry says which skin it comes from.
+ */
+export function slotAttachments(
+  d: OpenBoneDocument,
+  slotId: Id,
+  skinId?: Id | null,
+): { name: string; attachment: Attachment; skin: SkinData; overrides: boolean }[] {
+  const def = defaultSkin(d);
+  const active = skinId ? d.skeleton.skins.find((k) => k.id === skinId && k !== def) : undefined;
+  const base = def.attachments[slotId] ?? {};
+  const over = active?.attachments[slotId] ?? {};
+  const out: { name: string; attachment: Attachment; skin: SkinData; overrides: boolean }[] = [];
+  for (const [name, attachment] of Object.entries(base))
+    out.push(over[name] ? { name, attachment: over[name], skin: active!, overrides: true } : { name, attachment, skin: def, overrides: false });
+  for (const [name, attachment] of Object.entries(over)) if (!base[name]) out.push({ name, attachment, skin: active!, overrides: false });
+  return out;
+}
+
 export function childrenOf(d: OpenBoneDocument, boneId: Id): BoneData[] {
   return d.skeleton.bones.filter((b) => b.parent === boneId);
 }

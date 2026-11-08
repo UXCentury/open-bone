@@ -72,6 +72,12 @@ input.tiny { width: 52px; }
 .muted { color: var(--muted); }
 .pad { padding: 4px 10px; }
 .row-del { margin-left: auto; padding: 0 5px; border: none; background: transparent; color: var(--muted); visibility: hidden; }
+.row-actions { margin-left: auto; display: flex; gap: 1px; visibility: hidden; }
+.tree-row:hover .row-actions, .tree-row.selected .row-actions { visibility: visible; }
+.row-btn { padding: 0 4px; border: none; background: transparent; color: var(--muted); }
+.row-btn:hover { color: inherit; }
+.skin-badge { margin-left: auto; font-size: 10px; padding: 0 5px; border-radius: 8px; background: #4b3a73; color: #e3d8ff; }
+.skin-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tree-row:hover .row-del, .input-row:hover .row-del, .track-row:hover .row-del, .cond .row-del { visibility: visible; }
 .field { display: flex; align-items: center; gap: 6px; }
 .field > span:first-child { width: 72px; color: var(--muted); flex-shrink: 0; }

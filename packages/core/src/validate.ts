@@ -1,4 +1,3 @@
-import { getAttachment } from "./document.ts";
 import type { OpenBoneDocument } from "./types.ts";
 
 export interface Issue {
@@ -25,7 +24,8 @@ export function validate(d: OpenBoneDocument): Issue[] {
   const imageIds = new Set(d.images.map((i) => i.id));
   sk.slots.forEach((s, i) => {
     if (!boneIds.has(s.bone)) err(`slots[${i}]`, `bone ${s.bone} missing`);
-    if (s.attachment && !getAttachment(d, s.id, s.attachment)) warn(`slots[${i}]`, `attachment "${s.attachment}" not in default skin`);
+    if (s.attachment && !sk.skins.some((k) => k.attachments[s.id]?.[s.attachment!]))
+      warn(`slots[${i}]`, `attachment "${s.attachment}" not in any skin`);
   });
   for (const skin of sk.skins)
     for (const [slotId, atts] of Object.entries(skin.attachments)) {

@@ -1,8 +1,8 @@
-import { type Attachment, type BoneProperty, defaultSkin, getAttachment } from "@openbone/core";
+import { type Attachment, type BoneProperty, type SkinData, attachmentOwner, getAttachment, slotAttachments } from "@openbone/core";
 import { For, Match, Show, Switch, createSignal } from "solid-js";
 import { commitBone, keyBoneProperty, keySlot } from "../edit.ts";
 import { imageFor } from "../images.ts";
-import { apply, currentAnimation, doc, mode, selection, setSelection, store, time, transaction } from "../state.ts";
+import { activeSkin, apply, currentAnimation, doc, mode, selection, setSelection, skinArg, store, time, transaction } from "../state.ts";
 import { ColorField, NumberField, Section, SelectField, TextField } from "./fields.tsx";
 
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-4;
@@ -101,12 +101,69 @@ function BoneInspector(p: { id: string }) {
   );
 }
 
-function AttachmentEditor(p: { slotId: string; att: Attachment }) {
-  const set = (props: Record<string, unknown>) => apply("updateAttachment", { slot: p.slotId, attachment: p.att.name, props });
+function SkinControls(p: { slotId: string; att: Attachment; owner: SkinData }) {
+  const skins = () => doc().skeleton.skins;
+  const isDefault = () => p.owner.id === skins()[0].id;
+  const overrides = () => !isDefault() && !!skins()[0].attachments[p.slotId]?.[p.att.name];
+  const others = () => skins().filter((k) => k.id !== p.owner.id);
+  const [target, setTarget] = createSignal("");
+  const targetSkin = () => others().find((k) => k.id === target()) ?? others()[0];
+  const copy = (move: boolean) => {
+    const to = targetSkin();
+    if (!to) return;
+    if (to.attachments[p.slotId]?.[p.att.name] && !confirm(`“${to.name}” already has “${p.att.name}” on this slot. Replace it?`)) return;
+    transaction(move ? "move attachment to skin" : "copy attachment to skin", () => {
+      store.apply("copyAttachment", { slot: p.slotId, attachment: p.att.name, fromSkin: p.owner.id, toSkin: to.id });
+      if (move) store.apply("deleteAttachment", { slot: p.slotId, attachment: p.att.name, skin: p.owner.id });
+    });
+  };
+  return (
+    <>
+      <div class="field">
+        <span>Skin</span>
+        <span class="skin-row">
+          <b>{p.owner.name}</b>
+          <Show when={overrides()}>
+            <span class="muted">overrides default</span>
+          </Show>
+        </span>
+      </div>
+      <Show when={isDefault() && activeSkin()}>
+        <button
+          title="Copy this attachment into the active skin so the outfit can change it without affecting other skins"
+          onClick={() => apply("copyAttachment", { slot: p.slotId, attachment: p.att.name, toSkin: activeSkin()!.id })}
+        >
+          Override in “{activeSkin()!.name}”
+        </button>
+      </Show>
+      <Show when={overrides()}>
+        <button title="Delete this skin's version and show the default skin's again" onClick={() => apply("deleteAttachment", { slot: p.slotId, attachment: p.att.name, skin: p.owner.id })}>
+          Revert to default
+        </button>
+      </Show>
+      <Show when={others().length > 0}>
+        <div class="field">
+          <span>To skin</span>
+          <select value={targetSkin()?.id ?? ""} onChange={(e) => setTarget(e.currentTarget.value)}>
+            <For each={others()}>{(k) => <option value={k.id}>{k.name}</option>}</For>
+          </select>
+        </div>
+        <div class="btn-row">
+          <button onClick={() => copy(false)}>Copy</button>
+          <button onClick={() => copy(true)}>Move</button>
+        </div>
+      </Show>
+    </>
+  );
+}
+
+function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData }) {
+  const set = (props: Record<string, unknown>) => apply("updateAttachment", { slot: p.slotId, attachment: p.att.name, skin: p.owner.id, props });
   const [weightBones, setWeightBones] = createSignal<string[]>([]);
   return (
     <Section title={`Attachment · ${p.att.type}`}>
       <TextField label="Name" value={p.att.name} onCommit={(v) => set({ name: v })} />
+      <SkinControls slotId={p.slotId} att={p.att} owner={p.owner} />
       <Switch>
         <Match when={p.att.type === "region" || p.att.type === "shape" || p.att.type === "point"}>
           <NumberField label="X" value={(p.att as { x: number }).x} onCommit={(v) => set({ x: v })} />
@@ -116,21 +173,22 @@ function AttachmentEditor(p: { slotId: string; att: Attachment }) {
       </Switch>
       <Switch>
         <Match when={p.att.type === "region" && p.att}>
-          {(a) => {
-            const r = a() as Extract<Attachment, { type: "region" }>;
+          {(_a) => {
+            // Read through props so the fields follow selection changes and undo.
+            const r = () => p.att as Extract<Attachment, { type: "region" }>;
             return (
               <>
-                <NumberField label="Width" value={r.width} onCommit={(v) => set({ width: v })} />
-                <NumberField label="Height" value={r.height} onCommit={(v) => set({ height: v })} />
-                <NumberField label="Scale X" step={0.01} value={r.scaleX} onCommit={(v) => set({ scaleX: v })} />
-                <NumberField label="Scale Y" step={0.01} value={r.scaleY} onCommit={(v) => set({ scaleY: v })} />
-                <ColorField label="Tint" value={r.color} onCommit={(v) => set({ color: v })} />
+                <NumberField label="Width" value={r().width} onCommit={(v) => set({ width: v })} />
+                <NumberField label="Height" value={r().height} onCommit={(v) => set({ height: v })} />
+                <NumberField label="Scale X" step={0.01} value={r().scaleX} onCommit={(v) => set({ scaleX: v })} />
+                <NumberField label="Scale Y" step={0.01} value={r().scaleY} onCommit={(v) => set({ scaleY: v })} />
+                <ColorField label="Tint" value={r().color} onCommit={(v) => set({ color: v })} />
                 <button
                   title="Replace with a deformable grid mesh using the same image"
                   onClick={() =>
                     transaction("convert to mesh", () => {
-                      store.apply("deleteAttachment", { slot: p.slotId, attachment: r.name });
-                      store.apply("addMesh", { slot: p.slotId, name: r.name, image: r.image, x: r.x, y: r.y, width: r.width * r.scaleX, height: r.height * r.scaleY, cols: 4, rows: 4 });
+                      store.apply("deleteAttachment", { slot: p.slotId, attachment: r().name, skin: p.owner.id });
+                      store.apply("addMesh", { slot: p.slotId, skin: p.owner.id, name: r().name, image: r().image, x: r().x, y: r().y, width: r().width * r().scaleX, height: r().height * r().scaleY, cols: 4, rows: 4 });
                     })
                   }
                 >
@@ -141,30 +199,32 @@ function AttachmentEditor(p: { slotId: string; att: Attachment }) {
           }}
         </Match>
         <Match when={p.att.type === "shape" && p.att}>
-          {(a) => {
-            const s = a() as Extract<Attachment, { type: "shape" }>;
+          {(_a) => {
+            // Read through props so the fields follow selection changes and undo.
+            const s = () => p.att as Extract<Attachment, { type: "shape" }>;
             return (
               <>
-                <SelectField label="Shape" value={s.shape} options={["rect", "ellipse", "polygon"].map((v) => ({ value: v, label: v }))} onCommit={(v) => set({ shape: v })} />
-                <NumberField label="Width" value={s.width} onCommit={(v) => set({ width: v })} />
-                <NumberField label="Height" value={s.height} onCommit={(v) => set({ height: v })} />
-                <Show when={s.shape === "rect"}>
-                  <NumberField label="Radius" value={s.radius} onCommit={(v) => set({ radius: v })} />
+                <SelectField label="Shape" value={s().shape} options={["rect", "ellipse", "polygon"].map((v) => ({ value: v, label: v }))} onCommit={(v) => set({ shape: v })} />
+                <NumberField label="Width" value={s().width} onCommit={(v) => set({ width: v })} />
+                <NumberField label="Height" value={s().height} onCommit={(v) => set({ height: v })} />
+                <Show when={s().shape === "rect"}>
+                  <NumberField label="Radius" value={s().radius} onCommit={(v) => set({ radius: v })} />
                 </Show>
-                <ColorField label="Fill" value={s.fill} onCommit={(v) => set({ fill: v })} />
-                <ColorField label="Stroke" value={s.stroke ?? "#000000"} onCommit={(v) => set({ stroke: v, strokeWidth: s.strokeWidth || 2 })} />
-                <NumberField label="Stroke W" value={s.strokeWidth ?? 0} onCommit={(v) => set({ strokeWidth: v })} />
+                <ColorField label="Fill" value={s().fill} onCommit={(v) => set({ fill: v })} />
+                <ColorField label="Stroke" value={s().stroke ?? "#000000"} onCommit={(v) => set({ stroke: v, strokeWidth: s().strokeWidth || 2 })} />
+                <NumberField label="Stroke W" value={s().strokeWidth ?? 0} onCommit={(v) => set({ strokeWidth: v })} />
               </>
             );
           }}
         </Match>
         <Match when={p.att.type === "mesh" && p.att}>
-          {(a) => {
-            const m = a() as Extract<Attachment, { type: "mesh" }>;
+          {(_a) => {
+            // Read through props so the fields follow selection changes and undo.
+            const m = () => p.att as Extract<Attachment, { type: "mesh" }>;
             return (
               <>
                 <div class="hint">
-                  {m.vertices.length / 2} vertices · {m.triangles.length / 3} triangles · {m.weights ? "weighted" : "unweighted (follows slot bone)"}
+                  {m().vertices.length / 2} vertices · {m().triangles.length / 3} triangles · {m().weights ? "weighted" : "unweighted (follows slot bone)"}
                 </div>
                 <div class="field col">
                   <span>Bind to bones</span>
@@ -172,7 +232,7 @@ function AttachmentEditor(p: { slotId: string; att: Attachment }) {
                     <For each={doc().skeleton.bones}>{(b) => <option value={b.id}>{b.name}</option>}</For>
                   </select>
                 </div>
-                <button disabled={weightBones().length === 0} onClick={() => apply("autoWeights", { slot: p.slotId, attachment: m.name, bones: weightBones(), maxInfluences: 2 })}>
+                <button disabled={weightBones().length === 0} onClick={() => apply("autoWeights", { slot: p.slotId, attachment: m().name, skin: p.owner.id, bones: weightBones(), maxInfluences: 2 })}>
                   Auto weights
                 </button>
               </>
@@ -183,7 +243,7 @@ function AttachmentEditor(p: { slotId: string; att: Attachment }) {
           <div class="hint">Hit area for state-machine listeners. Edit vertices via MCP/JSON for now.</div>
         </Match>
       </Switch>
-      <button class="danger" onClick={() => apply("deleteAttachment", { slot: p.slotId, attachment: p.att.name })}>
+      <button class="danger" onClick={() => apply("deleteAttachment", { slot: p.slotId, attachment: p.att.name, skin: p.owner.id })}>
         Delete attachment
       </button>
     </Section>
@@ -192,8 +252,10 @@ function AttachmentEditor(p: { slotId: string; att: Attachment }) {
 
 function SlotInspector(p: { id: string; attachment?: string }) {
   const slot = () => doc().skeleton.slots.find((s) => s.id === p.id);
-  const atts = () => Object.keys(defaultSkin(doc()).attachments[p.id] ?? {});
-  const att = () => getAttachment(doc(), p.id, p.attachment ?? slot()?.attachment ?? null);
+  const atts = () => slotAttachments(doc(), p.id, activeSkin()?.id).map((e) => e.name);
+  const attName = () => p.attachment ?? slot()?.attachment ?? null;
+  const att = () => getAttachment(doc(), p.id, attName(), activeSkin()?.id);
+  const owner = () => attachmentOwner(doc(), p.id, attName(), activeSkin()?.id);
   const index = () => doc().skeleton.slots.findIndex((s) => s.id === p.id);
   const animate = () => mode() === "animate";
   return (
@@ -232,12 +294,17 @@ function SlotInspector(p: { id: string; attachment?: string }) {
           </button>
         </div>
         <div class="btn-row">
-          <button onClick={() => apply("addShape", { slot: p.id, name: `shape${atts().length + 1}`, shape: "ellipse", width: 50, height: 50, fill: "#ff9f43" })}>+ Shape</button>
-          <button onClick={() => apply("addBoundingBox", { slot: p.id, width: 100, height: 100 })}>+ Hit box</button>
-          <button onClick={() => apply("addPoint", { slot: p.id })}>+ Point</button>
+          <button onClick={() => apply("addShape", { slot: p.id, name: `shape${atts().length + 1}`, shape: "ellipse", width: 50, height: 50, fill: "#ff9f43", ...skinArg() })}>+ Shape</button>
+          <button onClick={() => apply("addBoundingBox", { slot: p.id, width: 100, height: 100, ...skinArg() })}>+ Hit box</button>
+          <button onClick={() => apply("addPoint", { slot: p.id, ...skinArg() })}>+ Point</button>
         </div>
+        <Show when={activeSkin()}>
+          <div class="hint">New attachments go into skin “{activeSkin()!.name}”.</div>
+        </Show>
       </Section>
-      <Show when={att()}>{(a) => <AttachmentEditor slotId={p.id} att={a()} />}</Show>
+      <Show when={att() && owner()}>
+        <AttachmentEditor slotId={p.id} att={att()!} owner={owner()!} />
+      </Show>
     </Show>
   );
 }

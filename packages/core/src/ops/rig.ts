@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { defaultSkin, descendantIds, get, getAttachment, newId, sortBones } from "../document.ts";
+import { attachmentOwner, defaultSkin, descendantIds, get, getAttachment, newId, sortBones } from "../document.ts";
 import { distToSegmentSq, gridMesh } from "../geometry.ts";
 import { apply as applyM, invert, worldRotation } from "../math.ts";
 import { setupWorld } from "../setup.ts";
@@ -185,9 +185,87 @@ defineOp({
   description: "Add a skin (an alternative set of attachments, e.g. outfits).",
   schema: z.object({ id: optId, name: z.string() }),
   apply(doc, a) {
+    assertSkinName(doc, a.name);
     const id = (a.id ??= newId("skin"));
     doc.skeleton.skins.push({ id, name: a.name, attachments: {} });
     return { id };
+  },
+});
+
+function nonDefaultSkin(doc: OpenBoneDocument, ref: string, action: string): SkinData {
+  const skin = get.skin(doc, ref);
+  if (skin === defaultSkin(doc)) throw new Error(`The default skin cannot be ${action}`);
+  return skin;
+}
+
+function assertSkinName(doc: OpenBoneDocument, name: string, except?: SkinData) {
+  if (!name.trim()) throw new Error("Skin name cannot be empty");
+  if (doc.skeleton.skins.some((s) => s !== except && s.name === name)) throw new Error(`A skin named "${name}" already exists`);
+}
+
+defineOp({
+  name: "renameSkin",
+  group: "rig",
+  description: "Rename a skin. The default skin (the first one) keeps its name.",
+  schema: z.object({ skin: ref("Skin"), name: z.string() }),
+  apply(doc, a) {
+    const skin = nonDefaultSkin(doc, a.skin, "renamed");
+    assertSkinName(doc, a.name, skin);
+    skin.name = a.name;
+    return {};
+  },
+});
+
+defineOp({
+  name: "deleteSkin",
+  group: "rig",
+  description: "Delete a skin and all of its attachments. The default skin cannot be deleted.",
+  schema: z.object({ skin: ref("Skin") }),
+  apply(doc, a) {
+    const skin = nonDefaultSkin(doc, a.skin, "deleted");
+    doc.skeleton.skins = doc.skeleton.skins.filter((s) => s !== skin);
+    return {};
+  },
+});
+
+defineOp({
+  name: "duplicateSkin",
+  group: "rig",
+  description: "Copy a skin (all its attachments) into a new skin, e.g. to start a new outfit from an existing one.",
+  schema: z.object({ id: optId, skin: ref("Skin"), name: z.string() }),
+  apply(doc, a) {
+    const src = get.skin(doc, a.skin);
+    assertSkinName(doc, a.name);
+    const id = (a.id ??= newId("skin"));
+    doc.skeleton.skins.push({ id, name: a.name, attachments: structuredClone(src.attachments) });
+    return { id };
+  },
+});
+
+defineOp({
+  name: "copyAttachment",
+  group: "attachment",
+  description:
+    "Copy an attachment from one skin to another (and optionally to another slot or name). Copying a default-skin attachment into an outfit skin under the same name makes the outfit override it.",
+  schema: z.object({
+    slot: ref("Slot"),
+    attachment: z.string(),
+    fromSkin: ref("Skin").optional().describe("Defaults to the default skin"),
+    toSkin: ref("Skin"),
+    toSlot: ref("Slot").optional().describe("Defaults to the same slot"),
+    name: z.string().optional().describe("New attachment name (defaults to the same name)"),
+  }),
+  apply(doc, a) {
+    const slot = get.slot(doc, a.slot);
+    const from = a.fromSkin ? get.skin(doc, a.fromSkin) : defaultSkin(doc);
+    const to = get.skin(doc, a.toSkin);
+    const toSlot = a.toSlot ? get.slot(doc, a.toSlot) : slot;
+    const att = from.attachments[slot.id]?.[a.attachment];
+    if (!att) throw new Error(`Attachment "${a.attachment}" not found on slot "${slot.name}" in skin "${from.name}"`);
+    const name = a.name ?? att.name;
+    if (from === to && toSlot === slot && name === att.name) throw new Error("Source and destination are the same");
+    (to.attachments[toSlot.id] ??= {})[name] = { ...structuredClone(att), name };
+    return { slot: toSlot.id, name, skin: to.id };
   },
 });
 
@@ -365,12 +443,13 @@ defineOp({
   apply(doc, a) {
     const slot = get.slot(doc, a.slot);
     const skin = a.skin ? get.skin(doc, a.skin) : undefined;
-    const att = getAttachment(doc, slot.id, a.attachment, skin?.id);
-    if (!att) throw new Error(`Attachment "${a.attachment}" not found on slot "${slot.name}"`);
+    const owner = attachmentOwner(doc, slot.id, a.attachment, skin?.id);
+    const att = owner?.attachments[slot.id][a.attachment];
+    if (!owner || !att) throw new Error(`Attachment "${a.attachment}" not found on slot "${slot.name}"`);
     const { type: _t, ...props } = a.props as Record<string, unknown>;
     if (typeof props.name === "string" && props.name !== att.name) {
-      const owner = skin ?? defaultSkin(doc);
       const map = owner.attachments[slot.id];
+      if (map[props.name]) throw new Error(`Slot "${slot.name}" already has an attachment "${props.name}" in skin "${owner.name}"`);
       delete map[att.name];
       map[props.name] = att;
       if (slot.attachment === att.name) slot.attachment = props.name;
@@ -388,8 +467,13 @@ defineOp({
   apply(doc, a) {
     const slot = get.slot(doc, a.slot);
     const skin = a.skin ? get.skin(doc, a.skin) : defaultSkin(doc);
-    delete skin.attachments[slot.id]?.[a.attachment];
-    if (slot.attachment === a.attachment) slot.attachment = null;
+    const map = skin.attachments[slot.id];
+    if (!map?.[a.attachment]) throw new Error(`Attachment "${a.attachment}" not found on slot "${slot.name}" in skin "${skin.name}"`);
+    delete map[a.attachment];
+    if (!Object.keys(map).length) delete skin.attachments[slot.id];
+    // Keep the setup attachment if another skin still provides one under that name.
+    const stillUsed = doc.skeleton.skins.some((k) => k.attachments[slot.id]?.[a.attachment]);
+    if (slot.attachment === a.attachment && !stillUsed) slot.attachment = null;
     return {};
   },
 });
@@ -402,13 +486,14 @@ defineOp({
   schema: z.object({
     slot: ref("Slot"),
     attachment: z.string(),
+    skin: ref("Skin").optional().describe("Skin holding the mesh (defaults to the default skin)"),
     bones: z.array(ref("Bone")).min(1).describe("Bones that may influence the mesh"),
     maxInfluences: z.number().int().min(1).max(4).default(2),
     falloff: z.number().positive().default(2).describe("Higher = sharper transitions"),
   }),
   apply(doc, a) {
     const slot = get.slot(doc, a.slot);
-    const att = getAttachment(doc, slot.id, a.attachment);
+    const att = getAttachment(doc, slot.id, a.attachment, a.skin ? get.skin(doc, a.skin).id : undefined);
     if (!att || att.type !== "mesh") throw new Error("autoWeights needs a mesh attachment");
     const world = setupWorld(doc);
     const slotM = world.get(slot.bone)!;
@@ -444,12 +529,13 @@ defineOp({
   schema: z.object({
     slot: ref("Slot"),
     attachment: z.string(),
+    skin: ref("Skin").optional().describe("Skin holding the mesh (defaults to the default skin)"),
     vertex: z.number().int().min(0),
     influences: z.array(z.object({ bone: ref("Bone"), weight: z.number().min(0) })).min(1),
   }),
   apply(doc, a) {
     const slot = get.slot(doc, a.slot);
-    const att = getAttachment(doc, slot.id, a.attachment);
+    const att = getAttachment(doc, slot.id, a.attachment, a.skin ? get.skin(doc, a.skin).id : undefined);
     if (!att || att.type !== "mesh") throw new Error("setWeights needs a mesh attachment");
     const n = att.vertices.length / 2;
     if (a.vertex >= n) throw new Error(`Vertex ${a.vertex} out of range (mesh has ${n})`);

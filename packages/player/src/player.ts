@@ -11,6 +11,8 @@ export interface PlayerOptions {
   baseUrl?: string;
   stateMachine?: string;
   animation?: string;
+  /** Skin (outfit) to show, by name or id. Attachments not in it fall back to the default skin. */
+  skin?: string;
   autoplay?: boolean;
   /** "quickjs" (sandboxed, default when the doc has scripts), "none", or a custom host. */
   scripts?: "quickjs" | "none" | ScriptHost;
@@ -75,6 +77,7 @@ export class Player {
       scriptHost = await createQuickJsHost();
     }
     this.instance = new OpenBoneInstance(this.doc, { scriptHost });
+    if (o.skin) this.instance.skeleton.setSkin(o.skin);
     if (o.onEvent) this.instance.on("event", o.onEvent);
     if (o.onStateChange) this.instance.on("stateChange", o.onStateChange);
     if (o.animation) this.instance.play(o.animation);
@@ -181,6 +184,23 @@ export class Player {
   }
   getInput(name: string) {
     return this.stateMachine?.getInput(name);
+  }
+  /** Show a skin (outfit) by name or id; null shows the default skin only. */
+  setSkin(name: string | null) {
+    if (!this.instance) {
+      this.opts.skin = name ?? undefined;
+      return;
+    }
+    this.instance.skeleton.setSkin(name);
+    if (name && !this.instance.skeleton.skin) console.warn(`OpenBone: skin "${name}" not found`);
+    if (!this.playing) {
+      this.instance.advance(0);
+      this.draw();
+    }
+  }
+  /** Names of the document's skins (the first is the default skin). */
+  get skins(): string[] {
+    return this.doc?.skeleton.skins.map((s) => s.name) ?? [];
   }
   playAnimation(name: string, loop = true) {
     this.instance.play(name, loop);

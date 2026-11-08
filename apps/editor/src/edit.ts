@@ -1,5 +1,5 @@
 import { BONE_PROPERTIES, type BoneProperty, getAttachment } from "@openbone/core";
-import { animationId, apply, autoKey, mode, setAnimationId, store, time, toast, transaction } from "./state.ts";
+import { activeSkin, animationId, apply, autoKey, mode, ownerSkinArg, setAnimationId, store, time, toast, transaction } from "./state.ts";
 
 /** Make sure an animation is selected in animate mode (creates one if the doc has none). */
 export function ensureAnimation(): string | null {
@@ -45,9 +45,9 @@ export function keySlot(slotId: string, property: "color" | "attachment", value:
 }
 
 export function commitAttachmentMove(slotId: string, name: string, x: number, y: number) {
-  const att = getAttachment(store.doc, slotId, name);
+  const att = getAttachment(store.doc, slotId, name, activeSkin()?.id);
   if (!att) return;
-  apply("updateAttachment", { slot: slotId, attachment: name, props: { x, y } });
+  apply("updateAttachment", { slot: slotId, attachment: name, ...ownerSkinArg(slotId, name), props: { x, y } });
 }
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000;

@@ -22,6 +22,8 @@ export interface Step {
 }
 
 export interface PoseRequest {
+  /** Skin to show (name or id); defaults to the default skin only. */
+  skin?: string;
   animation?: string;
   time?: number;
   stateMachine?: string;
@@ -48,9 +50,16 @@ async function loadImages(session: ProjectSession, doc: OpenBoneDocument) {
   return map;
 }
 
+function useSkin(inst: OpenBoneInstance, skin?: string) {
+  if (!skin) return;
+  inst.skeleton.setSkin(skin);
+  if (!inst.skeleton.skin) throw new Error(`Skin "${skin}" not found. Available: ${inst.doc.skeleton.skins.map((k) => k.name).join(", ")}`);
+}
+
 /** Build a posed instance for the request. Returns logs from state machine simulation. */
 export function pose(doc: OpenBoneDocument, req: PoseRequest, scriptHost?: ScriptHost) {
   const inst = new OpenBoneInstance(doc, { scriptHost });
+  useSkin(inst, req.skin);
   const log: string[] = [];
   if (req.stateMachine !== undefined || req.steps?.length) {
     const sm = inst.useStateMachine(req.stateMachine || undefined);
@@ -109,7 +118,7 @@ export async function renderPng(session: ProjectSession, req: RenderRequest, scr
 
 export async function renderGif(
   session: ProjectSession,
-  req: { animation?: string; stateMachine?: string; duration: number; fps: number; scale?: number; showBones?: boolean; steps?: Step[] },
+  req: { animation?: string; stateMachine?: string; skin?: string; duration: number; fps: number; scale?: number; showBones?: boolean; steps?: Step[] },
   scriptHost?: ScriptHost,
 ) {
   const doc = session.doc;
@@ -121,6 +130,7 @@ export async function renderGif(
   const ctx = canvas.getContext("2d") as unknown as Ctx2D;
   const renderer = new CanvasRenderer(ctx, (id) => images.get(id) as unknown as CanvasImageSource);
   const inst = new OpenBoneInstance(doc, { scriptHost });
+  useSkin(inst, req.skin);
   const sm = req.stateMachine !== undefined || req.steps ? inst.useStateMachine(req.stateMachine || undefined) : null;
   if (!sm) {
     if (!req.animation) throw new Error("Give animation or stateMachine");

@@ -177,7 +177,8 @@ export class CanvasRenderer {
     ctx.setLineDash([4 / zoom, 3 / zoom]);
     ctx.lineWidth = 1.5 / zoom;
     for (const slot of sk.slots) {
-      const hasBox = Object.values(sk.doc.skeleton.skins[0].attachments[slot.data.id] ?? {}).some((a) => a.type === "boundingBox");
+      const atts = [sk.doc.skeleton.skins[0], sk.skin].flatMap((k) => Object.values(k?.attachments[slot.data.id] ?? {}));
+      const hasBox = atts.some((a) => a.type === "boundingBox");
       const poly = hasBox ? sk.hitPolygon(slot) : null;
       if (!poly) continue;
       ctx.beginPath();

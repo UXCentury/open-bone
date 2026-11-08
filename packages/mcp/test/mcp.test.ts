@@ -84,3 +84,20 @@ describe("MCP server", () => {
     await expect(call("add_slot", { bone: "ghost" })).rejects.toThrow(/Bone "ghost" not found. Available: root/);
   });
 });
+
+describe("skins in previews", () => {
+  it("pose() shows the requested skin and rejects unknown ones", async () => {
+    const { DocumentStore, createDocument } = await import("@openbone/core");
+    const { pose } = await import("../src/index.ts");
+    const s = new DocumentStore(createDocument());
+    s.apply("addSlot", { bone: "root", name: "body" });
+    s.apply("addShape", { slot: "body", name: "shirt", shape: "rect", fill: "#0000ff" });
+    s.apply("addSkin", { name: "red" });
+    s.apply("copyAttachment", { slot: "body", attachment: "shirt", toSkin: "red" });
+    s.apply("updateAttachment", { slot: "body", attachment: "shirt", skin: "red", props: { fill: "#ff0000" } });
+    const { inst } = pose(s.doc, { skin: "red" });
+    const att = inst.skeleton.getAttachment(inst.skeleton.findSlot("body")!);
+    expect(att).toMatchObject({ fill: "#ff0000" });
+    expect(() => pose(s.doc, { skin: "nope" })).toThrow(/not found/);
+  });
+});

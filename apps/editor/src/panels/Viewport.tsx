@@ -6,6 +6,8 @@ import { createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { imageFor, setImageReadyCallback } from "../images.ts";
 import { commitBone, commitAttachmentMove } from "../edit.ts";
 import {
+  activeSkin,
+  activeSkinId,
   currentAnimation,
   currentStateMachine,
   mode,
@@ -73,6 +75,8 @@ export function Viewport() {
       skRev = rev();
       if (running()) startStateMachine();
     }
+    // Cheap lookup, so the viewport follows the active skin without rebuilding the skeleton.
+    sk.setSkin(activeSkinId());
     return sk;
   }
 
@@ -394,7 +398,7 @@ export function Viewport() {
       <div class="viewport-hint">
         {running()
           ? "▶ Running state machine — interact with the artboard"
-          : `${mode() === "animate" ? `ANIMATE${currentAnimation() ? ` · ${currentAnimation()!.name} @ ${time().toFixed(2)}s` : " · no animation"}` : "SETUP"} · wheel: zoom · alt/right-drag: pan · F: fit`}
+          : `${mode() === "animate" ? `ANIMATE${currentAnimation() ? ` · ${currentAnimation()!.name} @ ${time().toFixed(2)}s` : " · no animation"}` : "SETUP"}${activeSkin() ? ` · SKIN ${activeSkin()!.name}` : ""} · wheel: zoom · alt/right-drag: pan · F: fit`}
       </div>
       <button class="fit-btn" onClick={fit} title="Fit artboard (F)">
         ⤢

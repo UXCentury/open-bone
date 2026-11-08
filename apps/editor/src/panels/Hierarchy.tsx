@@ -1,8 +1,11 @@
-import { type BoneData, defaultSkin } from "@openbone/core";
+import { type BoneData, slotAttachments } from "@openbone/core";
 import { For, Show } from "solid-js";
 import {
+  activeSkin,
+  activeSkinId,
   animationId,
   apply,
+  setActiveSkinId,
   doc,
   selection,
   setAnimationId,
@@ -32,7 +35,7 @@ function BoneNode(p: { bone: BoneData; depth: number }) {
       </div>
       <For each={slots()}>
         {(s) => {
-          const atts = () => Object.keys(defaultSkin(doc()).attachments[s.id] ?? {});
+          const atts = () => slotAttachments(doc(), s.id, activeSkin()?.id);
           return (
             <>
               <div
@@ -48,11 +51,15 @@ function BoneNode(p: { bone: BoneData; depth: number }) {
                 {(a) => (
                   <div
                     class="tree-row att-row"
-                    classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id && (sel() as { attachment?: string }).attachment === a }}
+                    classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id && (sel() as { attachment?: string }).attachment === a.name }}
                     style={{ "padding-left": `${34 + p.depth * 12}px` }}
-                    onClick={() => setSelection({ kind: "slot", id: s.id, attachment: a })}
+                    title={a.skin.id === doc().skeleton.skins[0].id ? "In the default skin" : `In skin “${a.skin.name}”${a.overrides ? " (overrides the default skin)" : ""}`}
+                    onClick={() => setSelection({ kind: "slot", id: s.id, attachment: a.name })}
                   >
-                    <span class="icon">{defaultSkin(doc()).attachments[s.id][a].type === "boundingBox" ? "⬚" : "◇"}</span> {a}
+                    <span class="icon">{a.attachment.type === "boundingBox" ? "⬚" : "◇"}</span> {a.name}
+                    <Show when={a.skin.id !== doc().skeleton.skins[0].id}>
+                      <span class="skin-badge">{a.skin.name}</span>
+                    </Show>
                   </div>
                 )}
               </For>
@@ -62,6 +69,60 @@ function BoneNode(p: { bone: BoneData; depth: number }) {
       </For>
       <For each={children()}>{(c) => <BoneNode bone={c} depth={p.depth + 1} />}</For>
     </>
+  );
+}
+
+function SkinsSection() {
+  const skins = () => doc().skeleton.skins;
+  const uniqueName = (base: string) => {
+    let i = 1;
+    while (skins().some((k) => k.name === `${base}${i}`)) i++;
+    return `${base}${i}`;
+  };
+  const newSkin = (from?: { id: string; name: string }) => {
+    const name = prompt(from ? `Duplicate “${from.name}” as` : "Skin name", from ? `${from.name} copy` : uniqueName("skin"));
+    if (!name) return;
+    const r = (from ? apply("duplicateSkin", { skin: from.id, name }) : apply("addSkin", { name })) as { id: string } | undefined;
+    if (r) setActiveSkinId(r.id);
+  };
+  const rename = (id: string, current: string) => {
+    const name = prompt("Rename skin", current);
+    if (name && name !== current) apply("renameSkin", { skin: id, name });
+  };
+  return (
+    <Section title="Skins" actions={<button title="New empty skin" onClick={() => newSkin()}>+</button>}>
+      <For each={skins()}>
+        {(k, i) => {
+          // The store mutates skins in place, so read through doc() to re-render on every change.
+          const name = () => (doc(), k.name);
+          const count = () => (doc(), Object.values(k.attachments).reduce((n, m) => n + Object.keys(m).length, 0));
+          return (
+            <div
+              class="tree-row"
+              classList={{ selected: i() === 0 ? !activeSkin() : activeSkinId() === k.id }}
+              title={i() === 0 ? "Default skin: attachments every skin shares" : "Click to show · double-click to rename"}
+              onClick={() => setActiveSkinId(i() === 0 ? null : k.id)}
+              onDblClick={() => i() > 0 && rename(k.id, name())}
+            >
+              <span class="icon">{(i() === 0 ? !activeSkin() : activeSkinId() === k.id) ? "●" : "○"}</span> {name()}
+              <span class="muted" title="Attachments in this skin"> {count()}</span>
+              <span class="row-actions">
+                <button class="row-btn" title="Duplicate" onClick={(e) => { e.stopPropagation(); newSkin(k); }}>⧉</button>
+                <Show when={i() > 0}>
+                  <button class="row-btn" title="Rename" onClick={(e) => { e.stopPropagation(); rename(k.id, name()); }}>✎</button>
+                  <button class="row-btn" title="Delete" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete skin ${name()} and its attachments?`)) apply("deleteSkin", { skin: k.id }); }}>×</button>
+                </Show>
+              </span>
+            </div>
+          );
+        }}
+      </For>
+      <Show when={activeSkin()} fallback={<div class="hint pad">Add a skin for each outfit. Attachments you add while it is active go into it.</div>}>
+        <div class="hint pad">
+          New attachments go into “{activeSkin()!.name}”. Copy a default attachment into it from the Inspector to override it.
+        </div>
+      </Show>
+    </Section>
   );
 }
 
@@ -125,6 +186,7 @@ export function Hierarchy() {
           </For>
         </Section>
       </Show>
+      <SkinsSection />
       <Section title="Images">
         <For each={doc().images} fallback={<div class="muted pad">Drop PNGs on the viewport or use + Image</div>}>
           {(img) => (
