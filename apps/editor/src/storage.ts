@@ -1,4 +1,5 @@
 import { type OpenBoneDocument, parseDocument, textureAssets } from "@openbone/core";
+import { registerAudioOverride } from "./audio.ts";
 import { registerImageOverride } from "./images.ts";
 import { exportJson, fileName, loadDocument, setFileName, toast } from "./state.ts";
 
@@ -22,6 +23,11 @@ export async function openProject(webFallback: () => void) {
       if (/^(data:|https?:)/.test(img.src)) continue;
       const bytes = await readFile(`${dir}/${img.src}`).catch(() => null);
       if (bytes) registerImageOverride(img.src, URL.createObjectURL(new Blob([bytes])));
+    }
+    for (const a of doc.audio?.assets ?? []) {
+      if (/^(data:|https?:)/.test(a.src)) continue;
+      const bytes = await readFile(`${dir}/${a.src}`).catch(() => null);
+      if (bytes) registerAudioOverride(a.src, URL.createObjectURL(new Blob([bytes])));
     }
     // Save writes JSON, so a binary file opened here is saved as a new .obone next to it.
     const binary = /\.obonb$/i.test(path);

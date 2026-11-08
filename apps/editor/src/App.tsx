@@ -1,5 +1,6 @@
 import { For, Show, onCleanup, onMount } from "solid-js";
 import { Toolbar, importImages, redo, undo } from "./panels/Toolbar.tsx";
+import { importAudio } from "./audio.ts";
 import { Viewport } from "./panels/Viewport.tsx";
 import { Dock, DragOverlay, Splitter } from "./panels/Workspace.tsx";
 import { ExportDialog } from "./panels/ExportDialog.tsx";
@@ -74,7 +75,10 @@ export function App() {
           onDragOver={(e) => e.preventDefault()}
           onDrop={(e) => {
             e.preventDefault();
-            if (e.dataTransfer?.files.length) importImages(e.dataTransfer.files);
+            if (e.dataTransfer?.files.length) {
+              importImages(e.dataTransfer.files);
+              void importAudio(e.dataTransfer.files);
+            }
           }}
         >
           <Viewport />

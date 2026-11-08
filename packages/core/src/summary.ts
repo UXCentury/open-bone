@@ -38,7 +38,7 @@ export function summarize(d: OpenBoneDocument): string {
   if (d.events.length) lines.push(`## Events: ${d.events.map((e) => e.name).join(", ")}`);
   lines.push(`## Animations (${d.animations.length})`);
   for (const a of d.animations)
-    lines.push(`- ${a.name} [${a.id}] ${r(animationDuration(a))}s, ${a.timelines.length} timelines, ${a.events.length} event keys`);
+    lines.push(`- ${a.name} [${a.id}] ${r(animationDuration(a))}s, ${a.timelines.length} timelines, ${a.events.length} event keys${a.audio?.length ? `, ${a.audio.length} audio keys` : ""}`);
   for (const sm of d.stateMachines) {
     lines.push(`## State machine ${sm.name} [${sm.id}]`);
     lines.push(`  inputs: ${sm.inputs.map((i) => `${i.name}:${i.type}=${i.default}`).join(", ") || "none"}`);
@@ -58,6 +58,13 @@ export function summarize(d: OpenBoneDocument): string {
     }
     for (const li of sm.listeners)
       lines.push(`  listener ${li.name}: ${li.event} on ${d.skeleton.slots.find((s) => s.id === li.slot)?.name ?? "artboard"} → ${li.actions.map((a) => a.type).join(", ")}`);
+  }
+  if (d.audio && (d.audio.assets.length || d.audio.sounds.length)) {
+    const bus = (id: string | null) => d.audio!.buses.find((b) => b.id === id)?.name ?? "master";
+    lines.push(`## Audio — master ${d.audio.master}${d.audio.muted ? " (muted)" : ""}; buses: ${d.audio.buses.map((b) => `${b.name} ${b.volume}${b.muted ? " muted" : ""}`).join(", ")}`);
+    lines.push(`  assets: ${d.audio.assets.map((a) => `${a.name} [${a.id}] ${r(a.duration)}s`).join("; ") || "none"}`);
+    for (const s of d.audio.sounds)
+      lines.push(`  sound ${s.name} [${s.id}] → ${bus(s.bus)} vol ${s.volume} rate ${s.rate}${s.loop ? " loop" : ""}${s.fadeIn ? ` fadeIn ${s.fadeIn}` : ""}${s.fadeOut ? ` fadeOut ${s.fadeOut}` : ""}`);
   }
   if (d.scripts.length) lines.push(`## Scripts: ${d.scripts.map((s) => `${s.name} [${s.id}]`).join(", ")}`);
   return lines.join("\n");

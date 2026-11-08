@@ -30,8 +30,13 @@
 
 ### Interactivity (Rive-style)
 - **State machines** with layers, bool/number/trigger inputs, animation and 1D blend states, any-state transitions, conditions, exit times and cross-fades.
-- **Pointer listeners** on hit boxes (down, up, enter, exit, move, click) that set inputs, fire triggers, report events or run scripts.
+- **Pointer listeners** on hit boxes (down, up, enter, exit, move, click) that set inputs, fire triggers, report events, play or stop sounds, or run scripts.
 - **Sandboxed scripts** (QuickJS-WASM, memory cap and per-call deadline) with an `ob` API: `onStart`, `onUpdate`, `onEvent`, `onPointer`.
+
+### Audio
+- **Sounds** from WAV, MP3 or OGG files (embedded or by path), each with a bus, volume, rate (pitch), loop and fade in/out.
+- Played by **audio keys** on an animation's timeline, by **events** (every time the event fires), by **state hooks** (play/stop on enter or exit) and by **listener actions**. Looping sounds fade out when their state or animation ends.
+- **Mixer**: named buses (sfx, music, ui, or your own) with volume and mute, and a master volume. The runtime only emits play/stop/fade commands; the player and editor play them with Web Audio, unlocking on the first click or key press.
 
 ### Editor
 - **Tools**: select/rotate, translate, scale, create bone, **mesh vertex editing** (select, drag, add, delete, nudge; re-triangulates) and **weight painting** (brush with add/remove, radius and strength, heat-map and per-vertex weight readout).
@@ -50,7 +55,7 @@
 ### Runtime and tools
 - Renderer-agnostic TypeScript runtime with **WebGL2** (batched) and **Canvas2D** renderers.
 - **`<openbone-player>`** web component and a `Player` class (loads `.obone`, `.json` and `.obonb`).
-- **MCP server** (78 tools; every editing op becomes a tool automatically) with render/simulate tools and a live WebSocket bridge to the editor.
+- **MCP server** (96 tools; every editing op becomes a tool automatically) with render/simulate tools and a live WebSocket bridge to the editor.
 - **CLI**: validate, summarize, render PNG/GIF, simulate state machines, apply any op.
 - **Desktop app** (Tauri 2) with native file dialogs.
 

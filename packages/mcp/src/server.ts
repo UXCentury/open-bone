@@ -185,6 +185,42 @@ export function createServer(opts: ServerOptions = {}) {
   );
 
   server.registerTool(
+    "import_audio",
+    {
+      description:
+        "Import a WAV/MP3/OGG file from disk as an audio asset plus a sound of the same name (on the sfx bus unless `bus` is given). Stored as a path relative to the project file, or embedded when `embed` is true or the project is unsaved. Then play it with add_audio_key, set_event_sound, set_state_sound or a playSound listener action.",
+      inputSchema: {
+        path: z.string(),
+        name: z.string().optional(),
+        embed: z.boolean().default(false),
+        bus: z.string().optional(),
+        loop: z.boolean().default(false),
+      },
+    },
+    async (a) => {
+      try {
+        const abs = path.resolve(a.path);
+        const buf = await readFile(abs);
+        const ext = path.extname(abs).slice(1).toLowerCase();
+        const mime = ext === "mp3" ? "audio/mpeg" : ext === "wav" ? "audio/wav" : ext === "ogg" || ext === "oga" ? "audio/ogg" : `audio/${ext}`;
+        const src = a.embed || !session.filePath ? `data:${mime};base64,${buf.toString("base64")}` : path.relative(session.baseDir, abs).split(path.sep).join("/");
+        const duration = wavDuration(buf);
+        const result = session.store.apply("addAudio", {
+          name: a.name ?? path.basename(abs, path.extname(abs)),
+          src,
+          duration,
+          loop: a.loop,
+          ...(a.bus ? { bus: a.bus } : {}),
+        });
+        await session.maybeAutosave();
+        return text({ ok: true, ...(result as object), duration });
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
     "pack_atlas",
     {
       description:
@@ -281,7 +317,7 @@ export function createServer(opts: ServerOptions = {}) {
     "simulate_state_machine",
     {
       description:
-        "Run a state machine headlessly through steps (set inputs, fire triggers, pointer events, advance time) and get a log of state changes, events, input changes and script output. Use to test interactivity.",
+        "Run a state machine headlessly through steps (set inputs, fire triggers, pointer events, advance time) and get a log of state changes, events, input changes, audio commands and script output. Use to test interactivity.",
       inputSchema: { stateMachine: z.string().optional(), steps: z.array(stepSchema).min(1) },
     },
     async (a) => {
@@ -363,4 +399,18 @@ export function createServer(opts: ServerOptions = {}) {
   );
 
   return { server, session };
+}
+
+/** Seconds of PCM audio in a WAV file (0 for other formats or unreadable headers). */
+function wavDuration(buf: Buffer): number {
+  if (buf.length < 12 || buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WAVE") return 0;
+  let byteRate = 0;
+  for (let p = 12; p + 8 <= buf.length; ) {
+    const id = buf.toString("ascii", p, p + 4);
+    const size = buf.readUInt32LE(p + 4);
+    if (id === "fmt " && p + 16 <= buf.length) byteRate = buf.readUInt32LE(p + 16);
+    if (id === "data") return byteRate ? Math.round((Math.min(size, buf.length - p - 8) / byteRate) * 1000) / 1000 : 0;
+    p += 8 + size + (size % 2);
+  }
+  return 0;
 }

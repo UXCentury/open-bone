@@ -61,6 +61,10 @@ export type Selection =
   | { kind: "path"; id: string }
   | { kind: "physics"; id: string }
   | { kind: "image"; id: string }
+  | { kind: "sound"; id: string }
+  /** id "master" selects the master mix. */
+  | { kind: "bus"; id: string }
+  | { kind: "audio"; id: string }
   | null;
 
 export const [mode, setMode] = createSignal<Mode>("setup");

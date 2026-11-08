@@ -1,3 +1,4 @@
+import { resolveSound } from "./audio.ts";
 import { descendantIds, getAttachment } from "./document.ts";
 import type { OpenBoneDocument } from "./types.ts";
 
@@ -133,5 +134,28 @@ export function validate(d: OpenBoneDocument): Issue[] {
     }
     for (const li of sm.listeners) if (li.slot && !slotIds.has(li.slot)) err(`${sm.name} listener ${li.name}`, "slot missing");
   }
+  validateAudio(d, err, warn);
   return issues;
+}
+
+function validateAudio(d: OpenBoneDocument, err: (p: string, m: string) => void, warn: (p: string, m: string) => void) {
+  const au = d.audio;
+  const assetIds = new Set(au?.assets.map((a) => a.id));
+  const busIds = new Set(au?.buses.map((b) => b.id));
+  const soundIds = new Set(au?.sounds.map((s) => s.id));
+  au?.assets.forEach((a, i) => !a.src && err(`audio.assets[${i}]`, `"${a.name}" has no src`));
+  au?.sounds.forEach((s, i) => {
+    if (!assetIds.has(s.asset)) err(`audio.sounds[${i}]`, `asset ${s.asset} missing`);
+    if (s.bus && !busIds.has(s.bus)) err(`audio.sounds[${i}]`, `bus ${s.bus} missing`);
+    if (!(s.rate > 0)) err(`audio.sounds[${i}]`, "rate must be positive");
+  });
+  d.events.forEach((e) => e.audio && !resolveSound(d, e.audio) && warn(`event ${e.name}`, `audio "${e.audio}" is not a sound or audio asset`));
+  for (const a of d.animations) for (const k of a.audio ?? []) if (!soundIds.has(k.sound)) err(`animation ${a.name}`, `sound ${k.sound} missing`);
+  for (const sm of d.stateMachines) {
+    for (const l of sm.layers)
+      for (const st of l.states) for (const x of st.sounds ?? []) if (!soundIds.has(x.sound)) err(`${sm.name}/${st.name}`, `sound ${x.sound} missing`);
+    for (const li of sm.listeners)
+      for (const x of li.actions)
+        if ((x.type === "playSound" || x.type === "stopSound") && !soundIds.has(x.sound)) err(`${sm.name} listener ${li.name}`, `sound ${x.sound} missing`);
+  }
 }

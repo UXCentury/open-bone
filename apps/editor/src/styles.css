@@ -378,3 +378,8 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
 .export-options .field > span:first-child { width: 72px; }
 /* Fieldsets default to min-width: min-content and would push past the column. */
 .export-group { min-width: 0; }
+
+/* audio */
+.event-key.audio-key { background: #1f8f6a; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.event-key.audio-key.loop { border-right: 3px dashed #9ff3d3; }
+.event-key.audio-key.selected { background: var(--warn); color: #000; }

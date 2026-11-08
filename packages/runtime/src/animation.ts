@@ -20,7 +20,9 @@ export interface FiredEvent {
   int: number;
   float: number;
   string: string;
+  /** Sound (or audio asset) the event plays, and its volume multiplier. */
   audio?: string;
+  volume?: number;
   animation: string;
 }
 
@@ -149,6 +151,7 @@ export function eventsBetween(
       float: k.float ?? ev.float,
       string: k.string ?? ev.string,
       ...(ev.audio ? { audio: ev.audio } : {}),
+      ...(ev.volume !== undefined ? { volume: ev.volume } : {}),
       animation: anim.name,
     });
   for (const k of anim.events) {

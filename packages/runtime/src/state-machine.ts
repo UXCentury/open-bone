@@ -15,11 +15,16 @@ import {
   parseHex,
 } from "@openbone/core";
 import { type FiredEvent, applyAnimation, eventsBetween, localTime } from "./animation.ts";
+import { type AudioCommand, AudioDirector, playAudioKeys } from "./audio.ts";
 import { Emitter } from "./emitter.ts";
 import type { ScriptApi, ScriptHandle, ScriptHost } from "./scripting.ts";
 import type { Skeleton } from "./skeleton.ts";
 
+let stateCounter = 0;
+
 class StateInstance {
+  /** Owner id for the sounds this state starts. */
+  readonly uid = `state_${++stateCounter}`;
   time = 0;
   prevTime = -1e-6;
   scripts: ScriptHandle[] = [];
@@ -44,6 +49,8 @@ export type SMEvents = {
   inputChange: [{ name: string; value: boolean | number }];
   log: [unknown[]];
   error: [Error];
+  /** Sound commands (play/stop/fade) for an audio backend. */
+  audio: [AudioCommand];
 };
 
 export interface StateMachineOptions {
@@ -71,6 +78,8 @@ export class StateMachineInstance extends Emitter<SMEvents> {
   private pendingEvents: FiredEvent[] = [];
   private elapsed = 0;
   private started = false;
+  /** Sounds started by states, audio keys, event audio and listeners. */
+  readonly audio: AudioDirector;
 
   constructor(
     public skeleton: Skeleton,
@@ -79,6 +88,7 @@ export class StateMachineInstance extends Emitter<SMEvents> {
   ) {
     super();
     this.doc = skeleton.doc;
+    this.audio = new AudioDirector(this.doc, (c) => this.emit("audio", c));
     for (const i of data.inputs) this.inputs.set(i.id, i.type === "trigger" ? false : i.default);
     this.layers = data.layers.map((l) => new LayerInstance(l));
   }
@@ -179,9 +189,18 @@ export class StateMachineInstance extends Emitter<SMEvents> {
           break;
         case "reportEvent": {
           const ev = this.doc.events.find((e) => e.id === a.event);
-          if (ev) this.pendingEvents.push({ name: ev.name, id: ev.id, time: this.elapsed, int: ev.int, float: ev.float, string: ev.string, animation: "" });
+          if (ev) {
+            if (ev.audio) this.audio.play(ev.audio, { volume: ev.volume, source: `event:${ev.name}` });
+            this.pendingEvents.push({ name: ev.name, id: ev.id, time: this.elapsed, int: ev.int, float: ev.float, string: ev.string, animation: "" });
+          }
           break;
         }
+        case "playSound":
+          this.audio.play(a.sound, { volume: a.volume, source: `listener:${_li.name}` });
+          break;
+        case "stopSound":
+          this.audio.stopSound(a.sound, a.fade);
+          break;
         case "runScript": {
           const script = this.doc.scripts.find((s) => s.id === a.script);
           const handle = script && this.scriptFor(script.id);
@@ -203,6 +222,7 @@ export class StateMachineInstance extends Emitter<SMEvents> {
       fire: (n) => this.fire(n),
       emit: (name, payload = {}) => {
         const ev = this.doc.events.find((e) => e.name === name || e.id === name);
+        if (ev?.audio) this.audio.play(ev.audio, { volume: ev.volume, source: `event:${ev.name}` });
         this.pendingEvents.push({
           name,
           id: ev?.id ?? name,
@@ -271,9 +291,23 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     }
   }
 
+  /** Run a state's sound hooks for `on`; plays on enter are owned by the state instance. */
+  private stateSounds(s: StateData, on: "enter" | "exit", owner?: string) {
+    for (const x of s.sounds ?? []) {
+      if (x.on !== on) continue;
+      if (x.action === "stop") this.audio.stopSound(x.sound);
+      else this.audio.play(x.sound, { volume: x.volume, owner, tag: owner && `hook:${x.sound}`, source: `state:${s.name}` });
+    }
+  }
+
   private enter(l: LayerInstance, state: StateData, mix: number) {
     const prev = l.current;
-    if (prev) for (const h of prev.scripts) this.disposeStateScript(h);
+    if (prev) {
+      for (const h of prev.scripts) this.disposeStateScript(h);
+      // Looping sounds of the old state fade out over the cross-fade (at least their own fadeOut).
+      this.audio.stopOwner(prev.uid, mix);
+      this.stateSounds(prev.data, "exit");
+    }
     if (state.type === "exit") {
       l.exited = true;
       l.from = prev;
@@ -287,6 +321,7 @@ export class StateMachineInstance extends Emitter<SMEvents> {
       l.mixTime = 0;
       l.mixDuration = mix;
       l.exited = false;
+      this.stateSounds(state, "enter", inst.uid);
       for (const id of state.scripts ?? []) {
         const s = this.doc.scripts.find((x) => x.id === id);
         if (!s || !this.opts.scriptHost) continue;
@@ -409,13 +444,19 @@ export class StateMachineInstance extends Emitter<SMEvents> {
       const pair = this.blendPair(d);
       anim = pair ? (pair.t >= 0.5 ? pair.hi : pair.lo) : undefined;
     }
-    if (anim) this.pendingEvents.push(...eventsBetween(this.doc, anim, s.prevTime, s.time, d.loop));
+    if (!anim) return;
+    playAudioKeys(this.audio, anim, s.prevTime, s.time, d.loop, s.uid);
+    for (const ev of eventsBetween(this.doc, anim, s.prevTime, s.time, d.loop)) {
+      if (ev.audio) this.audio.play(ev.audio, { volume: ev.volume, owner: s.uid, source: `event:${ev.name}` });
+      this.pendingEvents.push(ev);
+    }
   }
 
   /** Step the machine by `dt` seconds and pose the skeleton. */
   advance(dt: number) {
     if (!this.started) this.start();
     this.elapsed += dt;
+    this.audio.update(dt);
     this.processPointer();
     for (const s of this.scripts) this.safeCall(s, "onUpdate", dt);
     for (const l of this.layers) for (const h of l.current?.scripts ?? []) this.safeCall(h, "onUpdate", dt);
@@ -426,7 +467,7 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     for (const l of this.layers) {
       for (const s of [l.current, l.from]) {
         if (!s) continue;
-        s.prevTime = s.time;
+        s.prevTime = s.time > 0 ? s.time : Math.min(s.prevTime, s.time); // keys at 0 fire on the first step
         s.time += dt * s.data.speed;
       }
       if (l.current) this.collectEvents(l.current);
@@ -472,6 +513,7 @@ export class StateMachineInstance extends Emitter<SMEvents> {
   }
 
   dispose() {
+    this.audio.stopAll();
     for (const h of this.handles.values()) h.dispose();
     for (const l of this.layers) for (const h of l.current?.scripts ?? []) h.dispose();
     this.handles.clear();

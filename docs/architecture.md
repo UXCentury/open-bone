@@ -3,7 +3,7 @@
 ```
             ┌──────────── edits (ops) ────────────┐
  Editor ────┤                                     ├──── MCP server ◄── AI agent
- (Solid)    │  @openbone/core  DocumentStore      │     (78 tools)
+ (Solid)    │  @openbone/core  DocumentStore      │     (96 tools)
    ▲        │  op registry · undo · validate      │        │
    │        └─────────────────────────────────────┘        │
    │  live bridge (WebSocket, ops replayed both ways)  ◄───┘
@@ -38,6 +38,12 @@ References accept **ids or names** everywhere, which keeps agent prompts short.
 - Keyable constraint values live in `Skeleton.constraintValues` (reset to setup each frame, written by timelines).
 - State machine frame: pointer events → listeners → script `onUpdate` → transitions (specific before any-state; a transition with no conditions waits for exit time 1) → advance → pose → events → script `onEvent`.
 - Blend states report events only from their dominant animation.
+
+## Audio
+
+The runtime never touches an audio API. `AudioDirector` (`packages/runtime/src/audio.ts`) turns triggers into `AudioCommand`s (`play` with an instance id, `stop` with a fade, `fade`) emitted on the `audio` event of `AnimationState`, `StateMachineInstance` and `OpenBoneInstance`. It owns sounds by their source: each track entry and each state instance is an owner, and when it ends (replaced, completed, state exited) its looping sounds are stopped with `max(cross-fade, sound.fadeOut)`. One-shots run to their end. Triggers: animation audio keys (deduplicated per owner for loops, so a looping animation does not stack copies), event audio (fired from keys, listeners and scripts), state enter/exit hooks and `playSound`/`stopSound` listener actions.
+
+`WebAudioBackend` (`packages/player/src/audio.ts`) plays the commands: it resolves asset URLs, caches decoded buffers per URL, routes each voice through a gain node per bus into a master gain (`syncMix()` re-reads the document's volumes and mutes), applies fades, and resumes the AudioContext on the first pointer or key event. One-shots requested before that are dropped instead of all playing at once on unlock. The editor shares one backend between the timeline preview (which poses by time, so it drives its own `AudioDirector`), the state machine Run and Inspector auditions.
 
 ## Scripts
 
