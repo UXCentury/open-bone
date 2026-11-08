@@ -607,8 +607,12 @@ input.small { width: 90px; }
 .examples-dialog .modal-head .close { margin-left: auto; }
 .examples-dialog .modal-head .muted { order: 3; flex-basis: 100%; }
 .examples-grid { display: grid; grid-auto-rows: max-content; min-height: 0; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; padding: 14px; overflow: auto; }
-.example-card { display: flex; flex-direction: column; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: #181b22; color: inherit; text-align: left; overflow: hidden; cursor: pointer; }
-.example-card:hover, .example-card:focus-visible { border-color: var(--accent, #5b7cfa); outline: none; box-shadow: 0 0 0 1px var(--accent, #5b7cfa); }
+.example-card { display: flex; flex-direction: column; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: #181b22; color: inherit; text-align: left; overflow: hidden; }
+.example-open-area { display: flex; flex-direction: column; padding: 0; border: 0; border-radius: 0; background: none; color: inherit; text-align: left; cursor: pointer; flex: 1; }
+.example-actions { display: flex; gap: 6px; padding: 0 10px 10px; }
+.example-actions button { flex: 1; padding: 5px 8px; border-radius: 6px; }
+.example-actions button.primary { background: var(--accent, #5b7cfa); border-color: transparent; color: #fff; }
+.example-card:hover, .example-card:focus-within { border-color: var(--accent, #5b7cfa); outline: none; box-shadow: 0 0 0 1px var(--accent, #5b7cfa); }
 .example-thumb { flex: none; position: relative; height: 150px; background: #15171c; display: grid; place-items: center; }
 .example-thumb canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .example-info { display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 10px; }

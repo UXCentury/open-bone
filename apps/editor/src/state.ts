@@ -1,3 +1,4 @@
+import { EXAMPLES_BASE, fetchExample } from "./examples.ts";
 import {
   type Attachment,
   DocumentStore,
@@ -169,9 +170,11 @@ export function loadDocument(d: OpenBoneDocument, name = `${d.name}.obone`, base
 }
 
 export async function openExample(name: string) {
-  const res = await fetch(`/examples/${name}.obone`);
-  if (!res.ok) return toast(`Example ${name} not found`, "error");
-  loadDocument(deserialize(await res.text()), `${name}.obone`, "/examples/");
+  try {
+    loadDocument(await fetchExample(name), `${name}.obone`, EXAMPLES_BASE);
+  } catch (e) {
+    toast((e as Error).message, "error");
+  }
 }
 
 export function exportJson(): string {

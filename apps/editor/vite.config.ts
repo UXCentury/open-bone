@@ -5,12 +5,19 @@ import solid from "vite-plugin-solid";
 import { type WebBundleFormat, buildPlayerBundle, buildScriptsAddon, buildWebBundle, quickJsWasmBytes } from "../../packages/player/src/bundle/build.ts";
 
 const EXAMPLES = path.resolve(__dirname, "../../examples");
-const MIME: Record<string, string> = { ".obone": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp" };
+const MIME: Record<string, string> = { ".obone": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp", ".wav": "audio/wav", ".mp3": "audio/mpeg", ".ogg": "audio/ogg" };
+
+/** Every file under a folder, as paths relative to it (examples/assets has subfolders per art source). */
+function walk(dir: string, rel = ""): string[] {
+  return fs.readdirSync(path.join(dir, rel), { withFileTypes: true }).flatMap((e) => {
+    const p = rel ? `${rel}/${e.name}` : e.name;
+    return e.isDirectory() ? walk(dir, p) : [p];
+  });
+}
 
 /** Serve (dev) and copy (build) the repo's example projects at /examples/. */
 function examples(): Plugin {
-  const files = () =>
-    [...fs.readdirSync(EXAMPLES).filter((f) => f.endsWith(".obone")), ...fs.readdirSync(path.join(EXAMPLES, "assets")).map((f) => `assets/${f}`)];
+  const files = () => [...fs.readdirSync(EXAMPLES).filter((f) => f.endsWith(".obone")), ...walk(EXAMPLES, "assets")];
   return {
     name: "openbone-examples",
     configureServer(server) {
@@ -23,6 +30,8 @@ function examples(): Plugin {
       });
     },
     generateBundle() {
+      // Examples hosted elsewhere (VITE_OPENBONE_EXAMPLES_URL): the build doesn't carry them.
+      if (process.env.VITE_OPENBONE_EXAMPLES_URL) return;
       for (const f of files()) this.emitFile({ type: "asset", fileName: `examples/${f}`, source: fs.readFileSync(path.join(EXAMPLES, f)) });
     },
   };

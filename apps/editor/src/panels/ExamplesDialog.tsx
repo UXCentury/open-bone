@@ -1,4 +1,7 @@
-import { type OpenBoneDocument, deserialize } from "@openbone/core";
+import { type OpenBoneDocument, serialize } from "@openbone/core";
+import { bundleExample, exampleUrl, fetchExample } from "../examples.ts";
+import { saveTextFile } from "../storage.ts";
+import { toast } from "../state.ts";
 import { OpenBoneInstance } from "@openbone/runtime";
 import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
 import { setExamplesOpen } from "../editor-menus.ts";
@@ -17,10 +20,10 @@ const EXAMPLES: { id: string; title: string; text: string; tags: string[] }[] = 
   { id: "campfire", title: "Campfire", text: "Flames burning on painted logs, firelight flicker, a bending flame mesh and a crackle loop.", tags: ["Sequences", "Mesh"] },
 ];
 
-/** Images of the gallery's documents, loaded from /examples/ (kept apart from the editor's own image cache). */
+/** Images of the gallery's documents, loaded from the examples source (kept apart from the editor's image cache). */
 const images = new Map<string, HTMLImageElement>();
 function exampleImage(src: string): HTMLImageElement | null {
-  const url = /^(data:|https?:|blob:|\/)/.test(src) ? src : `/examples/${src}`;
+  const url = exampleUrl(src);
   let img = images.get(url);
   if (!img) {
     img = new Image();
@@ -40,11 +43,10 @@ function Thumb(p: { id: string }) {
     let raf = 0;
     let last = performance.now();
     let alive = true;
-    fetch(`/examples/${p.id}.obone`)
-      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
-      .then((text) => {
+    fetchExample(p.id)
+      .then((d) => {
         if (!alive) return;
-        doc = deserialize(text);
+        doc = d;
         inst = new OpenBoneInstance(doc);
         const sm = doc.stateMachines[0];
         const idle = doc.animations.find((a) => /idle/i.test(a.name)) ?? doc.animations[0];
@@ -85,8 +87,24 @@ export function ExamplesDialog() {
     close();
     void openExample(id);
   };
+  const [busy, setBusy] = createSignal<string | null>(null);
+  const [progress, setProgress] = createSignal("");
+  // Download: fetch the example and all its art and sound, store them inside one file, save it.
+  const download = async (id: string, title: string) => {
+    setBusy(id);
+    setProgress("");
+    try {
+      const doc = await bundleExample(id, (done, total) => setProgress(`${done}/${total}`));
+      const saved = await saveTextFile(`${id}.obone`, serialize(doc));
+      if (saved) toast(`Downloaded ${title} (${saved}): open it with ☰ Menu → Open…`);
+    } catch (e) {
+      toast(`Couldn't download ${title}: ${(e as Error).message}`, "error");
+    } finally {
+      setBusy(null);
+    }
+  };
   onMount(() => {
-    box.querySelector<HTMLButtonElement>(".example-card")?.focus();
+    box.querySelector<HTMLButtonElement>(".example-open-area")?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
@@ -109,16 +127,30 @@ export function ExamplesDialog() {
         <div class="examples-grid">
           <For each={EXAMPLES}>
             {(ex) => (
-              <button class="example-card" onClick={() => pick(ex.id)} title={`Open ${ex.title}`}>
-                <Thumb id={ex.id} />
-                <div class="example-info">
-                  <strong>{ex.title}</strong>
-                  <span class="example-text">{ex.text}</span>
-                  <span class="example-tags">
-                    <For each={ex.tags}>{(t) => <span class="tag">{t}</span>}</For>
-                  </span>
+              <div class="example-card" role="group" aria-label={ex.title}>
+                <button class="example-open-area" onClick={() => pick(ex.id)} title={`Open ${ex.title}`}>
+                  <Thumb id={ex.id} />
+                  <div class="example-info">
+                    <strong>{ex.title}</strong>
+                    <span class="example-text">{ex.text}</span>
+                    <span class="example-tags">
+                      <For each={ex.tags}>{(t) => <span class="tag">{t}</span>}</For>
+                    </span>
+                  </div>
+                </button>
+                <div class="example-actions">
+                  <button class="primary" onClick={() => pick(ex.id)} title="Load it into the editor (replaces the current project)">
+                    Open
+                  </button>
+                  <button
+                    disabled={busy() === ex.id}
+                    title="Download it as one .obone file with every image and sound inside (opens anywhere, offline)"
+                    onClick={() => void download(ex.id, ex.title)}
+                  >
+                    {busy() === ex.id ? `Downloading… ${progress()}` : "⬇ Download"}
+                  </button>
                 </div>
-              </button>
+              </div>
             )}
           </For>
         </div>
