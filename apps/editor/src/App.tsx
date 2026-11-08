@@ -10,6 +10,7 @@ import { exportOpen, toasts } from "./state.ts";
 import { DialogHost } from "./dialogs.tsx";
 import { playActive } from "./play.ts";
 import { setupShortcuts, shortcutsOpen } from "./shortcuts/actions.ts";
+import { importFiles } from "./sequence-import.ts";
 
 export function App() {
   onMount(() => onCleanup(setupShortcuts()));
@@ -28,7 +29,7 @@ export function App() {
           onDrop={(e) => {
             e.preventDefault();
             if (e.dataTransfer?.files.length) {
-              importImages(e.dataTransfer.files);
+              void importFiles(e.dataTransfer.files, importImages);
               void importAudio(e.dataTransfer.files);
             }
           }}

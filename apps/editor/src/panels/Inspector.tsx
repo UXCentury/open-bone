@@ -1,4 +1,4 @@
-import { type Attachment, type BoneProperty, CONSTRAINT_PROPERTIES, type ClippingAttachment, type SkinData, attachmentOwner, defaultSkin, descendantIds, getAttachment, shapeOutline, slotAttachments } from "@openbone/core";
+import { type Attachment, type BoneProperty, CONSTRAINT_PROPERTIES, type ClippingAttachment, type SequenceAttachment, type SkinData, attachmentOwner, defaultSkin, descendantIds, getAttachment, shapeOutline, slotAttachments } from "@openbone/core";
 import { For, Match, Show, Switch, createSignal } from "solid-js";
 import { commitBone, keyBoneProperty, keyConstraint, keySlot } from "../edit.ts";
 import { imageFor } from "../images.ts";
@@ -6,6 +6,7 @@ import { activeSkin, apply, currentAnimation, doc, mode, selection, setSelection
 import { askConfirm } from "../dialogs.tsx";
 import { ColorField, NumberField, Section, SelectField, TextField } from "./fields.tsx";
 import { AudioAssetInspector, BusInspector, SoundInspector } from "./AudioPanel.tsx";
+import { SequenceEditor } from "./SequenceEditor.tsx";
 
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-4;
 
@@ -313,7 +314,7 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
       <TextField label="Name" value={p.att.name} onCommit={(v) => set({ name: v })} />
       <SkinControls slotId={p.slotId} att={p.att} owner={p.owner} />
       <Switch>
-        <Match when={p.att.type === "region" || p.att.type === "shape" || p.att.type === "point"}>
+        <Match when={p.att.type === "region" || p.att.type === "sequence" || p.att.type === "shape" || p.att.type === "point"}>
           <NumberField label="X" value={(p.att as { x: number }).x} onCommit={(v) => set({ x: v })} />
           <NumberField label="Y" value={(p.att as { y: number }).y} onCommit={(v) => set({ y: v })} />
           <NumberField label="Rotation" value={(p.att as { rotation: number }).rotation} onCommit={(v) => set({ rotation: v })} />
@@ -384,6 +385,9 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
         </Match>
         <Match when={p.att.type === "path" && p.att}>
           {(a) => <PathAttachmentEditor slotId={p.slotId} att={a() as Extract<Attachment, { type: "path" }>} owner={p.owner} />}
+        </Match>
+        <Match when={p.att.type === "sequence" && p.att}>
+          {(_a) => <SequenceEditor slotId={p.slotId} att={p.att as SequenceAttachment} owner={p.owner} />}
         </Match>
         <Match when={p.att.type === "boundingBox"}>
           <div class="hint">Hit area for state-machine listeners. Edit vertices via MCP/JSON for now.</div>

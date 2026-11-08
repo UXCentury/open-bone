@@ -32,6 +32,7 @@ import { playActive, togglePlay } from "../play.ts";
 import { tip } from "../shortcuts/index.ts";
 import { setOpenFileHandler, setShortcutsOpen } from "../shortcuts/actions.ts";
 import { MuteButton, pickAudio } from "./AudioPanel.tsx";
+import { importFiles } from "../sequence-import.ts";
 
 const TOOLS: { id: Tool; label: string; title: string }[] = [
   { id: "select", label: "⟲", title: "Select / rotate bones" },
@@ -72,6 +73,7 @@ export function Toolbar() {
   let imageInput!: HTMLInputElement;
   setOpenFileHandler(() => openProject(() => fileInput.click()));
   const locked = playActive;
+  let sequenceInput!: HTMLInputElement;
 
   const open = async (files: FileList | null) => {
     const f = files?.[0];
@@ -118,6 +120,7 @@ export function Toolbar() {
           <option value="">Examples…</option>
           <option value="walker">Walker (IK, mesh, blend, script)</option>
           <option value="button">Interactive button</option>
+          <option value="campfire">Campfire (sprite sequences)</option>
           <option value="tail">Tail (path constraint, physics)</option>
         </select>
         <input ref={fileInput} type="file" accept=".obone,.obonb,.json,application/json,application/octet-stream" hidden onChange={(e) => open(e.currentTarget.files)} />
@@ -152,7 +155,9 @@ export function Toolbar() {
       </div>
       <div class="group">
         <button disabled={locked()} onClick={() => imageInput.click()} title="Import PNG/JPG as a new slot on the selected bone">+ Image</button>
-        <input ref={imageInput} type="file" accept="image/*" multiple hidden onChange={(e) => e.currentTarget.files && importImages(e.currentTarget.files)} />
+        <input ref={imageInput} type="file" accept="image/*" multiple hidden onChange={(e) => { const f = e.currentTarget.files; if (f) void importFiles(Array.from(f), importImages); e.currentTarget.value = ""; }} />
+        <button disabled={locked()} onClick={() => sequenceInput.click()} title="Import a frame sequence: numbered images (fire_0001.png …), a sprite sheet (grid or TexturePacker/Aseprite JSON + image), or a ZIP of frames">+ Sequence</button>
+        <input ref={sequenceInput} type="file" accept="image/*,.json,.zip,application/json,application/zip" multiple hidden onChange={(e) => { const f = e.currentTarget.files; if (f) void importFiles(Array.from(f), importImages, { sheet: true }); e.currentTarget.value = ""; }} />
         <button
           disabled={locked()}
           title="Add a vector shape slot on the selected bone"

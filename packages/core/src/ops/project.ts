@@ -50,7 +50,7 @@ defineOp({
     for (const skin of doc.skeleton.skins)
       for (const atts of Object.values(skin.attachments))
         for (const att of Object.values(atts))
-          if ((att.type === "region" || att.type === "mesh") && att.image === img.id)
+          if (((att.type === "region" || att.type === "mesh") && att.image === img.id) || (att.type === "sequence" && att.frames.some((f) => f.image === img.id)))
             throw new Error(`Image is used by attachment "${att.name}"`);
     doc.images = doc.images.filter((i) => i !== img);
     // The atlas is shared with undo snapshots: replace, don't mutate.

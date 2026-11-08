@@ -14,6 +14,7 @@ function label(t: TL): string {
   if (t.target === "bone") return `${d.skeleton.bones.find((b) => b.id === t.id)?.name ?? t.id} · ${t.property}`;
   if (t.target === "slot") return `${d.skeleton.slots.find((s) => s.id === t.id)?.name ?? t.id} · ${t.property}`;
   if (t.target === "deform") return `${d.skeleton.slots.find((s) => s.id === t.id)?.name ?? t.id} · deform ${t.attachment}`;
+  if (t.target === "sequence") return `${d.skeleton.slots.find((s) => s.id === t.id)?.name ?? t.id} · frame ${t.attachment}`;
   if (t.target === "ik" || t.target === "transform" || t.target === "path" || t.target === "physics") {
     const prefix = { ik: "IK", transform: "TC", path: "Path", physics: "Phys" }[t.target];
     const list: { id: string; name: string }[] = d.skeleton[t.target];
@@ -26,13 +27,13 @@ const keyArgs = (tl: TL) => ({
   target: tl.target,
   id: tl.id,
   property: tl.property,
-  ...(tl.target === "deform" ? { attachment: tl.attachment } : {}),
+  ...(tl.target === "deform" || tl.target === "sequence" ? { attachment: tl.attachment } : {}),
 });
 
 /** The live timeline matching a (possibly stale, e.g. after undo) timeline reference. */
 function liveTimeline(tl: TL): TL | undefined {
   return currentAnimation()?.timelines.find(
-    (t) => t.target === tl.target && t.id === tl.id && t.property === tl.property && (t.target !== "deform" || tl.target !== "deform" || t.attachment === tl.attachment),
+    (t) => t.target === tl.target && t.id === tl.id && t.property === tl.property && (!("attachment" in t) || !("attachment" in tl) || t.attachment === tl.attachment),
   );
 }
 

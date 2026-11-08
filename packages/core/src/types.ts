@@ -191,8 +191,52 @@ export interface PathAttachment extends AttachmentBase {
   color: Hex;
 }
 
+/** One frame of a sequence: a whole image, or a rectangle of a sprite sheet image. */
+export interface SequenceFrame {
+  image: Id;
+  /** Sub-rectangle of the image (image pixels, y-down). The whole image when omitted. */
+  rect?: { x: number; y: number; width: number; height: number };
+  /**
+   * Trimmed frame (sheet exporters cut transparent margins): `rect` sits at `x, y` (y-down) inside the
+   * untrimmed `sourceWidth x sourceHeight` frame. The attachment's width/height cover the untrimmed frame.
+   */
+  trim?: { x: number; y: number; sourceWidth: number; sourceHeight: number };
+}
+
+/**
+ * How the frame counter maps to a frame: `loop` wraps, `once` plays through and then shows nothing,
+ * `pingPong` plays forward then backward, `holdLast` plays through and stays on the last frame.
+ */
+export type SequenceMode = "loop" | "once" | "pingPong" | "holdLast";
+
+/**
+ * Frame-by-frame animation (image sequence or sprite sheet) drawn as a quad like a region. The frame counter is
+ * `floor(time * fps) + offset`, where time is the animation (or state) time, or the skeleton clock when nothing
+ * is playing. A `sequence` timeline key or a number `input` replaces `floor(time * fps)` with its value.
+ */
+export interface SequenceAttachment extends AttachmentBase {
+  type: "sequence";
+  frames: SequenceFrame[];
+  x: number;
+  y: number;
+  rotation: number;
+  scaleX: number;
+  scaleY: number;
+  /** Size of one (untrimmed) frame in skeleton units. */
+  width: number;
+  height: number;
+  color: Hex;
+  fps: number;
+  mode: SequenceMode;
+  /** Frames added to the counter (start the sequence part way through, or delay it with a negative value). */
+  offset: number;
+  /** Number input (id) of a state machine whose value is the frame counter. */
+  input?: Id | null;
+}
+
 export type Attachment =
   | ClippingAttachment
+  | SequenceAttachment
   | RegionAttachment
   | MeshAttachment
   | ShapeAttachment
@@ -359,6 +403,8 @@ export type Timeline =
   | { target: "transform"; id: Id; property: TransformProperty; keys: Key<number>[] }
   | { target: "path"; id: Id; property: PathProperty; keys: Key<number>[] }
   | { target: "physics"; id: Id; property: PhysicsProperty; keys: Key<number>[] }
+  /** Frame counter of a sequence attachment (replaces time x fps; the mode still applies). id = slot id. */
+  | { target: "sequence"; id: Id; attachment: string; property: "frame"; keys: Key<number>[] }
   /** Offsets added to mesh or path vertices (flat x,y per vertex). id = slot id. */
   | { target: "deform"; id: Id; attachment: string; property: "offsets"; keys: Key<number[]>[] }
   | { target: "drawOrder"; id: "skeleton"; property: "order"; keys: Key<Id[]>[] };

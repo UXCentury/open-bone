@@ -372,8 +372,90 @@ function tail() {
   return s.doc;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url))
-for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()]] as const) {
+// ---------- campfire (sprite sequences) ----------
+const FLAME_FRAMES = 12;
+/** One frame of a looping flame: tongues of fire whose height and sway follow sines of the loop phase. */
+function makeFlame(i: number) {
+  const w = 64;
+  const h = 96;
+  const c = createCanvas(w, h);
+  const g = c.getContext("2d");
+  const ph = (i / FLAME_FRAMES) * Math.PI * 2;
+  const tongue = (cx: number, base: number, width: number, height: number, sway: number, inner: string, outer: string) => {
+    const grad = g.createLinearGradient(0, base, 0, base - height);
+    grad.addColorStop(0, inner);
+    grad.addColorStop(1, outer);
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(cx - width / 2, base);
+    g.bezierCurveTo(cx - width / 2, base - height * 0.5, cx + sway - width * 0.15, base - height * 0.7, cx + sway, base - height);
+    g.bezierCurveTo(cx + sway + width * 0.15, base - height * 0.7, cx + width / 2, base - height * 0.5, cx + width / 2, base);
+    g.closePath();
+    g.fill();
+  };
+  g.globalCompositeOperation = "lighter";
+  tongue(32, 92, 46, 70 + 10 * Math.sin(ph), 8 * Math.sin(ph + 1), "rgba(255,90,0,0.85)", "rgba(255,40,0,0)");
+  tongue(24, 92, 26, 52 + 12 * Math.sin(ph * 2 + 2), -6 + 5 * Math.sin(ph * 2), "rgba(255,140,0,0.8)", "rgba(255,80,0,0)");
+  tongue(41, 92, 24, 48 + 12 * Math.sin(ph * 2 + 4), 6 + 5 * Math.cos(ph * 2), "rgba(255,140,0,0.8)", "rgba(255,80,0,0)");
+  tongue(32, 92, 22, 40 + 8 * Math.sin(ph + 3), 4 * Math.sin(ph * 3), "rgba(255,240,150,0.95)", "rgba(255,200,60,0)");
+  return c.toBuffer("image/png");
+}
+const SMOKE_FRAMES = 6;
+function makeSmoke(i: number) {
+  const c = createCanvas(48, 48);
+  const g = c.getContext("2d");
+  const r = 8 + i * 2.5;
+  const grad = g.createRadialGradient(24, 24, 0, 24, 24, r);
+  grad.addColorStop(0, `rgba(120,120,130,${0.5 - i * 0.07})`);
+  grad.addColorStop(1, "rgba(120,120,130,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 48, 48);
+  return c.toBuffer("image/png");
+}
+const frameName = (base: string, i: number) => `${base}_${String(i + 1).padStart(4, "0")}`;
+
+function campfire() {
+  const s = new DocumentStore(createDocument("Campfire", { background: "#1d2333" }));
+  const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
+  A("setDocument", { width: 400, height: 400, originX: 200, originY: 330, fps: 30 });
+  const frames = (base: string, n: number, w: number, h: number) =>
+    Array.from({ length: n }, (_, i) => {
+      const name = frameName(base, i);
+      A("addImage", { name, src: `assets/${name}.png`, width: w, height: h });
+      return name;
+    });
+  A("addBone", { name: "fire", y: 10, length: 0 });
+  A("addBone", { name: "smoke", parent: "fire", y: 150, length: 0 });
+  // Glow behind everything, then logs, then the flame on top.
+  A("addSlot", { bone: "root", name: "glow" });
+  A("addShape", { slot: "glow", shape: "ellipse", y: 40, width: 260, height: 170, fill: "#ff8a0033" });
+  for (const [name, rot] of [["log1", 18], ["log2", -18]] as const) {
+    A("addSlot", { bone: "root", name });
+    A("addShape", { slot: name, shape: "rect", y: 4, rotation: rot, width: 150, height: 22, radius: 11, fill: "#6b4226", stroke: "#3e2615", strokeWidth: 2 });
+  }
+  A("addSlot", { bone: "smoke", name: "smoke" });
+  A("addSequence", { slot: "smoke", name: "smoke", frames: frames("smoke", SMOKE_FRAMES, 48, 48), fps: 8, mode: "pingPong", scaleX: 2, scaleY: 2 });
+  const flame = frames("flame", FLAME_FRAMES, 64, 96);
+  A("addSlot", { bone: "fire", name: "flame", blend: "additive" });
+  A("addSequence", { slot: "flame", name: "flame", frames: flame, y: 70, width: 96, height: 144, fps: 15, mode: "loop" });
+  // A second, smaller flame starts half a loop later so the two never match.
+  A("addSlot", { bone: "fire", name: "flame-small", blend: "additive" });
+  A("addSequence", { slot: "flame-small", name: "flame", frames: flame, x: 34, y: 40, width: 56, height: 84, fps: 15, offset: 6 });
+  // Breathing: the fire bone scales a little; the glow pulses.
+  A("createAnimation", { name: "burn", duration: 1.6 });
+  A("setKeys", { animation: "burn", target: "bone", id: "fire", property: "scaleY", keys: [{ time: 0, value: 1, curve: "easeInOut" }, { time: 0.8, value: 1.08, curve: "easeInOut" }, { time: 1.6, value: 1 }] });
+  A("setKeys", { animation: "burn", target: "slot", id: "glow", property: "color", keys: [{ time: 0, value: "#ffffff" }, { time: 0.8, value: "#ffffffaa" }, { time: 1.6, value: "#ffffff" }] });
+  return s.doc;
+}
+
+// Build only when run as a script (tests import the example builders).
+const runAsScript = process.argv[1] === fileURLToPath(import.meta.url);
+if (runAsScript) {
+  for (let i = 0; i < FLAME_FRAMES; i++) writeFileSync(path.join(here, `assets/${frameName("flame", i)}.png`), makeFlame(i));
+  for (let i = 0; i < SMOKE_FRAMES; i++) writeFileSync(path.join(here, `assets/${frameName("smoke", i)}.png`), makeSmoke(i));
+}
+if (runAsScript)
+for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()], ["campfire.obone", campfire()]] as const) {
   const issues = validate(doc);
   if (issues.some((i) => i.level === "error")) throw new Error(`${file}: ${JSON.stringify(issues)}`);
   writeFileSync(path.join(here, file), serialize(doc));

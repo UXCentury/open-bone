@@ -12,3 +12,4 @@ export * from "../../../core/src/setup.ts";
 export * from "../../../core/src/binary.ts";
 export * from "../../../core/src/atlas.ts";
 export * from "../../../core/src/audio.ts";
+export * from "../../../core/src/sequence.ts";

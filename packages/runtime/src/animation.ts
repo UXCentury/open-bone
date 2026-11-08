@@ -77,6 +77,8 @@ export function localTime(anim: AnimationData, total: number, loop: boolean): nu
  */
 export function applyAnimation(sk: Skeleton, anim: AnimationData, time: number, alpha = 1) {
   if (alpha <= 0) return;
+  // Sequences follow the dominant animation's time.
+  if (alpha >= 0.5 || sk.animationTime === null) sk.animationTime = time;
   for (const tl of anim.timelines) {
     if (!tl.keys.length) continue;
     switch (tl.target) {
@@ -117,6 +119,13 @@ export function applyAnimation(sk: Skeleton, anim: AnimationData, time: number, 
         const v = sampleArray(tl.keys, time);
         const cur = slot.deform.get(tl.attachment);
         slot.deform.set(tl.attachment, cur && alpha < 1 ? v.map((x, i) => lerp(cur[i] ?? 0, x, alpha)) : alpha < 1 ? v.map((x) => x * alpha) : v);
+        break;
+      }
+      case "sequence": {
+        const slot = sk.slotById_(tl.id);
+        if (!slot) break;
+        // Frames are discrete: like attachment keys, the stronger side of a mix wins.
+        if (alpha >= 0.5) slot.sequenceFrames.set(tl.attachment, sampleNumber(tl.keys, time));
         break;
       }
       case "drawOrder": {

@@ -42,3 +42,4 @@ export {
   webViewPackZip,
   toBase64,
 } from "./webview.ts";
+export { type ZipEntry, readZip } from "./unzip.ts";

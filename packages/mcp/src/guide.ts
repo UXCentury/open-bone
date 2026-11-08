@@ -28,7 +28,7 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
    set_keys {animation:"walk", target:"bone", id:"thigh", property:"rotation", keys:[{time:0,value:-20},{time:0.5,value:20,curve:"easeInOut"},{time:1,value:-20}]}
    Properties: bone rotation|x|y|scaleX|scaleY|shearX|shearY, slot color ("#rrggbbaa") | attachment (name or null),
    ik mix|softness, transform mix|mixRotate|mixTranslate|mixScale|mixShear, path position|spacing|mixRotate|mixX|mixY,
-   physics mix|inertia|strength|damping|mass|gravity|wind, deform offsets (mesh or path), drawOrder. Curves: linear, stepped, easeIn, easeOut, easeInOut, backOut or [cx1,cy1,cx2,cy2].
+   physics mix|inertia|strength|damping|mass|gravity|wind, deform offsets (mesh or path), sequence frame (with attachment), drawOrder. Curves: linear, stepped, easeIn, easeOut, easeInOut, backOut or [cx1,cy1,cx2,cy2].
    Loop cleanly by making the last key equal the first. add_event_key fires events (footsteps, sounds).
 7. Interactivity (Rive-style): create_state_machine → add_input (bool/number/trigger) → add_state {animation}
    (first state = entry) → add_transition {from, to, conditions:[{input, op, value}], duration, exitTime}.
@@ -41,13 +41,17 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
 8. Skins (outfits): the first skin is the default skin, shared by all. add_skin {name}, then either pass skin:"<name>" to
    add_shape/add_region/... or copy_attachment {slot, attachment, toSkin} and update_attachment {..., skin} to override a
    default attachment under the same name. rename_skin, duplicate_skin, delete_skin manage them; render_frame {skin} previews one.
-Audio: import_audio {path} (or add_audio {name, src:data:/path, duration}) creates an asset and a same-named sound on the
+9. Audio: import_audio {path} (or add_audio {name, src:data:/path, duration}) creates an asset and a same-named sound on the
    sfx bus. Play it with add_audio_key {animation, sound, time, volume?, rate?, loop?}, set_event_sound {event, sound} (plays
    whenever the event fires), set_state_sound {stateMachine, state, sound, on:"enter"|"exit", action:"play"|"stop"} or a
    listener action {type:"playSound", sound} / {type:"stopSound", sound, fade?}. Looping sounds stop when their state or
    animation ends. Mix with update_sound {volume, rate, loop, fadeIn, fadeOut, bus}, add_bus/update_bus {volume, muted},
    set_audio_mix {master, muted}. simulate_state_machine lists the audio commands.
-9. Check your work: render_frame (returns a PNG; bones are drawn as blue wedges) and simulate_state_machine (text log of
+10. Sprite sequences (frame-by-frame, e.g. fire or explosions): add_image for each frame (or one sheet image), then
+   add_sequence {slot, frames:["fire_0001","fire_0002",...], fps, mode:"loop"|"once"|"pingPong"|"holdLast", offset}
+   or add_sequence {slot, grid:{image:"sheet", cols, rows}}. Bind input (a number input) to pick the frame from a state
+   machine, or set_keys target:"sequence" {id:slot, attachment, property:"frame"}. set_sequence_frames replaces/reorders frames.
+11. Check your work: render_frame (returns a PNG; bones are drawn as blue wedges) and simulate_state_machine (text log of
    state changes/events). render_gif for motion. get_summary for an outline, validate for problems.
 
 Tips: keep bones' length meaningful (used by IK and auto weights). Use update_* tools to fix mistakes, undo to revert.

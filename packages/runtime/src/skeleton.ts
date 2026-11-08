@@ -14,6 +14,7 @@ import {
   type PathConstraintData,
   type PhysicsConstraintData,
   type RGBA,
+  type SequenceAttachment,
   type SkinData,
   type SlotData,
   type TransformConstraintData,
@@ -31,6 +32,9 @@ import {
   parseHex,
   pointInPolygon,
   remapUvs,
+  sequenceCounter,
+  sequenceFrameIndex,
+  sequenceFrameLayout,
   setupWorld,
   shapeOutline,
   triangulate,
@@ -110,6 +114,8 @@ export class Slot {
   attachmentName: string | null = null;
   /** Mesh/path deform offsets by attachment name. */
   deform = new Map<string, number[]>();
+  /** Keyed sequence frame counters by attachment name (written by `sequence` timelines). */
+  sequenceFrames = new Map<string, number>();
   constructor(
     public data: SlotData,
     public bone: Bone,
@@ -123,6 +129,7 @@ export class Slot {
     this.color = parseHex(this.data.color);
     this.attachmentName = this.data.attachment;
     this.deform.clear();
+    this.sequenceFrames.clear();
   }
 }
 
@@ -247,6 +254,13 @@ export class Skeleton {
   >();
   private white: { page: AtlasPage; u: number; v: number } | null = null;
   private physicsState = new Map<Id, PhysicsState>();
+  /** Seconds passed to update(); drives sequences when no animation is applied. */
+  clock = 0;
+  /** Local time of the (dominant) animation applied this frame, or null; sequences follow it. Reset by setToSetupPose. */
+  animationTime: number | null = null;
+  /** Live number input values (by input id) that sequences bound to an input read. Set by the state machine. */
+  inputValues = new Map<Id, number>();
+  private inputDefaults = new Map<Id, number>();
   /** Time passed to update() and not yet consumed by the physics solver. */
   private pendingDt = 0;
   private setupCache: Map<Id, Affine> | null = null;
@@ -281,6 +295,7 @@ export class Skeleton {
       const rect = { x: r.x, y: r.y, width: r.width, height: r.height };
       this.packed.set(r.image, { page, rect, map, regionUvs: remapUvs(quad, map), trim });
     }
+    for (const sm of doc.stateMachines) for (const i of sm.inputs) if (typeof i.default === "number") this.inputDefaults.set(i.id, i.default);
     const w = doc.atlas?.white;
     const wp = w && pages.get(w.page);
     if (w && wp) this.white = { page: wp, u: (w.x + w.width / 2) / wp.width, v: (w.y + w.height / 2) / wp.height };
@@ -309,6 +324,7 @@ export class Skeleton {
     for (const b of this.bones) b.setToSetupPose();
     for (const s of this.slots) s.setToSetupPose();
     this.drawOrder = this.slots.slice();
+    this.animationTime = null;
     this.constraintValues.clear();
     const sk = this.doc.skeleton;
     for (const kind of ["ik", "transform", "path", "physics"] as const)
@@ -323,7 +339,10 @@ export class Skeleton {
 
   /** Advance simulated time (physics). Call once per frame before updateWorldTransform. */
   update(dt: number) {
-    if (dt > 0) this.pendingDt += dt;
+    if (dt > 0) {
+      this.pendingDt += dt;
+      this.clock += dt;
+    }
   }
 
   /** Forget physics motion: the next frame starts at rest on the animated pose. */
@@ -669,6 +688,75 @@ export class Skeleton {
     b.updateSubtree(this.rootMatrix, false);
   }
 
+  /**
+   * Frame counter of a sequence on a slot: a keyed value, else the bound input's value, else
+   * floor(time x fps), where time is the applied animation's time or the skeleton clock. Offset included.
+   */
+  sequenceCounter(slot: Slot, att: SequenceAttachment): number {
+    const keyed = slot.sequenceFrames.get(att.name);
+    if (keyed !== undefined) return Math.floor(keyed + 1e-6) + att.offset;
+    if (att.input) {
+      const v = this.inputValues.get(att.input) ?? this.inputDefaults.get(att.input);
+      if (v !== undefined) return Math.floor(v + 1e-6) + att.offset;
+    }
+    return sequenceCounter(att.fps, att.offset, this.animationTime ?? this.clock);
+  }
+
+  /** Index of the sequence frame shown on a slot now (-1 = none). */
+  sequenceFrame(slot: Slot, att: SequenceAttachment): number {
+    return sequenceFrameIndex(att.frames.length, att.mode, this.sequenceCounter(slot, att));
+  }
+
+  /** Draw item for one frame of a sequence (null when hidden or the frame's image is missing). */
+  private sequenceItem(slot: Slot, att: SequenceAttachment, index: number): DrawItem | null {
+    const frame = att.frames[index];
+    const image = frame && this.images.get(frame.image);
+    if (!frame || !image) return null;
+    const color = mulColor(slot.color, parseHex(att.color));
+    if (color[3] <= 0) return null;
+    const { uv, quad } = sequenceFrameLayout(frame, image.width, image.height);
+    const packed = this.packed.get(frame.image);
+    let [u0, v0, u1, v1] = uv;
+    let [q0, p0, q1, p1] = quad;
+    if (packed?.trim) {
+      // The atlas holds only part of the image: draw the overlap of the frame and the packed part.
+      const [a0, b0, a1, b1] = packed.trim;
+      const nu0 = Math.max(u0, a0), nv0 = Math.max(v0, b0), nu1 = Math.min(u1, a1), nv1 = Math.min(v1, b1);
+      if (nu0 >= nu1 || nv0 >= nv1) return null;
+      const fx = (u: number) => q0 + ((u - u0) / (u1 - u0)) * (q1 - q0);
+      const fy = (v: number) => p0 + ((v - v0) / (v1 - v0)) * (p1 - p0);
+      [q0, p0, q1, p1] = [fx(nu0), fy(nv0), fx(nu1), fy(nv1)];
+      [u0, v0, u1, v1] = [nu0, nv0, nu1, nv1];
+    }
+    let vertices = this.attachmentWorldVertices(slot, att);
+    if (q0 !== 0 || p0 !== 0 || q1 !== 1 || p1 !== 1) vertices = trimQuad(vertices, [q0, p0, q1, p1]);
+    const quadUvs = new Float32Array([u0, v0, u1, v0, u1, v1, u0, v1]);
+    const texture = packed ? packed.page : image;
+    const uvs = packed ? remapUvs(quadUvs, packed.map) : quadUvs;
+    // Only the frame's own pixels belong to it (sheet neighbours and atlas padding do not).
+    const whole = !packed && u0 === 0 && v0 === 0 && u1 === 1 && v1 === 1;
+    const textureRect = whole
+      ? undefined
+      : {
+          x: uvs[0] * texture.width,
+          y: uvs[1] * texture.height,
+          width: (uvs[4] - uvs[0]) * texture.width,
+          height: (uvs[5] - uvs[1]) * texture.height,
+        };
+    return {
+      slot,
+      attachment: att,
+      image,
+      texture,
+      ...(textureRect ? { textureRect } : {}),
+      vertices,
+      uvs,
+      indices: REGION_INDICES,
+      color,
+      blend: slot.data.blend,
+    };
+  }
+
   getAttachment(slot: Slot, name: string | null = slot.attachmentName): Attachment | null {
     if (name == null) return null;
     const id = slot.data.id;
@@ -678,7 +766,7 @@ export class Skeleton {
   /** World-space vertices of a slot's region/mesh/path/bbox/shape/point attachment. */
   attachmentWorldVertices(slot: Slot, att: Attachment): Float32Array {
     const m = slot.bone.world;
-    if (att.type === "region") {
+    if (att.type === "region" || att.type === "sequence") {
       const hw = (att.width / 2) * att.scaleX;
       const hh = (att.height / 2) * att.scaleY;
       const cos = Math.cos(att.rotation * DEG);
@@ -784,6 +872,9 @@ export class Skeleton {
           color,
           blend: slot.data.blend,
         });
+      } else if (att.type === "sequence") {
+        const item = this.sequenceItem(slot, att, this.sequenceFrame(slot, att));
+        if (item) items.push(item);
       } else if (att.type === "shape") {
         const outline = this.attachmentWorldVertices(slot, att);
         const key = `${att.shape}|${att.width}|${att.height}|${att.radius}|${att.points?.join(",")}`;
@@ -829,7 +920,7 @@ export class Skeleton {
     }
     if (!att) return null;
     if (att.type === "boundingBox" || att.type === "shape" || att.type === "clipping") return this.attachmentWorldVertices(slot, att);
-    if (att.type === "region") return this.attachmentWorldVertices(slot, att);
+    if (att.type === "region" || att.type === "sequence") return this.attachmentWorldVertices(slot, att);
     if (att.type === "mesh") {
       const v = this.attachmentWorldVertices(slot, att);
       return v.slice(0, att.hull * 2);

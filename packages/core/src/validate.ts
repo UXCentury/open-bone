@@ -49,6 +49,13 @@ export function validate(d: OpenBoneDocument): Issue[] {
       for (const a of Object.values(atts)) {
         if ((a.type === "region" || a.type === "mesh") && !imageIds.has(a.image))
           err(`skins.${skin.name}.${a.name}`, `image ${a.image} missing`);
+        if (a.type === "sequence") {
+          if (!a.frames.length) warn(`sequence ${a.name}`, "has no frames");
+          a.frames.forEach((f, i) => !imageIds.has(f.image) && err(`sequence ${a.name}`, `frame ${i}: image ${f.image} missing`));
+          if (!(a.fps > 0)) err(`sequence ${a.name}`, "fps must be positive");
+          if (a.input && !d.stateMachines.some((sm) => sm.inputs.some((x) => x.id === a.input)))
+            warn(`sequence ${a.name}`, `input ${a.input} missing`);
+        }
         if (a.type === "clipping") {
           if (a.vertices.length < 6 || a.vertices.length % 2) err(`clipping ${a.name}`, "needs at least 3 points");
           if (a.end && !slotIds.has(a.end)) err(`clipping ${a.name}`, `end slot ${a.end} missing`);
@@ -107,7 +114,7 @@ export function validate(d: OpenBoneDocument): Issue[] {
   for (const a of d.animations) {
     for (const t of a.timelines) {
       if (t.target === "bone" && !boneIds.has(t.id)) err(`animation ${a.name}`, `bone ${t.id} missing`);
-      if ((t.target === "slot" || t.target === "deform") && !slotIds.has(t.id)) err(`animation ${a.name}`, `slot ${t.id} missing`);
+      if ((t.target === "slot" || t.target === "deform" || t.target === "sequence") && !slotIds.has(t.id)) err(`animation ${a.name}`, `slot ${t.id} missing`);
       if (t.target in constraintIds && !constraintIds[t.target as keyof typeof constraintIds].has(t.id))
         err(`animation ${a.name}`, `${t.target} constraint ${t.id} missing`);
       for (let i = 1; i < t.keys.length; i++)

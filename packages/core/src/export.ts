@@ -96,7 +96,10 @@ export function exportDocument(source: OpenBoneDocument, opts: ExportOptions = {
     const usedImages = new Set<Id>();
     for (const skin of d.skeleton.skins)
       for (const atts of Object.values(skin.attachments))
-        for (const a of Object.values(atts)) if (a.type === "region" || a.type === "mesh") usedImages.add(a.image);
+        for (const a of Object.values(atts)) {
+          if (a.type === "region" || a.type === "mesh") usedImages.add(a.image);
+          else if (a.type === "sequence") for (const f of a.frames) usedImages.add(f.image);
+        }
     d.images = d.images.filter((i) => usedImages.has(i.id));
     if (d.atlas) {
       // Keep only pages that still hold a used image (the white block alone is not worth a page).
