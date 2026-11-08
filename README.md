@@ -2,7 +2,7 @@
 
 **Open-source 2D skeletal animation (Spine-style rigging) + Rive-style interactivity + an MCP server so AI agents can build animations for you.**
 
-- **Rig**: bones, slots, draw order, skins, region/image attachments, vector shapes, weighted meshes, bounding boxes, points, 1- and 2-bone IK, transform constraints.
+- **Rig**: bones, slots, draw order, skins, region/image attachments, vector shapes, weighted meshes, bounding boxes, points, bezier paths, 1- and 2-bone IK (soft, stretch, compress), transform constraints (world/local, absolute/relative, shear), path constraints, physics constraints (secondary motion).
 - **Animate**: per-property timelines (bone rotate/translate/scale/shear, slot colour/attachment, IK mix, mesh deform, draw order), bezier/stepped curves, events, track mixing.
 - **Make it interactive**: state machines with layers, bool/number/trigger inputs, 1D blend states, any-state transitions, exit times, cross-fades, pointer listeners on hit boxes, reported events, and **sandboxed scripts** (QuickJS) with an `ob` API.
 - **Edit anywhere**: SolidJS web editor, Tauri desktop app, CLI, and a **Model Context Protocol server** (64 tools) with a live bridge: watch an agent rig and animate in the editor in real time.
@@ -76,7 +76,7 @@ Requires Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3
 | Package | What it is |
 |---|---|
 | `packages/core` | Document model (`.obone` JSON), the **op registry** (every edit: validated with zod, undoable, replayable), store with undo/redo, validation, summaries |
-| `packages/runtime` | Pose solver, IK/transform constraints, animation sampling and mixing, state machine, listeners, events, script host interface |
+| `packages/runtime` | Pose solver, IK/transform/path/physics constraints, animation sampling and mixing, state machine, listeners, events, script host interface |
 | `packages/scripting` | QuickJS-WASM sandbox (memory cap and CPU deadline per call) |
 | `packages/render-webgl` | Batched WebGL2 renderer |
 | `packages/render-canvas` | Canvas2D renderer (fallback, editor viewport, headless PNG/GIF in Node) |

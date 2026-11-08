@@ -116,12 +116,29 @@ export interface PointAttachment extends AttachmentBase {
   rotation: number;
 }
 
+/**
+ * Cubic bezier spline used by path constraints. Every knot is three vertices
+ * `[inHandle, anchor, outHandle]`, so `vertices` is flat `[inX, inY, x, y, outX, outY, ...]`
+ * in slot-bone local space. Segment i runs from knot i's anchor (via its out handle and
+ * knot i+1's in handle) to knot i+1's anchor; `closed` adds a segment from the last knot back to the first.
+ */
+export interface PathAttachment extends AttachmentBase {
+  type: "path";
+  vertices: number[];
+  /** Optional per-vertex bone influences (same layout as mesh weights), so control bones can bend the path. */
+  weights?: VertexWeight[][];
+  closed: boolean;
+  /** Editor display colour. */
+  color: Hex;
+}
+
 export type Attachment =
   | RegionAttachment
   | MeshAttachment
   | ShapeAttachment
   | BoundingBoxAttachment
-  | PointAttachment;
+  | PointAttachment
+  | PathAttachment;
 export type AttachmentType = Attachment["type"];
 
 export interface SkinData {
@@ -139,6 +156,12 @@ export interface IkConstraintData {
   target: Id;
   mix: number;
   bendPositive: boolean;
+  /** 2-bone only: distance before full extension over which the chain eases into straightness (0 = off). */
+  softness: number;
+  /** Scale the bones up along their length when the target is out of reach. */
+  stretch: boolean;
+  /** 1-bone only: scale the bone down when the target is closer than its length. */
+  compress: boolean;
 }
 
 export interface TransformConstraintData {
@@ -149,18 +172,91 @@ export interface TransformConstraintData {
   mixRotate: number;
   mixTranslate: number;
   mixScale: number;
+  /** Blend of the Y-axis shear (the angle between the bone's axes). */
+  mixShear: number;
   offsetRotation: number;
   offsetX: number;
   offsetY: number;
+  /** Added to the target's scale (0 = copy it as is). */
+  offsetScaleX: number;
+  offsetScaleY: number;
+  offsetShear: number;
+  /** Work on local (parent-space) values instead of world matrices. */
+  local: boolean;
+  /** Add the target's change from its setup pose instead of copying its absolute value. */
+  relative: boolean;
 }
 
+/** fixed: `position` is a distance along the path; percent: `position` is 0..1 of the path length. */
+export type PathPositionMode = "fixed" | "percent";
+/**
+ * length: gap between bones is each bone's length plus `spacing`;
+ * fixed: every gap is `spacing`; percent: every gap is `spacing` x path length;
+ * proportional: gaps share `spacing` x path length in proportion to bone lengths.
+ */
+export type PathSpacingMode = "length" | "fixed" | "percent" | "proportional";
+/** tangent: bones follow the curve's direction; chain: each bone points at the next placed point; chainScale: chain plus scaling to reach it. */
+export type PathRotateMode = "tangent" | "chain" | "chainScale";
+
+export interface PathConstraintData {
+  id: Id;
+  name: string;
+  /** Bones placed along the path, in hierarchy order (parent before child). */
+  bones: Id[];
+  /** Slot whose current attachment is a path attachment. */
+  target: Id;
+  positionMode: PathPositionMode;
+  spacingMode: PathSpacingMode;
+  rotateMode: PathRotateMode;
+  offsetRotation: number;
+  position: number;
+  spacing: number;
+  mixRotate: number;
+  mixX: number;
+  mixY: number;
+}
+
+/**
+ * Secondary motion for one bone: two spring particles (bone origin and bone tip) lag behind the
+ * animated pose and are blended back into it. Simulated at a fixed timestep, so results only depend
+ * on the sequence of frame times.
+ */
+export interface PhysicsConstraintData {
+  id: Id;
+  name: string;
+  bone: Id;
+  /** Per-channel influence 0..1: how much the simulation moves the bone origin (x, y), rotates it and stretches it. */
+  x: number;
+  y: number;
+  rotate: number;
+  scaleX: number;
+  /** 0..1: how much of the bone's own movement the particles resist (1 = full lag, 0 = carried along). */
+  inertia: number;
+  /** Spring stiffness pulling particles back to the animated pose. */
+  strength: number;
+  /** Velocity decay per second (higher settles faster). */
+  damping: number;
+  /** Divides the spring force (heavier = slower, floppier). */
+  mass: number;
+  /** Downward acceleration in skeleton units per second squared. */
+  gravity: number;
+  /** Sideways (+x) force in skeleton units per second squared. */
+  wind: number;
+  /** Overall blend 0..1. */
+  mix: number;
+  /** Simulation steps per second. */
+  fps: number;
+}
 export interface SkeletonData {
   bones: BoneData[];
   /** Array order is the setup draw order (first = back). */
   slots: SlotData[];
   skins: SkinData[];
+  /** Constraints solve in this order each frame: ik, transform, path, physics (each list in array order). */
   ik: IkConstraintData[];
   transform: TransformConstraintData[];
+  path: PathConstraintData[];
+  physics: PhysicsConstraintData[];
 }
 
 /** Bezier handles [cx1, cy1, cx2, cy2] in normalised 0..1 key-span space. */
@@ -168,6 +264,25 @@ export type Curve = "linear" | "stepped" | [number, number, number, number];
 
 export type BoneProperty = "rotation" | "x" | "y" | "scaleX" | "scaleY" | "shearX" | "shearY";
 export const BONE_PROPERTIES: BoneProperty[] = ["rotation", "x", "y", "scaleX", "scaleY", "shearX", "shearY"];
+
+export type IkProperty = "mix" | "softness";
+export type TransformProperty = "mix" | "mixRotate" | "mixTranslate" | "mixScale" | "mixShear";
+export type PathProperty = "position" | "spacing" | "mixRotate" | "mixX" | "mixY";
+export type PhysicsProperty = "mix" | "inertia" | "strength" | "damping" | "mass" | "gravity" | "wind";
+export type ConstraintTarget = "ik" | "transform" | "path" | "physics";
+
+/** Keyable numeric fields of each constraint kind. */
+export const CONSTRAINT_PROPERTIES: {
+  ik: IkProperty[];
+  transform: TransformProperty[];
+  path: PathProperty[];
+  physics: PhysicsProperty[];
+} = {
+  ik: ["mix", "softness"],
+  transform: ["mix", "mixRotate", "mixTranslate", "mixScale", "mixShear"],
+  path: ["position", "spacing", "mixRotate", "mixX", "mixY"],
+  physics: ["mix", "inertia", "strength", "damping", "mass", "gravity", "wind"],
+};
 
 export interface Key<T> {
   time: number;
@@ -179,9 +294,12 @@ export type Timeline =
   | { target: "bone"; id: Id; property: BoneProperty; keys: Key<number>[] }
   | { target: "slot"; id: Id; property: "color"; keys: Key<Hex>[] }
   | { target: "slot"; id: Id; property: "attachment"; keys: Key<string | null>[] }
-  | { target: "ik"; id: Id; property: "mix"; keys: Key<number>[] }
-  | { target: "transform"; id: Id; property: "mix"; keys: Key<number>[] }
-  /** Offsets added to mesh vertices (flat x,y per vertex). id = slot id. */
+  | { target: "ik"; id: Id; property: IkProperty; keys: Key<number>[] }
+  /** "mix" multiplies every transform mix (setup value 1); the others are absolute. */
+  | { target: "transform"; id: Id; property: TransformProperty; keys: Key<number>[] }
+  | { target: "path"; id: Id; property: PathProperty; keys: Key<number>[] }
+  | { target: "physics"; id: Id; property: PhysicsProperty; keys: Key<number>[] }
+  /** Offsets added to mesh or path vertices (flat x,y per vertex). id = slot id. */
   | { target: "deform"; id: Id; attachment: string; property: "offsets"; keys: Key<number[]>[] }
   | { target: "drawOrder"; id: "skeleton"; property: "order"; keys: Key<Id[]>[] };
 

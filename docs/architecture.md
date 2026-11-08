@@ -34,7 +34,8 @@ References accept **ids or names** everywhere, which keeps agent prompts short.
 
 - Skeleton space is **y-up**, with rotations in degrees counter-clockwise. The artboard is y-down pixels; `originX/originY` place skeleton (0,0).
 - Animation values are **absolute** (Rive-like): a key says "rotation = 45", not "setup + 45". Each frame the runtime resets to the setup pose, applies layers or tracks with their alpha, applies script overrides, then solves the world transforms and constraints.
-- IK is analytic (law of cosines) in world space. Transform constraints blend world matrices.
+- Constraints solve after the world transforms, in order: IK, transform, path, physics. IK is analytic (law of cosines) in world space, with soft IK and stretch. Transform constraints blend world matrices, or local values in `local` mode. Path constraints sample an arc-length table of the bezier path. Physics constraints run spring particles at a fixed timestep, fed by `Skeleton.update(dt)`, so they are deterministic for a given sequence of frame times.
+- Keyable constraint values live in `Skeleton.constraintValues` (reset to setup each frame, written by timelines).
 - State machine frame: pointer events → listeners → script `onUpdate` → transitions (specific before any-state; a transition with no conditions waits for exit time 1) → advance → pose → events → script `onEvent`.
 - Blend states report events only from their dominant animation.
 

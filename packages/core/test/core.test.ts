@@ -77,3 +77,68 @@ describe("ops + store", () => {
     expect(evalCurve(c, 0.25)).toBeLessThan(0.25);
   });
 });
+
+describe("constraints (ops, validation, migration)", () => {
+  function rig() {
+    const s = new DocumentStore(createDocument("c"));
+    s.apply("addBone", { name: "a", length: 40 });
+    s.apply("addBone", { name: "b", parent: "a", x: 40, length: 40 });
+    s.apply("addBone", { name: "guide", y: 50, length: 0 });
+    s.apply("addSlot", { bone: "guide", name: "track" });
+    s.apply("addPath", { slot: "track", anchors: [0, 0, 100, 0] });
+    return s;
+  }
+
+  it("old documents get the new constraint lists and fields", () => {
+    const d = createDocument("old") as unknown as { skeleton: Record<string, unknown> };
+    delete d.skeleton.path;
+    delete d.skeleton.physics;
+    (d.skeleton.ik as unknown[]).push({ id: "ik1", name: "ik", bones: [], target: "x", mix: 1, bendPositive: true });
+    const back = deserialize(JSON.stringify(d));
+    expect(back.skeleton.path).toEqual([]);
+    expect(back.skeleton.physics).toEqual([]);
+    expect(back.skeleton.ik[0]).toMatchObject({ softness: 0, stretch: false, compress: false });
+  });
+
+  it("path constraint ops sort bones, reject cycles, update and delete with timelines", () => {
+    const s = rig();
+    s.apply("addPathConstraint", { name: "p", bones: ["b", "a"], target: "track" });
+    const id = (n: string) => s.doc.skeleton.bones.find((b) => b.name === n)!.id;
+    expect(s.doc.skeleton.path[0].bones).toEqual([id("a"), id("b")]);
+    expect(() => s.apply("addPathConstraint", { bones: ["guide"], target: "track" })).toThrow(/slot bone/);
+    s.apply("updatePathConstraint", { constraint: "p", rotateMode: "chain", spacing: 3 });
+    expect(s.doc.skeleton.path[0]).toMatchObject({ rotateMode: "chain", spacing: 3 });
+    s.apply("createAnimation", { name: "anim" });
+    s.apply("setKeys", { animation: "anim", target: "path", id: "p", property: "mixX", keys: [{ time: 0, value: 0.5 }] });
+    expect(validate(s.doc).filter((i) => i.level === "error")).toEqual([]);
+    s.apply("deleteConstraint", { constraint: "p" });
+    expect(s.doc.skeleton.path).toEqual([]);
+    expect(s.doc.animations[0].timelines).toEqual([]);
+  });
+
+  it("physics and transform ops; deleting a bone drops its constraints", () => {
+    const s = rig();
+    s.apply("addPhysicsConstraint", { name: "ph", bone: "b", gravity: 50 });
+    s.apply("updatePhysicsConstraint", { constraint: "ph", wind: 10, mix: 0.5 });
+    expect(s.doc.skeleton.physics[0]).toMatchObject({ gravity: 50, wind: 10, mix: 0.5, fps: 60 });
+    s.apply("addTransformConstraint", { name: "tc", bones: ["b"], target: "guide", mixShear: 0.5, local: true });
+    s.apply("updateTransformConstraint", { constraint: "tc", relative: true, offsetShear: 4 });
+    expect(s.doc.skeleton.transform[0]).toMatchObject({ mixShear: 0.5, local: true, relative: true, offsetShear: 4 });
+    expect(() => s.apply("updateTransformConstraint", { constraint: "tc", target: "b" })).toThrow();
+    s.apply("deleteBone", { bone: "b" });
+    expect(s.doc.skeleton.physics).toEqual([]);
+    expect(s.doc.skeleton.transform).toEqual([]);
+  });
+
+  it("validate flags broken path constraints", () => {
+    const s = rig();
+    s.apply("addPathConstraint", { name: "p", bones: ["a", "b"], target: "track" });
+    s.doc.skeleton.path[0].bones.reverse();
+    s.doc.skeleton.path[0].target = "nope";
+    const msgs = validate(s.doc).map((i) => i.message);
+    expect(msgs.some((m) => m.includes("target slot"))).toBe(true);
+    s.doc.skeleton.path[0].target = s.doc.skeleton.slots[0].id;
+    expect(validate(s.doc).some((i) => i.message.includes("parent before child"))).toBe(true);
+    expect(summarize(s.doc)).toContain("Path p");
+  });
+});

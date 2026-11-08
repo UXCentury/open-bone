@@ -223,7 +223,98 @@ function button() {
   return s.doc;
 }
 
-for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()]] as const) {
+// ---------- tail (path constraint + physics) ----------
+function tail() {
+  const s = new DocumentStore(createDocument("Tail", { background: "#f3efe6" }));
+  const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
+  A("setDocument", { width: 800, height: 500, originX: 470, originY: 380 });
+  A("addBone", { name: "body", y: 120, length: 0, color: "#ff9f43" });
+  A("addBone", { name: "head", parent: "body", x: 95, y: 30, length: 0 });
+  // Tail chain: 8 bones placed along the path by the path constraint.
+  const SEG = 32;
+  A("addBone", { name: "tail1", parent: "body", x: -70, y: 10, rotation: 165, length: SEG });
+  for (let i = 2; i <= 8; i++) A("addBone", { name: `tail${i}`, parent: `tail${i - 1}`, x: SEG, length: SEG });
+  // The path lives on `tail-base`; its knots are bound to control bones that the animations move.
+  A("addBone", { name: "tail-base", parent: "body", x: -70, y: 10, rotation: 165, length: 0, color: "#ff7a00" });
+  for (let i = 1; i <= 3; i++) A("addBone", { name: `ctrl${i}`, parent: "tail-base", x: i * 90, length: 0, color: "#ff7a00" });
+  // Antennae: two-bone chains with spring physics.
+  for (const [side, y, rot] of [["l", 14, 70], ["r", -6, 55]] as const) {
+    A("addBone", { name: `antenna-${side}1`, parent: "head", x: 10, y, rotation: rot, length: 34 });
+    A("addBone", { name: `antenna-${side}2`, parent: `antenna-${side}1`, x: 34, rotation: -25, length: 30 });
+  }
+
+  // Visuals (back to front).
+  A("addSlot", { bone: "tail-base", name: "tail-path" });
+  A("addPath", { slot: "tail-path", anchors: [0, 0, 90, 0, 180, 0, 270, 0], color: "#ff7a00" });
+  for (let k = 1; k <= 3; k++)
+    for (let v = k * 3; v < k * 3 + 3; v++)
+      A("setWeights", { slot: "tail-path", attachment: "path", vertex: v, influences: [{ bone: `ctrl${k}`, weight: 1 }] });
+  for (let i = 8; i >= 1; i--) {
+    const w = 34 - i * 3;
+    A("addSlot", { bone: `tail${i}`, name: `tail${i}` });
+    A("addShape", { slot: `tail${i}`, shape: "rect", x: SEG / 2, width: SEG + w * 0.7, height: w, radius: w / 2, fill: i % 2 ? "#7c5cbf" : "#6a4dad" });
+  }
+  A("addSlot", { bone: "tail8", name: "tuft" });
+  A("addShape", { slot: "tuft", shape: "ellipse", x: SEG + 6, width: 34, height: 22, fill: "#f7c948" });
+  for (const side of ["r", "l"]) {
+    for (const n of [1, 2]) {
+      A("addSlot", { bone: `antenna-${side}${n}`, name: `antenna-${side}${n}` });
+      A("addShape", { slot: `antenna-${side}${n}`, shape: "rect", x: 16, width: 36, height: 6, radius: 3, fill: "#4b3a7a" });
+    }
+    A("addSlot", { bone: `antenna-${side}2`, name: `antenna-${side}-tip` });
+    A("addShape", { slot: `antenna-${side}-tip`, shape: "ellipse", x: 31, width: 13, height: 13, fill: "#f7c948" });
+  }
+  A("addSlot", { bone: "body", name: "body" });
+  A("addShape", { slot: "body", shape: "ellipse", width: 190, height: 120, fill: "#8b6fd1", stroke: "#5b45a0", strokeWidth: 3 });
+  A("addSlot", { bone: "body", name: "belly" });
+  A("addShape", { slot: "belly", shape: "ellipse", y: -22, width: 120, height: 54, fill: "#c9b8f0" });
+  A("addSlot", { bone: "head", name: "head" });
+  A("addShape", { slot: "head", shape: "ellipse", width: 96, height: 86, fill: "#8b6fd1", stroke: "#5b45a0", strokeWidth: 3 });
+  A("addSlot", { bone: "head", name: "eye" });
+  A("addShape", { slot: "eye", shape: "ellipse", x: 18, y: 8, width: 24, height: 26, fill: "#ffffff" });
+  A("addSlot", { bone: "head", name: "pupil" });
+  A("addShape", { slot: "pupil", shape: "ellipse", x: 23, y: 6, width: 11, height: 13, fill: "#1f1640" });
+  A("addSlot", { bone: "head", name: "smile" });
+  A("addShape", { slot: "smile", shape: "polygon", points: [8, -18, 40, -12, 36, -20, 12, -24], fill: "#5b45a0" });
+
+  A("addPathConstraint", {
+    name: "tail-path",
+    bones: ["tail1", "tail2", "tail3", "tail4", "tail5", "tail6", "tail7", "tail8"],
+    target: "tail-path",
+    positionMode: "fixed",
+    position: 0,
+    spacingMode: "length",
+    rotateMode: "chain",
+  });
+  for (const side of ["l", "r"])
+    for (const n of [1, 2])
+      A("addPhysicsConstraint", { name: `antenna-${side}${n}`, bone: `antenna-${side}${n}`, inertia: 0.9, strength: 90, damping: 3, gravity: 60 });
+
+  const K = (anim: string, target: string, id: string, property: string, keys: [number, number][], curve = "easeInOut") =>
+    A("setKeys", { animation: anim, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });
+  // ---- wag: a travelling wave down the tail's control points ----
+  A("createAnimation", { name: "wag", duration: 1.6 });
+  const wave = (amp: number, phase: number): [number, number][] =>
+    [0, 1, 2, 3, 4].map((i) => [i * 0.4, [0, amp, 0, -amp][(i + phase) % 4]]);
+  K("wag", "bone", "ctrl1", "y", wave(22, 0));
+  K("wag", "bone", "ctrl2", "y", wave(45, 1));
+  K("wag", "bone", "ctrl3", "y", wave(75, 2));
+  K("wag", "bone", "body", "y", [[0, 120], [0.4, 128], [0.8, 120], [1.2, 128], [1.6, 120]]);
+  K("wag", "bone", "head", "rotation", [[0, 0], [0.8, -6], [1.6, 0]]);
+  // ---- curl: control points sweep up over the back; spacing tightens (keyed path field) ----
+  A("createAnimation", { name: "curl", duration: 2 });
+  K("curl", "bone", "ctrl1", "x", [[0, 90], [1, 80], [2, 90]]);
+  K("curl", "bone", "ctrl1", "y", [[0, 0], [1, -40], [2, 0]]);
+  K("curl", "bone", "ctrl2", "x", [[0, 180], [1, 120], [2, 180]]);
+  K("curl", "bone", "ctrl2", "y", [[0, 0], [1, -130], [2, 0]]);
+  K("curl", "bone", "ctrl3", "x", [[0, 270], [1, 50], [2, 270]]);
+  K("curl", "bone", "ctrl3", "y", [[0, 0], [1, -170], [2, 0]]);
+  K("curl", "path", "tail-path", "spacing", [[0, 0], [1, -6], [2, 0]]);
+  K("curl", "bone", "body", "y", [[0, 120], [0.5, 150], [1, 120], [2, 120]]);
+  return s.doc;
+}
+
+for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()]] as const) {
   const issues = validate(doc);
   if (issues.some((i) => i.level === "error")) throw new Error(`${file}: ${JSON.stringify(issues)}`);
   writeFileSync(path.join(here, file), serialize(doc));

@@ -104,6 +104,7 @@ export function Viewport() {
         applyAnimation(sk, anim, time());
       }
       if (drag?.kind === "bone") Object.assign(drag.bone, drag.cur);
+      sk.update(dt);
       sk.updateWorldTransform();
     }
   }

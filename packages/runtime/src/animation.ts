@@ -99,14 +99,14 @@ export function applyAnimation(sk: Skeleton, anim: AnimationData, time: number, 
         }
         break;
       }
-      case "ik": {
-        const cur = sk.ikMix.get(tl.id) ?? 1;
-        sk.ikMix.set(tl.id, lerp(cur, sampleNumber(tl.keys, time), alpha));
-        break;
-      }
-      case "transform": {
-        const cur = sk.transformMix.get(tl.id) ?? 1;
-        sk.transformMix.set(tl.id, lerp(cur, sampleNumber(tl.keys, time), alpha));
+      case "ik":
+      case "transform":
+      case "path":
+      case "physics": {
+        const values = sk.constraintValues.get(tl.id);
+        if (!values) break;
+        const prop: string = tl.property;
+        values[prop] = lerp(values[prop] ?? 0, sampleNumber(tl.keys, time), alpha);
         break;
       }
       case "deform": {

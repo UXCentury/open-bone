@@ -284,7 +284,7 @@ export function createServer(opts: ServerOptions = {}) {
             worldX: r(b.world.x),
             worldY: r(b.world.y),
             worldRotation: r(b.worldRotation),
-            local: { x: r(b.x), y: r(b.y), rotation: r(b.ikRotation ?? b.rotation) },
+            local: { x: r(b.x), y: r(b.y), rotation: r(b.applied.rotation) },
           })),
         );
       } catch (e) {

@@ -44,6 +44,12 @@ export function keySlot(slotId: string, property: "color" | "attachment", value:
   if (anim) apply("setKeys", { animation: anim, target: "slot", id: slotId, property, keys: [{ time: round3(time()), value, curve: property === "attachment" ? "stepped" : "linear" }] });
 }
 
+/** Key a constraint value at the current time (Animate mode). */
+export function keyConstraint(target: "ik" | "transform" | "path" | "physics", id: string, property: string, value: number) {
+  const anim = ensureAnimation();
+  if (anim) apply("setKeys", { animation: anim, target, id, property, keys: [{ time: round3(time()), value }] });
+}
+
 export function commitAttachmentMove(slotId: string, name: string, x: number, y: number) {
   const att = getAttachment(store.doc, slotId, name);
   if (!att) return;

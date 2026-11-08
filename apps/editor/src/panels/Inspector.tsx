@@ -1,6 +1,6 @@
-import { type Attachment, type BoneProperty, defaultSkin, getAttachment } from "@openbone/core";
+import { type Attachment, type BoneProperty, CONSTRAINT_PROPERTIES, defaultSkin, descendantIds, getAttachment } from "@openbone/core";
 import { For, Match, Show, Switch, createSignal } from "solid-js";
-import { commitBone, keyBoneProperty, keySlot } from "../edit.ts";
+import { commitBone, keyBoneProperty, keyConstraint, keySlot } from "../edit.ts";
 import { imageFor } from "../images.ts";
 import { apply, currentAnimation, doc, mode, selection, setSelection, store, time, transaction } from "../state.ts";
 import { ColorField, NumberField, Section, SelectField, TextField } from "./fields.tsx";
@@ -78,32 +78,174 @@ function BoneInspector(p: { id: string }) {
       </Section>
       <Section title="Constraints">
         <div class="field">
-          <span>IK target</span>
+          <span>Target bone</span>
           <select value={ikTarget()} onChange={(e) => setIkTarget(e.currentTarget.value)}>
             <option value="">choose bone…</option>
             <For each={doc().skeleton.bones.filter((b) => b.id !== p.id)}>{(b) => <option value={b.id}>{b.name}</option>}</For>
           </select>
         </div>
         <div class="btn-row">
-          <button disabled={!ikTarget()} onClick={() => apply("addIkConstraint", { bones: [p.id], target: ikTarget() })}>
+          <button disabled={!ikTarget()} onClick={() => addAndSelect("ik", "addIkConstraint", { bones: [p.id], target: ikTarget() })}>
             1-bone IK
           </button>
           <button
             disabled={!ikTarget() || !bone()!.parent}
             title="Uses this bone and its parent"
-            onClick={() => apply("addIkConstraint", { bones: [bone()!.parent!, p.id], target: ikTarget() })}
+            onClick={() => addAndSelect("ik", "addIkConstraint", { bones: [bone()!.parent!, p.id], target: ikTarget() })}
           >
             2-bone IK (with parent)
           </button>
         </div>
+        <div class="btn-row">
+          <button
+            disabled={!ikTarget()}
+            title="This bone copies the target bone's world rotation and position"
+            onClick={() => addAndSelect("transform", "addTransformConstraint", { bones: [p.id], target: ikTarget(), name: `${bone()!.name}-copy` })}
+          >
+            Copy transform
+          </button>
+          <button title="Spring secondary motion on this bone" onClick={() => addAndSelect("physics", "addPhysicsConstraint", { bone: p.id })}>
+            + Physics
+          </button>
+          <button
+            disabled={descendantIds(doc(), p.id).size < 2}
+            title="Physics on this bone and every bone below it (hair, cloth, tails)"
+            onClick={() =>
+              transaction("physics chain", () => {
+                for (const b of doc().skeleton.bones) if (descendantIds(doc(), p.id).has(b.id)) store.apply("addPhysicsConstraint", { bone: b.id });
+              })
+            }
+          >
+            + Physics chain
+          </button>
+        </div>
+        <For each={constraintsOf(p.id)}>
+          {(c) => (
+            <div class="tree-row" onClick={() => setSelection({ kind: c.kind, id: c.id } as never)}>
+              <span class="icon">{ICONS[c.kind]}</span> {c.name} <span class="muted">{c.kind}</span>
+            </div>
+          )}
+        </For>
       </Section>
     </Show>
   );
 }
 
+type ConstraintKind = "ik" | "transform" | "path" | "physics";
+const ICONS: Record<ConstraintKind, string> = { ik: "⤳", transform: "⇉", path: "〰", physics: "≋" };
+const UPDATE_OP: Record<ConstraintKind, string> = {
+  ik: "updateIkConstraint",
+  transform: "updateTransformConstraint",
+  path: "updatePathConstraint",
+  physics: "updatePhysicsConstraint",
+};
+
+function addAndSelect(kind: ConstraintKind, op: string, args: Record<string, unknown>) {
+  const r = apply(op, args) as { id: string } | undefined;
+  if (r) setSelection({ kind, id: r.id });
+}
+
+/** Constraints that move or target a bone. */
+function constraintsOf(boneId: string): { kind: ConstraintKind; id: string; name: string }[] {
+  const sk = doc().skeleton;
+  const slotBone = (id: string) => sk.slots.find((s) => s.id === id)?.bone;
+  return [
+    ...sk.ik.filter((c) => c.bones.includes(boneId) || c.target === boneId).map((c) => ({ kind: "ik" as const, ...c })),
+    ...sk.transform.filter((c) => c.bones.includes(boneId) || c.target === boneId).map((c) => ({ kind: "transform" as const, ...c })),
+    ...sk.path.filter((c) => c.bones.includes(boneId) || slotBone(c.target) === boneId).map((c) => ({ kind: "path" as const, ...c })),
+    ...sk.physics.filter((c) => c.bone === boneId).map((c) => ({ kind: "physics" as const, ...c })),
+  ];
+}
+
+/**
+ * Numeric constraint field. In Animate mode keyable fields set keys at the current time
+ * (the value shown is the setup value, as for bones); other fields always edit the setup.
+ */
+function CNumber(p: {
+  kind: ConstraintKind;
+  id: string;
+  prop: string;
+  label: string;
+  value: number;
+  step?: number;
+  min?: number;
+  max?: number;
+}) {
+  const keyable = () => mode() === "animate" && (CONSTRAINT_PROPERTIES[p.kind] as string[]).includes(p.prop);
+  const fix = (v: number) => Math.min(p.max ?? Infinity, Math.max(p.min ?? -Infinity, v));
+  return (
+    <NumberField
+      label={p.label}
+      step={p.step}
+      value={p.value}
+      onCommit={(v) => (keyable() ? keyConstraint(p.kind, p.id, p.prop, fix(v)) : apply(UPDATE_OP[p.kind], { constraint: p.id, [p.prop]: fix(v) }))}
+      onKey={keyable() ? () => keyConstraint(p.kind, p.id, p.prop, p.value) : undefined}
+      keyed={keyable() && isKeyed(p.kind, p.id, p.prop)}
+    />
+  );
+}
+
+function Check(p: { label: string; checked: boolean; onChange: (v: boolean) => void; title?: string }) {
+  return (
+    <label class="field" title={p.title}>
+      <span>{p.label}</span>
+      <input type="checkbox" checked={p.checked} onChange={(e) => p.onChange(e.currentTarget.checked)} />
+    </label>
+  );
+}
+
+function AnimateHint() {
+  return (
+    <Show when={mode() === "animate"}>
+      <div class="hint">Animate mode: ◆ fields set keys at {time().toFixed(2)}s. Values shown are setup values.</div>
+    </Show>
+  );
+}
+
+function BindBones(p: { slotId: string; attachment: string }) {
+  const [weightBones, setWeightBones] = createSignal<string[]>([]);
+  return (
+    <>
+      <div class="field col">
+        <span>Bind to bones</span>
+        <select multiple size={5} onChange={(e) => setWeightBones(Array.from(e.currentTarget.selectedOptions).map((o) => o.value))}>
+          <For each={doc().skeleton.bones}>{(b) => <option value={b.id}>{b.name}</option>}</For>
+        </select>
+      </div>
+      <button disabled={weightBones().length === 0} onClick={() => apply("autoWeights", { slot: p.slotId, attachment: p.attachment, bones: weightBones(), maxInfluences: 2 })}>
+        Auto weights
+      </button>
+    </>
+  );
+}
+
+function PathAttachmentEditor(p: { slotId: string; att: Extract<Attachment, { type: "path" }> }) {
+  const set = (props: Record<string, unknown>) => apply("updateAttachment", { slot: p.slotId, attachment: p.att.name, props });
+  const [chain, setChain] = createSignal<string[]>([]);
+  const slotBone = () => doc().skeleton.slots.find((s) => s.id === p.slotId)?.bone;
+  return (
+    <>
+      <div class="hint">
+        {p.att.vertices.length / 6} knots · {p.att.weights ? "weighted (bend it by moving its bones)" : "unweighted (follows slot bone)"}. Edit knots via MCP/JSON (`vertices`).
+      </div>
+      <Check label="Closed" checked={p.att.closed} onChange={(v) => set({ closed: v })} />
+      <ColorField label="Color" value={p.att.color} onCommit={(v) => set({ color: v })} />
+      <BindBones slotId={p.slotId} attachment={p.att.name} />
+      <div class="field col">
+        <span>Bones to place along the path (parent first)</span>
+        <select multiple size={5} onChange={(e) => setChain(Array.from(e.currentTarget.selectedOptions).map((o) => o.value))}>
+          <For each={doc().skeleton.bones.filter((b) => b.id !== slotBone())}>{(b) => <option value={b.id}>{b.name}</option>}</For>
+        </select>
+      </div>
+      <button disabled={chain().length === 0} onClick={() => addAndSelect("path", "addPathConstraint", { bones: chain(), target: p.slotId })}>
+        Add path constraint
+      </button>
+    </>
+  );
+}
+
 function AttachmentEditor(p: { slotId: string; att: Attachment }) {
   const set = (props: Record<string, unknown>) => apply("updateAttachment", { slot: p.slotId, attachment: p.att.name, props });
-  const [weightBones, setWeightBones] = createSignal<string[]>([]);
   return (
     <Section title={`Attachment · ${p.att.type}`}>
       <TextField label="Name" value={p.att.name} onCommit={(v) => set({ name: v })} />
@@ -166,18 +308,13 @@ function AttachmentEditor(p: { slotId: string; att: Attachment }) {
                 <div class="hint">
                   {m.vertices.length / 2} vertices · {m.triangles.length / 3} triangles · {m.weights ? "weighted" : "unweighted (follows slot bone)"}
                 </div>
-                <div class="field col">
-                  <span>Bind to bones</span>
-                  <select multiple size={5} onChange={(e) => setWeightBones(Array.from(e.currentTarget.selectedOptions).map((o) => o.value))}>
-                    <For each={doc().skeleton.bones}>{(b) => <option value={b.id}>{b.name}</option>}</For>
-                  </select>
-                </div>
-                <button disabled={weightBones().length === 0} onClick={() => apply("autoWeights", { slot: p.slotId, attachment: m.name, bones: weightBones(), maxInfluences: 2 })}>
-                  Auto weights
-                </button>
+                <BindBones slotId={p.slotId} attachment={m.name} />
               </>
             );
           }}
+        </Match>
+        <Match when={p.att.type === "path" && p.att}>
+          {(a) => <PathAttachmentEditor slotId={p.slotId} att={a() as Extract<Attachment, { type: "path" }>} />}
         </Match>
         <Match when={p.att.type === "boundingBox"}>
           <div class="hint">Hit area for state-machine listeners. Edit vertices via MCP/JSON for now.</div>
@@ -235,6 +372,9 @@ function SlotInspector(p: { id: string; attachment?: string }) {
           <button onClick={() => apply("addShape", { slot: p.id, name: `shape${atts().length + 1}`, shape: "ellipse", width: 50, height: 50, fill: "#ff9f43" })}>+ Shape</button>
           <button onClick={() => apply("addBoundingBox", { slot: p.id, width: 100, height: 100 })}>+ Hit box</button>
           <button onClick={() => apply("addPoint", { slot: p.id })}>+ Point</button>
+          <button title="Bezier path for path constraints" onClick={() => apply("addPath", { slot: p.id, name: `path${atts().length + 1}`, anchors: [0, 0, 80, 40, 160, 0] })}>
+            + Path
+          </button>
         </div>
       </Section>
       <Show when={att()}>{(a) => <AttachmentEditor slotId={p.id} att={a()} />}</Show>
@@ -245,19 +385,137 @@ function SlotInspector(p: { id: string; attachment?: string }) {
 function IkInspector(p: { id: string }) {
   const c = () => doc().skeleton.ik.find((x) => x.id === p.id);
   const name = (id: string) => doc().skeleton.bones.find((b) => b.id === id)?.name ?? id;
+  const set = (props: Record<string, unknown>) => apply("updateIkConstraint", { constraint: p.id, ...props });
   return (
     <Show when={c()}>
       <Section title="IK constraint">
-        <TextField label="Name" value={c()!.name} onCommit={(v) => apply("updateIkConstraint", { constraint: p.id, name: v })} />
+        <TextField label="Name" value={c()!.name} onCommit={(v) => set({ name: v })} />
         <div class="hint">
           {c()!.bones.map(name).join(" → ")} reach for <b>{name(c()!.target)}</b>. Move the target bone to pose the chain.
         </div>
-        <SelectField label="Target" value={c()!.target} options={doc().skeleton.bones.map((b) => ({ value: b.id, label: b.name }))} onCommit={(v) => apply("updateIkConstraint", { constraint: p.id, target: v })} />
-        <NumberField label="Mix" step={0.01} value={c()!.mix} onCommit={(v) => apply("updateIkConstraint", { constraint: p.id, mix: Math.max(0, Math.min(1, v)) })} />
-        <label class="field">
-          <span>Bend +</span>
-          <input type="checkbox" checked={c()!.bendPositive} onChange={(e) => apply("updateIkConstraint", { constraint: p.id, bendPositive: e.currentTarget.checked })} />
-        </label>
+        <AnimateHint />
+        <SelectField label="Target" value={c()!.target} options={doc().skeleton.bones.map((b) => ({ value: b.id, label: b.name }))} onCommit={(v) => set({ target: v })} />
+        <CNumber kind="ik" id={p.id} prop="mix" label="Mix" step={0.01} min={0} max={1} value={c()!.mix} />
+        <Show when={c()!.bones.length === 2}>
+          <CNumber kind="ik" id={p.id} prop="softness" label="Softness" min={0} value={c()!.softness} />
+        </Show>
+        <Check label="Bend +" checked={c()!.bendPositive} onChange={(v) => set({ bendPositive: v })} />
+        <Check label="Stretch" title="Scale bones up to reach a far target" checked={c()!.stretch} onChange={(v) => set({ stretch: v })} />
+        <Show when={c()!.bones.length === 1}>
+          <Check label="Compress" title="Scale the bone down when the target is closer than its length" checked={c()!.compress} onChange={(v) => set({ compress: v })} />
+        </Show>
+        <button class="danger" onClick={() => apply("deleteConstraint", { constraint: p.id }) !== undefined && setSelection(null)}>
+          Delete
+        </button>
+      </Section>
+    </Show>
+  );
+}
+
+function BonesHint(p: { bones: string[]; verb: string; target: string }) {
+  const name = (id: string) => doc().skeleton.bones.find((b) => b.id === id)?.name ?? doc().skeleton.slots.find((s) => s.id === id)?.name ?? id;
+  return (
+    <div class="hint">
+      {p.bones.map(name).join(", ")} {p.verb} <b>{name(p.target)}</b>.
+    </div>
+  );
+}
+
+function TransformInspector(p: { id: string }) {
+  const c = () => doc().skeleton.transform.find((x) => x.id === p.id);
+  const set = (props: Record<string, unknown>) => apply("updateTransformConstraint", { constraint: p.id, ...props });
+  const bones = () => doc().skeleton.bones.map((b) => ({ value: b.id, label: b.name }));
+  return (
+    <Show when={c()}>
+      <Section title="Transform constraint">
+        <TextField label="Name" value={c()!.name} onCommit={(v) => set({ name: v })} />
+        <BonesHint bones={c()!.bones} verb={c()!.relative ? "add the changes of" : "copy"} target={c()!.target} />
+        <AnimateHint />
+        <SelectField label="Target" value={c()!.target} options={bones()} onCommit={(v) => set({ target: v })} />
+        <div class="field col">
+          <span>Constrained bones</span>
+          <select multiple size={4} onChange={(e) => {
+            const ids = Array.from(e.currentTarget.selectedOptions).map((o) => o.value);
+            if (ids.length) set({ bones: ids });
+          }}>
+            <For each={doc().skeleton.bones.filter((b) => b.id !== c()!.target)}>
+              {(b) => <option value={b.id} selected={c()!.bones.includes(b.id)}>{b.name}</option>}
+            </For>
+          </select>
+        </div>
+        <Check label="Local" title="Copy local (parent-space) values instead of world transforms" checked={c()!.local} onChange={(v) => set({ local: v })} />
+        <Check label="Relative" title="Add the target's change from its setup pose instead of copying its value" checked={c()!.relative} onChange={(v) => set({ relative: v })} />
+        <Show when={mode() === "animate"}>
+          <CNumber kind="transform" id={p.id} prop="mix" label="Mix ×" step={0.01} min={0} max={1} value={1} />
+        </Show>
+        <CNumber kind="transform" id={p.id} prop="mixRotate" label="Rotate" step={0.01} min={0} max={1} value={c()!.mixRotate} />
+        <CNumber kind="transform" id={p.id} prop="mixTranslate" label="Translate" step={0.01} min={0} max={1} value={c()!.mixTranslate} />
+        <CNumber kind="transform" id={p.id} prop="mixScale" label="Scale" step={0.01} min={0} max={1} value={c()!.mixScale} />
+        <CNumber kind="transform" id={p.id} prop="mixShear" label="Shear" step={0.01} min={0} max={1} value={c()!.mixShear} />
+        <CNumber kind="transform" id={p.id} prop="offsetRotation" label="Offset rot" value={c()!.offsetRotation} />
+        <CNumber kind="transform" id={p.id} prop="offsetX" label="Offset X" value={c()!.offsetX} />
+        <CNumber kind="transform" id={p.id} prop="offsetY" label="Offset Y" value={c()!.offsetY} />
+        <CNumber kind="transform" id={p.id} prop="offsetScaleX" label="Offset sX" step={0.01} value={c()!.offsetScaleX} />
+        <CNumber kind="transform" id={p.id} prop="offsetScaleY" label="Offset sY" step={0.01} value={c()!.offsetScaleY} />
+        <CNumber kind="transform" id={p.id} prop="offsetShear" label="Offset shear" value={c()!.offsetShear} />
+        <button class="danger" onClick={() => apply("deleteConstraint", { constraint: p.id }) !== undefined && setSelection(null)}>
+          Delete
+        </button>
+      </Section>
+    </Show>
+  );
+}
+
+function PathInspector(p: { id: string }) {
+  const c = () => doc().skeleton.path.find((x) => x.id === p.id);
+  const set = (props: Record<string, unknown>) => apply("updatePathConstraint", { constraint: p.id, ...props });
+  const opts = (xs: string[]) => xs.map((v) => ({ value: v, label: v }));
+  return (
+    <Show when={c()}>
+      <Section title="Path constraint">
+        <TextField label="Name" value={c()!.name} onCommit={(v) => set({ name: v })} />
+        <BonesHint bones={c()!.bones} verb="follow the path in slot" target={c()!.target} />
+        <AnimateHint />
+        <SelectField label="Path slot" value={c()!.target} options={doc().skeleton.slots.map((s) => ({ value: s.id, label: s.name }))} onCommit={(v) => set({ target: v })} />
+        <SelectField label="Position" value={c()!.positionMode} options={opts(["percent", "fixed"])} onCommit={(v) => set({ positionMode: v })} />
+        <SelectField label="Spacing" value={c()!.spacingMode} options={opts(["length", "fixed", "percent", "proportional"])} onCommit={(v) => set({ spacingMode: v })} />
+        <SelectField label="Rotate" value={c()!.rotateMode} options={opts(["tangent", "chain", "chainScale"])} onCommit={(v) => set({ rotateMode: v })} />
+        <CNumber kind="path" id={p.id} prop="position" label={c()!.positionMode === "percent" ? "Position %" : "Position"} step={c()!.positionMode === "percent" ? 0.01 : 1} value={c()!.position} />
+        <CNumber kind="path" id={p.id} prop="spacing" label="Spacing" step={c()!.spacingMode === "percent" || c()!.spacingMode === "proportional" ? 0.01 : 1} value={c()!.spacing} />
+        <CNumber kind="path" id={p.id} prop="mixRotate" label="Mix rotate" step={0.01} min={0} max={1} value={c()!.mixRotate} />
+        <CNumber kind="path" id={p.id} prop="mixX" label="Mix X" step={0.01} min={0} max={1} value={c()!.mixX} />
+        <CNumber kind="path" id={p.id} prop="mixY" label="Mix Y" step={0.01} min={0} max={1} value={c()!.mixY} />
+        <CNumber kind="path" id={p.id} prop="offsetRotation" label="Offset rot" value={c()!.offsetRotation} />
+        <button class="danger" onClick={() => apply("deleteConstraint", { constraint: p.id }) !== undefined && setSelection(null)}>
+          Delete
+        </button>
+      </Section>
+    </Show>
+  );
+}
+
+function PhysicsInspector(p: { id: string }) {
+  const c = () => doc().skeleton.physics.find((x) => x.id === p.id);
+  const set = (props: Record<string, unknown>) => apply("updatePhysicsConstraint", { constraint: p.id, ...props });
+  return (
+    <Show when={c()}>
+      <Section title="Physics constraint">
+        <TextField label="Name" value={c()!.name} onCommit={(v) => set({ name: v })} />
+        <div class="hint">Springs lag behind the animated pose. Drag bones in the viewport or play an animation to see it.</div>
+        <AnimateHint />
+        <SelectField label="Bone" value={c()!.bone} options={doc().skeleton.bones.map((b) => ({ value: b.id, label: b.name }))} onCommit={(v) => set({ bone: v })} />
+        <CNumber kind="physics" id={p.id} prop="rotate" label="Rotate" step={0.01} min={0} max={1} value={c()!.rotate} />
+        <CNumber kind="physics" id={p.id} prop="x" label="Move X" step={0.01} min={0} max={1} value={c()!.x} />
+        <CNumber kind="physics" id={p.id} prop="y" label="Move Y" step={0.01} min={0} max={1} value={c()!.y} />
+        <CNumber kind="physics" id={p.id} prop="scaleX" label="Stretch" step={0.01} min={0} max={1} value={c()!.scaleX} />
+        <CNumber kind="physics" id={p.id} prop="inertia" label="Inertia" step={0.01} min={0} max={1} value={c()!.inertia} />
+        <CNumber kind="physics" id={p.id} prop="strength" label="Strength" min={0} value={c()!.strength} />
+        <CNumber kind="physics" id={p.id} prop="damping" label="Damping" step={0.1} min={0} value={c()!.damping} />
+        <CNumber kind="physics" id={p.id} prop="mass" label="Mass" step={0.05} min={0.01} value={c()!.mass} />
+        <CNumber kind="physics" id={p.id} prop="gravity" label="Gravity" value={c()!.gravity} />
+        <CNumber kind="physics" id={p.id} prop="wind" label="Wind" value={c()!.wind} />
+        <CNumber kind="physics" id={p.id} prop="mix" label="Mix" step={0.01} min={0} max={1} value={c()!.mix} />
+        <CNumber kind="physics" id={p.id} prop="fps" label="Steps/s" min={1} max={480} value={c()!.fps} />
         <button class="danger" onClick={() => apply("deleteConstraint", { constraint: p.id }) !== undefined && setSelection(null)}>
           Delete
         </button>
@@ -312,6 +570,9 @@ export function Inspector() {
           {(s) => <SlotInspector id={s().id} attachment={(s() as { attachment?: string }).attachment} />}
         </Match>
         <Match when={selection()?.kind === "ik" && selection()}>{(s) => <IkInspector id={s().id} />}</Match>
+        <Match when={selection()?.kind === "transform" && selection()}>{(s) => <TransformInspector id={s().id} />}</Match>
+        <Match when={selection()?.kind === "path" && selection()}>{(s) => <PathInspector id={s().id} />}</Match>
+        <Match when={selection()?.kind === "physics" && selection()}>{(s) => <PhysicsInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "image" && selection()}>{(s) => <ImageInspector id={s().id} />}</Match>
       </Switch>
     </aside>

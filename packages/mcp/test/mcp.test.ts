@@ -25,7 +25,7 @@ describe("MCP server", () => {
     const { client } = await connect();
     const { tools } = await client.listTools();
     const names = tools.map((t) => t.name);
-    for (const n of ["add_bone", "set_keys", "add_transition", "add_listener", "render_frame", "simulate_state_machine", "new_project"])
+    for (const n of ["add_bone", "set_keys", "add_transition", "add_listener", "render_frame", "simulate_state_machine", "new_project", "add_path", "add_path_constraint", "update_path_constraint", "add_physics_constraint", "update_physics_constraint", "update_transform_constraint"])
       expect(names).toContain(n);
   });
 

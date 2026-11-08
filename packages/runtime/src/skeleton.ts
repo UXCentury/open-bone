@@ -2,29 +2,42 @@ import {
   type Affine,
   type Attachment,
   type BoneData,
+  CONSTRAINT_PROPERTIES,
+  type ConstraintTarget,
   type Id,
+  type IkConstraintData,
   type ImageAsset,
+  type LocalTransform,
   type OpenBoneDocument,
+  type PathConstraintData,
+  type PhysicsConstraintData,
   type RGBA,
   type SkinData,
   type SlotData,
+  type TransformConstraintData,
   DEG,
   RAD,
   apply,
   boneWorld,
+  buildSpline,
   defaultSkin,
   identity,
   invert,
+  multiply,
   parseHex,
   pointInPolygon,
+  setupWorld,
   shapeOutline,
   triangulate,
   worldRotation,
+  worldScaleX,
+  worldScaleY,
 } from "@openbone/core";
 
 export class Bone {
   parent: Bone | null = null;
   children: Bone[] = [];
+  /** Local pose written by animations and scripts. */
   x = 0;
   y = 0;
   rotation = 0;
@@ -32,11 +45,15 @@ export class Bone {
   scaleY = 1;
   shearX = 0;
   shearY = 0;
-  /** Rotation override written by IK for this frame. */
-  ikRotation: number | null = null;
+  /**
+   * Local values actually used for the world transform this frame: a copy of the pose above
+   * that local-space constraints (IK, local transform constraints) may change.
+   */
+  applied: LocalTransform = { x: 0, y: 0, rotation: 0, scaleX: 1, scaleY: 1, shearX: 0, shearY: 0 };
   world: Affine = identity();
   constructor(public data: BoneData) {
     this.setToSetupPose();
+    this.resetApplied();
   }
   get name() {
     return this.data.name;
@@ -50,19 +67,19 @@ export class Bone {
     this.scaleY = d.scaleY;
     this.shearX = d.shearX;
     this.shearY = d.shearY;
-    this.ikRotation = null;
+  }
+  resetApplied() {
+    const a = this.applied;
+    a.x = this.x;
+    a.y = this.y;
+    a.rotation = this.rotation;
+    a.scaleX = this.scaleX;
+    a.scaleY = this.scaleY;
+    a.shearX = this.shearX;
+    a.shearY = this.shearY;
   }
   updateWorld(root: Affine) {
-    const local = {
-      x: this.x,
-      y: this.y,
-      rotation: this.ikRotation ?? this.rotation,
-      scaleX: this.scaleX,
-      scaleY: this.scaleY,
-      shearX: this.shearX,
-      shearY: this.shearY,
-    };
-    this.world = boneWorld(this.parent ? this.parent.world : root, local, this.parent ? this.data.inherit : "normal");
+    this.world = boneWorld(this.parent ? this.parent.world : root, this.applied, this.parent ? this.data.inherit : "normal");
   }
   updateSubtree(root: Affine, includeSelf = true) {
     if (includeSelf) this.updateWorld(root);
@@ -86,7 +103,7 @@ export class Bone {
 export class Slot {
   color: RGBA = [1, 1, 1, 1];
   attachmentName: string | null = null;
-  /** Mesh deform offsets by attachment name. */
+  /** Mesh/path deform offsets by attachment name. */
   deform = new Map<string, number[]>();
   constructor(
     public data: SlotData,
@@ -117,13 +134,75 @@ export interface DrawItem {
   stroke?: { color: RGBA; width: number; outline: Float32Array };
 }
 
+/** One simulated point of a physics constraint. */
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  /** Position before the last step, for interpolating between steps. */
+  px: number;
+  py: number;
+}
+
+interface PhysicsState {
+  origin: Particle;
+  tip: Particle;
+  /** Animated origin/tip seen last frame (for inertia). */
+  lastO: [number, number];
+  lastT: [number, number];
+  /** Simulated time received, and whole steps taken (counting steps avoids float drift in the step boundary). */
+  time: number;
+  steps: number;
+}
+
+/** Setup values of a constraint's keyable fields (transform constraints also get `mix` = 1, a multiplier). */
+function setupValues(kind: ConstraintTarget, c: object): Record<string, number> {
+  const src = c as Record<string, unknown>;
+  const out: Record<string, number> = kind === "transform" ? { mix: 1 } : {};
+  for (const p of CONSTRAINT_PROPERTIES[kind]) {
+    if (kind === "transform" && p === "mix") continue;
+    out[p] = typeof src[p] === "number" ? (src[p] as number) : 0;
+  }
+  return out;
+}
+
+/** Most simulation steps taken in one frame; longer frames drop the excess time (avoids a spiral after a stall). */
+const MAX_PHYSICS_STEPS = 8;
+
+/** Rotate a world matrix's axes by `rad` (counter-clockwise). */
+function rotateAxes(w: Affine, rad: number) {
+  if (rad === 0) return;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const { a, b, c, d } = w;
+  w.a = cos * a - sin * c;
+  w.b = cos * b - sin * d;
+  w.c = sin * a + cos * c;
+  w.d = sin * b + cos * d;
+}
+
+/** Shear angle in degrees between a matrix's axes (0 when they are perpendicular). */
+const skewOf = (m: Affine) => wrap((Math.atan2(m.d, m.b) - Math.atan2(m.c, m.a)) * RAD - 90);
+
+/** Set the Y axis so the matrix has the given shear, keeping the Y axis length. */
+function setSkew(w: Affine, skewDeg: number) {
+  const ly = Math.hypot(w.b, w.d);
+  const ang = Math.atan2(w.c, w.a) + (90 + skewDeg) * DEG;
+  w.b = Math.cos(ang) * ly;
+  w.d = Math.sin(ang) * ly;
+}
+
 export class Skeleton {
   bones: Bone[] = [];
   slots: Slot[] = [];
   drawOrder: Slot[] = [];
   skin: SkinData | null = null;
-  ikMix = new Map<Id, number>();
-  transformMix = new Map<Id, number>();
+  /**
+   * Live (keyable) constraint values by constraint id, reset from the document in setToSetupPose and
+   * written by animation timelines. Transform constraints also have `mix`, a multiplier on all their mixes.
+   */
+  constraintValues = new Map<Id, Record<string, number>>();
   /** Placement of the skeleton (applied to root bones). */
   x = 0;
   y = 0;
@@ -132,6 +211,10 @@ export class Skeleton {
   private boneById = new Map<Id, Bone>();
   private slotById = new Map<Id, Slot>();
   private images = new Map<Id, ImageAsset>();
+  private physicsState = new Map<Id, PhysicsState>();
+  /** Time passed to update() and not yet consumed by the physics solver. */
+  private pendingDt = 0;
+  private setupCache: Map<Id, Affine> | null = null;
 
   constructor(public doc: OpenBoneDocument) {
     for (const bd of doc.skeleton.bones) {
@@ -176,30 +259,56 @@ export class Skeleton {
     for (const b of this.bones) b.setToSetupPose();
     for (const s of this.slots) s.setToSetupPose();
     this.drawOrder = this.slots.slice();
-    this.ikMix.clear();
-    this.transformMix.clear();
-    for (const c of this.doc.skeleton.ik) this.ikMix.set(c.id, c.mix);
-    for (const c of this.doc.skeleton.transform) this.transformMix.set(c.id, 1);
+    this.constraintValues.clear();
+    const sk = this.doc.skeleton;
+    for (const kind of ["ik", "transform", "path", "physics"] as const)
+      for (const c of sk[kind] ?? []) this.constraintValues.set(c.id, setupValues(kind, c));
+  }
+
+  private values(kind: ConstraintTarget, c: { id: Id }): Record<string, number> {
+    let v = this.constraintValues.get(c.id);
+    if (!v) this.constraintValues.set(c.id, (v = setupValues(kind, c)));
+    return v;
+  }
+
+  /** Advance simulated time (physics). Call once per frame before updateWorldTransform. */
+  update(dt: number) {
+    if (dt > 0) this.pendingDt += dt;
+  }
+
+  /** Forget physics motion: the next frame starts at rest on the animated pose. */
+  resetPhysics() {
+    this.physicsState.clear();
+    this.pendingDt = 0;
   }
 
   private get rootMatrix(): Affine {
     return { a: this.scaleX, b: 0, c: 0, d: this.scaleY, x: this.x, y: this.y };
   }
 
+  /** Solve world transforms, then constraints in order: IK, transform, path, physics. */
   updateWorldTransform() {
     const root = this.rootMatrix;
     for (const b of this.bones) {
-      b.ikRotation = null;
+      b.resetApplied();
       b.updateWorld(root);
     }
-    for (const c of this.doc.skeleton.ik) this.applyIk(c.id, c.bones, c.target, this.ikMix.get(c.id) ?? c.mix, c.bendPositive);
-    for (const c of this.doc.skeleton.transform) this.applyTransform(c);
+    const sk = this.doc.skeleton;
+    for (const c of sk.ik) this.applyIk(c, this.values("ik", c));
+    for (const c of sk.transform) this.applyTransform(c, this.values("transform", c));
+    for (const c of sk.path ?? []) this.applyPath(c, this.values("path", c));
+    const dt = this.pendingDt;
+    this.pendingDt = 0;
+    for (const c of sk.physics ?? []) this.applyPhysics(c, this.values("physics", c), dt);
   }
 
-  private applyIk(_id: Id, boneIds: Id[], targetId: Id, mix: number, bendPositive: boolean) {
+  // ---------------- IK ----------------
+
+  private applyIk(c: IkConstraintData, v: Record<string, number>) {
+    const mix = v.mix;
     if (mix <= 0) return;
-    const target = this.boneById.get(targetId);
-    const bones = boneIds.map((id) => this.boneById.get(id)).filter(Boolean) as Bone[];
+    const target = this.boneById.get(c.target);
+    const bones = c.bones.map((id) => this.boneById.get(id)).filter(Boolean) as Bone[];
     if (!target || bones.length === 0) return;
     const root = this.rootMatrix;
     const tx = target.world.x;
@@ -212,79 +321,302 @@ export class Skeleton {
       const dy = ty - b.world.y;
       const lx = inv.a * dx + inv.b * dy;
       const ly = inv.c * dx + inv.d * dy;
-      const want = Math.atan2(ly, lx) * RAD - b.shearX;
-      b.ikRotation = b.rotation + wrap(want - b.rotation) * mix;
-      b.updateSubtree(root);
+      const want = Math.atan2(ly, lx) * RAD - b.applied.shearX;
+      b.applied.rotation += wrap(want - b.applied.rotation) * mix;
+      b.updateWorld(root);
+      const len = b.data.length * worldScaleX(b.world);
+      if ((c.stretch || c.compress) && len > 1e-6) {
+        const k = Math.hypot(dx, dy) / len;
+        if ((k > 1 && c.stretch) || (k < 1 && c.compress)) {
+          const s = 1 + (k - 1) * mix;
+          b.world.a *= s;
+          b.world.c *= s;
+        }
+      }
+      b.updateSubtree(root, false);
       return;
     }
-    const [p, c] = bones;
+    const [p, ch] = bones;
     const det = (m: Affine) => Math.sign(m.a * m.d - m.b * m.c) || 1;
     const px = p.world.x;
     const py = p.world.y;
-    const l1 = Math.hypot(c.world.x - px, c.world.y - py);
-    const l2 = c.data.length * Math.hypot(c.world.a, c.world.c);
-    let d = Math.hypot(tx - px, ty - py);
-    d = Math.min(Math.max(d, Math.abs(l1 - l2) + 1e-4), l1 + l2 - 1e-4);
-    const base = Math.atan2(ty - py, tx - px);
-    const cosA = (l1 * l1 + d * d - l2 * l2) / (2 * l1 * d || 1);
-    const a1 = base + (bendPositive ? -1 : 1) * Math.acos(Math.max(-1, Math.min(1, cosA)));
+    const l1 = Math.hypot(ch.world.x - px, ch.world.y - py);
+    const l2 = ch.data.length * worldScaleX(ch.world);
+    const reach = l1 + l2;
+    const dRaw = Math.hypot(tx - px, ty - py);
+    // Soft IK: inside `softness` of full extension, the reached distance approaches full
+    // extension exponentially instead of snapping straight.
+    let dSoft = dRaw;
+    const soft = Math.min(v.softness ?? 0, reach);
+    if (soft > 1e-6 && dRaw > reach - soft) dSoft = reach - soft + soft * (1 - Math.exp(-(dRaw - (reach - soft)) / soft));
+    const dEff = Math.min(Math.max(dSoft, Math.abs(l1 - l2) + 1e-4), reach - 1e-4);
+    const ux = dRaw > 1e-9 ? (tx - px) / dRaw : 1;
+    const uy = dRaw > 1e-9 ? (ty - py) / dRaw : 0;
+    // The point actually aimed at (equal to the target when it is reachable and softness is off).
+    const ax = px + ux * dEff;
+    const ay = py + uy * dEff;
+    const base = Math.atan2(uy, ux);
+    const cosA = (l1 * l1 + dEff * dEff - l2 * l2) / (2 * l1 * dEff || 1);
+    const a1 = base + (c.bendPositive ? -1 : 1) * Math.acos(Math.max(-1, Math.min(1, cosA)));
     // Rotate parent so its child origin points along a1.
-    const curDir = Math.atan2(c.world.y - py, c.world.x - px);
+    const curDir = Math.atan2(ch.world.y - py, ch.world.x - px);
     const sP = det(p.parent ? p.parent.world : root);
     const deltaP = wrap((a1 - curDir) * RAD) * sP;
-    p.ikRotation = p.rotation + deltaP;
+    const pRot = p.applied.rotation;
+    const cRot = ch.applied.rotation;
+    p.applied.rotation = pRot + deltaP;
     p.updateSubtree(root);
-    // Child aims from the elbow at the target.
-    const ex = c.world.x;
-    const ey = c.world.y;
-    const want = Math.atan2(ty - ey, tx - ex) * RAD;
+    // Child aims from the elbow at the aim point.
+    const want = Math.atan2(ay - ch.world.y, ax - ch.world.x) * RAD;
     const sC = det(p.world);
-    const deltaC = wrap(want - c.worldRotation) * sC;
-    p.ikRotation = p.rotation + deltaP * mix;
-    c.ikRotation = c.rotation + deltaC * mix;
+    const deltaC = wrap(want - ch.worldRotation) * sC;
+    p.applied.rotation = pRot + deltaP * mix;
+    ch.applied.rotation = cRot + deltaC * mix;
     p.updateWorld(root);
-    c.updateSubtree(root);
-    for (const sib of p.children) if (sib !== c) sib.updateSubtree(root);
+    ch.updateWorld(root);
+    // Stretch: scale both bones along their length so the tip reaches the real target.
+    if (c.stretch && dRaw > dEff + 1e-9) {
+      const s = 1 + (dRaw / dEff - 1) * mix;
+      const cw = ch.world;
+      p.world.a *= s;
+      p.world.c *= s;
+      const [ox, oy] = apply(p.world, ch.applied.x, ch.applied.y);
+      ch.world = { a: cw.a * s, b: cw.b, c: cw.c * s, d: cw.d, x: ox, y: oy };
+    }
+    ch.updateSubtree(root, false);
+    for (const sib of p.children) if (sib !== ch) sib.updateSubtree(root);
   }
 
-  private applyTransform(c: OpenBoneDocument["skeleton"]["transform"][number]) {
-    const mixScale = (this.transformMix.get(c.id) ?? 1);
+  // ---------------- Transform ----------------
+
+  private setupWorldOf(id: Id): Affine {
+    this.setupCache ??= setupWorld(this.doc);
+    return multiply(this.rootMatrix, this.setupCache.get(id) ?? identity());
+  }
+
+  private applyTransform(c: TransformConstraintData, v: Record<string, number>) {
+    const m = v.mix ?? 1;
+    const mr = v.mixRotate * m;
+    const mt = v.mixTranslate * m;
+    const ms = v.mixScale * m;
+    const mh = (v.mixShear ?? 0) * m;
+    if (mr <= 0 && mt <= 0 && ms <= 0 && mh <= 0) return;
     const target = this.boneById.get(c.target);
     if (!target) return;
-    const t = target.world;
+    const root = this.rootMatrix;
+    const offScaleX = c.offsetScaleX ?? 0;
+    const offScaleY = c.offsetScaleY ?? 0;
+    const offShear = c.offsetShear ?? 0;
     for (const id of c.bones) {
       const b = this.boneById.get(id);
-      if (!b) continue;
+      if (!b || b === target) continue;
+      if (c.local) {
+        const p = b.applied;
+        const t = target.applied;
+        if (c.relative) {
+          const s = target.data;
+          p.rotation += (wrap(t.rotation - s.rotation) + c.offsetRotation) * mr;
+          p.x += (t.x - s.x + c.offsetX) * mt;
+          p.y += (t.y - s.y + c.offsetY) * mt;
+          p.scaleX *= 1 + ((s.scaleX ? t.scaleX / s.scaleX : 1) - 1 + offScaleX) * ms;
+          p.scaleY *= 1 + ((s.scaleY ? t.scaleY / s.scaleY : 1) - 1 + offScaleY) * ms;
+          p.shearY += (t.shearY - s.shearY + offShear) * mh;
+        } else {
+          p.rotation += wrap(t.rotation + c.offsetRotation - p.rotation) * mr;
+          p.x += (t.x + c.offsetX - p.x) * mt;
+          p.y += (t.y + c.offsetY - p.y) * mt;
+          p.scaleX += (t.scaleX + offScaleX - p.scaleX) * ms;
+          p.scaleY += (t.scaleY + offScaleY - p.scaleY) * ms;
+          p.shearY += (t.shearY + offShear - p.shearY) * mh;
+        }
+        b.updateSubtree(root);
+        continue;
+      }
       const w = b.world;
-      if (c.mixRotate > 0) {
-        const r = wrap(worldRotation(t) + c.offsetRotation - worldRotation(w)) * c.mixRotate * mixScale * DEG;
-        const cos = Math.cos(r);
-        const sin = Math.sin(r);
-        const { a, b: bb, c: cc, d } = w;
-        w.a = cos * a - sin * cc;
-        w.b = cos * bb - sin * d;
-        w.c = sin * a + cos * cc;
-        w.d = sin * bb + cos * d;
+      const t = target.world;
+      if (c.relative) {
+        const s = this.setupWorldOf(target.data.id);
+        if (mr > 0) rotateAxes(w, (wrap(worldRotation(t) - worldRotation(s)) + c.offsetRotation) * mr * DEG);
+        if (mt > 0) {
+          w.x += (t.x - s.x + c.offsetX) * mt;
+          w.y += (t.y - s.y + c.offsetY) * mt;
+        }
+        if (ms > 0) {
+          const kx = 1 + (worldScaleX(t) / (worldScaleX(s) || 1) - 1 + offScaleX) * ms;
+          const ky = 1 + (worldScaleY(t) / (worldScaleY(s) || 1) - 1 + offScaleY) * ms;
+          w.a *= kx;
+          w.c *= kx;
+          w.b *= ky;
+          w.d *= ky;
+        }
+        if (mh > 0) setSkew(w, skewOf(w) + (wrap(skewOf(t) - skewOf(s)) + offShear) * mh);
+      } else {
+        if (mr > 0) rotateAxes(w, wrap(worldRotation(t) + c.offsetRotation - worldRotation(w)) * mr * DEG);
+        if (mt > 0) {
+          const [ox, oy] = apply(t, c.offsetX, c.offsetY);
+          w.x += (ox - w.x) * mt;
+          w.y += (oy - w.y) * mt;
+        }
+        if (ms > 0) {
+          const sx = worldScaleX(w) || 1;
+          const sy = worldScaleY(w) || 1;
+          const kx = (sx + (worldScaleX(t) + offScaleX - sx) * ms) / sx;
+          const ky = (sy + (worldScaleY(t) + offScaleY - sy) * ms) / sy;
+          w.a *= kx;
+          w.c *= kx;
+          w.b *= ky;
+          w.d *= ky;
+        }
+        if (mh > 0) {
+          const sb = skewOf(w);
+          setSkew(w, sb + wrap(skewOf(t) + offShear - sb) * mh);
+        }
       }
-      if (c.mixTranslate > 0) {
-        const [ox, oy] = apply(t, c.offsetX, c.offsetY);
-        const m = c.mixTranslate * mixScale;
-        w.x += (ox - w.x) * m;
-        w.y += (oy - w.y) * m;
-      }
-      if (c.mixScale > 0) {
-        const m = c.mixScale * mixScale;
-        const sx = Math.hypot(w.a, w.c) || 1;
-        const sy = Math.hypot(w.b, w.d) || 1;
-        const k1 = (sx + (Math.hypot(t.a, t.c) - sx) * m) / sx;
-        const k2 = (sy + (Math.hypot(t.b, t.d) - sy) * m) / sy;
-        w.a *= k1;
-        w.c *= k1;
-        w.b *= k2;
-        w.d *= k2;
-      }
-      b.updateSubtree(this.rootMatrix, false);
+      b.updateSubtree(root, false);
     }
+  }
+
+  // ---------------- Path ----------------
+
+  private applyPath(c: PathConstraintData, v: Record<string, number>) {
+    const { mixRotate, mixX, mixY } = v;
+    if (mixRotate <= 0 && mixX <= 0 && mixY <= 0) return;
+    const slot = this.slotById.get(c.target);
+    if (!slot) return;
+    const att = this.getAttachment(slot);
+    if (!att || att.type !== "path") return;
+    const spline = buildSpline(this.attachmentWorldVertices(slot, att), att.closed);
+    const total = spline.length;
+    if (total <= 1e-9) return;
+    const bones = c.bones.map((id) => this.boneById.get(id)).filter(Boolean) as Bone[];
+    const n = bones.length;
+    if (!n) return;
+    const lengths = bones.map((b) => b.data.length * worldScaleX(b.world));
+    const sumLen = lengths.reduce((s, l) => s + l, 0);
+    // Distance along the path of each bone origin, plus one past the last bone's tip.
+    const dist = new Array<number>(n + 1);
+    dist[0] = c.positionMode === "percent" ? v.position * total : v.position;
+    for (let i = 0; i < n; i++) {
+      let gap: number;
+      switch (c.spacingMode) {
+        case "fixed":
+          gap = v.spacing;
+          break;
+        case "percent":
+          gap = v.spacing * total;
+          break;
+        case "proportional":
+          gap = v.spacing * total * (sumLen > 0 ? lengths[i] / sumLen : 1 / n);
+          break;
+        default:
+          gap = lengths[i] + v.spacing;
+      }
+      dist[i + 1] = dist[i] + gap;
+    }
+    const pts = dist.map((d) => spline.sample(d));
+    const root = this.rootMatrix;
+    const off = c.offsetRotation * DEG;
+    for (let i = 0; i < n; i++) {
+      const b = bones[i];
+      const w = b.world;
+      const p = pts[i];
+      w.x += (p.x - w.x) * mixX;
+      w.y += (p.y - w.y) * mixY;
+      if (mixRotate > 0) {
+        let ang = p.angle;
+        if (c.rotateMode !== "tangent") {
+          // Aim from where the bone now is at the next placed point.
+          const q = pts[i + 1];
+          const dx = q.x - w.x;
+          const dy = q.y - w.y;
+          const d = Math.hypot(dx, dy);
+          if (d > 1e-6) {
+            ang = Math.atan2(dy, dx);
+            if (c.rotateMode === "chainScale" && lengths[i] > 1e-6) {
+              const k = 1 + (d / lengths[i] - 1) * mixRotate;
+              w.a *= k;
+              w.c *= k;
+            }
+          }
+        }
+        rotateAxes(w, wrap((ang + off) * RAD - worldRotation(w)) * mixRotate * DEG);
+      }
+      b.updateSubtree(root, false);
+    }
+  }
+
+  // ---------------- Physics ----------------
+
+  private applyPhysics(c: PhysicsConstraintData, v: Record<string, number>, dt: number) {
+    const b = this.boneById.get(c.bone);
+    if (!b) return;
+    const w = b.world;
+    const len = b.data.length > 1e-6 ? b.data.length : 1;
+    const ox = w.x;
+    const oy = w.y;
+    const [tx, ty] = apply(w, len, 0);
+    let st = this.physicsState.get(c.id);
+    if (!st) {
+      const at = (x: number, y: number): Particle => ({ x, y, vx: 0, vy: 0, px: x, py: y });
+      st = { origin: at(ox, oy), tip: at(tx, ty), lastO: [ox, oy], lastT: [tx, ty], time: 0, steps: 0 };
+      this.physicsState.set(c.id, st);
+    }
+    // Inertia: the part of the bone's movement not resisted is carried straight into the particles.
+    const carry = 1 - Math.min(1, Math.max(0, v.inertia));
+    const shift = (p: Particle, dx: number, dy: number) => {
+      p.x += dx;
+      p.y += dy;
+      p.px += dx;
+      p.py += dy;
+    };
+    shift(st.origin, (ox - st.lastO[0]) * carry, (oy - st.lastO[1]) * carry);
+    shift(st.tip, (tx - st.lastT[0]) * carry, (ty - st.lastT[1]) * carry);
+    st.lastO = [ox, oy];
+    st.lastT = [tx, ty];
+
+    const h = 1 / Math.max(1, c.fps || 60);
+    st.time += dt;
+    const due = Math.floor(st.time / h + 1e-6);
+    if (due - st.steps > MAX_PHYSICS_STEPS) st.steps = due - MAX_PHYSICS_STEPS;
+    // Spring constant per unit mass, capped so explicit integration stays stable.
+    const k = Math.min(Math.max(0, v.strength) / Math.max(1e-6, v.mass), 1 / (h * h));
+    const decay = Math.exp(-Math.max(0, v.damping) * h);
+    const step = (p: Particle, gx: number, gy: number) => {
+      p.px = p.x;
+      p.py = p.y;
+      p.vx = (p.vx + ((gx - p.x) * k + v.wind) * h) * decay;
+      p.vy = (p.vy + ((gy - p.y) * k - v.gravity) * h) * decay;
+      p.x += p.vx * h;
+      p.y += p.vy * h;
+    };
+    for (; st.steps < due; st.steps++) {
+      step(st.origin, ox, oy);
+      step(st.tip, tx, ty);
+    }
+    const mix = Math.min(1, Math.max(0, v.mix));
+    if (mix <= 0) return;
+    // Draw between the last two steps so motion is smooth at any frame rate.
+    const f = Math.min(1, Math.max(0, st.time / h - st.steps));
+    const lerpP = (p: Particle): [number, number] => [p.px + (p.x - p.px) * f, p.py + (p.y - p.py) * f];
+    const [sox, soy] = lerpP(st.origin);
+    const [stx, sty] = lerpP(st.tip);
+    w.x = ox + (sox - ox) * c.x * mix;
+    w.y = oy + (soy - oy) * c.y * mix;
+    if (c.rotate > 0 || c.scaleX > 0) {
+      const dx = stx - w.x;
+      const dy = sty - w.y;
+      const d = Math.hypot(dx, dy);
+      if (d > 1e-9) {
+        const base = Math.atan2(ty - oy, tx - ox);
+        rotateAxes(w, wrap((Math.atan2(dy, dx) - base) * RAD) * c.rotate * mix * DEG);
+        if (c.scaleX > 0 && b.data.length > 1e-6) {
+          const s = 1 + (d / len - 1) * c.scaleX * mix;
+          w.a *= s;
+          w.c *= s;
+        }
+      }
+    }
+    b.updateSubtree(this.rootMatrix, false);
   }
 
   getAttachment(slot: Slot, name: string | null = slot.attachmentName): Attachment | null {
@@ -293,7 +625,7 @@ export class Skeleton {
     return this.skin?.attachments[id]?.[name] ?? defaultSkin(this.doc).attachments[id]?.[name] ?? null;
   }
 
-  /** World-space vertices of a slot's current mesh/region/bbox/shape attachment. */
+  /** World-space vertices of a slot's region/mesh/path/bbox/shape/point attachment. */
   attachmentWorldVertices(slot: Slot, att: Attachment): Float32Array {
     const m = slot.bone.world;
     if (att.type === "region") {
@@ -312,7 +644,7 @@ export class Skeleton {
       }
       return out;
     }
-    if (att.type === "mesh") {
+    if (att.type === "mesh" || att.type === "path") {
       const n = att.vertices.length / 2;
       const deform = slot.deform.get(att.name);
       const out = new Float32Array(n * 2);

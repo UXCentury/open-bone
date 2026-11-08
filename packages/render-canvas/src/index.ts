@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, apply } from "@openbone/core";
+import { type OpenBoneDocument, apply, buildSpline, splinePolyline } from "@openbone/core";
 import type { DrawItem, Skeleton } from "@openbone/runtime";
 
 /** Minimal 2D context surface (browser CanvasRenderingContext2D or @napi-rs/canvas SKRSContext2D). */
@@ -14,6 +14,8 @@ export interface CanvasRenderOptions {
   /** Artboard → canvas transform (pan/zoom). Default: identity in artboard pixels. */
   view?: { x: number; y: number; zoom: number };
   bones?: boolean;
+  /** Draw path attachments (curve, anchors and handles). Defaults to `bones`. */
+  paths?: boolean;
   boundingBoxes?: boolean;
   wireframe?: boolean;
   selectedBone?: string | null;
@@ -63,6 +65,7 @@ export class CanvasRenderer {
     this.setView(doc, view);
     for (const item of sk.drawList()) this.drawItem(item, opts.wireframe ?? false, view.zoom);
     if (opts.boundingBoxes) this.drawBoundingBoxes(sk, view.zoom);
+    if (opts.paths ?? opts.bones) this.drawPaths(sk, view.zoom);
     if (opts.bones) this.drawBones(sk, view.zoom, opts.selectedBone ?? null);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
@@ -186,6 +189,42 @@ export class CanvasRenderer {
       ctx.stroke();
     }
     ctx.setLineDash([]);
+  }
+
+  drawPaths(sk: Skeleton, zoom: number) {
+    const { ctx } = this;
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+    for (const slot of sk.drawOrder) {
+      const att = sk.getAttachment(slot);
+      if (!att || att.type !== "path") continue;
+      const v = sk.attachmentWorldVertices(slot, att);
+      const line = splinePolyline(buildSpline(v, att.closed));
+      ctx.strokeStyle = att.color;
+      ctx.lineWidth = 2 / zoom;
+      ctx.beginPath();
+      for (let i = 0; i < line.length; i += 2) (i ? ctx.lineTo : ctx.moveTo).call(ctx, line[i], line[i + 1]);
+      ctx.stroke();
+      // Handles and anchors.
+      ctx.lineWidth = 1 / zoom;
+      ctx.beginPath();
+      for (let k = 0; k + 5 < v.length; k += 6) {
+        ctx.moveTo(v[k], v[k + 1]);
+        ctx.lineTo(v[k + 2], v[k + 3]);
+        ctx.lineTo(v[k + 4], v[k + 5]);
+      }
+      ctx.stroke();
+      ctx.fillStyle = att.color;
+      const r = 3 / zoom;
+      for (let k = 0; k + 5 < v.length; k += 6) {
+        ctx.fillRect(v[k + 2] - r, v[k + 3] - r, r * 2, r * 2);
+        for (const h of [k, k + 4]) {
+          ctx.beginPath();
+          ctx.arc(v[h], v[h + 1], r * 0.6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
   }
 
   drawBones(sk: Skeleton, zoom: number, selected: string | null) {

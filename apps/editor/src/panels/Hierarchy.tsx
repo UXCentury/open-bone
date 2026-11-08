@@ -107,7 +107,7 @@ export function Hierarchy() {
           <For each={roots()}>{(b) => <BoneNode bone={b} depth={0} />}</For>
         </div>
       </Section>
-      <Show when={doc().skeleton.ik.length + doc().skeleton.transform.length > 0}>
+      <Show when={doc().skeleton.ik.length + doc().skeleton.transform.length + doc().skeleton.path.length + doc().skeleton.physics.length > 0}>
         <Section title="Constraints">
           <For each={doc().skeleton.ik}>
             {(c) => (
@@ -120,6 +120,20 @@ export function Hierarchy() {
             {(c) => (
               <div class="tree-row" classList={{ selected: selection()?.kind === "transform" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "transform", id: c.id })}>
                 <span class="icon">⇉</span> {c.name}
+              </div>
+            )}
+          </For>
+          <For each={doc().skeleton.path}>
+            {(c) => (
+              <div class="tree-row" classList={{ selected: selection()?.kind === "path" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "path", id: c.id })}>
+                <span class="icon">〰</span> {c.name}
+              </div>
+            )}
+          </For>
+          <For each={doc().skeleton.physics}>
+            {(c) => (
+              <div class="tree-row" classList={{ selected: selection()?.kind === "physics" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "physics", id: c.id })}>
+                <span class="icon">≋</span> {c.name}
               </div>
             )}
           </For>
