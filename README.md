@@ -38,7 +38,9 @@
 - **Setup and Animate modes**, undo/redo for every change.
 - **Viewport aids**: grid, rulers, draggable guides (saved per project) and **smart snapping** to the artboard centre/edges/origin, guides, grid, other bone joints and mesh vertices (hold Ctrl/⌘ to bypass).
 - **Dockable workspace**: resize panels, drag panel tabs to any side or group them, collapse sections; the layout is remembered and can be reset.
-- In-app dialogs, keyboard shortcuts, and a live MCP connection that shows an agent's edits as they happen.
+- **Play mode** (▶ Play, `P`): run the result in the editor exactly as shipped, with a floating panel to toggle inputs, fire triggers and watch events, state changes and script logs; pick the state machine or animation, skin and speed, fit or 1:1, full window. Stop returns to the exact editing state.
+- **Keyboard shortcuts** that use ⌘ on macOS and Ctrl on Windows/Linux, with a searchable reference (`?`) where every key can be rebound (conflict-checked, saved per browser).
+- In-app dialogs and a live MCP connection that shows an agent's edits as they happen.
 
 ### Export
 - **OpenBone project** (`.obone`): the whole project, to open and keep editing later.

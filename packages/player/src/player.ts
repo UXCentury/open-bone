@@ -36,6 +36,8 @@ export class Player {
   private view = { x: 0, y: 0, zoom: 1 };
   private ro: ResizeObserver | null = null;
   playing = false;
+  /** Playback rate (1 = real time). */
+  speed = 1;
   ready: Promise<void>;
 
   constructor(private opts: PlayerOptions) {
@@ -171,11 +173,17 @@ export class Player {
       if (!this.playing) return;
       const dt = Math.min(0.1, (now - this.last) / 1000);
       this.last = now;
-      this.instance.advance(dt);
+      this.instance.advance(dt * this.speed);
       this.draw();
       this.raf = requestAnimationFrame(tick);
     };
     this.raf = requestAnimationFrame(tick);
+  }
+
+  /** Change how the artboard fits the canvas ("none" = actual size, centred). */
+  setFit(fit: "contain" | "cover" | "none") {
+    this.opts.fit = fit;
+    if (this.doc) this.resize();
   }
 
   pause() {

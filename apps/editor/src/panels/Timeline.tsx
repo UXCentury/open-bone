@@ -1,5 +1,6 @@
 import { type Curve, EASINGS, type Key, type Timeline as TL, animationDuration } from "@openbone/core";
 import { For, Show, createSignal } from "solid-js";
+import { tip } from "../shortcuts/index.ts";
 import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey } from "../state.ts";
 import { askText } from "../dialogs.tsx";
 
@@ -125,20 +126,26 @@ export function Timeline() {
   };
 
   return (
-    <div class="timeline" onKeyDown={(e) => (e.key === "Delete" || e.key === "Backspace") && deleteSelected()} tabIndex={0}>
+    <div class="timeline" onKeyDown={(e) => {
+        // A selected key wins over the global Delete shortcut (which deletes the selected bone or slot).
+        if ((e.key === "Delete" || e.key === "Backspace") && selKey()) {
+          e.preventDefault();
+          deleteSelected();
+        }
+      }} tabIndex={0}>
       <div class="timeline-bar">
         <select value={anim()?.id ?? ""} onChange={(e) => setAnimationId(e.currentTarget.value || null)}>
           <option value="" selected={!(anim()?.id ?? "")}>— animation —</option>
           <For each={doc().animations}>{(a) => <option value={a.id} selected={a.id === (anim()?.id ?? "")}>{a.name}</option>}</For>
         </select>
-        <button onClick={() => setTime(0)} title="To start">⏮</button>
+        <button onClick={() => setTime(0)} title={tip("To start", "anim.first")}>⏮</button>
         <button
           class="play"
           onClick={() => {
             if (mode() !== "animate") setMode("animate");
             setPlaying(!playing());
           }}
-          title="Play/pause (Space)"
+          title={tip("Play/pause", "anim.playPause")}
         >
           {playing() ? "⏸" : "▶"}
         </button>

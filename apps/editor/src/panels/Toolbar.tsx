@@ -28,14 +28,17 @@ import {
   skinArg,
 } from "../state.ts";
 import { askConfirm } from "../dialogs.tsx";
+import { playActive, togglePlay } from "../play.ts";
+import { tip } from "../shortcuts/index.ts";
+import { setOpenFileHandler, setShortcutsOpen } from "../shortcuts/actions.ts";
 
-const TOOLS: { id: Tool; label: string; key: string; title: string }[] = [
-  { id: "select", label: "⟲", key: "V", title: "Select / rotate bones (V)" },
-  { id: "translate", label: "✥", key: "T", title: "Translate bones / move attachments (T)" },
-  { id: "scale", label: "⤡", key: "S", title: "Scale bones, shift = uniform (S)" },
-  { id: "bone", label: "🦴", key: "B", title: "Create bone: drag from parent (B)" },
-  { id: "mesh", label: "◇", key: "M", title: "Edit mesh vertices: select, drag, Ctrl-click to add, Delete to remove (M)" },
-  { id: "weights", label: "◐", key: "W", title: "Paint mesh weights for a bone (W)" },
+const TOOLS: { id: Tool; label: string; title: string }[] = [
+  { id: "select", label: "⟲", title: "Select / rotate bones" },
+  { id: "translate", label: "✥", title: "Translate bones / move attachments" },
+  { id: "scale", label: "⤡", title: "Scale bones, shift = uniform" },
+  { id: "bone", label: "🦴", title: "Create bone: drag from parent" },
+  { id: "mesh", label: "◇", title: "Edit mesh vertices: select, drag, Ctrl/⌘-click to add, Delete to remove" },
+  { id: "weights", label: "◐", title: "Paint mesh weights for a bone" },
 ];
 
 export function undo() {
@@ -66,6 +69,8 @@ export async function importImages(files: FileList | File[]) {
 export function Toolbar() {
   let fileInput!: HTMLInputElement;
   let imageInput!: HTMLInputElement;
+  setOpenFileHandler(() => openProject(() => fileInput.click()));
+  const locked = playActive;
 
   const open = async (files: FileList | null) => {
     const f = files?.[0];
@@ -84,6 +89,7 @@ export function Toolbar() {
       </div>
       <div class="group">
         <button
+          disabled={locked()}
           onClick={async () => {
             const ok = await askConfirm({
               title: "Start a new project?",
@@ -96,12 +102,13 @@ export function Toolbar() {
         >
           New
         </button>
-        <button onClick={() => openProject(() => fileInput.click())}>Open</button>
-        <button onClick={() => saveProject()} title="Save (Ctrl+S)">Save</button>
-        <button onClick={() => setExportOpen(true)} title="Export a file with the parts you choose, with a live preview (Ctrl+E)">
+        <button disabled={locked()} title={tip("Open a project", "file.open")} onClick={() => openProject(() => fileInput.click())}>Open</button>
+        <button onClick={() => saveProject()} title={tip("Save", "file.save")}>Save</button>
+        <button disabled={locked()} onClick={() => setExportOpen(true)} title={tip("Export a file with the parts you choose, with a live preview", "file.export")}>
           Export…
         </button>
         <select
+          disabled={locked()}
           onChange={(e) => {
             if (e.currentTarget.value) openExample(e.currentTarget.value);
             e.currentTarget.value = "";
@@ -115,26 +122,38 @@ export function Toolbar() {
         <input ref={fileInput} type="file" accept=".obone,.obonb,.json,application/json,application/octet-stream" hidden onChange={(e) => open(e.currentTarget.files)} />
       </div>
       <div class="group">
-        <button title="Undo (Ctrl+Z)" onClick={undo}>↶</button>
-        <button title="Redo (Ctrl+Shift+Z)" onClick={redo}>↷</button>
+        <button disabled={locked()} title={tip("Undo", "edit.undo")} onClick={undo}>↶</button>
+        <button disabled={locked()} title={tip("Redo", "edit.redo")} onClick={redo}>↷</button>
+      </div>
+      <div class="group">
+        <button
+          class="play-btn"
+          classList={{ stop: playActive() }}
+          aria-pressed={playActive()}
+          title={tip(playActive() ? "Stop and return to editing" : "Play: try the finished result with its inputs, scripts and pointer interaction", "play.toggle")}
+          onClick={togglePlay}
+        >
+          {playActive() ? "■ Stop" : "▶ Play"}
+        </button>
       </div>
       <div class="group segmented">
-        <button classList={{ active: mode() === "setup" }} onClick={() => { setMode("setup"); setPlaying(false); }}>Setup</button>
-        <button classList={{ active: mode() === "animate" }} onClick={() => setMode("animate")}>Animate</button>
+        <button disabled={locked()} title={tip("Setup mode", "mode.toggle")} classList={{ active: mode() === "setup" }} onClick={() => { setMode("setup"); setPlaying(false); }}>Setup</button>
+        <button disabled={locked()} title={tip("Animate mode", "mode.toggle")} classList={{ active: mode() === "animate" }} onClick={() => setMode("animate")}>Animate</button>
       </div>
       <div class="group segmented">
         <For each={TOOLS}>
           {(t) => (
-            <button title={t.title} classList={{ active: tool() === t.id }} onClick={() => setTool(t.id)}>
+            <button disabled={locked()} title={tip(t.title, `tool.${t.id}`)} classList={{ active: tool() === t.id }} onClick={() => setTool(t.id)}>
               {t.label}
             </button>
           )}
         </For>
       </div>
       <div class="group">
-        <button onClick={() => imageInput.click()} title="Import PNG/JPG as a new slot on the selected bone">+ Image</button>
+        <button disabled={locked()} onClick={() => imageInput.click()} title="Import PNG/JPG as a new slot on the selected bone">+ Image</button>
         <input ref={imageInput} type="file" accept="image/*" multiple hidden onChange={(e) => e.currentTarget.files && importImages(e.currentTarget.files)} />
         <button
+          disabled={locked()}
           title="Add a vector shape slot on the selected bone"
           onClick={() =>
             transaction("add shape", () => {
@@ -149,11 +168,12 @@ export function Toolbar() {
         </button>
       </div>
       <div class="group">
-        <label class="check"><input type="checkbox" checked={showBones()} onChange={(e) => setShowBones(e.currentTarget.checked)} /> Bones</label>
-        <label class="check"><input type="checkbox" checked={showMesh()} onChange={(e) => setShowMesh(e.currentTarget.checked)} /> Mesh</label>
+        <label class="check" title={tip("Show bones", "view.bones")}><input type="checkbox" disabled={locked()} checked={showBones()} onChange={(e) => setShowBones(e.currentTarget.checked)} /> Bones</label>
+        <label class="check" title={tip("Show mesh wireframes", "view.mesh")}><input type="checkbox" disabled={locked()} checked={showMesh()} onChange={(e) => setShowMesh(e.currentTarget.checked)} /> Mesh</label>
       </div>
       <div class="group">
         <select
+          disabled={locked()}
           title="Panel layout: drag panel tabs to move them, drag the dividers to resize"
           onChange={(e) => {
             const v = e.currentTarget.value;
@@ -168,6 +188,11 @@ export function Toolbar() {
         </select>
       </div>
       <div class="spacer" />
+      <div class="group">
+        <button class="help-btn" title={tip("Keyboard shortcuts", "help.shortcuts")} aria-label="Keyboard shortcuts" onClick={() => setShortcutsOpen(true)}>
+          ⌨
+        </button>
+      </div>
       <div class="group">
         <Show
           when={bridgeStatus() === "connected"}

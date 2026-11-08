@@ -6,6 +6,7 @@ import { createQuickJsHost } from "@openbone/scripting";
 import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { imageFor, setImageReadyCallback } from "../images.ts";
 import { commitBone, commitAttachmentMove } from "../edit.ts";
+import { isTypingTarget, kbd, shortcuts, tip } from "../shortcuts/index.ts";
 import {
   type MeshTarget,
   type WeightTable,
@@ -929,32 +930,62 @@ export function Viewport() {
   function onWheel(e: WheelEvent) {
     e.preventDefault();
     const [mx, my] = local(e);
-    const k = Math.exp(-e.deltaY * 0.0015);
+    zoomBy(Math.exp(-e.deltaY * 0.0015), mx, my);
+  }
+
+  /** Zoom by `k` around a point in canvas px (default: the centre). */
+  const zoomBy = (k: number, mx = wrap.clientWidth / 2, my = wrap.clientHeight / 2) => {
     const z = Math.min(20, Math.max(0.05, view.zoom * k));
     view.x = mx - ((mx - view.x) * z) / view.zoom;
     view.y = my - ((my - view.y) * z) / view.zoom;
     view.zoom = z;
-  }
+  };
+  /** Centre the view on the selected bone (or the selected slot's bone). */
+  const focusSelection = () => {
+    const id = selectedBoneId();
+    const b = id && ensureSkeleton().boneById_(id);
+    if (!b) {
+      fit();
+      return;
+    }
+    pose(sk!, 0);
+    const d = store.doc;
+    const zoom = Math.max(view.zoom, 1);
+    view.zoom = zoom;
+    view.x = wrap.clientWidth / 2 - (b.world.x + d.originX) * zoom;
+    view.y = wrap.clientHeight / 2 - (d.originY - b.world.y) * zoom;
+  };
 
+  // Space held = pan with the mouse (a gesture, not a registry shortcut; Space alone still plays the timeline).
   let spaceDown = false;
   const kd = (e: KeyboardEvent) => {
-    if (e.code === "Space" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) spaceDown = true;
-    if (e.key === "f" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) fit();
+    if (e.code === "Space" && !isTypingTarget(e.target as HTMLElement)) spaceDown = true;
   };
   const ku = (e: KeyboardEvent) => {
     if (e.code === "Space") spaceDown = false;
   };
+  const blur = () => (spaceDown = false);
 
   onMount(() => {
     setImageReadyCallback(() => {});
     raf = requestAnimationFrame(frame);
     window.addEventListener("keydown", kd);
     window.addEventListener("keyup", ku);
+    window.addEventListener("blur", blur);
+    const off = [
+      shortcuts.bind("view.fit", fit),
+      shortcuts.bind("view.focus", focusSelection),
+      shortcuts.bind("view.zoomIn", () => zoomBy(1.25)),
+      shortcuts.bind("view.zoomOut", () => zoomBy(1 / 1.25)),
+      shortcuts.bind("view.zoom100", () => zoomBy(1 / view.zoom)),
+    ];
+    onCleanup(() => off.forEach((f) => f()));
   });
   onCleanup(() => {
     cancelAnimationFrame(raf);
     window.removeEventListener("keydown", kd);
     window.removeEventListener("keyup", ku);
+    window.removeEventListener("blur", blur);
   });
 
   createEffect(on(selection, () => setMeshSel([]), { defer: true }));
@@ -1003,10 +1034,10 @@ export function Viewport() {
       </Show>
       <div class="view-bar" onPointerDown={(e) => e.stopPropagation()}>
         <div class="seg">
-          <button classList={{ active: viewAids().grid }} aria-pressed={viewAids().grid} title="Grid (G)" onClick={() => toggleViewAid("grid")}>
+          <button classList={{ active: viewAids().grid }} aria-pressed={viewAids().grid} title={tip("Grid", "view.grid")} onClick={() => toggleViewAid("grid")}>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 5.5h14M1 10.5h14M5.5 1v14M10.5 1v14" /></svg>
           </button>
-          <button classList={{ active: viewAids().rulers }} aria-pressed={viewAids().rulers} title="Rulers and guides (Shift+R). Drag from a ruler to add a guide; drag it back to remove." onClick={() => toggleViewAid("rulers")}>
+          <button classList={{ active: viewAids().rulers }} aria-pressed={viewAids().rulers} title={`${tip("Rulers and guides", "view.rulers")}. Drag from a ruler to add a guide; drag it back to remove.`} onClick={() => toggleViewAid("rulers")}>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 11.5l10-10 3 3-10 10z M4 9l1.5 1.5M6 7l2 2M8 5l1.5 1.5M10 3l2 2" /></svg>
           </button>
           <button classList={{ active: viewAids().snap }} aria-pressed={viewAids().snap} title="Snapping (hold Ctrl/⌘ while dragging to bypass)" onClick={() => toggleViewAid("snap")}>
@@ -1035,7 +1066,7 @@ export function Viewport() {
           </div>
         </Show>
         <span class="bar-sep" />
-        <button classList={{ active: onionSkin() }} disabled={mode() !== "animate"} title="Onion skin: show ghost poses before (red) and after (green) the current frame (Animate mode)" onClick={() => setOnionSkin(!onionSkin())}>
+        <button classList={{ active: onionSkin() }} disabled={mode() !== "animate"} title={tip("Onion skin: show ghost poses before (red) and after (green) the current frame (Animate mode)", "view.onion")} onClick={() => setOnionSkin(!onionSkin())}>
           Onion
         </button>
         <Show when={onionSkin() && mode() === "animate"}>
@@ -1049,14 +1080,14 @@ export function Viewport() {
             fr
           </label>
         </Show>
-        <button onClick={fit} title="Fit artboard (F)">
+        <button onClick={fit} title={tip("Fit artboard", "view.fit")}>
           ⤢
         </button>
       </div>
       <div class="viewport-hint">
         {running()
           ? "▶ Running state machine — interact with the artboard"
-          : `${mode() === "animate" ? `ANIMATE${currentAnimation() ? ` · ${currentAnimation()!.name} @ ${time().toFixed(2)}s` : " · no animation"}` : "SETUP"}${activeSkin() ? ` · SKIN ${activeSkin()!.name}` : ""} · wheel: zoom · alt/right-drag: pan · F: fit`}
+          : `${mode() === "animate" ? `ANIMATE${currentAnimation() ? ` · ${currentAnimation()!.name} @ ${time().toFixed(2)}s` : " · no animation"}` : "SETUP"}${activeSkin() ? ` · SKIN ${activeSkin()!.name}` : ""} · wheel: zoom · alt/right-drag: pan · ${kbd("view.fit")}: fit · ${kbd("help.shortcuts")}: shortcuts`}
       </div>
     </div>
   );
