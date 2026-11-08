@@ -2,12 +2,57 @@
 
 **Open-source 2D skeletal animation (Spine-style rigging) + Rive-style interactivity + an MCP server so AI agents can build animations for you.**
 
-- **Rig**: bones, slots, draw order, skins, region/image attachments, vector shapes, weighted meshes, bounding boxes, points, bezier paths, 1- and 2-bone IK (soft, stretch, compress), transform constraints (world/local, absolute/relative, shear), path constraints, physics constraints (secondary motion).
-- **Animate**: per-property timelines (bone rotate/translate/scale/shear, slot colour/attachment, IK mix, mesh deform, draw order), bezier/stepped curves, events, track mixing.
-- **Make it interactive**: state machines with layers, bool/number/trigger inputs, 1D blend states, any-state transitions, exit times, cross-fades, pointer listeners on hit boxes, reported events, and **sandboxed scripts** (QuickJS) with an `ob` API.
-- **Edit anywhere**: SolidJS web editor, Tauri desktop app, CLI, and a **Model Context Protocol server** (68 tools) with a live bridge: watch an agent rig and animate in the editor in real time.
-- **Ship it**: renderer-agnostic TypeScript runtime, WebGL2 + Canvas2D renderers, and an `<openbone-player>` web component.
-- **Export**: JSON (`.obone`) or compact binary (`.obonb`) with content selection, nonessential-data stripping, animation clean-up and atlas packing; images as PNG/JPEG (single frame or ZIP sequence), animated GIF and APNG, layered PSD; video as AVI or MOV (Motion-JPEG). Export settings can be saved and loaded.
+## Features
+
+### Rigging
+- **Bones** with parent/child hierarchy, length, rotation, translation, scale and shear, and inherit modes (normal, only translation, no rotation, no scale).
+- **Slots** with draw order, colour/alpha tint and blend modes (normal, additive, multiply, screen).
+- **Skins**: create, duplicate, rename and delete outfits, switch them live in the viewport, player and previews; attachments can override the default skin per outfit.
+- **Constraints**
+  - **IK**: 1- and 2-bone, mix, bend direction, softness, stretch and compress.
+  - **Transform**: rotate/translate/scale/shear mixes, world or local space, absolute or relative.
+  - **Path**: place and rotate a bone chain along a bezier path, with position, spacing and rotate modes.
+  - **Physics**: secondary motion (hair, cloth, tails) with inertia, strength, damping, gravity and wind; deterministic fixed timestep.
+
+### Attachments
+- **Regions** (images), **vector shapes** (rect, rounded rect, ellipse, polygon with fill and stroke), **points** and **bounding boxes** (hit areas).
+- **Meshes**: deformable, weighted to bones, with free-form deform keys.
+- **Clipping masks**: slots after the mask, up to an end slot, are drawn only inside its outline (Canvas2D clip, WebGL2 stencil).
+- **Bezier paths** for path constraints, optionally weighted to bones.
+- **Texture atlas packing** (MaxRects): fewer GPU draw calls and single-file exports.
+
+### Animation
+- Per-property timelines: bone rotate/translate/scale/shear, slot colour and attachment, IK/transform/path/physics constraint values, mesh and path deform, draw order.
+- Linear, stepped and bezier curves with a **curve graph editor** (draggable handles).
+- **Dopesheet timeline** with auto-key, key dragging, events (with int/float/string payloads and audio references).
+- Track mixing and cross-fades at runtime.
+- **Onion skin**: ghost poses before (red) and after (green) the current frame.
+
+### Interactivity (Rive-style)
+- **State machines** with layers, bool/number/trigger inputs, animation and 1D blend states, any-state transitions, conditions, exit times and cross-fades.
+- **Pointer listeners** on hit boxes (down, up, enter, exit, move, click) that set inputs, fire triggers, report events or run scripts.
+- **Sandboxed scripts** (QuickJS-WASM, memory cap and per-call deadline) with an `ob` API: `onStart`, `onUpdate`, `onEvent`, `onPointer`.
+
+### Editor
+- **Tools**: select/rotate, translate, scale, create bone, **mesh vertex editing** (select, drag, add, delete, nudge; re-triangulates) and **weight painting** (brush with add/remove, radius and strength, heat-map and per-vertex weight readout).
+- **Setup and Animate modes**, undo/redo for every change.
+- **Viewport aids**: grid, rulers, draggable guides (saved per project) and **smart snapping** to the artboard centre/edges/origin, guides, grid, other bone joints and mesh vertices (hold Ctrl/⌘ to bypass).
+- **Dockable workspace**: resize panels, drag panel tabs to any side or group them, collapse sections; the layout is remembered and can be reset.
+- In-app dialogs, keyboard shortcuts, and a live MCP connection that shows an agent's edits as they happen.
+
+### Export
+- **OpenBone project** (`.obone`): the whole project, to open and keep editing later.
+- **Data**: JSON (`.json`) or compact **binary** (`.obonb`, about 40% of JSON), with a choice of animations, state machines, scripts and skins, plus nonessential-data stripping, animation clean-up, embedded images and atlas packing.
+- **Images**: PNG and JPEG (one frame or a ZIP of every frame), animated **GIF** and **APNG**, layered **PSD** (one layer per frame).
+- **Video**: **AVI** and **MOV** (Motion-JPEG).
+- Animation, skin, frame rate, scale, artboard or fit-to-content area, transparent or coloured background, quality and looping options; a live preview; export settings can be saved to a file and loaded again.
+
+### Runtime and tools
+- Renderer-agnostic TypeScript runtime with **WebGL2** (batched) and **Canvas2D** renderers.
+- **`<openbone-player>`** web component and a `Player` class (loads `.obone`, `.json` and `.obonb`).
+- **MCP server** (78 tools; every editing op becomes a tool automatically) with render/simulate tools and a live WebSocket bridge to the editor.
+- **CLI**: validate, summarize, render PNG/GIF, simulate state machines, apply any op.
+- **Desktop app** (Tauri 2) with native file dialogs.
 
 Everything in this repository is **MIT** and built only on permissively licensed open-source dependencies.
 
@@ -21,7 +66,7 @@ pnpm install
 pnpm dev
 ```
 
-The editor opens at http://localhost:5180 with the *Walker* example (IK legs, weighted cape mesh, idle/walk blend, jump trigger, eye-follow script). The player demo is at http://localhost:5180/player.html.
+The editor opens at http://localhost:5180 with the *Walker* example (IK legs, weighted cape mesh, idle/walk blend, jump trigger, eye-follow script). The *Examples* menu also has an interactive button (state machine, clipping mask) and a tail (path and physics constraints). The player demo is at http://localhost:5180/player.html.
 
 ```bash
 pnpm test
@@ -76,17 +121,18 @@ Requires Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3
 
 | Package | What it is |
 |---|---|
-| `packages/core` | Document model (`.obone` JSON), the **op registry** (every edit: validated with zod, undoable, replayable), store with undo/redo, validation, summaries |
+| `packages/core` | Document model (`.obone` JSON and `.obonb` binary), the **op registry** (every edit: validated with zod, undoable, replayable), store with undo/redo, validation, export selection, atlas packing, snapping, summaries |
 | `packages/runtime` | Pose solver, IK/transform/path/physics constraints, animation sampling and mixing, state machine, listeners, events, script host interface |
 | `packages/scripting` | QuickJS-WASM sandbox (memory cap and CPU deadline per call) |
 | `packages/render-webgl` | Batched WebGL2 renderer |
 | `packages/render-canvas` | Canvas2D renderer (fallback, editor viewport, headless PNG/GIF in Node) |
 | `packages/player` | `<openbone-player>` and the `Player` class |
+| `packages/export` | Image and video encoders for exports: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP |
 | `packages/mcp` | MCP server (stdio + streamable HTTP), render/simulate tools, live WebSocket bridge |
 | `packages/cli` | `openbone` command line |
 | `apps/editor` | SolidJS editor |
 | `apps/desktop` | Tauri 2 shell around the editor, with native file dialogs |
-| `examples` | Walker and button projects, plus the script that builds them |
+| `examples` | Walker, button and tail projects, plus the script that builds them |
 
 Read [docs/architecture.md](docs/architecture.md) for the design and [docs/format.md](docs/format.md) for the file format.
 
