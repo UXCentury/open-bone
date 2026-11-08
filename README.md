@@ -71,7 +71,7 @@
 ### Runtime and tools
 - Renderer-agnostic TypeScript runtime with **WebGL2** (batched) and **Canvas2D** renderers.
 - **`<openbone-player>`** web component and a `Player` class (loads `.obone`, `.json` and `.obonb`).
-- **MCP server** (109 tools; every editing op becomes a tool automatically) with render/simulate tools and a live WebSocket bridge to the editor.
+- **MCP server** (116 tools; every editing op becomes a tool automatically) covering everything the editor does: render/simulate, every export format, trace mesh, lip sync, the Pose tool, weight clean-up and stats, plus a live WebSocket bridge to the editor.
 - **CLI**: validate, summarize, render PNG/GIF, simulate state machines, apply any op.
 - **Desktop app** (Tauri 2) with native file dialogs.
 

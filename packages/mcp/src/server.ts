@@ -9,13 +9,14 @@ import { z } from "zod";
 import { GUIDE } from "./guide.ts";
 import { packAtlas, pose, renderGif, renderPng } from "./render.ts";
 import { ProjectSession } from "./session.ts";
+import { registerExtraTools } from "./tools-extra.ts";
 
 export const snake = (s: string) => s.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
 
 const text = (v: unknown) => ({ content: [{ type: "text" as const, text: typeof v === "string" ? v : JSON.stringify(v, null, 1) }] });
 const fail = (e: unknown) => ({ isError: true, content: [{ type: "text" as const, text: `Error: ${(e as Error).message}` }] });
 
-const stepSchema = z.object({
+export const stepSchema = z.object({
   advance: z.number().min(0).optional().describe("Seconds to advance after applying this step (default 1/30)"),
   setInputs: z.record(z.string(), z.union([z.boolean(), z.number(), z.string()])).optional(),
   fire: z.array(z.string()).optional().describe("Trigger inputs to fire"),
@@ -378,6 +379,8 @@ export function createServer(opts: ServerOptions = {}) {
   server.registerResource("summary", "openbone://summary", { mimeType: "text/plain", description: "Outline of the open document" }, async (uri) => ({
     contents: [{ uri: uri.href, mimeType: "text/plain", text: summarize(session.doc) }],
   }));
+
+  registerExtraTools(server, session, scriptHost);
 
   server.registerPrompt(
     "rig_character",

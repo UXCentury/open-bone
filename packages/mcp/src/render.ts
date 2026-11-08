@@ -38,7 +38,7 @@ export interface RenderRequest extends PoseRequest {
   background?: string | null;
 }
 
-async function loadImages(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument) {
+export async function loadImages(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument) {
   const map = new Map<string, Image>();
   // Atlas pages and loose images, keyed by id (the renderers ask for page ids when images are packed).
   for (const img of textureAssets(doc)) {
@@ -51,7 +51,7 @@ async function loadImages(session: Pick<ProjectSession, "readImageSrc">, doc: Op
   return map;
 }
 
-function useSkin(inst: OpenBoneInstance, skin?: string) {
+export function useSkin(inst: OpenBoneInstance, skin?: string) {
   if (!skin) return;
   inst.skeleton.setSkin(skin);
   if (!inst.skeleton.skin) throw new Error(`Skin "${skin}" not found. Available: ${inst.doc.skeleton.skins.map((k) => k.name).join(", ")}`);

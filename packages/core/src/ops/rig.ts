@@ -758,6 +758,83 @@ defineOp({
   },
 });
 
+/** Current per-vertex weights of a mesh as bone → weight maps (unweighted = 100% the slot bone). */
+function meshWeightTable(doc: OpenBoneDocument, slotRef: string, attachment: string, skinRef?: string) {
+  const slot = get.slot(doc, slotRef);
+  const att = getAttachment(doc, slot.id, attachment, skinRef ? get.skin(doc, skinRef).id : undefined);
+  if (!att || att.type !== "mesh") throw new Error(`"${attachment}" on slot "${slot.name}" is not a mesh`);
+  const n = att.vertices.length / 2;
+  const table = Array.from({ length: n }, (_, v) => new Map<string, number>(att.weights ? att.weights[v].map((i) => [i.bone, i.weight]) : [[slot.bone, 1]]));
+  return { att, table, n };
+}
+const toEdits = (table: Map<string, number>[], verts: number[]) =>
+  verts.map((v) => ({ vertex: v, influences: [...table[v]].map(([bone, weight]) => ({ bone, weight: Math.round(weight * 1e4) / 1e4 })) }));
+const normaliseWeights = (m: Map<string, number>) => {
+  for (const [b, w] of m) if (w < 1e-4) m.delete(b);
+  const total = [...m.values()].reduce((s, w) => s + w, 0);
+  if (total > 0) for (const [b, w] of m) m.set(b, w / total);
+};
+
+defineOp({
+  name: "smoothWeights",
+  group: "attachment",
+  description: "Smooth a weighted mesh: blend each vertex's bone weights toward the average of its mesh neighbours (strength 0..1). Optionally only some vertices.",
+  schema: z.object({
+    slot: ref("Slot"),
+    attachment: z.string(),
+    skin: ref("Skin").optional(),
+    vertices: z.array(z.number().int().min(0)).optional().describe("Vertex indices (default all)"),
+    strength: z.number().min(0).max(1).default(0.5),
+  }),
+  apply(doc, a) {
+    const { att, table, n } = meshWeightTable(doc, a.slot, a.attachment, a.skin);
+    const verts = a.vertices ?? Array.from({ length: n }, (_, i) => i);
+    const nb = new Map<number, Set<number>>();
+    for (let i = 0; i < att.triangles.length; i += 3) {
+      const t = [att.triangles[i], att.triangles[i + 1], att.triangles[i + 2]];
+      for (const x of t) for (const y of t) if (x !== y) (nb.get(x) ?? nb.set(x, new Set()).get(x)!).add(y);
+    }
+    const next = verts.map((v) => {
+      const ns = [...(nb.get(v) ?? [])];
+      if (!ns.length) return table[v];
+      const avg = new Map<string, number>();
+      for (const k of ns) for (const [b, w] of table[k]) avg.set(b, (avg.get(b) ?? 0) + w / ns.length);
+      const m = new Map<string, number>();
+      for (const b of new Set([...table[v].keys(), ...avg.keys()])) m.set(b, (1 - a.strength) * (table[v].get(b) ?? 0) + a.strength * (avg.get(b) ?? 0));
+      normaliseWeights(m);
+      return m;
+    });
+    verts.forEach((v, i) => (table[v] = next[i]));
+    return writeWeights(doc, a.slot, a.attachment, toEdits(table, verts), "smoothWeights", a.skin);
+  },
+});
+
+defineOp({
+  name: "pruneWeights",
+  group: "attachment",
+  description: "Prune a weighted mesh: drop bone influences below `threshold` and keep at most `maxInfluences` per vertex, then renormalise. Optionally only some vertices.",
+  schema: z.object({
+    slot: ref("Slot"),
+    attachment: z.string(),
+    skin: ref("Skin").optional(),
+    vertices: z.array(z.number().int().min(0)).optional(),
+    threshold: z.number().min(0).max(1).default(0.05),
+    maxInfluences: z.number().int().min(1).max(8).default(4),
+  }),
+  apply(doc, a) {
+    const { table, n } = meshWeightTable(doc, a.slot, a.attachment, a.skin);
+    const verts = (a.vertices ?? Array.from({ length: n }, (_, i) => i)).filter((v) => {
+      const kept = [...table[v]].sort((x, y) => y[1] - x[1]).filter(([, w], i) => i === 0 || (w >= a.threshold && i < a.maxInfluences));
+      if (kept.length === table[v].size) return false;
+      table[v] = new Map(kept);
+      normaliseWeights(table[v]);
+      return true;
+    });
+    if (!verts.length) return { vertices: 0 };
+    return writeWeights(doc, a.slot, a.attachment, toEdits(table, verts), "pruneWeights", a.skin);
+  },
+});
+
 // ---------------- Constraints ----------------
 
 /** Remove animation timelines whose constraint no longer exists. */

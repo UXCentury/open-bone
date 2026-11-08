@@ -11,7 +11,13 @@ pnpm mcp --no-bridge                      # no WebSocket bridge
 
 - **Project**: `new_project`, `open_project`, `save_project` (projects with a path autosave after every edit), `get_summary`, `get_document`, `validate`, `undo`, `redo`, `import_image`, `import_audio` (WAV/MP3/OGG, creates a sound too), `get_guide`.
 - **Edit tools**: one per core op, for example `add_bone`, `update_bone`, `add_slot`, `add_shape`, `add_region`, `add_mesh`, `auto_weights`, `add_ik_constraint`, `create_animation`, `set_keys`, `add_event_key`, `create_state_machine`, `add_input`, `add_state`, `add_transition`, `add_listener`, `add_script`, `attach_script`, `set_atlas`, and audio: `add_sound`, `add_bus`, `set_audio_mix`, `add_audio_key`, `set_event_sound`, `set_state_sound`. Run `pnpm cli ops` for the full list.
-- **`pack_atlas`**: packs every image into texture atlas pages (embedded PNGs) and stores them with `set_atlas`, so renderers draw from one texture (fewer WebGL draw calls).
+- **`pack_atlas`**: packs every image into texture atlas pages (embedded PNGs) and stores them with `set_atlas`, so renderers draw from one texture (fewer WebGL draw calls). Options: `rotate` (turn images 90° to fit tighter) and `scale` (a fraction, or `"auto"` to fit one page).
+- **`export_file`**: everything the editor's Export dialog makes: `obone` (project), `json` / `obonb` (runtime data with picked animations and state machines), `png` / `jpeg` (a frame, or a ZIP of every frame), `apng`, `gif`, `psd` (a layer per frame), `avi` / `mov`, `spritesheet` (Unity / Godot / Flutter / generic packs) and `web` (the `<openbone-player>` pack as a ZIP or one HTML file). Frames come from an animation or a state machine run with steps.
+- **`trace_mesh`**: replaces a region with a mesh traced from its image's visible pixels (outline detail, inner vertices, padding).
+- **`lip_sync`**: analyses a WAV sound and keys a mouth slot's attachments (rest, closed, small, open, wide, round) from a start time, adding the sound to the animation.
+- **`pose_bones`**: the Pose tool: bends a bone and its parents so the bone's tip reaches an artboard point, in the setup pose or as keys at a time.
+- **`smooth_weights`, `prune_weights`**: weight clean-up for weighted meshes (also undoable ops in the editor's history).
+- **`get_stats`**: bones, constraints, attachments, vertices, vertex transforms, triangles, clipping masks and an estimate of draw calls.
 - **Verification**:
   - `render_frame`: returns a PNG (bones and hit boxes overlaid) for the setup pose, an animation at a time, or a state machine after scripted steps.
   - `render_gif`: an animated preview.

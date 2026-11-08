@@ -124,6 +124,12 @@ importers:
       '@openbone/core':
         specifier: workspace:*
         version: link:../core
+      '@openbone/export':
+        specifier: workspace:*
+        version: link:../export
+      '@openbone/player':
+        specifier: workspace:*
+        version: link:../player
       '@openbone/render-canvas':
         specifier: workspace:*
         version: link:../render-canvas
