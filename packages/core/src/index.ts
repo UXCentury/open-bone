@@ -2,6 +2,7 @@ export * from "./types.ts";
 export * from "./math.ts";
 export * from "./document.ts";
 export * from "./geometry.ts";
+export * from "./path.ts";
 export * from "./setup.ts";
 export * from "./validate.ts";
 export * from "./summary.ts";

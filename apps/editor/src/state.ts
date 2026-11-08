@@ -58,6 +58,8 @@ export type Selection =
   | { kind: "slot"; id: string; attachment?: string }
   | { kind: "ik"; id: string }
   | { kind: "transform"; id: string }
+  | { kind: "path"; id: string }
+  | { kind: "physics"; id: string }
   | { kind: "image"; id: string }
   | null;
 

@@ -12,8 +12,11 @@ function label(t: TL): string {
   if (t.target === "bone") return `${d.skeleton.bones.find((b) => b.id === t.id)?.name ?? t.id} · ${t.property}`;
   if (t.target === "slot") return `${d.skeleton.slots.find((s) => s.id === t.id)?.name ?? t.id} · ${t.property}`;
   if (t.target === "deform") return `${d.skeleton.slots.find((s) => s.id === t.id)?.name ?? t.id} · deform ${t.attachment}`;
-  if (t.target === "ik") return `IK ${d.skeleton.ik.find((c) => c.id === t.id)?.name ?? t.id} · mix`;
-  if (t.target === "transform") return `TC ${d.skeleton.transform.find((c) => c.id === t.id)?.name ?? t.id} · mix`;
+  if (t.target === "ik" || t.target === "transform" || t.target === "path" || t.target === "physics") {
+    const prefix = { ik: "IK", transform: "TC", path: "Path", physics: "Phys" }[t.target];
+    const list: { id: string; name: string }[] = d.skeleton[t.target];
+    return `${prefix} ${list.find((c) => c.id === t.id)?.name ?? t.id} · ${t.property}`;
+  }
   return "draw order";
 }
 

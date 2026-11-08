@@ -15,11 +15,20 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
    Attachments are positioned in the slot BONE's local frame (x along the bone).
    Draw order = slot order (first is back). Use update_slot {index} to reorder.
 4. Deformation: add_mesh {cols, rows} then auto_weights {bones:[...]} so the mesh bends with bones.
-5. Constraints: add_ik_constraint {bones:["thigh","shin"], target:"foot-target"} (target must not be a child of the chain).
+5. Constraints (solved in this order every frame: IK, transform, path, physics):
+   add_ik_constraint {bones:["thigh","shin"], target:"foot-target"} (target must not be a child of the chain);
+   optional softness (2-bone), stretch, compress (1-bone).
+   add_transform_constraint {bones, target, mixRotate, mixTranslate, mixScale, mixShear, local?, relative?}.
+   Path: add_path {slot, anchors:[x0,y0,x1,y1,...]} (smooth bezier in the slot bone's frame; bind it to control bones
+   with auto_weights or set_weights so moving them bends it), then add_path_constraint {bones:[parent..child], target:slot,
+   positionMode:"fixed"|"percent", spacingMode:"length"|"fixed"|"percent"|"proportional", rotateMode:"tangent"|"chain"|"chainScale"}.
+   Physics: add_physics_constraint {bone, inertia, strength, damping, mass, gravity, wind, mix} per bone (parent first)
+   for hair/cloth/tails. It simulates over time, so check it with render_gif rather than a single frame.
 6. Animate: create_animation {name}, then set_keys with absolute values:
    set_keys {animation:"walk", target:"bone", id:"thigh", property:"rotation", keys:[{time:0,value:-20},{time:0.5,value:20,curve:"easeInOut"},{time:1,value:-20}]}
    Properties: bone rotation|x|y|scaleX|scaleY|shearX|shearY, slot color ("#rrggbbaa") | attachment (name or null),
-   ik/transform mix, deform offsets, drawOrder. Curves: linear, stepped, easeIn, easeOut, easeInOut, backOut or [cx1,cy1,cx2,cy2].
+   ik mix|softness, transform mix|mixRotate|mixTranslate|mixScale|mixShear, path position|spacing|mixRotate|mixX|mixY,
+   physics mix|inertia|strength|damping|mass|gravity|wind, deform offsets (mesh or path), drawOrder. Curves: linear, stepped, easeIn, easeOut, easeInOut, backOut or [cx1,cy1,cx2,cy2].
    Loop cleanly by making the last key equal the first. add_event_key fires events (footsteps, sounds).
 7. Interactivity (Rive-style): create_state_machine → add_input (bool/number/trigger) → add_state {animation}
    (first state = entry) → add_transition {from, to, conditions:[{input, op, value}], duration, exitTime}.

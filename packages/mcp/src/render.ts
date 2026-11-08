@@ -92,7 +92,14 @@ export function pose(doc: OpenBoneDocument, req: PoseRequest, scriptHost?: Scrip
     log.push(`final states: ${JSON.stringify(sm.activeStates)}; inputs: ${JSON.stringify(Object.fromEntries([...sm.inputs].map(([id, v]) => [sm.data.inputs.find((i) => i.id === id)?.name ?? id, v])))}`);
   } else if (req.animation) {
     inst.animationState.setAnimation(0, req.animation, true, 0);
-    inst.advance(req.time ?? 0);
+    // Step at 60 Hz so physics constraints are simulated up to the requested time.
+    inst.advance(0);
+    let rem = req.time ?? 0;
+    while (rem > 1e-9) {
+      const h = Math.min(rem, 1 / 60);
+      inst.advance(h);
+      rem -= h;
+    }
   } else {
     inst.skeleton.updateWorldTransform();
   }

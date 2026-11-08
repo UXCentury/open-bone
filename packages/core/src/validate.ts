@@ -1,3 +1,4 @@
+import { descendantIds, getAttachment } from "./document.ts";
 import type { OpenBoneDocument } from "./types.ts";
 
 export interface Issue {
@@ -51,6 +52,11 @@ export function validate(d: OpenBoneDocument): Issue[] {
           if (a.vertices.length < 6 || a.vertices.length % 2) err(`clipping ${a.name}`, "needs at least 3 points");
           if (a.end && !slotIds.has(a.end)) err(`clipping ${a.name}`, `end slot ${a.end} missing`);
         }
+        if (a.type === "path") {
+          if (a.vertices.length < 12 || a.vertices.length % 6) err(`path ${a.name}`, "needs 6 numbers per knot and at least 2 knots");
+          if (a.weights && a.weights.length !== a.vertices.length / 2) err(`path ${a.name}`, "weights length mismatch");
+          a.weights?.forEach((w) => w.forEach((x) => !boneIds.has(x.bone) && err(`path ${a.name}`, `weight bone ${x.bone} missing`)));
+        }
         if (a.type === "mesh") {
           if (a.uvs.length !== a.vertices.length) err(`mesh ${a.name}`, "uvs/vertices length mismatch");
           const n = a.vertices.length / 2;
@@ -64,12 +70,45 @@ export function validate(d: OpenBoneDocument): Issue[] {
     if (!boneIds.has(c.target)) err(`constraint ${c.name}`, "target missing");
     for (const b of c.bones) if (!boneIds.has(b)) err(`constraint ${c.name}`, `bone ${b} missing`);
   }
+  const boneIndex = new Map(sk.bones.map((b, i) => [b.id, i]));
+  for (const c of sk.path ?? []) {
+    const path = `path constraint ${c.name}`;
+    const slot = sk.slots.find((s) => s.id === c.target);
+    for (const b of c.bones) if (!boneIds.has(b)) err(path, `bone ${b} missing`);
+    if (!slot) {
+      err(path, `target slot ${c.target} missing`);
+      continue;
+    }
+    for (let i = 1; i < c.bones.length; i++)
+      if ((boneIndex.get(c.bones[i]) ?? 0) < (boneIndex.get(c.bones[i - 1]) ?? 0)) err(path, "bones must be listed parent before child");
+    const att = getAttachment(d, slot.id, slot.attachment);
+    if (!att || att.type !== "path") warn(path, `slot ${slot.name} does not show a path attachment in setup pose`);
+    const chain = new Set<string>();
+    for (const b of c.bones) if (boneIds.has(b)) for (const x of descendantIds(d, b)) chain.add(x);
+    if (chain.has(slot.bone)) err(path, "the path's slot bone is moved by the constrained bones (cycle)");
+    if (att?.type === "path" && att.weights?.some((w) => w.some((x) => chain.has(x.bone))))
+      warn(path, "path is weighted to bones the constraint moves; the path will lag a frame behind");
+  }
+  for (const c of sk.physics ?? []) {
+    const path = `physics constraint ${c.name}`;
+    if (!boneIds.has(c.bone)) err(path, `bone ${c.bone} missing`);
+    if (!(c.fps > 0)) err(path, "fps must be positive");
+    if (!(c.mass > 0)) err(path, "mass must be positive");
+  }
+  const constraintIds = {
+    ik: new Set(sk.ik.map((c) => c.id)),
+    transform: new Set(sk.transform.map((c) => c.id)),
+    path: new Set((sk.path ?? []).map((c) => c.id)),
+    physics: new Set((sk.physics ?? []).map((c) => c.id)),
+  };
   const animIds = new Set(d.animations.map((a) => a.id));
   const eventIds = new Set(d.events.map((e) => e.id));
   for (const a of d.animations) {
     for (const t of a.timelines) {
       if (t.target === "bone" && !boneIds.has(t.id)) err(`animation ${a.name}`, `bone ${t.id} missing`);
       if ((t.target === "slot" || t.target === "deform") && !slotIds.has(t.id)) err(`animation ${a.name}`, `slot ${t.id} missing`);
+      if (t.target in constraintIds && !constraintIds[t.target as keyof typeof constraintIds].has(t.id))
+        err(`animation ${a.name}`, `${t.target} constraint ${t.id} missing`);
       for (let i = 1; i < t.keys.length; i++)
         if (t.keys[i].time < t.keys[i - 1].time) err(`animation ${a.name}`, "keys not sorted");
     }

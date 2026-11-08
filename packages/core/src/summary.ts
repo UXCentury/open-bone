@@ -18,13 +18,23 @@ export function summarize(d: OpenBoneDocument): string {
   lines.push(`## Slots (${d.skeleton.slots.length}, back→front)`);
   const skin = defaultSkin(d);
   for (const s of d.skeleton.slots) {
-    const atts = Object.values(skin.attachments[s.id] ?? {}).map((a) => `${a.name}:${a.type}${a.type === "mesh" && a.weights ? "(weighted)" : ""}`);
+    const atts = Object.values(skin.attachments[s.id] ?? {}).map((a) => `${a.name}:${a.type}${(a.type === "mesh" || a.type === "path") && a.weights ? "(weighted)" : ""}`);
     lines.push(`- ${s.name} [${s.id}] on ${name(s.bone)} shows ${s.attachment ?? "nothing"}; attachments: ${atts.join(", ") || "none"}`);
   }
   if (d.images.length) lines.push(`## Images: ${d.images.map((i) => `${i.name} [${i.id}] ${i.width}x${i.height}`).join("; ")}`);
   if (d.skeleton.skins.length > 1) lines.push(`## Skins: ${d.skeleton.skins.map((s) => s.name).join(", ")}`);
-  for (const c of d.skeleton.ik) lines.push(`- IK ${c.name} [${c.id}]: ${c.bones.map(name).join("→")} → ${name(c.target)} mix ${c.mix}`);
-  for (const c of d.skeleton.transform) lines.push(`- Transform ${c.name} [${c.id}]: ${c.bones.map(name).join(",")} ← ${name(c.target)}`);
+  for (const c of d.skeleton.ik) lines.push(`- IK ${c.name} [${c.id}]: ${c.bones.map(name).join("→")} → ${name(c.target)} mix ${c.mix}${c.softness ? ` softness ${c.softness}` : ""}${c.stretch ? " stretch" : ""}${c.compress ? " compress" : ""}`);
+  for (const c of d.skeleton.transform)
+    lines.push(
+      `- Transform ${c.name} [${c.id}]: ${c.bones.map(name).join(",")} ← ${name(c.target)}${c.local ? " local" : ""}${c.relative ? " relative" : ""}`,
+    );
+  const slotName = (id: string) => d.skeleton.slots.find((s) => s.id === id)?.name ?? id;
+  for (const c of d.skeleton.path ?? [])
+    lines.push(
+      `- Path ${c.name} [${c.id}]: ${c.bones.map(name).join("→")} along slot ${slotName(c.target)} (${c.positionMode} ${c.position}, ${c.spacingMode} ${c.spacing}, ${c.rotateMode})`,
+    );
+  for (const c of d.skeleton.physics ?? [])
+    lines.push(`- Physics ${c.name} [${c.id}]: ${name(c.bone)} strength ${c.strength} damping ${c.damping} inertia ${c.inertia} gravity ${c.gravity} wind ${c.wind}`);
   if (d.events.length) lines.push(`## Events: ${d.events.map((e) => e.name).join(", ")}`);
   lines.push(`## Animations (${d.animations.length})`);
   for (const a of d.animations)

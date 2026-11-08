@@ -49,6 +49,7 @@ export class OpenBoneInstance extends Emitter<Events> {
     this.animationState.update(dt);
     this.skeleton.setToSetupPose();
     this.animationState.apply();
+    this.skeleton.update(dt);
     this.skeleton.updateWorldTransform();
   }
 

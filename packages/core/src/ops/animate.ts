@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { get, getAttachment, newId } from "../document.ts";
 import type { AnimationData, Curve, Key, OpenBoneDocument, Timeline } from "../types.ts";
-import { BONE_PROPERTIES } from "../types.ts";
+import { BONE_PROPERTIES, CONSTRAINT_PROPERTIES } from "../types.ts";
 import { EASINGS, curve as curveSchema, defineOp, hex, optId, ref } from "./registry.ts";
 
 const curveIn = z
@@ -10,16 +10,18 @@ const curveIn = z
   .transform((c): Curve => (typeof c === "string" && c in EASINGS ? EASINGS[c] : (c as Curve)));
 
 const target = z
-  .enum(["bone", "slot", "ik", "transform", "deform", "drawOrder"])
-  .describe("What is animated: bone property, slot color/attachment, IK/transform mix, mesh deform, draw order");
+  .enum(["bone", "slot", "ik", "transform", "path", "physics", "deform", "drawOrder"])
+  .describe("What is animated: bone property, slot color/attachment, constraint (ik/transform/path/physics) values, mesh/path deform, draw order");
 
 const keyValue = z.union([z.number(), z.string(), z.null(), z.array(z.number()), z.array(z.string())]);
 
 const PROPS: Record<string, string[]> = {
   bone: BONE_PROPERTIES,
   slot: ["color", "attachment"],
-  ik: ["mix"],
-  transform: ["mix"],
+  ik: CONSTRAINT_PROPERTIES.ik,
+  transform: CONSTRAINT_PROPERTIES.transform,
+  path: CONSTRAINT_PROPERTIES.path,
+  physics: CONSTRAINT_PROPERTIES.physics,
   deform: ["offsets"],
   drawOrder: ["order"],
 };
@@ -42,27 +44,19 @@ function resolveTimeline(
     case "slot":
       id = get.slot(doc, need(a.id, "id (slot)")).id;
       break;
-    case "ik": {
-      const r = need(a.id, "id (IK constraint)");
-      const c = doc.skeleton.ik.find((x) => x.id === r || x.name === r);
-      if (!c) throw new Error(`IK constraint "${r}" not found`);
-      id = c.id;
+    case "ik":
+    case "transform":
+    case "path":
+    case "physics":
+      id = get[a.target](doc, need(a.id, `id (${a.target} constraint)`)).id;
       break;
-    }
-    case "transform": {
-      const r = need(a.id, "id (transform constraint)");
-      const c = doc.skeleton.transform.find((x) => x.id === r || x.name === r);
-      if (!c) throw new Error(`Transform constraint "${r}" not found`);
-      id = c.id;
-      break;
-    }
     case "deform": {
       const slot = get.slot(doc, need(a.id, "id (slot)"));
       id = slot.id;
       attachment = need(a.attachment, "attachment");
       const name = attachment;
       const att = getAttachment(doc, id, name) ?? doc.skeleton.skins.map((k) => k.attachments[id]?.[name]).find(Boolean);
-      if (!att || att.type !== "mesh") throw new Error("Deform keys need a mesh attachment");
+      if (!att || (att.type !== "mesh" && att.type !== "path")) throw new Error("Deform keys need a mesh or path attachment");
       break;
     }
   }
@@ -87,7 +81,7 @@ function need<T>(v: T | undefined, what: string): T {
 
 function checkValue(tl: Timeline, value: unknown) {
   const ok =
-    tl.target === "bone" || tl.target === "ik" || tl.target === "transform"
+    tl.target === "bone" || tl.target === "ik" || tl.target === "transform" || tl.target === "path" || tl.target === "physics"
       ? typeof value === "number"
       : tl.target === "slot" && tl.property === "color"
         ? typeof value === "string" && hex.safeParse(value).success
@@ -156,12 +150,19 @@ defineOp({
   name: "setKeys",
   group: "animation",
   description:
-    "Set one or more keyframes on a timeline (absolute values). Examples: bone rotation {target:'bone', id:'arm', property:'rotation', keys:[{time:0,value:0},{time:0.5,value:45,curve:'easeInOut'}]}; slot color value '#ff0000'; slot attachment value 'eyes-closed' or null; deform value = flat offsets per vertex; drawOrder value = slot ids/names back-to-front.",
+    "Set one or more keyframes on a timeline (absolute values). Examples: bone rotation {target:'bone', id:'arm', property:'rotation', keys:[{time:0,value:0},{time:0.5,value:45,curve:'easeInOut'}]}; path constraint {target:'path', id:'tail-path', property:'position', keys:[...]}; slot color value '#ff0000'; slot attachment value 'eyes-closed' or null; deform value = flat offsets per vertex; drawOrder value = slot ids/names back-to-front.",
   schema: z.object({
     animation: ref("Animation"),
     target,
     id: z.string().optional().describe("Bone/slot/constraint id or name (not needed for drawOrder)"),
-    property: z.string().optional().describe("bone: rotation|x|y|scaleX|scaleY|shearX|shearY; slot: color|attachment; ik/transform: mix"),
+    property: z
+      .string()
+      .optional()
+      .describe(
+        `bone: ${BONE_PROPERTIES.join("|")}; slot: color|attachment; ${Object.entries(CONSTRAINT_PROPERTIES)
+          .map(([k, v]) => `${k}: ${v.join("|")}`)
+          .join("; ")}`,
+      ),
     attachment: z.string().optional().describe("Mesh attachment name (deform only)"),
     keys: z.array(z.object({ time: z.number().min(0), value: keyValue, curve: curveIn })).min(1),
   }),

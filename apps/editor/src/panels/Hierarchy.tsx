@@ -75,19 +75,25 @@ function BoneNode(p: { bone: BoneData; depth: number }) {
 
 function SkinsSection() {
   const skins = () => doc().skeleton.skins;
-  const uniqueName = (base: string) => {
+  const nextName = (base: string) => {
     let i = 1;
     while (skins().some((k) => k.name === `${base}${i}`)) i++;
     return `${base}${i}`;
   };
-  const newSkin = (from?: { id: string; name: string }) => {
-    const name = prompt(from ? `Duplicate “${from.name}” as` : "Skin name", from ? `${from.name} copy` : uniqueName("skin"));
+  const newSkin = async (from?: { id: string; name: string }) => {
+    const name = await askText({
+      title: from ? `Duplicate skin “${from.name}”` : "New skin",
+      message: from ? undefined : "A skin is an alternative set of attachments, e.g. an outfit.",
+      value: from ? `${from.name} copy` : nextName("skin"),
+      confirmLabel: from ? "Duplicate" : "Create",
+      validate: uniqueName(skins().map((k) => k.name)),
+    });
     if (!name) return;
     const r = (from ? apply("duplicateSkin", { skin: from.id, name }) : apply("addSkin", { name })) as { id: string } | undefined;
     if (r) setActiveSkinId(r.id);
   };
-  const rename = (id: string, current: string) => {
-    const name = prompt("Rename skin", current);
+  const rename = async (id: string, current: string) => {
+    const name = await askText({ title: "Rename skin", value: current, confirmLabel: "Rename", validate: uniqueName(skins().map((k) => k.name), current) });
     if (name && name !== current) apply("renameSkin", { skin: id, name });
   };
   return (
@@ -111,7 +117,7 @@ function SkinsSection() {
                 <button class="row-btn" title="Duplicate" onClick={(e) => { e.stopPropagation(); newSkin(k); }}>⧉</button>
                 <Show when={i() > 0}>
                   <button class="row-btn" title="Rename" onClick={(e) => { e.stopPropagation(); rename(k.id, name()); }}>✎</button>
-                  <button class="row-btn" title="Delete" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete skin ${name()} and its attachments?`)) apply("deleteSkin", { skin: k.id }); }}>×</button>
+                  <button class="row-btn" title="Delete" onClick={(e) => { e.stopPropagation(); void askConfirm({ title: `Delete skin “${name()}”?`, message: "Its attachments are removed too. You can undo this.", confirmLabel: "Delete", danger: true }).then((ok) => ok && apply("deleteSkin", { skin: k.id })); }}>×</button>
                 </Show>
               </span>
             </div>
@@ -180,7 +186,7 @@ export function Hierarchy() {
           <For each={roots()}>{(b) => <BoneNode bone={b} depth={0} />}</For>
         </div>
       </Section>
-      <Show when={doc().skeleton.ik.length + doc().skeleton.transform.length > 0}>
+      <Show when={doc().skeleton.ik.length + doc().skeleton.transform.length + doc().skeleton.path.length + doc().skeleton.physics.length > 0}>
         <Section title="Constraints">
           <For each={doc().skeleton.ik}>
             {(c) => (
@@ -193,6 +199,20 @@ export function Hierarchy() {
             {(c) => (
               <div class="tree-row" classList={{ selected: selection()?.kind === "transform" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "transform", id: c.id })}>
                 <span class="icon">⇉</span> {c.name}
+              </div>
+            )}
+          </For>
+          <For each={doc().skeleton.path}>
+            {(c) => (
+              <div class="tree-row" classList={{ selected: selection()?.kind === "path" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "path", id: c.id })}>
+                <span class="icon">〰</span> {c.name}
+              </div>
+            )}
+          </For>
+          <For each={doc().skeleton.physics}>
+            {(c) => (
+              <div class="tree-row" classList={{ selected: selection()?.kind === "physics" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "physics", id: c.id })}>
+                <span class="icon">≋</span> {c.name}
               </div>
             )}
           </For>

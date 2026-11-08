@@ -453,6 +453,7 @@ export class StateMachineInstance extends Emitter<SMEvents> {
       if (o.color) s.color = parseHex(o.color);
       if (o.attachment !== undefined) s.attachmentName = o.attachment;
     }
+    sk.update(dt);
     sk.updateWorldTransform();
 
     const evs = this.pendingEvents;

@@ -4,15 +4,19 @@ import type {
   BoneData,
   EventData,
   Id,
+  IkConstraintData,
   ImageAsset,
   InputData,
   LayerData,
   OpenBoneDocument,
+  PathConstraintData,
+  PhysicsConstraintData,
   ScriptData,
   SkinData,
   SlotData,
   StateData,
   StateMachineData,
+  TransformConstraintData,
 } from "./types.ts";
 import { FORMAT_VERSION } from "./types.ts";
 
@@ -58,6 +62,8 @@ export function createDocument(name = "Untitled", opts: Partial<OpenBoneDocument
       skins: [{ id: "skin_default", name: "default", attachments: {} }],
       ik: [],
       transform: [],
+      path: [],
+      physics: [],
     },
     events: [],
     animations: [],
@@ -93,6 +99,8 @@ export const find = {
   stateMachine: (d: OpenBoneDocument, ref: string) => byRef(d.stateMachines, ref),
   ik: (d: OpenBoneDocument, ref: string) => byRef(d.skeleton.ik, ref),
   transform: (d: OpenBoneDocument, ref: string) => byRef(d.skeleton.transform, ref),
+  path: (d: OpenBoneDocument, ref: string) => byRef(d.skeleton.path, ref),
+  physics: (d: OpenBoneDocument, ref: string) => byRef(d.skeleton.physics, ref),
 };
 
 export const get = {
@@ -110,6 +118,12 @@ export const get = {
     ref == null ? need(sm.layers[0], "Layer", "(first)", sm.layers) : need(byRef(sm.layers, ref), "Layer", ref, sm.layers),
   state: (layer: LayerData, ref: string): StateData => need(byRef(layer.states, ref), "State", ref, layer.states),
   input: (sm: StateMachineData, ref: string): InputData => need(byRef(sm.inputs, ref), "Input", ref, sm.inputs),
+  ik: (d: OpenBoneDocument, ref: string): IkConstraintData => need(find.ik(d, ref), "IK constraint", ref, d.skeleton.ik),
+  transform: (d: OpenBoneDocument, ref: string): TransformConstraintData =>
+    need(find.transform(d, ref), "Transform constraint", ref, d.skeleton.transform),
+  path: (d: OpenBoneDocument, ref: string): PathConstraintData => need(find.path(d, ref), "Path constraint", ref, d.skeleton.path),
+  physics: (d: OpenBoneDocument, ref: string): PhysicsConstraintData =>
+    need(find.physics(d, ref), "Physics constraint", ref, d.skeleton.physics),
 };
 
 export const defaultSkin = (d: OpenBoneDocument): SkinData => d.skeleton.skins[0];
@@ -215,8 +229,31 @@ export function deserialize(json: string): OpenBoneDocument {
   const d = JSON.parse(json) as OpenBoneDocument;
   if (d.format !== "openbone") throw new Error("Not an OpenBone document (missing format: \"openbone\")");
   if (d.version > FORMAT_VERSION) throw new Error(`Document version ${d.version} is newer than supported ${FORMAT_VERSION}`);
+  return normalizeDocument(d);
+}
+
+/** Fill fields added after a document was written (in place). Safe to call more than once. */
+export function normalizeDocument(d: OpenBoneDocument): OpenBoneDocument {
   d.scripts ??= [];
   d.stateMachines ??= [];
   d.events ??= [];
+  const sk = d.skeleton;
+  sk.ik ??= [];
+  sk.transform ??= [];
+  sk.path ??= [];
+  sk.physics ??= [];
+  for (const c of sk.ik) {
+    c.softness ??= 0;
+    c.stretch ??= false;
+    c.compress ??= false;
+  }
+  for (const c of sk.transform) {
+    c.mixShear ??= 0;
+    c.offsetScaleX ??= 0;
+    c.offsetScaleY ??= 0;
+    c.offsetShear ??= 0;
+    c.local ??= false;
+    c.relative ??= false;
+  }
   return d;
 }

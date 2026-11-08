@@ -1,4 +1,4 @@
-import { cloneDocument, createDocument } from "./document.ts";
+import { cloneDocument, createDocument, normalizeDocument } from "./document.ts";
 import { applyOp, type OpCall } from "./ops/registry.ts";
 import type { OpenBoneDocument } from "./types.ts";
 
@@ -24,7 +24,7 @@ export class DocumentStore {
   historyLimit = 200;
 
   constructor(doc: OpenBoneDocument = createDocument()) {
-    this.doc = doc;
+    this.doc = normalizeDocument(doc);
   }
 
   subscribe(fn: Listener): () => void {
@@ -37,7 +37,7 @@ export class DocumentStore {
   }
 
   load(doc: OpenBoneDocument, origin?: string) {
-    this.doc = doc;
+    this.doc = normalizeDocument(doc);
     this.past = [];
     this.future = [];
     this.emit({ kind: "load", ops: [], origin });
