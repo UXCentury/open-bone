@@ -10,28 +10,28 @@
   "fps": 30,
   "images": [
     {
-      "id": "img_sj1qc5l",
+      "id": "img_mpbpa5l",
       "name": "rocket-bg-far",
       "src": "assets/eleven/rocket-bg-far.jpg",
       "width": 900,
       "height": 1355
     },
     {
-      "id": "img_5j4g45m",
+      "id": "img_2lnbv5m",
       "name": "rocket-bg-mid",
       "src": "assets/eleven/rocket-bg-mid.png",
       "width": 2000,
       "height": 320
     },
     {
-      "id": "img_hx6w05n",
+      "id": "img_lovq95n",
       "name": "rocket-pad",
       "src": "assets/eleven/rocket-pad.png",
       "width": 560,
       "height": 564
     },
     {
-      "id": "img_8muou5o",
+      "id": "img_v2x705o",
       "name": "rocket-ship",
       "src": "assets/eleven/rocket-ship.png",
       "width": 197,
@@ -41,7 +41,7 @@
   "skeleton": {
     "bones": [
       {
-        "id": "bone_nu94q5k",
+        "id": "bone_bnmey5k",
         "name": "root",
         "parent": null,
         "length": 0,
@@ -55,9 +55,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_njna75p",
+        "id": "bone_h219s5p",
         "name": "bg-far",
-        "parent": "bone_nu94q5k",
+        "parent": "bone_bnmey5k",
         "length": 0,
         "x": 0,
         "y": 200,
@@ -70,9 +70,9 @@
         "color": "#7fb7ff"
       },
       {
-        "id": "bone_fbx8c5q",
+        "id": "bone_i2sgp5q",
         "name": "bg-mid",
-        "parent": "bone_nu94q5k",
+        "parent": "bone_bnmey5k",
         "length": 0,
         "x": 0,
         "y": 60,
@@ -85,9 +85,9 @@
         "color": "#7fb7ff"
       },
       {
-        "id": "bone_2gus95r",
+        "id": "bone_hd6d55r",
         "name": "pad",
-        "parent": "bone_nu94q5k",
+        "parent": "bone_bnmey5k",
         "length": 0,
         "x": 0,
         "y": 0,
@@ -99,9 +99,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_jkzl35s",
+        "id": "bone_clzgj5s",
         "name": "rocket",
-        "parent": "bone_nu94q5k",
+        "parent": "bone_bnmey5k",
         "length": 0,
         "x": 0,
         "y": 75,
@@ -114,9 +114,9 @@
         "color": "#ff9f43"
       },
       {
-        "id": "bone_pit8o5t",
+        "id": "bone_d4tft5t",
         "name": "nozzle",
-        "parent": "bone_jkzl35s",
+        "parent": "bone_clzgj5s",
         "length": 0,
         "x": 0,
         "y": 6,
@@ -130,73 +130,73 @@
     ],
     "slots": [
       {
-        "id": "slot_xlg1f5u",
+        "id": "slot_jzimu5u",
         "name": "sky",
-        "bone": "bone_njna75p",
+        "bone": "bone_h219s5p",
         "color": "#ffffff",
         "attachment": "rocket-bg-far",
         "blend": "normal"
       },
       {
-        "id": "slot_odpf55v",
+        "id": "slot_wo6mi5v",
         "name": "space-centre",
-        "bone": "bone_fbx8c5q",
+        "bone": "bone_i2sgp5q",
         "color": "#ffffff",
         "attachment": "rocket-bg-mid",
         "blend": "normal"
       },
       {
-        "id": "slot_i8blb5w",
+        "id": "slot_uobmk5w",
         "name": "ground",
-        "bone": "bone_2gus95r",
+        "bone": "bone_hd6d55r",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_er88y5x",
+        "id": "slot_dk7ha5x",
         "name": "launch-pad",
-        "bone": "bone_2gus95r",
+        "bone": "bone_hd6d55r",
         "color": "#ffffff",
         "attachment": "rocket-pad",
         "blend": "normal"
       },
       {
-        "id": "slot_9od3j5y",
+        "id": "slot_0nv585y",
         "name": "smoke",
-        "bone": "bone_2gus95r",
+        "bone": "bone_hd6d55r",
         "color": "#ffffff",
         "attachment": "smoke",
         "blend": "normal"
       },
       {
-        "id": "slot_62r4d5z",
+        "id": "slot_d7l1f5z",
         "name": "exhaust",
-        "bone": "bone_pit8o5t",
+        "bone": "bone_d4tft5t",
         "color": "#ffffff",
         "attachment": "exhaust",
         "blend": "normal"
       },
       {
-        "id": "slot_e5m9j60",
+        "id": "slot_6kdie60",
         "name": "sparks",
-        "bone": "bone_pit8o5t",
+        "bone": "bone_d4tft5t",
         "color": "#ffffff",
         "attachment": "sparks",
         "blend": "normal"
       },
       {
-        "id": "slot_ouavt61",
+        "id": "slot_ez8x161",
         "name": "body",
-        "bone": "bone_jkzl35s",
+        "bone": "bone_clzgj5s",
         "color": "#ffffff",
         "attachment": "rocket-ship",
         "blend": "normal"
       },
       {
-        "id": "slot_zfazs62",
+        "id": "slot_i66wl62",
         "name": "hit",
-        "bone": "bone_jkzl35s",
+        "bone": "bone_clzgj5s",
         "color": "#ffffff",
         "attachment": null,
         "blend": "normal"
@@ -207,11 +207,11 @@
         "id": "skin_default",
         "name": "default",
         "attachments": {
-          "slot_xlg1f5u": {
+          "slot_jzimu5u": {
             "rocket-bg-far": {
               "type": "region",
               "name": "rocket-bg-far",
-              "image": "img_sj1qc5l",
+              "image": "img_mpbpa5l",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -222,11 +222,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_odpf55v": {
+          "slot_wo6mi5v": {
             "rocket-bg-mid": {
               "type": "region",
               "name": "rocket-bg-mid",
-              "image": "img_5j4g45m",
+              "image": "img_2lnbv5m",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -237,7 +237,7 @@
               "color": "#ffffff"
             }
           },
-          "slot_i8blb5w": {
+          "slot_uobmk5w": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -251,11 +251,11 @@
               "fill": "#231c3a"
             }
           },
-          "slot_er88y5x": {
+          "slot_dk7ha5x": {
             "rocket-pad": {
               "type": "region",
               "name": "rocket-pad",
-              "image": "img_hx6w05n",
+              "image": "img_lovq95n",
               "x": -48,
               "y": 201.5,
               "rotation": 0,
@@ -266,7 +266,7 @@
               "color": "#ffffff"
             }
           },
-          "slot_9od3j5y": {
+          "slot_0nv585y": {
             "smoke": {
               "type": "particles",
               "name": "smoke",
@@ -336,7 +336,7 @@
               "seed": 3
             }
           },
-          "slot_62r4d5z": {
+          "slot_d7l1f5z": {
             "exhaust": {
               "type": "particles",
               "name": "exhaust",
@@ -410,7 +410,7 @@
               "seed": 11
             }
           },
-          "slot_e5m9j60": {
+          "slot_6kdie60": {
             "sparks": {
               "type": "particles",
               "name": "sparks",
@@ -485,11 +485,11 @@
               "seed": 5
             }
           },
-          "slot_ouavt61": {
+          "slot_ez8x161": {
             "rocket-ship": {
               "type": "region",
               "name": "rocket-ship",
-              "image": "img_8muou5o",
+              "image": "img_v2x705o",
               "x": 0,
               "y": 130,
               "rotation": 0,
@@ -500,7 +500,7 @@
               "color": "#ffffff"
             }
           },
-          "slot_zfazs62": {
+          "slot_i66wl62": {
             "hitbox": {
               "type": "boundingBox",
               "name": "hitbox",
@@ -527,13 +527,13 @@
   "events": [],
   "animations": [
     {
-      "id": "anim_uni9j63",
+      "id": "anim_qrsio63",
       "name": "launch",
       "duration": 3,
       "timelines": [
         {
           "target": "particles",
-          "id": "slot_62r4d5z",
+          "id": "slot_d7l1f5z",
           "property": "emitting",
           "keys": [
             {
@@ -550,7 +550,7 @@
         },
         {
           "target": "particles",
-          "id": "slot_62r4d5z",
+          "id": "slot_d7l1f5z",
           "property": "rate",
           "keys": [
             {
@@ -577,7 +577,7 @@
         },
         {
           "target": "particles",
-          "id": "slot_e5m9j60",
+          "id": "slot_6kdie60",
           "property": "emitting",
           "keys": [
             {
@@ -599,7 +599,7 @@
         },
         {
           "target": "particles",
-          "id": "slot_9od3j5y",
+          "id": "slot_0nv585y",
           "property": "emitting",
           "keys": [
             {
@@ -621,7 +621,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_jkzl35s",
+          "id": "bone_clzgj5s",
           "property": "y",
           "keys": [
             {
@@ -646,7 +646,7 @@
             },
             {
               "time": 3,
-              "value": 600,
+              "value": 820,
               "curve": [
                 0.42,
                 0,
@@ -658,7 +658,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_2gus95r",
+          "id": "bone_hd6d55r",
           "property": "y",
           "keys": [
             {
@@ -695,7 +695,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_fbx8c5q",
+          "id": "bone_i2sgp5q",
           "property": "y",
           "keys": [
             {
@@ -732,7 +732,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_njna75p",
+          "id": "bone_h219s5p",
           "property": "y",
           "keys": [
             {
@@ -769,7 +769,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_jkzl35s",
+          "id": "bone_clzgj5s",
           "property": "x",
           "keys": [
             {
@@ -806,7 +806,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_jkzl35s",
+          "id": "bone_clzgj5s",
           "property": "rotation",
           "keys": [
             {
@@ -846,23 +846,87 @@
       "audio": [
         {
           "time": 0.35,
-          "sound": "snd_lhgwa6e"
+          "sound": "snd_ntjei6e"
         }
       ]
     },
     {
-      "id": "anim_6vlyc64",
-      "name": "hover",
-      "duration": 2,
+      "id": "anim_r91t064",
+      "name": "land",
+      "duration": 3.2,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_jkzl35s",
+          "id": "bone_clzgj5s",
           "property": "y",
           "keys": [
             {
               "time": 0,
-              "value": 240,
+              "value": 820,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 2.7,
+              "value": 81,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 3,
+              "value": 75,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_clzgj5s",
+          "property": "x",
+          "keys": [
+            {
+              "time": 0,
+              "value": 60,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 2.4,
+              "value": 0,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_clzgj5s",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": -8,
               "curve": [
                 0.42,
                 0,
@@ -871,8 +935,8 @@
               ]
             },
             {
-              "time": 1,
-              "value": 270,
+              "time": 1.6,
+              "value": 3,
               "curve": [
                 0.42,
                 0,
@@ -881,8 +945,18 @@
               ]
             },
             {
-              "time": 2,
-              "value": 240,
+              "time": 2.4,
+              "value": -1,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 3,
+              "value": 0,
               "curve": [
                 0.42,
                 0,
@@ -894,12 +968,110 @@
         },
         {
           "target": "bone",
-          "id": "bone_jkzl35s",
-          "property": "rotation",
+          "id": "bone_hd6d55r",
+          "property": "y",
           "keys": [
             {
               "time": 0,
-              "value": -4,
+              "value": -520,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 2.6,
+              "value": 0,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_i2sgp5q",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": -180,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 2.6,
+              "value": 60,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_h219s5p",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 140,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 2.6,
+              "value": 200,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "particles",
+          "id": "slot_d7l1f5z",
+          "property": "emitting",
+          "keys": [
+            {
+              "time": 0,
+              "value": true,
+              "curve": "stepped"
+            },
+            {
+              "time": 2.95,
+              "value": false,
+              "curve": "stepped"
+            }
+          ]
+        },
+        {
+          "target": "particles",
+          "id": "slot_d7l1f5z",
+          "property": "rate",
+          "keys": [
+            {
+              "time": 0,
+              "value": 90,
               "curve": [
                 0.42,
                 0,
@@ -908,8 +1080,8 @@
               ]
             },
             {
-              "time": 1,
-              "value": 4,
+              "time": 2.4,
+              "value": 60,
               "curve": [
                 0.42,
                 0,
@@ -918,8 +1090,8 @@
               ]
             },
             {
-              "time": 2,
-              "value": -4,
+              "time": 2.9,
+              "value": 30,
               "curve": [
                 0.42,
                 0,
@@ -931,38 +1103,23 @@
         },
         {
           "target": "particles",
-          "id": "slot_62r4d5z",
-          "property": "rate",
+          "id": "slot_0nv585y",
+          "property": "emitting",
           "keys": [
             {
               "time": 0,
-              "value": 70,
-              "curve": [
-                0.42,
-                0,
-                0.58,
-                1
-              ]
+              "value": false,
+              "curve": "stepped"
             },
             {
-              "time": 1,
-              "value": 100,
-              "curve": [
-                0.42,
-                0,
-                0.58,
-                1
-              ]
+              "time": 2.3,
+              "value": true,
+              "curve": "stepped"
             },
             {
-              "time": 2,
-              "value": 70,
-              "curve": [
-                0.42,
-                0,
-                0.58,
-                1
-              ]
+              "time": 3.2,
+              "value": false,
+              "curve": "stepped"
             }
           ]
         }
@@ -970,13 +1127,13 @@
       "events": []
     },
     {
-      "id": "anim_yj7v265",
+      "id": "anim_x435m65",
       "name": "parked",
       "duration": 1,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_jkzl35s",
+          "id": "bone_clzgj5s",
           "property": "y",
           "keys": [
             {
@@ -997,95 +1154,82 @@
   ],
   "stateMachines": [
     {
-      "id": "sm_spfo066",
+      "id": "sm_n2qnm66",
       "name": "engine",
       "inputs": [
         {
-          "id": "in_p1nev67",
-          "name": "thrust",
-          "type": "bool",
+          "id": "in_gl93o67",
+          "name": "launch",
+          "type": "trigger",
           "default": false
         }
       ],
       "bindings": [],
       "layers": [
         {
-          "id": "sm_spfo066_layer1",
+          "id": "sm_n2qnm66_layer1",
           "name": "Layer 1",
-          "entry": "st_gk6j268",
+          "entry": "st_82w6z68",
           "states": [
             {
-              "id": "st_gk6j268",
+              "id": "st_82w6z68",
               "name": "parked",
               "type": "animation",
-              "animation": "anim_yj7v265",
+              "animation": "anim_x435m65",
               "loop": true,
               "speed": 1,
               "x": 120,
               "y": 120,
               "emitters": [
                 {
-                  "slot": "slot_62r4d5z",
+                  "slot": "slot_d7l1f5z",
                   "emitting": false
                 }
               ]
             },
             {
-              "id": "st_64pm769",
-              "name": "hover",
+              "id": "st_eq84269",
+              "name": "land",
               "type": "animation",
-              "animation": "anim_6vlyc64",
-              "loop": true,
+              "animation": "anim_r91t064",
+              "loop": false,
               "speed": 1,
+              "onComplete": "st_82w6z68",
               "x": 360,
-              "y": 120,
-              "emitters": [
-                {
-                  "slot": "slot_62r4d5z",
-                  "emitting": true
-                }
-              ],
+              "y": 200,
               "sounds": [
                 {
-                  "sound": "snd_lhgwa6e",
-                  "on": "enter",
-                  "action": "play"
-                },
-                {
-                  "sound": "snd_d1bru6g",
+                  "sound": "snd_0dx6p6g",
                   "on": "enter",
                   "action": "play"
                 }
               ]
+            },
+            {
+              "id": "st_s5c556a",
+              "name": "launch",
+              "type": "animation",
+              "animation": "anim_qrsio63",
+              "loop": false,
+              "speed": 1,
+              "onComplete": "st_eq84269",
+              "x": 360,
+              "y": 60
             }
           ],
           "transitions": [
             {
-              "id": "tr_34k3l6a",
-              "from": "st_gk6j268",
-              "to": "st_64pm769",
+              "id": "tr_z1dd16b",
+              "from": "st_82w6z68",
+              "to": "st_s5c556a",
               "conditions": [
                 {
-                  "input": "in_p1nev67",
+                  "input": "in_gl93o67",
                   "op": "==",
                   "value": true
                 }
               ],
-              "duration": 0.6,
-              "exitTime": null
-            },
-            {
-              "id": "tr_q3wcs6b",
-              "from": "st_64pm769",
-              "to": "st_gk6j268",
-              "conditions": [
-                {
-                  "input": "in_p1nev67",
-                  "op": "==",
-                  "value": false
-                }
-              ],
-              "duration": 0.8,
+              "duration": 0.1,
               "exitTime": null
             }
           ]
@@ -1093,19 +1237,14 @@
       ],
       "listeners": [
         {
-          "id": "lis_bjr0b6c",
+          "id": "lis_vzuw96c",
           "name": "down",
-          "slot": "slot_zfazs62",
+          "slot": "slot_i66wl62",
           "event": "down",
           "actions": [
             {
-              "type": "toggleInput",
-              "input": "in_p1nev67"
-            },
-            {
-              "type": "emitParticles",
-              "slot": "slot_e5m9j60",
-              "count": 24
+              "type": "fireTrigger",
+              "input": "in_gl93o67"
             }
           ]
         }
@@ -1119,13 +1258,13 @@
     "muted": false,
     "assets": [
       {
-        "id": "aud_nggy86d",
+        "id": "aud_9r5zd6d",
         "name": "ignite",
         "src": "assets/eleven/rocket-ignite.wav",
         "duration": 2.86
       },
       {
-        "id": "aud_shsk06f",
+        "id": "aud_dx28q6f",
         "name": "engine",
         "src": "assets/eleven/rocket-engine-loop.wav",
         "duration": 4
@@ -1153,9 +1292,9 @@
     ],
     "sounds": [
       {
-        "id": "snd_lhgwa6e",
+        "id": "snd_ntjei6e",
         "name": "ignite",
-        "asset": "aud_nggy86d",
+        "asset": "aud_9r5zd6d",
         "bus": "bus_sfx",
         "volume": 0.6,
         "rate": 1,
@@ -1164,15 +1303,15 @@
         "fadeOut": 0
       },
       {
-        "id": "snd_d1bru6g",
+        "id": "snd_0dx6p6g",
         "name": "engine",
-        "asset": "aud_shsk06f",
+        "asset": "aud_dx28q6f",
         "bus": "bus_sfx",
         "volume": 0.3,
         "rate": 1,
         "loop": true,
-        "fadeIn": 0.8,
-        "fadeOut": 0.6
+        "fadeIn": 0.3,
+        "fadeOut": 0.8
       }
     ]
   }

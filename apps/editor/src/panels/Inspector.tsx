@@ -365,6 +365,8 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
                 <NumberField label="Height" value={r().height} onCommit={(v) => set({ height: v })} />
                 <NumberField label="Scale X" step={0.01} value={r().scaleX} onCommit={(v) => set({ scaleX: v })} />
                 <NumberField label="Scale Y" step={0.01} value={r().scaleY} onCommit={(v) => set({ scaleY: v })} />
+                <NumberField label="Skew X" step={1} value={r().skewX ?? 0} onCommit={(v) => set({ skewX: v })} />
+                <NumberField label="Skew Y" step={1} value={r().skewY ?? 0} onCommit={(v) => set({ skewY: v })} />
                 <ColorField label="Tint" value={r().color} onCommit={(v) => set({ color: v })} />
                 <div class="btn-row">
                   <button title="Replace with a mesh that hugs the image's visible pixels (automatic outline)" onClick={() => void traceRegion(p.slotId, p.owner.id, r())}>

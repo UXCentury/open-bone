@@ -1,4 +1,4 @@
-import { DocumentStore, createDocument } from "@openbone/core";
+import { DocumentStore, createDocument, formatTemplate } from "@openbone/core";
 import { describe, expect, it } from "vitest";
 import { OpenBoneInstance, Skeleton, type TextContext, drawTextBox } from "../src/index.ts";
 
@@ -164,10 +164,11 @@ describe("text attachments", () => {
     expect(sk.hitTest(slot, 100 + 40, 10)).toBe(false);
   });
 
-  it("text without a state machine shows the template as written", () => {
+  it("text without a state machine shows the inputs' default values (names with no input stay as written)", () => {
     const inst = new OpenBoneInstance(crash().doc);
     inst.advance(0);
-    expect(inst.drawList().find((d) => d.text)!.text!.content).toBe("{multiplier:0.00}x");
+    expect(inst.drawList().find((d) => d.text)!.text!.content).toBe("1.00x");
+    expect(formatTemplate("{nope} {multiplier:0.0}", inst.skeleton.textValues)).toBe("{nope} 1.0");
   });
 
   it("drawTextBox aligns lines inside the box and draws the outline first", () => {

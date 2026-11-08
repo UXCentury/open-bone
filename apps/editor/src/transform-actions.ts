@@ -8,7 +8,7 @@ import { activeSkin, apply, mode, ownerSkinArg, store, toast, transaction } from
  * become keys at the current time in Animate mode.
  */
 
-export type AttTransform = "flipX" | "flipY" | "rot90" | "rot-90" | "rot180" | "reset";
+export type AttTransform = "flipX" | "flipY" | "rot90" | "rot-90" | "rot180" | "skewX+" | "skewX-" | "skewY+" | "skewY-" | "reset";
 const r2 = (n: number) => Math.round(n * 1000) / 1000;
 const wrap = (deg: number) => {
   let d = ((deg % 360) + 360) % 360;
@@ -22,8 +22,9 @@ export function attTransformsFor(att: Attachment | null | undefined): AttTransfo
   switch (att.type) {
     case "region":
     case "sequence":
+      return ["flipX", "flipY", "rot90", "rot-90", "rot180", "skewX+", "skewX-", "skewY+", "skewY-", "reset"];
     case "mesh":
-      return ["flipX", "flipY", "rot90", "rot-90", "rot180", "reset"];
+      return ["flipX", "flipY", "rot90", "rot-90", "rot180"];
     case "shape":
       return ["flipX", "flipY", "rot90", "rot-90", "rot180", "reset"];
     case "text":
@@ -60,8 +61,12 @@ export function transformAttachment(slotId: string, name: string, op: AttTransfo
     });
     return set({ vertices: out });
   }
-  const cur = att as { rotation?: number; scaleX?: number; scaleY?: number; points?: number[]; shape?: string };
-  if (op === "reset") return set({ rotation: 0, ...("scaleX" in cur ? { scaleX: 1, scaleY: 1 } : {}) });
+  const cur = att as { rotation?: number; scaleX?: number; scaleY?: number; skewX?: number; skewY?: number; points?: number[]; shape?: string };
+  if (op === "reset") return set({ rotation: 0, ...("scaleX" in cur ? { scaleX: 1, scaleY: 1 } : {}), ...(cur.skewX || cur.skewY ? { skewX: 0, skewY: 0 } : {}) });
+  if (op.startsWith("skew")) {
+    const d = op.endsWith("+") ? 15 : -15;
+    return set(op.startsWith("skewX") ? { skewX: r2((cur.skewX ?? 0) + d) } : { skewY: r2((cur.skewY ?? 0) + d) });
+  }
   if (turn) return set({ rotation: wrap((cur.rotation ?? 0) + turn) });
   if ("scaleX" in cur && cur.scaleX !== undefined) return set(op === "flipX" ? { scaleX: -(cur.scaleX ?? 1) } : { scaleY: -(cur.scaleY ?? 1) });
   // Shapes have no scale: mirror polygon points and the rotation instead.

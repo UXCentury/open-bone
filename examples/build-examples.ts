@@ -847,36 +847,40 @@ function rocket() {
   K("launch", "particles", "exhaust", "rate", [[0.5, 40], [1.2, 110]]);
   K("launch", "particles", "sparks", "emitting", [[0, false], [0.45, true], [1.4, false]]);
   K("launch", "particles", "smoke", "emitting", [[0, false], [0.5, true], [1.8, false]]);
-  K("launch", "bone", "rocket", "y", [[0, DECK], [0.5, DECK], [3, 600]], "easeIn");
+  K("launch", "bone", "rocket", "y", [[0, DECK], [0.5, DECK], [3, 820]], "easeIn");
   // The world falls away: the pad fastest, the space centre slower, the sky barely (parallax).
   K("launch", "bone", "pad", "y", [[0, 0], [0.6, 0], [3, -520]], "easeIn");
   K("launch", "bone", "bg-mid", "y", [[0, 60], [0.6, 60], [3, -180]], "easeIn");
   K("launch", "bone", "bg-far", "y", [[0, 200], [0.6, 200], [3, 140]], "easeIn");
   K("launch", "bone", "rocket", "x", [[0, 0], [0.6, 0], [3, 60]], "easeIn");
   K("launch", "bone", "rocket", "rotation", [[0, 0], [0.5, 0], [0.55, 2], [0.6, -2], [0.65, 0], [3, -8]], "linear");
-  // ---- hover: engine on, gentle bob and sway (loops) ----
-  A("createAnimation", { name: "hover", duration: 2 });
-  K("hover", "bone", "rocket", "y", [[0, 240], [1, 270], [2, 240]]);
-  K("hover", "bone", "rocket", "rotation", [[0, -4], [1, 4], [2, -4]]);
-  K("hover", "particles", "exhaust", "rate", [[0, 70], [1, 100], [2, 70]]);
+  // ---- land: the rocket comes back down on its exhaust, the world rises back into view, touch-down on the pad ----
+  A("createAnimation", { name: "land", duration: 3.2 });
+  K("land", "bone", "rocket", "y", [[0, 820], [2.7, DECK + 6], [3.0, DECK]], "easeOut");
+  K("land", "bone", "rocket", "x", [[0, 60], [2.4, 0]], "easeOut");
+  K("land", "bone", "rocket", "rotation", [[0, -8], [1.6, 3], [2.4, -1], [3.0, 0]]);
+  K("land", "bone", "pad", "y", [[0, -520], [2.6, 0]], "easeOut");
+  K("land", "bone", "bg-mid", "y", [[0, -180], [2.6, 60]], "easeOut");
+  K("land", "bone", "bg-far", "y", [[0, 140], [2.6, 200]], "easeOut");
+  K("land", "particles", "exhaust", "emitting", [[0, true], [2.95, false]]);
+  K("land", "particles", "exhaust", "rate", [[0, 90], [2.4, 60], [2.9, 30]]);
+  K("land", "particles", "smoke", "emitting", [[0, false], [2.3, true], [3.2, false]]);
   A("createAnimation", { name: "parked", duration: 1 });
   K("parked", "bone", "rocket", "y", [[0, DECK]]);
-  // ---- state machine: click the rocket to toggle the engine; each click also throws sparks ----
+  // ---- state machine: click the rocket to launch it; it flies out of frame, comes back down and lands ----
   A("createStateMachine", { name: "engine" });
-  A("addInput", { stateMachine: "engine", name: "thrust", type: "bool" });
+  A("addInput", { stateMachine: "engine", name: "launch", type: "trigger" });
   A("addState", { stateMachine: "engine", name: "parked", animation: "parked", x: 120, y: 120 });
-  A("addState", { stateMachine: "engine", name: "hover", animation: "hover", x: 360, y: 120 });
+  A("addState", { stateMachine: "engine", name: "land", animation: "land", loop: false, onComplete: "parked", x: 360, y: 200 });
+  A("addState", { stateMachine: "engine", name: "launch", animation: "launch", loop: false, onComplete: "land", x: 360, y: 60 });
   A("setStateEmitter", { stateMachine: "engine", state: "parked", slot: "exhaust", emitting: false });
-  A("setStateEmitter", { stateMachine: "engine", state: "hover", slot: "exhaust", emitting: true });
-  A("addTransition", { stateMachine: "engine", from: "parked", to: "hover", conditions: [{ input: "thrust", value: true }], duration: 0.6 });
-  A("addTransition", { stateMachine: "engine", from: "hover", to: "parked", conditions: [{ input: "thrust", value: false }], duration: 0.8 });
-  A("addListener", { stateMachine: "engine", slot: "hit", event: "down", actions: [{ type: "toggleInput", input: "thrust" }, { type: "emitParticles", slot: "sparks", count: 24 }] });
-  // Sounds: ignition when the engine starts, then a steady roar that fades out when it stops.
+  A("addTransition", { stateMachine: "engine", from: "parked", to: "launch", conditions: [{ input: "launch" }], duration: 0.1 });
+  A("addListener", { stateMachine: "engine", slot: "hit", event: "down", actions: [{ type: "fireTrigger", input: "launch" }] });
+  // Sounds: ignition at lift-off; the engine roars while it comes back down and fades as it touches the pad.
   sfx(A, "ignite", "rocket-ignite", { volume: 0.6 });
-  sfx(A, "engine", "rocket-engine-loop", { loop: true, volume: 0.3, fadeIn: 0.8, fadeOut: 0.6 });
-  A("setStateSound", { stateMachine: "engine", state: "hover", sound: "ignite" });
-  A("setStateSound", { stateMachine: "engine", state: "hover", sound: "engine" });
+  sfx(A, "engine", "rocket-engine-loop", { loop: true, volume: 0.3, fadeIn: 0.3, fadeOut: 0.8 });
   A("addAudioKey", { animation: "launch", sound: "ignite", time: 0.35 });
+  A("setStateSound", { stateMachine: "engine", state: "land", sound: "engine" });
   return s.doc;
 }
 
@@ -932,7 +936,7 @@ function crash() {
   A("addSlot", { bone: "hud", name: "multiplier" });
   A("addText", { slot: "multiplier", text: "{multiplier:0.00}x", size: 84, weight: 800, width: 360, height: 100, color: "#ffffff", outline: "#0b1020", outlineWidth: 4 });
   A("addSlot", { bone: "status", name: "status" });
-  A("addText", { slot: "status", text: "{status}", size: 22, weight: 500, width: 420, height: 32, color: "#cbd5e1" });
+  A("addText", { slot: "status", text: "{status}", size: 22, weight: 600, width: 420, height: 32, color: "#e2e8f0", outline: "#0b1020", outlineWidth: 3 });
 
   // Start button: the text attachment's box is the hit area for the click listener.
   A("addSlot", { bone: "button", name: "button-bg" });

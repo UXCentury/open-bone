@@ -11,7 +11,7 @@ const EXAMPLES: { id: string; title: string; text: string; tags: string[] }[] = 
   { id: "fox", title: "Pip the fox", text: "Click the head: a real recorded voice with mouth shapes keyed by lip sync.", tags: ["Lip sync", "Audio", "State machine"] },
   { id: "robot", title: "Robot", text: "A painted robot with a screen face, lip-synced to a robot voice.", tags: ["Lip sync", "Audio"] },
   { id: "tail", title: "Tail", text: "A creature whose painted tail bends along a path; click it to hop. A slow camera pan moves the meadow, the creature and the grass at different depths.", tags: ["Path", "Mesh", "Physics", "Parallax"] },
-  { id: "rocket", title: "Rocket", text: "A rocket on its launch pad: click to fire the engine. On launch the space centre falls away beneath it.", tags: ["Particles", "Parallax", "Audio"] },
+  { id: "rocket", title: "Rocket", text: "A rocket on its launch pad: click to launch. It flies out of frame as the space centre falls away, then lands back on the pad.", tags: ["Particles", "Parallax", "Audio"] },
   { id: "crash", title: "Crash game", text: "Stages, live text and input bindings: a betting game where the rocket climbs through layered clouds.", tags: ["Stages", "Bindings", "Text"] },
   { id: "button", title: "Interactive button", text: "Hover and press states driven by pointer listeners, with click sounds.", tags: ["State machine", "Audio"] },
   { id: "campfire", title: "Campfire", text: "Flames burning on painted logs, firelight flicker, a bending flame mesh and a crackle loop.", tags: ["Sequences", "Mesh"] },

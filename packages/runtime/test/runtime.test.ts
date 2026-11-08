@@ -250,3 +250,56 @@ describe("clipping masks", () => {
     expect(Math.max(p[1], p[3], p[5], p[7])).toBeCloseTo(20);
   });
 });
+
+describe("state machine triggers", () => {
+  it("a trigger fired in the same frame as another change is not dropped", () => {
+    const s = new DocumentStore(createDocument("T"));
+    const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
+    for (const n of ["idle", "walk", "attack"]) A("createAnimation", { name: n, duration: 1 });
+    A("createStateMachine", { name: "sm" });
+    A("addInput", { stateMachine: "sm", name: "walk", type: "bool" });
+    A("addInput", { stateMachine: "sm", name: "attack", type: "trigger" });
+    A("addState", { stateMachine: "sm", animation: "idle" });
+    A("addState", { stateMachine: "sm", animation: "walk" });
+    A("addState", { stateMachine: "sm", animation: "attack", loop: false });
+    A("addTransition", { stateMachine: "sm", from: "idle", to: "walk", conditions: [{ input: "walk", value: true }] });
+    A("addTransition", { stateMachine: "sm", from: "walk", to: "idle", conditions: [{ input: "walk", value: false }] });
+    A("addTransition", { stateMachine: "sm", from: "@any", to: "attack", conditions: [{ input: "attack" }] });
+    const inst = new OpenBoneInstance(s.doc);
+    const sm = inst.useStateMachine("sm")!;
+    sm.setInput("walk", true);
+    inst.advance(0.1);
+    expect(Object.values(sm.activeStates)[0]).toBe("walk");
+    // Stop walking and attack in the same frame: walk → idle is taken first, the attack must still happen.
+    sm.setInput("walk", false);
+    sm.fire("attack");
+    inst.advance(0.1);
+    expect(Object.values(sm.activeStates)[0]).toBe("attack");
+    // The trigger was consumed: attack doesn't restart on the next frame.
+    inst.advance(0.1);
+    expect(Object.values(sm.activeStates)[0]).toBe("attack");
+  });
+});
+
+describe("region skew", () => {
+  it("skewX slants the vertical edges, skewY the horizontal ones", () => {
+    const s = new DocumentStore(createDocument("S"));
+    s.apply("addImage", { name: "img", src: "data:,", width: 100, height: 50 });
+    s.apply("addSlot", { bone: "root", name: "a" });
+    s.apply("addRegion", { slot: "a", image: "img", skewX: 45 });
+    const sk = new Skeleton(s.doc);
+    sk.updateWorldTransform();
+    const slot = sk.findSlot("a")!;
+    const v = sk.attachmentWorldVertices(slot, sk.getAttachment(slot)!);
+    // TL (-50, 25) → x shifted by tan(45°)·25 = 25; BL (-50, -25) → shifted by -25.
+    expect(v[0]).toBeCloseTo(-25, 4);
+    expect(v[1]).toBeCloseTo(25, 4);
+    expect(v[6]).toBeCloseTo(-75, 4);
+    s.apply("updateAttachment", { slot: "a", attachment: "img", props: { skewX: 0, skewY: 45 } });
+    const sk2 = new Skeleton(s.doc);
+    sk2.updateWorldTransform();
+    const v2 = sk2.attachmentWorldVertices(sk2.findSlot("a")!, sk2.getAttachment(sk2.findSlot("a")!)!);
+    // TR (50, 25) → y + tan(45°)·50 = 75.
+    expect(v2[3]).toBeCloseTo(75, 4);
+  });
+});

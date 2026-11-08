@@ -310,8 +310,12 @@ export class Skeleton {
   /** Steps simulated since the last particle reset (seek mode). */
   private particleSteps = 0;
   private pendingBursts = new Map<Id, number>();
-  /** Values for text templates by input name; the state machine running this skeleton sets it. */
-  textValues: (name: string) => InputValue | undefined = () => undefined;
+  /**
+   * Values for text templates by input name; the state machine running this skeleton sets it. Without one (playing a
+   * plain animation, previews) templates show the inputs' default values instead of the raw `{name}` text.
+   */
+  textValues: (name: string) => InputValue | undefined = (name) => this.inputDefaultsByName.get(name);
+  private inputDefaultsByName = new Map<string, InputValue>();
   /** Text shown instead of an attachment's own template, by slot id (see setText). */
   textOverrides = new Map<Id, string>();
 
@@ -345,7 +349,11 @@ export class Skeleton {
       const rect = regionPageRect(r);
       this.packed.set(r.image, { page, rect, map, regionUvs: remapUvs(quad, map), trim });
     }
-    for (const sm of doc.stateMachines) for (const i of sm.inputs) if (typeof i.default === "number") this.inputDefaults.set(i.id, i.default);
+    for (const sm of doc.stateMachines)
+      for (const i of sm.inputs) {
+        if (typeof i.default === "number") this.inputDefaults.set(i.id, i.default);
+        if (i.type !== "trigger" && i.default !== undefined && !this.inputDefaultsByName.has(i.name)) this.inputDefaultsByName.set(i.name, i.default);
+      }
     const w = doc.atlas?.white;
     const wp = w && pages.get(w.page);
     if (w && wp) this.white = { page: wp, u: (w.x + w.width / 2) / wp.width, v: (w.y + w.height / 2) / wp.height };
@@ -990,8 +998,17 @@ export class Skeleton {
       const hh = (att.height / 2) * (att.type === "text" ? 1 : att.scaleY);
       const cos = Math.cos(att.rotation * DEG);
       const sin = Math.sin(att.rotation * DEG);
-      // TL, TR, BR, BL (y-up)
+      // TL, TR, BR, BL (y-up), skewed first (images can slant), then rotated.
       const corners = [-hw, hh, hw, hh, hw, -hh, -hw, -hh];
+      const kx = att.type !== "text" && att.skewX ? Math.tan(att.skewX * DEG) : 0;
+      const ky = att.type !== "text" && att.skewY ? Math.tan(att.skewY * DEG) : 0;
+      if (kx || ky)
+        for (let i = 0; i < 8; i += 2) {
+          const x = corners[i];
+          const y = corners[i + 1];
+          corners[i] = x + kx * y;
+          corners[i + 1] = y + ky * x;
+        }
       const out = new Float32Array(8);
       for (let i = 0; i < 8; i += 2) {
         const lx = att.x + corners[i] * cos - corners[i + 1] * sin;

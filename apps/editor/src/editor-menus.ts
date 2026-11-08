@@ -2,6 +2,7 @@ import { createDocument } from "@openbone/core";
 import { createSignal } from "solid-js";
 import { bridgeStatus } from "./bridge.ts";
 import { askConfirm } from "./dialogs.tsx";
+import { saveProjectToFolder } from "./storage.ts";
 import { toggleViewAid, viewAids } from "./guides.ts";
 import { PANELS, type PanelId, movePanel, resetLayout, showPanel, swapSides, whereIs } from "./layout.ts";
 import type { MenuItem } from "./menu.tsx";
@@ -16,7 +17,11 @@ const ATT_LABELS: Record<AttTransform, string> = {
   rot90: "Rotate 90° clockwise",
   "rot-90": "Rotate 90° counter-clockwise",
   rot180: "Rotate 180°",
-  reset: "Reset rotation and scale",
+  "skewX+": "Skew X +15°",
+  "skewX-": "Skew X −15°",
+  "skewY+": "Skew Y +15°",
+  "skewY-": "Skew Y −15°",
+  reset: "Reset rotation, scale and skew",
 };
 /** Transform submenu for a bone: mirror (children follow), rotate, skew, reset. */
 const boneTransformMenu = (boneId: string): MenuItem => {
@@ -43,7 +48,7 @@ const boneTransformMenu = (boneId: string): MenuItem => {
 };
 import { playActive } from "./play.ts";
 import { setShortcutsOpen } from "./shortcuts/actions.ts";
-import { loadDocument, mode, onionSkin, selection, setSelection, showBones, showMesh, store, apply, tool, setTool, type Tool } from "./state.ts";
+import { toast, loadDocument, mode, onionSkin, selection, setSelection, showBones, showMesh, store, apply, tool, setTool, type Tool } from "./state.ts";
 
 /** Examples gallery visibility. */
 export const [examplesOpen, setExamplesOpen] = createSignal(false);
@@ -81,6 +86,7 @@ export function mainMenu(): MenuItem[] {
     { label: "Open…", shortcut: "file.open", disabled: locked },
     { label: "Save", shortcut: "file.save" },
     { label: "Save as…", shortcut: "file.saveAs" },
+    { label: "Save to folder…", action: () => void saveProjectToFolder().catch((e) => toast((e as Error).message, "error")) },
     { label: "Export…", shortcut: "file.export", disabled: locked },
     "sep",
     { label: "Examples…", action: () => setExamplesOpen(true), disabled: locked },
@@ -150,7 +156,7 @@ function selectionItems(): MenuItem[] {
           {
             label: `Transform “${attName}”`,
             submenu: ops.flatMap((op, i) => [
-              ...(op === "rot90" && i > 0 ? (["sep"] as MenuItem[]) : op === "reset" ? (["sep"] as MenuItem[]) : []),
+              ...((op === "rot90" || op === "skewX+") && i > 0 ? (["sep"] as MenuItem[]) : op === "reset" ? (["sep"] as MenuItem[]) : []),
               { label: ATT_LABELS[op], action: () => transformAttachment(slot.id, attName, op) } as MenuItem,
             ]),
           },

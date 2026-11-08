@@ -106,6 +106,9 @@ export interface RegionAttachment extends AttachmentBase {
   rotation: number;
   scaleX: number;
   scaleY: number;
+  /** Skew in degrees (optional): X slants vertical edges, Y slants horizontal edges; applied before rotation. */
+  skewX?: number;
+  skewY?: number;
   width: number;
   height: number;
   color: Hex;
@@ -226,6 +229,9 @@ export interface SequenceAttachment extends AttachmentBase {
   rotation: number;
   scaleX: number;
   scaleY: number;
+  /** Skew in degrees (optional): X slants vertical edges, Y slants horizontal edges; applied before rotation. */
+  skewX?: number;
+  skewY?: number;
   /** Size of one (untrimmed) frame in skeleton units. */
   width: number;
   height: number;

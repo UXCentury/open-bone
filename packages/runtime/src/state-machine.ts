@@ -422,8 +422,9 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     return t.conditions.every((c) => this.conditionPasses(c));
   }
 
-  private evaluate(l: LayerInstance) {
-    if (l.exited) return;
+  /** Take at most one transition (or the "on complete" step); returns the transition taken, if any. */
+  private evaluate(l: LayerInstance): TransitionData | null {
+    if (l.exited) return null;
     const cur = l.current;
     const candidates = l.data.transitions.filter((t) => t.from === ANY_STATE || t.from === cur?.data.id);
     // Specific transitions take priority over any-state ones.
@@ -432,13 +433,27 @@ export class StateMachineInstance extends Emitter<SMEvents> {
       if (!this.canTake(t, cur)) continue;
       const to = l.data.states.find((s) => s.id === t.to);
       if (to) this.enter(l, to, t.duration);
-      return;
+      return t;
     }
     // "On complete": play once, then continue to the next state.
     const next = cur?.data.onComplete;
     if (cur && next && this.progress(cur) >= 1) {
       const to = l.data.states.find((s) => s.id === next);
       if (to) this.enter(l, to, ON_COMPLETE_MIX);
+    }
+    return null;
+  }
+
+  /**
+   * Evaluate a layer until it settles (a few hops at most). A transition consumes only the triggers in its own
+   * conditions, so a trigger fired in the same frame as another change (stop walking + attack) is still seen by the
+   * transition that needs it, instead of being dropped with the rest at the end of the frame.
+   */
+  private settle(l: LayerInstance) {
+    for (let hop = 0; hop < 4; hop++) {
+      const t = this.evaluate(l);
+      if (!t) return;
+      for (const c of t.conditions) if (this.fired.has(c.input)) this.fired.delete(c.input);
     }
   }
 
@@ -507,7 +522,7 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     for (const s of this.scripts) this.safeCall(s, "onUpdate", dt);
     for (const l of this.layers) for (const h of l.current?.scripts ?? []) this.safeCall(h, "onUpdate", dt);
 
-    for (const l of this.layers) this.evaluate(l);
+    for (const l of this.layers) this.settle(l);
     this.fired.clear();
 
     for (const l of this.layers) {
