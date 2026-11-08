@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { type Plugin, defineConfig } from "vite";
 import solid from "vite-plugin-solid";
+import { buildPlayerBundle } from "../../packages/player/src/bundle/build.ts";
 
 const EXAMPLES = path.resolve(__dirname, "../../examples");
 const MIME: Record<string, string> = { ".obone": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp" };
@@ -27,8 +28,37 @@ function examples(): Plugin {
   };
 }
 
+/**
+ * `virtual:openbone-player-bundle`: the self-contained WebView player script (packages/player/src/bundle), built
+ * with esbuild on first import and rebuilt when package sources change. Export dialogs load it lazily, so it costs
+ * nothing until someone exports a WebView package, and it needs no prebuilt file or network.
+ */
+function playerBundle(): Plugin {
+  const id = "virtual:openbone-player-bundle";
+  const resolved = `\0${id}`;
+  let cache: Promise<string> | null = null;
+  return {
+    name: "openbone-player-bundle",
+    resolveId: (s) => (s === id ? resolved : undefined),
+    async load(i) {
+      if (i !== resolved) return;
+      cache ??= buildPlayerBundle();
+      return `export default ${JSON.stringify(await cache)};`;
+    },
+    configureServer(server) {
+      const packages = path.resolve(__dirname, "../../packages");
+      server.watcher.on("change", (file) => {
+        if (!file.startsWith(packages) || !cache) return;
+        cache = null;
+        const mod = server.moduleGraph.getModuleById(resolved);
+        if (mod) server.moduleGraph.invalidateModule(mod);
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [solid(), examples()],
+  plugins: [solid(), examples(), playerBundle()],
   server: { port: Number(process.env.PORT) || 5180, strictPort: false },
   optimizeDeps: { exclude: ["quickjs-emscripten"] },
   build: { target: "es2022", rollupOptions: { input: { editor: path.resolve(__dirname, "index.html"), player: path.resolve(__dirname, "player.html") } } },
