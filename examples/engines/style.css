@@ -1,0 +1,14 @@
+:root { color-scheme: light dark; --bg: #f4f1ea; --fg: #1d1b18; --muted: #6b665d; --card: #fff; --line: #ddd6c8; --accent: #b4532a; }
+@media (prefers-color-scheme: dark) { :root { --bg: #16150f; --fg: #eeeae0; --muted: #9b958a; --card: #211f19; --line: #36322a; --accent: #e07a4a; } }
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+header { padding: 16px; display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap; }
+header h1 { font-size: 18px; margin: 0; }
+nav a { color: var(--accent); margin-right: 12px; }
+main { padding: 0 16px 16px; }
+#stage { width: 100%; max-width: 960px; aspect-ratio: 3 / 2; background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+#stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; align-items: center; }
+button, label { font: inherit; }
+button { padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--card); color: var(--fg); cursor: pointer; }
+#log { color: var(--muted); font-size: 13px; min-height: 1.5em; }

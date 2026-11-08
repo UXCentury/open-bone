@@ -1,0 +1,31 @@
+{
+  "name": "@openbone/pixi",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "OpenBone runtime for PixiJS v8: a Container that plays OpenBone documents",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --format=esm --platform=browser --packages=external --sourcemap --outfile=dist/index.js"
+  },
+  "dependencies": {
+    "@openbone/core": "workspace:*",
+    "@openbone/engine-kit": "workspace:*",
+    "@openbone/runtime": "workspace:*"
+  },
+  "peerDependencies": {
+    "pixi.js": "^8.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "pixi.js": "^8.22.0",
+    "@openbone/render-webgl": "workspace:*"
+  }
+}

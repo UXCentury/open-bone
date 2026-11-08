@@ -2,5 +2,24 @@
   "name": "@openbone/examples",
   "private": true,
   "type": "module",
-  "dependencies": { "@napi-rs/canvas": "^0.1.80", "@openbone/core": "workspace:*", "@openbone/mcp": "workspace:*" }
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.80",
+    "@openbone/core": "workspace:*",
+    "@openbone/mcp": "workspace:*",
+    "@openbone/pixi": "workspace:*",
+    "@openbone/phaser": "workspace:*",
+    "@openbone/three": "workspace:*",
+    "@openbone/canvaskit": "workspace:*",
+    "pixi.js": "^8.22.0",
+    "phaser": "3.90.0",
+    "three": "^0.187.0",
+    "canvaskit-wasm": "^0.40.0"
+  },
+  "scripts": {
+    "engines": "vite --config engines/vite.config.ts",
+    "engines:build": "vite build --config engines/vite.config.ts"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0"
+  }
 }

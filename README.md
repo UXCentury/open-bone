@@ -69,7 +69,7 @@
 - Animation, skin, frame rate, scale, artboard or fit-to-content area, transparent or coloured background, quality and looping options; a live preview; export settings can be saved to a file and loaded again.
 
 ### Runtime and tools
-- Renderer-agnostic TypeScript runtime with **WebGL2** (batched) and **Canvas2D** renderers.
+- Renderer-agnostic TypeScript runtime with **WebGL2** (batched) and **Canvas2D** renderers, and runtimes for **PixiJS**, **Phaser**, **Three.js** and **CanvasKit** (see [Runtimes](#runtimes)).
 - **`<openbone-player>`** web component and a `Player` class (loads `.obone`, `.json` and `.obonb`).
 - **MCP server** (116 tools; every editing op becomes a tool automatically) covering everything the editor does: render/simulate, every export format, trace mesh, lip sync, the Pose tool, weight clean-up and stats, plus a live WebSocket bridge to the editor.
 - **CLI**: validate, summarize, render PNG/GIF, simulate state machines, apply any op.
@@ -138,6 +138,23 @@ Requires Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3
 </script>
 ```
 
+## Runtimes
+
+Every runtime builds on the TypeScript runtime (`OpenBoneInstance` for posing, animations, state machines, listeners, events and scripts) and draws `Skeleton.drawList()` in the same batches as the WebGL renderer, with tests that check its geometry against it frame for frame.
+
+| Runtime | Package | Engine | Notes |
+|---|---|---|---|
+| TypeScript | `@openbone/runtime` | any | Posing, constraints, animation mixing, state machines, listeners, particles, text, audio commands |
+| Web player | `@openbone/player` | browser | `<openbone-player>` element and `Player` class, WebGL2 or Canvas2D, Web Audio |
+| WebGL2 | `@openbone/render-webgl` | browser | Batched reference renderer, stencil clipping |
+| Canvas2D | `@openbone/render-canvas` | browser, Node | Editor viewport, headless PNG/GIF |
+| PixiJS | [`@openbone/pixi`](packages/pixi) | PixiJS v8 | A `Container`; stencil-mask clipping, Pixi pointer events |
+| Phaser | [`@openbone/phaser`](packages/phaser) | Phaser 3 | Scene plugin: `this.load.openbone()`, `this.add.openbone()`; WebGL (MultiPipeline) and Canvas |
+| Three.js | [`@openbone/three`](packages/three) | Three.js r160+ | An `Object3D` with one material per atlas page; raycast pointers |
+| CanvasKit | [`@openbone/canvaskit`](packages/canvaskit) | CanvasKit (Skia WASM) | Renderer for any Skia canvas (browser or Node) and a player |
+
+Demos of the knight in each engine: `pnpm --filter @openbone/examples engines`, then http://localhost:5190.
+
 ## Repository layout
 
 | Package | What it is |
@@ -148,6 +165,7 @@ Requires Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3
 | `packages/render-webgl` | Batched WebGL2 renderer |
 | `packages/render-canvas` | Canvas2D renderer (fallback, editor viewport, headless PNG/GIF in Node) |
 | `packages/player` | `<openbone-player>`, the `Player` class, Web Audio playback, and the self-contained WebView bundle + JS bridge used by the mobile packages |
+| `packages/pixi`, `packages/phaser`, `packages/three`, `packages/canvaskit` | Runtimes for PixiJS v8, Phaser 3, Three.js and CanvasKit, sharing `packages/engine-kit` (loading, playback, render-webgl-identical batching) |
 | `packages/export` | Export encoders and packagers: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP, sprite sheets, Unity/Godot/Flutter packs and the Flutter/Android/iOS WebView templates |
 | `packages/mcp` | MCP server (stdio + streamable HTTP), render/simulate tools, live WebSocket bridge |
 | `packages/cli` | `openbone` command line |
