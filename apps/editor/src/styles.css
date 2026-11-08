@@ -197,6 +197,43 @@ input.tiny { width: 52px; }
 /* curve graph editor */
 .timeline-body { flex: 1; display: flex; min-height: 0; }
 .timeline-body .timeline-area { min-width: 0; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; padding: 2px 10px; color: var(--muted); }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--panel-2); color: var(--text); }
+.graph-view { flex: 1; display: flex; min-width: 0; min-height: 0; }
+.graph-list { flex-shrink: 0; border-right: 1px solid var(--line); overflow: auto; padding: 4px 0; }
+.graph-list-head { display: flex; gap: 4px; align-items: center; padding: 0 8px 4px; flex-wrap: wrap; }
+.graph-list-head button { padding: 1px 6px; font-size: 11px; }
+.graph-row { display: flex; align-items: center; gap: 6px; padding: 2px 8px; cursor: pointer; white-space: nowrap; }
+.graph-row:hover { background: var(--panel-2); }
+.graph-row.sel { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.graph-row.off .name { color: var(--muted); }
+.graph-row .swatch { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.graph-row.off .swatch { opacity: 0.35; }
+.graph-row .name { overflow: hidden; text-overflow: ellipsis; }
+.graph-canvas { flex: 1; position: relative; min-width: 0; min-height: 0; outline: none; background: #171a20; cursor: grab; }
+.graph-canvas.panning { cursor: grabbing; }
+.graph-canvas svg { display: block; width: 100%; height: 100%; user-select: none; touch-action: none; }
+.graph-grid { stroke: #232831; }
+.graph-grid.zero { stroke: #39404d; }
+.graph-grid.t { stroke: #20242c; }
+.graph-out { fill: #0d0f13; opacity: 0.45; pointer-events: none; }
+.graph-vlabel, .graph-tlabel { fill: var(--muted); font-size: 10px; pointer-events: none; }
+.graph-ruler { fill: var(--panel); cursor: ew-resize; }
+.graph-end { stroke: #ffffff30; stroke-dasharray: 3 3; pointer-events: none; }
+.graph-playhead { stroke: var(--danger); pointer-events: none; }
+.graph-curve .line { fill: none; stroke: currentColor; stroke-width: 1.6; opacity: 0.85; pointer-events: none; }
+.graph-curve .hold { fill: none; stroke: currentColor; stroke-width: 1; stroke-dasharray: 4 4; opacity: 0.35; pointer-events: none; }
+.graph-curve.sel .line { stroke-width: 2.4; opacity: 1; }
+.graph-key { fill: #15181e; stroke: currentColor; stroke-width: 1.5; cursor: move; }
+.graph-key:hover { fill: currentColor; }
+.graph-key.selected { fill: var(--warn); stroke: #000; }
+.graph-handle line { stroke: #c4ccdb; stroke-dasharray: 3 2; pointer-events: none; }
+.graph-handle circle { fill: var(--warn); stroke: #000a; cursor: grab; }
+.graph-tools { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 2px; padding: 3px; border-radius: 8px; background: color-mix(in srgb, var(--panel) 90%, transparent); border: 1px solid var(--line); cursor: default; }
+.graph-tools button { min-width: 26px; height: 24px; padding: 0 6px; background: transparent; border: 0; border-radius: 5px; }
+.graph-tools button:hover { background: var(--panel-2); }
 .curve-editor { width: 280px; flex-shrink: 0; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; padding: 4px 10px; overflow: hidden; min-height: 0; }
 .curve-head { display: flex; justify-content: space-between; gap: 6px; white-space: nowrap; overflow: hidden; }
 .curve-head > span:first-child { overflow: hidden; text-overflow: ellipsis; }

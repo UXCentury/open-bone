@@ -4,6 +4,10 @@ import { tip } from "../shortcuts/index.ts";
 import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey } from "../state.ts";
 import { askText } from "../dialogs.tsx";
 import { AudioTrack, addSoundKey } from "./AudioPanel.tsx";
+import { GraphView } from "./GraphView.tsx";
+
+/** Dopesheet (keys per row) or Graph (value curves); remembered while the editor is open. */
+const [timelineView, setTimelineView] = createSignal<"dopesheet" | "graph">("dopesheet");
 
 type KeyRef = { tl: TL; time: number } | { event: string; time: number };
 
@@ -196,9 +200,19 @@ export function Timeline() {
           </button>
         </Show>
         <span class="spacer" />
-        <label class="check" title="Show the curve graph editor for the selected key">
-          <input type="checkbox" checked={showGraph()} onChange={(e) => setShowGraph(e.currentTarget.checked)} /> Graph
-        </label>
+        <div class="seg" role="tablist" title="Dopesheet: keys per property. Graph: the values over time as curves, with draggable keys and bezier handles">
+          <button classList={{ on: timelineView() === "dopesheet" }} onClick={() => setTimelineView("dopesheet")}>
+            Dopesheet
+          </button>
+          <button classList={{ on: timelineView() === "graph" }} onClick={() => setTimelineView("graph")}>
+            Graph
+          </button>
+        </div>
+        <Show when={timelineView() === "dopesheet"}>
+          <label class="check" title="Show the ease editor for the selected key beside the dopesheet">
+            <input type="checkbox" checked={showGraph()} onChange={(e) => setShowGraph(e.currentTarget.checked)} /> Key curve
+          </label>
+        </Show>
         <button
           title="Add an event key at the current time"
           disabled={!anim()}
@@ -233,6 +247,21 @@ export function Timeline() {
         }
       >
         <div class="timeline-body">
+        <Show when={timelineView() === "graph"}>
+          <GraphView
+            anim={anim()!}
+            label={label}
+            keyArgs={keyArgs}
+            snap={snap}
+            duration={duration()}
+            selKey={(() => {
+              const k = selKey();
+              return k && "tl" in k ? k : null;
+            })()}
+            onSelect={(k) => setSelKey(k)}
+          />
+        </Show>
+        <Show when={timelineView() === "dopesheet"}>
         <div class="timeline-area" ref={area}>
           <div class="ruler-row" style={{ width: `${LABEL_W + span() * pps()}px` }}>
             <div class="row-label" />
@@ -306,6 +335,7 @@ export function Timeline() {
         </div>
         <Show when={showGraph() && (() => { const k = selKey(); return k && "tl" in k ? k : null; })()}>
           {(k) => <CurveEditor tl={(k() as { tl: TL }).tl} time={k().time} />}
+        </Show>
         </Show>
         </div>
       </Show>

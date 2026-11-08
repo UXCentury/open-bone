@@ -74,7 +74,7 @@ createQuickJsHost({ timeoutMs: 30 })
 
 type Drag =
   | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
-  | { kind: "bone"; op: "rotate" | "translate" | "scale"; bone: Bone; start: [number, number]; startWorld: [number, number]; base: Partial<BoneData>; cur: Partial<BoneData> }
+  | { kind: "bone"; op: "rotate" | "translate" | "scale"; bone: Bone; start: [number, number]; startWorld: [number, number]; base: Partial<BoneData>; cur: Partial<BoneData>; axis?: "x" | "y" }
   | { kind: "guide"; guide: Guide; isNew: boolean }
   | { kind: "attachment"; slotId: string; name: string; start: [number, number]; base: [number, number]; cur: [number, number]; inv: ReturnType<typeof invert>; preview: Skeleton | null; startWorld: [number, number] }
   | { kind: "create"; parent: Bone | null; start: [number, number]; end: [number, number] }
@@ -227,15 +227,17 @@ export function Viewport() {
     applySequencePreview(s);
     const ctx = canvas.getContext("2d")!;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = "#1b1e24";
+    // Stage: a dark checkerboard (transparent = nothing drawn there), or plain.
+    ctx.fillStyle = viewAids().checker ? checkerPattern(ctx, "#202329", "#1a1d22", 12 * dpr) : "#1b1e24";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    // artboard
+    // artboard: its background colour, or a light checkerboard when the background is transparent
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = d.background ?? "#ffffff";
+    ctx.fillStyle = d.background ?? checkerPattern(ctx, "#d6d9df", "#eceef2", 10);
     ctx.fillRect(view.x, view.y, d.width * view.zoom, d.height * view.zoom);
     ctx.strokeStyle = "#3a3f4b";
     ctx.strokeRect(view.x, view.y, d.width * view.zoom, d.height * view.zoom);
     if (viewAids().grid) drawGrid(ctx, w, h);
+    if (viewAids().origin) drawOriginLines(ctx, w, h, d.background);
     const resolveImage = (id: string) => {
       // Packed images are drawn from their atlas page (resolved by page id).
       const a = textureAssets(d).find((i) => i.id === id);
@@ -269,6 +271,8 @@ export function Viewport() {
       }
     }
     if (meshToolOn()) drawMeshOverlay(ctx, v, shown);
+    const gz = gizmoBone(shown);
+    if (gz) drawGizmo(ctx, dpr, gz);
     if (drag?.kind === "create") {
       ctx.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
       ctx.beginPath();
@@ -286,6 +290,100 @@ export function Viewport() {
       ctx.fillStyle = "#9aa3b2";
       ctx.fillText(hoverInfo, 8 * dpr, canvas.height - 8 * dpr);
     }
+  }
+
+  // ---- checkerboard, origin lines, axis gizmo ----
+  const patterns = new Map<string, CanvasPattern>();
+  function checkerPattern(ctx: CanvasRenderingContext2D, a: string, b: string, cell: number): CanvasPattern | string {
+    const key = `${a}${b}${cell}`;
+    let p = patterns.get(key);
+    if (!p) {
+      const c = document.createElement("canvas");
+      c.width = c.height = Math.max(2, Math.round(cell * 2));
+      const g = c.getContext("2d")!;
+      g.fillStyle = a;
+      g.fillRect(0, 0, c.width, c.height);
+      g.fillStyle = b;
+      g.fillRect(0, 0, c.width / 2, c.height / 2);
+      g.fillRect(c.width / 2, c.height / 2, c.width / 2, c.height / 2);
+      const made = ctx.createPattern(c, "repeat");
+      if (!made) return a;
+      p = made;
+      patterns.set(key, p);
+    }
+    return p;
+  }
+
+  /** Thin lines through the skeleton origin, like Spine's world axes. */
+  function drawOriginLines(ctx: CanvasRenderingContext2D, w: number, h: number, background: string | null) {
+    const ox = Math.round(skToScreenX(0)) + 0.5;
+    const oy = Math.round(skToScreenY(0)) + 0.5;
+    ctx.save();
+    ctx.lineWidth = 1;
+    // Readable on light artboards and on the dark stage.
+    ctx.strokeStyle = background && luminance(background) > 0.6 ? "#0000002e" : "#ffffff30";
+    ctx.beginPath();
+    ctx.moveTo(ox, 0);
+    ctx.lineTo(ox, h);
+    ctx.moveTo(0, oy);
+    ctx.lineTo(w, oy);
+    ctx.stroke();
+    ctx.restore();
+  }
+  function luminance(hex: string): number {
+    const h = hex.replace("#", "");
+    const n = (i: number) => parseInt(h.length < 6 ? h[i] + h[i] : h.slice(i * 2, i * 2 + 2), 16) / 255;
+    return 0.2126 * n(0) + 0.7152 * n(1) + 0.0722 * n(2);
+  }
+
+  const GIZMO_LEN = 46;
+  /** The selected bone, when its move arrows should show (and be draggable). */
+  function gizmoBone(sk_: Skeleton | null | undefined): Bone | null {
+    if (!sk_ || running() || !showBones() || meshToolOn() || tool() === "bone") return null;
+    const id = selectedBoneId();
+    return (id && sk_.boneById_(id)) || null;
+  }
+  /** Which part of the gizmo is under a screen point: "x"/"y" arrow, "xy" centre, or null. */
+  function gizmoHit(b: Bone, mx: number, my: number): "x" | "y" | "xy" | null {
+    const sx = skToScreenX(b.world.x);
+    const sy = skToScreenY(b.world.y);
+    const dx = mx - sx;
+    const dy = my - sy;
+    if (Math.abs(dx) <= 7 && Math.abs(dy) <= 7) return "xy";
+    if (dx > 7 && dx <= GIZMO_LEN + 6 && Math.abs(dy) <= 6) return "x";
+    if (-dy > 7 && -dy <= GIZMO_LEN + 6 && Math.abs(dx) <= 6) return "y";
+    return null;
+  }
+  function drawGizmo(ctx: CanvasRenderingContext2D, dpr: number, b: Bone) {
+    const sx = skToScreenX(b.world.x);
+    const sy = skToScreenY(b.world.y);
+    const active = drag?.kind === "bone" && drag.bone === b && drag.op === "translate" ? (drag.axis ?? "xy") : null;
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const arrow = (ex: number, ey: number, color: string, on: boolean) => {
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = on ? 3 : 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      const ang = Math.atan2(ey - sy, ex - sx);
+      ctx.beginPath();
+      ctx.moveTo(ex + Math.cos(ang) * 8, ey + Math.sin(ang) * 8);
+      ctx.lineTo(ex + Math.cos(ang + 2.4) * 7, ey + Math.sin(ang + 2.4) * 7);
+      ctx.lineTo(ex + Math.cos(ang - 2.4) * 7, ey + Math.sin(ang - 2.4) * 7);
+      ctx.closePath();
+      ctx.fill();
+    };
+    arrow(sx + GIZMO_LEN, sy, "#ff5d5d", active === "x");
+    arrow(sx, sy - GIZMO_LEN, "#3ddc84", active === "y");
+    ctx.fillStyle = active === "xy" ? "#ffcc00" : "#ffcc00cc";
+    ctx.strokeStyle = "#000a";
+    ctx.lineWidth = 1;
+    ctx.fillRect(sx - 4.5, sy - 4.5, 9, 9);
+    ctx.strokeRect(sx - 4.5, sy - 4.5, 9, 9);
+    ctx.restore();
   }
 
   /** Ghost poses at ±step·i frames, tinted (past = red, future = green), drawn under the current pose. */
@@ -786,6 +884,14 @@ export function Viewport() {
       drag = { kind: "create", parent, start, end: start };
       return;
     }
+    // Move arrows of the selected bone: drag the red arrow along X, the green one along Y, the square freely.
+    const gz = gizmoBone(sk);
+    const gzPart = gz ? gizmoHit(gz, mx, my) : null;
+    if (gz && gzPart) {
+      const base = { x: gz.x, y: gz.y, rotation: gz.rotation, scaleX: gz.scaleX, scaleY: gz.scaleY };
+      drag = { kind: "bone", op: "translate", bone: gz, start: [x, y], startWorld: [gz.world.x, gz.world.y], base, cur: { ...base }, axis: gzPart === "xy" ? undefined : gzPart };
+      return;
+    }
     const bone = pickBone(x, y);
     const slot = bone ? null : pickSlot(x, y);
     if (bone) setSelection({ kind: "bone", id: bone.data.id });
@@ -905,7 +1011,12 @@ export function Viewport() {
       } else if (drag.op === "translate") {
         const inv = invert(pw);
         const moving = subtree(b);
-        const [sx, sy] = snap(drag.startWorld[0] + x - drag.start[0], drag.startWorld[1] + y - drag.start[1], e, () => snapTargets(moving));
+        // Axis-locked drags (gizmo arrows) keep the other world coordinate fixed.
+        const wx = drag.axis === "y" ? drag.startWorld[0] : drag.startWorld[0] + x - drag.start[0];
+        const wy = drag.axis === "x" ? drag.startWorld[1] : drag.startWorld[1] + y - drag.start[1];
+        let [sx, sy] = snap(wx, wy, e, () => snapTargets(moving));
+        if (drag.axis === "x") sy = drag.startWorld[1];
+        if (drag.axis === "y") sx = drag.startWorld[0];
         const dx = sx - drag.startWorld[0];
         const dy = sy - drag.startWorld[1];
         drag.cur = { ...drag.cur, x: round2(drag.base.x! + inv.a * dx + inv.b * dy), y: round2(drag.base.y! + inv.c * dx + inv.d * dy) };
@@ -1087,6 +1198,13 @@ export function Viewport() {
             <label class="field">
               <span>Grid size</span>
               <input type="number" min="1" max="1000" value={viewAids().gridSize} onChange={(e) => setViewAid("gridSize", Number(e.currentTarget.value))} />
+            </label>
+            <div class="muted small">Show</div>
+            <label class="check" title="Shows what is transparent: the stage, and the artboard when its background is transparent">
+              <input type="checkbox" checked={viewAids().checker} onChange={(e) => setViewAid("checker", e.currentTarget.checked)} /> Checkerboard
+            </label>
+            <label class="check" title="Lines through the skeleton origin (x = 0, y = 0)">
+              <input type="checkbox" checked={viewAids().origin} onChange={(e) => setViewAid("origin", e.currentTarget.checked)} /> Origin lines
             </label>
             <div class="muted small">Snap to</div>
             <label class="check"><input type="checkbox" checked={viewAids().snapArtboard} onChange={(e) => setViewAid("snapArtboard", e.currentTarget.checked)} /> Artboard centre, edges, origin</label>

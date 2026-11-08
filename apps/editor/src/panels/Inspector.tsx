@@ -666,7 +666,13 @@ function DocumentInspector() {
       <NumberField label="Height" value={d().height} onCommit={(v) => apply("setDocument", { height: v })} />
       <NumberField label="Origin X" value={d().originX} onCommit={(v) => apply("setDocument", { originX: v })} />
       <NumberField label="Origin Y" value={d().originY} onCommit={(v) => apply("setDocument", { originY: v })} />
-      <ColorField label="Background" value={d().background ?? "#ffffff"} onCommit={(v) => apply("setDocument", { background: v })} />
+      <Show when={d().background !== null}>
+        <ColorField label="Background" value={d().background ?? "#ffffff"} onCommit={(v) => apply("setDocument", { background: v })} />
+      </Show>
+      <label class="field" title="No background: the artboard shows a checkerboard, and the player and exports are transparent">
+        <span>Transparent</span>
+        <input type="checkbox" checked={d().background === null} onChange={(e) => apply("setDocument", { background: e.currentTarget.checked ? null : "#ffffff" })} />
+      </label>
       <NumberField label="FPS" value={d().fps} onCommit={(v) => apply("setDocument", { fps: v })} />
       <div class="hint">
         Select a bone or slot to edit it. Tools: V rotate · T translate · S scale · B create bone. Drop images on the viewport. Ctrl+Z undo.

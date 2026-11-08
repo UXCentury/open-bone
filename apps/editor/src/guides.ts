@@ -22,11 +22,15 @@ interface Settings {
   snapGuides: boolean;
   snapArtboard: boolean;
   snapBones: boolean;
+  /** Checkerboard behind everything: shows what is transparent (the stage, or the artboard without a background). */
+  checker: boolean;
+  /** Lines through the skeleton origin (x = 0 and y = 0). */
+  origin: boolean;
 }
 
 const SETTINGS_KEY = "openbone.viewaids.v1";
 const GUIDES_KEY = "openbone.guides.v1";
-const DEFAULTS: Settings = { grid: false, gridSize: 25, rulers: true, snap: true, snapGrid: true, snapGuides: true, snapArtboard: true, snapBones: true };
+const DEFAULTS: Settings = { grid: false, gridSize: 25, rulers: true, snap: true, snapGrid: true, snapGuides: true, snapArtboard: true, snapBones: true, checker: true, origin: true };
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -52,7 +56,7 @@ export function setViewAid<K extends keyof Settings>(key: K, value: Settings[K])
   setSettingsRaw(next);
   write(SETTINGS_KEY, next);
 }
-export const toggleViewAid = (key: "grid" | "rulers" | "snap") => setViewAid(key, !settings()[key]);
+export const toggleViewAid = (key: "grid" | "rulers" | "snap" | "checker" | "origin") => setViewAid(key, !settings()[key]);
 
 // ---- guides, per project ----
 const [allGuides, setAllGuides] = createSignal<Record<string, Guide[]>>(read(GUIDES_KEY, {}));
