@@ -6,6 +6,41 @@ import { toggleViewAid, viewAids } from "./guides.ts";
 import { PANELS, type PanelId, movePanel, resetLayout, showPanel, swapSides, whereIs } from "./layout.ts";
 import type { MenuItem } from "./menu.tsx";
 import { cycleVisTo, visOf } from "./visibility.ts";
+import { type AttTransform, type BoneTransform, attTransformsFor, transformAttachment, transformBone } from "./transform-actions.ts";
+import { getAttachment } from "@openbone/core";
+import { activeSkin } from "./state.ts";
+
+const ATT_LABELS: Record<AttTransform, string> = {
+  flipX: "Flip horizontally",
+  flipY: "Flip vertically",
+  rot90: "Rotate 90° clockwise",
+  "rot-90": "Rotate 90° counter-clockwise",
+  rot180: "Rotate 180°",
+  reset: "Reset rotation and scale",
+};
+/** Transform submenu for a bone: mirror (children follow), rotate, skew, reset. */
+const boneTransformMenu = (boneId: string): MenuItem => {
+  const it = (label: string, op: BoneTransform): MenuItem => ({ label, action: () => transformBone(boneId, op) });
+  return {
+    label: "Transform bone",
+    submenu: [
+      it("Flip horizontally (mirror)", "flipX"),
+      it("Flip vertically", "flipY"),
+      "sep",
+      it("Rotate 90° clockwise", "rot90"),
+      it("Rotate 90° counter-clockwise", "rot-90"),
+      it("Rotate 180°", "rot180"),
+      "sep",
+      it("Skew X +15°", "skewX+"),
+      it("Skew X −15°", "skewX-"),
+      it("Skew Y +15°", "skewY+"),
+      it("Skew Y −15°", "skewY-"),
+      "sep",
+      it("Reset rotation and scale", "resetRS"),
+      it("Reset skew", "resetSkew"),
+    ],
+  };
+};
 import { playActive } from "./play.ts";
 import { setShortcutsOpen } from "./shortcuts/actions.ts";
 import { loadDocument, mode, onionSkin, selection, setSelection, showBones, showMesh, store, apply, tool, setTool, type Tool } from "./state.ts";
@@ -82,6 +117,8 @@ function selectionItems(): MenuItem[] {
           if (res) setSelection({ kind: "bone", id: res.id });
         },
       },
+      boneTransformMenu(b.id),
+      "sep",
       { label: "Duplicate", shortcut: "edit.duplicate", disabled: !b.parent },
       { label: "Focus in viewport", shortcut: "view.focus" },
       ...(mode() === "animate" ? [{ label: "Set key", shortcut: "anim.setKey" } as MenuItem] : []),
@@ -104,6 +141,22 @@ function selectionItems(): MenuItem[] {
           { label: "Send to back", shortcut: "edit.sendToBack", disabled: at === 0 },
         ],
       },
+      ...((): MenuItem[] => {
+        const attName = (s as { attachment?: string }).attachment ?? slot.attachment;
+        const att = attName ? getAttachment(d, slot.id, attName, activeSkin()?.id) : null;
+        const ops = attTransformsFor(att);
+        if (!att || !attName || !ops.length) return [];
+        return [
+          {
+            label: `Transform “${attName}”`,
+            submenu: ops.flatMap((op, i) => [
+              ...(op === "rot90" && i > 0 ? (["sep"] as MenuItem[]) : op === "reset" ? (["sep"] as MenuItem[]) : []),
+              { label: ATT_LABELS[op], action: () => transformAttachment(slot.id, attName, op) } as MenuItem,
+            ]),
+          },
+        ];
+      })(),
+      boneTransformMenu(slot.bone),
       { label: visOf(slot.id) === "hidden" ? "Show" : "Hide", action: () => cycleVisTo(slot.id, visOf(slot.id) === "hidden" ? "shown" : "hidden") },
       { label: visOf(slot.id) === "dim" ? "Undim" : "Dim", action: () => cycleVisTo(slot.id, visOf(slot.id) === "dim" ? "shown" : "dim") },
       "sep",
