@@ -23,6 +23,11 @@ import {
   paintDab,
   setupVertices,
   weightTable,
+  autoWeightsFor,
+  averageWeights,
+  pruneWeights,
+  setBoneWeight,
+  smoothWeights,
 } from "../mesh-edit.ts";
 import {
   activeSkin,
@@ -61,6 +66,14 @@ import {
   setBrushStrength,
   brushMode,
   setBrushMode,
+  weightMode,
+  setWeightMode,
+  softSelect,
+  setSoftSelect,
+  multiBones,
+  setMultiBones,
+  softRadius,
+  setSoftRadius,
   onionSkin,
   setOnionSkin,
   onionCount,
@@ -70,6 +83,11 @@ import {
 } from "../state.ts";
 
 export const [smInstance, setSmInstance] = createSignal<StateMachineInstance | null>(null);
+/** For the Outline panel: the main view (artboard px → screen: x + ax·zoom) and a way to centre it on a point. */
+export const viewportApi: {
+  info: (() => { x: number; y: number; zoom: number; w: number; h: number }) | null;
+  centerOn: ((ax: number, ay: number) => void) | null;
+} = { info: null, centerOn: null };
 export const [eventLog, setEventLog] = createSignal<string[]>([]);
 let quickjs: ScriptHost | null = null;
 createQuickJsHost({ timeoutMs: 30 })
@@ -78,13 +96,15 @@ createQuickJsHost({ timeoutMs: 30 })
 
 type Drag =
   | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
-  | { kind: "bone"; op: "rotate" | "translate" | "scale"; bone: Bone; start: [number, number]; startWorld: [number, number]; base: Partial<BoneData>; cur: Partial<BoneData>; axis?: "x" | "y" }
+  | { kind: "bone"; op: "rotate" | "translate" | "scale"; bone: Bone; start: [number, number]; startWorld: [number, number]; base: Partial<BoneData>; cur: Partial<BoneData>; axis?: "x" | "y"; group?: { bone: Bone; base: Partial<BoneData>; cur: Partial<BoneData> }[] }
+  /** Box selection in screen px. */
+  | { kind: "marquee"; start: [number, number]; end: [number, number]; mode: "replace" | "add" | "remove" }
   | { kind: "guide"; guide: Guide; isNew: boolean }
   /** Pose tool: the chain bends so the grabbed point follows the pointer; rotations previewed until release. */
   | { kind: "pose"; chain: Bone[]; local: [number, number]; base: Map<Bone, number>; cur: Map<Bone, number>; target: [number, number] }
   | { kind: "attachment"; slotId: string; name: string; start: [number, number]; base: [number, number]; cur: [number, number]; inv: ReturnType<typeof invert>; preview: Skeleton | null; startWorld: [number, number] }
   | { kind: "create"; parent: Bone | null; start: [number, number]; end: [number, number] }
-  | { kind: "vertex"; t: MeshTarget; start: [number, number]; anchor: number; base: Map<number, [number, number]>; moved: Map<number, [number, number]>; preview: Skeleton | null }
+  | { kind: "vertex"; t: MeshTarget; start: [number, number]; anchor: number; base: Map<number, [number, number]>; moved: Map<number, [number, number]>; preview: Skeleton | null; soft?: Map<number, { base: [number, number]; f: number }> }
   | { kind: "paint"; t: MeshTarget; table: WeightTable; world: number[]; changed: Set<number>; last: [number, number]; carry: number };
 
 /** Mesh tool: when on, moving existing vertices keeps their uvs (the image stretches). */
@@ -102,6 +122,11 @@ export function Viewport() {
   let canvas!: HTMLCanvasElement;
   let wrap!: HTMLDivElement;
   const view = { x: 0, y: 0, zoom: 1 };
+  viewportApi.info = () => ({ ...view, w: wrap?.clientWidth ?? 0, h: wrap?.clientHeight ?? 0 });
+  viewportApi.centerOn = (ax, ay) => {
+    view.x = (wrap?.clientWidth ?? 0) / 2 - ax * view.zoom;
+    view.y = (wrap?.clientHeight ?? 0) / 2 - ay * view.zoom;
+  };
   let fitted = false;
   let drag: Drag | null = null;
   let sk: Skeleton | null = null;
@@ -204,7 +229,10 @@ export function Viewport() {
         sk.particleClock = "realtime";
         sk.setToSetupPose();
       }
-      if (drag?.kind === "bone") Object.assign(drag.bone, drag.cur);
+      if (drag?.kind === "bone") {
+        Object.assign(drag.bone, drag.cur);
+        for (const g of drag.group ?? []) Object.assign(g.bone, g.cur);
+      }
       if (drag?.kind === "pose") for (const [b, r] of drag.cur) b.rotation = r;
       sk.update(dt);
       sk.updateWorldTransform();
@@ -281,6 +309,7 @@ export function Viewport() {
     const gz = gizmoBone(shown);
     if (gz) drawGizmo(ctx, dpr, gz);
     if (drag?.kind === "pose") drawPoseTarget(ctx, dpr, drag);
+    drawMultiSelection(ctx, dpr, shown);
     if (drag?.kind === "create") {
       ctx.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
       ctx.beginPath();
@@ -391,6 +420,46 @@ export function Viewport() {
     ctx.lineWidth = 1;
     ctx.fillRect(sx - 4.5, sy - 4.5, 9, 9);
     ctx.strokeRect(sx - 4.5, sy - 4.5, 9, 9);
+    ctx.restore();
+  }
+
+  /** Bones selected together (rings on their joints, a bar along each) and the box being dragged. */
+  function drawMultiSelection(ctx: CanvasRenderingContext2D, dpr: number, sk_: Skeleton) {
+    const ids = multiBones();
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (ids.length > 1 && showBones() && !running()) {
+      ctx.strokeStyle = "#ffcc00";
+      ctx.lineWidth = 2;
+      for (const id of ids) {
+        const b = sk_.boneById_(id);
+        if (!b) continue;
+        const ox = skToScreenX(b.world.x);
+        const oy = skToScreenY(b.world.y);
+        const [tx, ty] = applyM(b.world, b.data.length, 0);
+        ctx.globalAlpha = 0.55;
+        ctx.beginPath();
+        ctx.moveTo(ox, oy);
+        ctx.lineTo(skToScreenX(tx), skToScreenY(ty));
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(ox, oy, 6, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+    if (drag?.kind === "marquee") {
+      const [x0, y0] = drag.start;
+      const [x1, y1] = drag.end;
+      ctx.fillStyle = drag.mode === "remove" ? "#ff5d5d22" : "#5b8cff22";
+      ctx.strokeStyle = drag.mode === "remove" ? "#ff5d5d" : "#5b8cff";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
+      ctx.strokeRect(Math.min(x0, x1) + 0.5, Math.min(y0, y1) + 0.5, Math.abs(x1 - x0), Math.abs(y1 - y0));
+    }
     ctx.restore();
   }
 
@@ -521,6 +590,22 @@ export function Viewport() {
     const sel = new Set(meshSel());
     const hv = hoverVertex();
     const sz = 3.5 * px * dpr;
+    if (!painting && softSelect() && sel.size) {
+      // Soft selection reach: vertices that will follow, more opaque the more they move.
+      const R = softRadius() / view.zoom;
+      const sv = setupVertices(t);
+      for (let i = 0; i < wv.length / 2; i++) {
+        if (sel.has(i)) continue;
+        let d = Infinity;
+        for (const j of sel) d = Math.min(d, Math.hypot(sv[i * 2] - sv[j * 2], sv[i * 2 + 1] - sv[j * 2 + 1]));
+        if (d >= R) continue;
+        const f = (1 - (d / R) ** 2) ** 2;
+        ctx.beginPath();
+        ctx.arc(wv[i * 2], wv[i * 2 + 1], sz * 2.4, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 150, 60, ${0.15 + 0.6 * f})`;
+        ctx.fill();
+      }
+    }
     for (let i = 0; i < wv.length / 2; i++) {
       const x = wv[i * 2];
       const y = wv[i * 2 + 1];
@@ -536,6 +621,14 @@ export function Viewport() {
         ctx.fillRect(x - sz, y - sz, sz * 2, sz * 2);
         ctx.strokeRect(x - sz, y - sz, sz * 2, sz * 2);
       }
+      if (painting && sel.has(i)) {
+        // Direct weights: selected vertices get a yellow ring.
+        ctx.beginPath();
+        ctx.arc(x, y, sz * 1.8, 0, Math.PI * 2);
+        ctx.strokeStyle = "#ffcc00";
+        ctx.lineWidth = 2 * px * dpr;
+        ctx.stroke();
+      }
       if (i === hv) {
         ctx.beginPath();
         ctx.arc(x, y, sz * 2.2, 0, Math.PI * 2);
@@ -544,7 +637,7 @@ export function Viewport() {
         ctx.stroke();
       }
     }
-    if (painting && hoverPt) {
+    if (painting && hoverPt && weightMode() === "brush") {
       ctx.beginPath();
       ctx.arc(hoverPt[0], hoverPt[1], (brushRadius() / view.zoom), 0, Math.PI * 2);
       ctx.strokeStyle = brushMode() === "add" ? "#ffffffcc" : "#ff8a8acc";
@@ -582,8 +675,21 @@ export function Viewport() {
           if (e.shiftKey) sel = sel.includes(hit) ? sel.filter((i) => i !== hit) : [...sel, hit];
           else if (!sel.includes(hit)) sel = [hit];
           setMeshSel(sel);
-          if (sel.includes(hit))
-            drag = { kind: "vertex", t: target, start: [x, y], anchor: hit, base: new Map(sel.map((i) => [i, [world[i * 2], world[i * 2 + 1]]])), moved: new Map(), preview: null };
+          if (sel.includes(hit)) {
+            // Soft selection: unselected vertices near the selection follow with a smooth falloff.
+            let soft: Map<number, { base: [number, number]; f: number }> | undefined;
+            if (softSelect()) {
+              const R = softRadius() / view.zoom;
+              soft = new Map();
+              for (let i = 0; i < world.length / 2; i++) {
+                if (sel.includes(i)) continue;
+                let d = Infinity;
+                for (const j of sel) d = Math.min(d, Math.hypot(world[i * 2] - world[j * 2], world[i * 2 + 1] - world[j * 2 + 1]));
+                if (d < R) soft.set(i, { base: [world[i * 2], world[i * 2 + 1]], f: (1 - (d / R) ** 2) ** 2 });
+              }
+            }
+            drag = { kind: "vertex", t: target, start: [x, y], anchor: hit, base: new Map(sel.map((i) => [i, [world[i * 2], world[i * 2 + 1]]])), moved: new Map(), preview: null, soft };
+          }
           return;
         }
         if (e.ctrlKey || e.metaKey) {
@@ -594,6 +700,18 @@ export function Viewport() {
         const slot = pickSlot(x, y);
         if (!slot || slot.data.id === target.slotId) {
           setMeshSel([]);
+          return;
+        }
+      } else if (weightMode() === "direct") {
+        // Direct weights: click vertices to select them (shift adds/removes); the panel sets their weights.
+        const hit = pickVertex(world, x, y);
+        if (hit >= 0) {
+          const sel = meshSel();
+          setMeshSel(e.shiftKey ? (sel.includes(hit) ? sel.filter((i) => i !== hit) : [...sel, hit]) : [hit]);
+          return;
+        }
+        if (pointInPolygon(x, y, hull)) {
+          if (!e.shiftKey) setMeshSel([]);
           return;
         }
       } else {
@@ -927,7 +1045,7 @@ export function Viewport() {
     const gzPart = gz ? gizmoHit(gz, mx, my) : null;
     if (gz && gzPart) {
       const base = { x: gz.x, y: gz.y, rotation: gz.rotation, scaleX: gz.scaleX, scaleY: gz.scaleY };
-      drag = { kind: "bone", op: "translate", bone: gz, start: [x, y], startWorld: [gz.world.x, gz.world.y], base, cur: { ...base }, axis: gzPart === "xy" ? undefined : gzPart };
+      drag = { kind: "bone", op: "translate", bone: gz, start: [x, y], startWorld: [gz.world.x, gz.world.y], base, cur: { ...base }, axis: gzPart === "xy" ? undefined : gzPart, group: selectionGroup(gz, "translate") };
       return;
     }
     const bone = pickBone(x, y);
@@ -945,9 +1063,30 @@ export function Viewport() {
       drag = { kind: "pose", chain, local: poseGrabPoint(grabbed, x, y), base, cur: new Map(base), target: [x, y] };
       return;
     }
-    if (bone) setSelection({ kind: "bone", id: bone.data.id });
-    else if (slot) setSelection({ kind: "slot", id: slot.data.id });
-    else {
+    const multi = multiBones();
+    if (bone && (e.shiftKey || e.ctrlKey || e.metaKey) && (t === "select" || t === "translate" || t === "scale")) {
+      // Shift-click adds a bone to the selection (or removes it), Ctrl/⌘-click removes.
+      const cur = new Set(multi.length ? multi : selectedBoneId() ? [selectedBoneId()!] : []);
+      if (cur.has(bone.data.id)) cur.delete(bone.data.id);
+      else if (e.shiftKey) cur.add(bone.data.id);
+      setMultiBones(cur.size > 1 ? [...cur] : []);
+      const first = cur.has(bone.data.id) ? bone.data.id : [...cur][0];
+      setSelection(first ? { kind: "bone", id: first } : null);
+      return;
+    }
+    if (bone) {
+      if (!multi.includes(bone.data.id)) setMultiBones([]);
+      setSelection({ kind: "bone", id: bone.data.id });
+    } else if (slot) {
+      setMultiBones([]);
+      setSelection({ kind: "slot", id: slot.data.id });
+    } else {
+      if (t === "select" || t === "translate" || t === "scale") {
+        // Empty space: box select bones (shift adds, Ctrl/⌘ removes).
+        drag = { kind: "marquee", start: [mx, my], end: [mx, my], mode: e.shiftKey ? "add" : e.ctrlKey || e.metaKey ? "remove" : "replace" };
+        return;
+      }
+      setMultiBones([]);
       setSelection(null);
       return;
     }
@@ -960,8 +1099,29 @@ export function Viewport() {
     }
     const target = bone ?? slot!.bone;
     const op = t === "translate" ? "translate" : t === "scale" ? "scale" : "rotate";
-    const base = { x: target.x, y: target.y, rotation: target.rotation, scaleX: target.scaleX, scaleY: target.scaleY };
-    drag = { kind: "bone", op, bone: target, start: [x, y], startWorld: [target.world.x, target.world.y], base, cur: { ...base } };
+    const baseOf = (b: Bone) => ({ x: b.x, y: b.y, rotation: b.rotation, scaleX: b.scaleX, scaleY: b.scaleY });
+    const base = baseOf(target);
+    const group = bone ? selectionGroup(target, op) : undefined;
+    drag = { kind: "bone", op, bone: target, start: [x, y], startWorld: [target.world.x, target.world.y], base, cur: { ...base }, group };
+  }
+
+  /**
+   * The other selected bones that follow when `target` is dragged (rotate and scale: every one in place; translate:
+   * only the top-most, so children of moved bones aren't moved twice).
+   */
+  function selectionGroup(target: Bone, op: "rotate" | "translate" | "scale") {
+    const selIds = new Set(multiBones());
+    if (selIds.size < 2 || !selIds.has(target.data.id)) return undefined;
+    const baseOf = (b: Bone) => ({ x: b.x, y: b.y, rotation: b.rotation, scaleX: b.scaleX, scaleY: b.scaleY });
+    const hasSelectedAncestor = (b: Bone) => {
+      for (let p = b.parent; p; p = p.parent) if (selIds.has(p.data.id)) return true;
+      return false;
+    };
+    return [...selIds]
+      .filter((id) => id !== target.data.id)
+      .map((id) => sk!.boneById_(id))
+      .filter((b): b is Bone => !!b && (op !== "translate" || !hasSelectedAncestor(b)))
+      .map((b) => ({ bone: b, base: baseOf(b), cur: baseOf(b) }));
   }
 
   function onMove(e: PointerEvent) {
@@ -1020,6 +1180,7 @@ export function Viewport() {
       const dx = sx - ax;
       const dy = sy - ay;
       for (const [i, [bx, by]] of drag.base) drag.moved.set(i, [bx + dx, by + dy]);
+      for (const [i, { base: [bx, by], f }] of drag.soft ?? []) drag.moved.set(i, [bx + dx * f, by + dy * f]);
       const t = drag.t;
       const g = buildGeometry(t, movedWorld(t, drag.moved), t.att.hull, identity(t.att.vertices.length / 2), meshWarp());
       if (typeof g !== "string") {
@@ -1058,16 +1219,26 @@ export function Viewport() {
         att.x = drag.cur[0];
         att.y = drag.cur[1];
       }
+    } else if (drag.kind === "marquee") {
+      drag.end = [mx, my];
     } else {
       const b = drag.bone;
       const pw = b.parent ? b.parent.world : { a: 1, b: 0, c: 0, d: 1, x: 0, y: 0 };
       const det = Math.sign(pw.a * pw.d - pw.b * pw.c) || 1;
+      // Group: every other selected bone gets the same change (rotation/scale in place, translation in world).
+      const groupApply = (fn: (g: { bone: Bone; base: Partial<BoneData>; cur: Partial<BoneData> }, gdet: number, gpw: { a: number; b: number; c: number; d: number; x: number; y: number }) => Partial<BoneData>) => {
+        for (const g of drag && drag.kind === "bone" ? (drag.group ?? []) : []) {
+          const gpw = g.bone.parent ? g.bone.parent.world : { a: 1, b: 0, c: 0, d: 1, x: 0, y: 0 };
+          g.cur = { ...g.cur, ...fn(g, Math.sign(gpw.a * gpw.d - gpw.b * gpw.c) || 1, gpw) };
+        }
+      };
       if (drag.op === "rotate") {
         const a0 = Math.atan2(drag.start[1] - b.world.y, drag.start[0] - b.world.x);
         const a1 = Math.atan2(y - b.world.y, x - b.world.x);
         let delta = (a1 - a0) * RAD;
         if (e.shiftKey) delta = Math.round(delta / 15) * 15;
         drag.cur = { ...drag.cur, rotation: round2(drag.base.rotation! + delta * det) };
+        groupApply((g, gdet) => ({ rotation: round2(g.base.rotation! + delta * gdet) }));
       } else if (drag.op === "translate") {
         const inv = invert(pw);
         const moving = subtree(b);
@@ -1080,11 +1251,16 @@ export function Viewport() {
         const dx = sx - drag.startWorld[0];
         const dy = sy - drag.startWorld[1];
         drag.cur = { ...drag.cur, x: round2(drag.base.x! + inv.a * dx + inv.b * dy), y: round2(drag.base.y! + inv.c * dx + inv.d * dy) };
+        groupApply((g, _gdet, gpw) => {
+          const gi = invert(gpw);
+          return { x: round2(g.base.x! + gi.a * dx + gi.b * dy), y: round2(g.base.y! + gi.c * dx + gi.d * dy) };
+        });
       } else {
         const d0 = Math.hypot(drag.start[0] - b.world.x, drag.start[1] - b.world.y) || 1;
         const d1 = Math.hypot(x - b.world.x, y - b.world.y);
         const k = d1 / d0;
         drag.cur = e.shiftKey ? { ...drag.cur, scaleX: round2(drag.base.scaleX! * k), scaleY: round2(drag.base.scaleY! * k) } : { ...drag.cur, scaleX: round2(drag.base.scaleX! * k) };
+        groupApply((g) => (e.shiftKey ? { scaleX: round2(g.base.scaleX! * k), scaleY: round2(g.base.scaleY! * k) } : { scaleX: round2(g.base.scaleX! * k) }));
       }
     }
   }
@@ -1128,10 +1304,38 @@ export function Viewport() {
         length: round2(len > 2 ? len / Math.hypot(pw.a, pw.c) : 0),
       }) as { id: string } | undefined;
       if (res) setSelection({ kind: "bone", id: res.id });
+    } else if (d.kind === "marquee") {
+      const [x0, x1] = [Math.min(d.start[0], d.end[0]), Math.max(d.start[0], d.end[0])];
+      const [y0, y1] = [Math.min(d.start[1], d.end[1]), Math.max(d.start[1], d.end[1])];
+      if (x1 - x0 < 3 && y1 - y0 < 3) {
+        // A click on empty space (not a drag): clear the selection.
+        if (d.mode === "replace") {
+          setMultiBones([]);
+          setSelection(null);
+        }
+        return;
+      }
+      const inside = (sk?.bones ?? [])
+        .filter((b) => {
+          const sx = skToScreenX(b.world.x);
+          const sy = skToScreenY(b.world.y);
+          return sx >= x0 && sx <= x1 && sy >= y0 && sy <= y1;
+        })
+        .map((b) => b.data.id);
+      const prev = new Set(multiBones().length ? multiBones() : selectedBoneId() ? [selectedBoneId()!] : []);
+      const next = d.mode === "add" ? new Set([...prev, ...inside]) : d.mode === "remove" ? new Set([...prev].filter((id) => !inside.includes(id))) : new Set(inside);
+      const ids = [...next];
+      setMultiBones(ids.length > 1 ? ids : []);
+      setSelection(ids.length ? { kind: "bone", id: ids.includes(selectedBoneId() ?? "") ? selectedBoneId()! : ids[0] } : null);
     } else if (d.kind === "bone") {
-      const changed: Partial<BoneData> = {};
-      for (const k of Object.keys(d.cur) as (keyof BoneData)[]) if (d.cur[k] !== d.base[k]) (changed as Record<string, unknown>)[k] = d.cur[k];
-      if (Object.keys(changed).length) commitBone(d.bone.data.id, changed as Record<string, number>);
+      const diff = (cur: Partial<BoneData>, base: Partial<BoneData>) => {
+        const changed: Record<string, number> = {};
+        for (const k of Object.keys(cur) as (keyof BoneData)[]) if (cur[k] !== base[k]) changed[k] = cur[k] as number;
+        return changed;
+      };
+      const all = [{ id: d.bone.data.id, changed: diff(d.cur, d.base) }, ...(d.group ?? []).map((g) => ({ id: g.bone.data.id, changed: diff(g.cur, g.base) }))].filter((c) => Object.keys(c.changed).length);
+      if (all.length === 1) commitBone(all[0].id, all[0].changed);
+      else if (all.length > 1) transaction(`move ${all.length} bones`, () => all.forEach((c) => commitBone(c.id, c.changed)));
     } else if (d.kind === "vertex") {
       if ([...d.moved].some(([i, [mx2, my2]]) => mx2 !== d.base.get(i)![0] || my2 !== d.base.get(i)![1])) moveVertices(d.t, d.moved, meshWarp());
     } else if (d.kind === "paint") {
@@ -1337,6 +1541,82 @@ const fmtRuler = (n: number) => String(Math.round(n * 100) / 100);
 const clampInt = (v: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(Number(v) || lo)));
 
 /** Floating panel for the mesh and weights tools. */
+/** Weights panel extras: Direct per-bone weights for selected vertices, and Smooth / Auto / Prune. */
+function WeightTools() {
+  const target = () => (doc(), meshTarget());
+  const verts = () => {
+    const t = target();
+    if (!t) return [];
+    const sel = meshSel();
+    return sel.length ? sel : Array.from({ length: t.att.vertices.length / 2 }, (_, i) => i);
+  };
+  const rows = () => {
+    const t = target();
+    if (!t || !meshSel().length) return [];
+    const list = averageWeights(weightTable(t), meshSel());
+    const wb = weightBone();
+    if (wb && !list.some((r) => r.bone === wb)) list.push({ bone: wb, w: 0 });
+    return list;
+  };
+  const boneName = (id: string) => doc().skeleton.bones.find((b) => b.id === id)?.name ?? id;
+  const run = (fn: (table: WeightTable, t: MeshTarget) => number[]) => {
+    const t = target();
+    if (!t) return;
+    const table = weightTable(t);
+    const changed = fn(table, t);
+    if (changed.length) commitWeights(t, table, changed);
+  };
+  const usedBones = (t: MeshTarget) => {
+    const set = new Set<string>();
+    for (const m of weightTable(t)) for (const b of m.keys()) set.add(b);
+    const wb = weightBone();
+    if (wb) set.add(wb);
+    return [...set];
+  };
+  const scope = () => (meshSel().length ? `${meshSel().length} selected` : "all vertices");
+  return (
+    <>
+      <Show when={weightMode() === "direct"}>
+        <Show when={meshSel().length} fallback={<div class="hint">Click vertices to select them (shift-click adds or removes), then set each bone's weight below.</div>}>
+          <div class="muted small">{meshSel().length} vertices · average weights</div>
+          <For each={rows()}>
+            {(r) => (
+              <label class="field weight-row" title={`Set ${boneName(r.bone)} on the selected vertices; the other bones share the rest`}>
+                <span>{boneName(r.bone)}</span>
+                <input type="range" min="0" max="100" step="1" value={Math.round(r.w * 100)} onChange={(e) => run((table) => setBoneWeight(table, meshSel(), r.bone, Number(e.currentTarget.value) / 100))} />
+                <span class="num">{Math.round(r.w * 100)}%</span>
+              </label>
+            )}
+          </For>
+        </Show>
+      </Show>
+      <div class="btn-row">
+        <button title={`Smooth: blend each vertex's weights toward its neighbours (${scope()})`} onClick={() => run((table, t) => smoothWeights(table, verts(), t.att.triangles, 0.5))}>
+          Smooth
+        </button>
+        <button
+          title={`Auto: recompute from the nearest bones the mesh already uses, plus the picked bone (${scope()})`}
+          onClick={() =>
+            run((table, t) => {
+              const bones = usedBones(t);
+              if (bones.length < 2) {
+                toast("Auto needs at least two bones: pick another bone (or bind bones in the Inspector) first", "error");
+                return [];
+              }
+              return autoWeightsFor(table, verts(), setupVertices(t), bones);
+            })
+          }
+        >
+          Auto
+        </button>
+        <button title={`Prune: drop influences under 5% and keep at most 4 per vertex (${scope()})`} onClick={() => run((table) => pruneWeights(table, verts(), 0.05, 4))}>
+          Prune
+        </button>
+      </div>
+    </>
+  );
+}
+
 function MeshPanel() {
   const target = () => (doc(), meshTarget());
   const influences = () => {
@@ -1358,6 +1638,16 @@ function MeshPanel() {
             </div>
             <Show when={tool() === "mesh"}>
               <div class="hint">Click a vertex to select (shift: add, Ctrl/⌘+A: all), drag or arrow keys to move, Ctrl/⌘-click to add (outside the hull extends the outline), Delete removes, Esc deselects.</div>
+              <label class="check" title="Dragging vertices also pulls nearby unselected vertices, less the further away they are">
+                <input type="checkbox" checked={softSelect()} onChange={(e) => setSoftSelect(e.currentTarget.checked)} /> Soft selection
+              </label>
+              <Show when={softSelect()}>
+                <label class="field">
+                  <span>Size</span>
+                  <input type="range" min="10" max="300" value={softRadius()} onInput={(e) => setSoftRadius(Number(e.currentTarget.value))} />
+                  <span class="num">{softRadius()}px</span>
+                </label>
+              </Show>
               <div class="btn-row">
                 <label class="check" title="Moving vertices keeps their image coordinates, so the image stretches">
                   <input type="checkbox" checked={meshWarp()} onChange={(e) => setMeshWarp(e.currentTarget.checked)} /> Warp image
@@ -1368,6 +1658,14 @@ function MeshPanel() {
               </div>
             </Show>
             <Show when={tool() === "weights"}>
+              <div class="field">
+                <span>Mode</span>
+                <div class="segmented group">
+                  <button classList={{ active: weightMode() === "brush" }} onClick={() => setWeightMode("brush")} title="Paint weights with a brush">Brush</button>
+                  <button classList={{ active: weightMode() === "direct" }} onClick={() => setWeightMode("direct")} title="Select vertices (click, shift-click) and set their weights by number">Direct</button>
+                </div>
+              </div>
+              <WeightTools />
               <label class="field">
                 <span>Bone</span>
                 <select value={weightBone() ?? ""} onChange={(e) => setWeightBone(e.currentTarget.value || null)}>

@@ -229,16 +229,28 @@ export function createServer(opts: ServerOptions = {}) {
         padding: z.number().int().min(0).max(32).default(2).describe("Empty pixels around each image"),
         maxSize: z.number().int().min(16).max(8192).default(2048).describe("Largest page width/height"),
         powerOfTwo: z.boolean().default(true),
+        rotate: z.boolean().default(false).describe("Turn images 90° when that packs tighter (images used by particles stay upright)"),
+        scale: z
+          .union([z.number().min(0.05).max(1), z.literal("auto")])
+          .default(1)
+          .describe("Store images at this fraction of their size; \"auto\" shrinks only as much as needed to fit one page"),
         stripImageSources: z.boolean().default(false),
       },
     },
     async (a) => {
       try {
         if (!session.doc.images.length) throw new Error("No images to pack");
-        const atlas = await packAtlas(session, session.doc, { padding: a.padding, maxWidth: a.maxSize, maxHeight: a.maxSize, powerOfTwo: a.powerOfTwo });
+        const atlas = await packAtlas(session, session.doc, {
+          padding: a.padding,
+          maxWidth: a.maxSize,
+          maxHeight: a.maxSize,
+          powerOfTwo: a.powerOfTwo,
+          allowRotation: a.rotate,
+          ...(a.scale === "auto" ? { autoScale: true } : { scale: a.scale }),
+        });
         session.store.apply("setAtlas", { atlas, stripImageSources: a.stripImageSources });
         await session.maybeAutosave();
-        return text({ ok: true, pages: atlas.pages.map((p) => `${p.id} ${p.width}x${p.height}`), regions: atlas.regions.length });
+        return text({ ok: true, pages: atlas.pages.map((p) => `${p.id} ${p.width}x${p.height}`), regions: atlas.regions.length, rotated: atlas.regions.filter((r) => r.rotated).length, scale: atlas.scale ?? 1 });
       } catch (e) {
         return fail(e);
       }

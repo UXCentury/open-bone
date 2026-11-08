@@ -74,6 +74,7 @@ const atlasRegionSchema = z.object({
   offsetY: px.default(0),
   originalWidth: z.number().positive().optional().describe("Original image width (default: the image asset's width)"),
   originalHeight: z.number().positive().optional(),
+  rotated: z.boolean().optional().describe("Stored turned 90° clockwise: on the page it covers height × width at (x, y)"),
 });
 
 defineOp({
@@ -90,6 +91,7 @@ defineOp({
         regions: z.array(atlasRegionSchema),
         white: z.object({ page: z.string().min(1), x: px, y: px, width: z.number().int().positive(), height: z.number().int().positive() }).optional(),
         padding: z.number().int().min(0).default(0),
+        scale: z.number().positive().max(1).optional().describe("Images were stored at this fraction of their size (informational)"),
       })
       .nullable(),
     stripImageSources: z.boolean().default(false),
@@ -116,12 +118,13 @@ defineOp({
       const img = get.image(doc, r.image);
       if (seen.has(img.id)) throw new Error(`Image "${img.name}" has two atlas regions`);
       seen.add(img.id);
-      inPage(`Region of "${img.name}"`, r);
+      inPage(`Region of "${img.name}"`, r.rotated ? { ...r, width: r.height, height: r.width } : r);
       const originalWidth = r.originalWidth ?? img.width;
       const originalHeight = r.originalHeight ?? img.height;
       if (r.offsetX + r.width > originalWidth + 1e-6 || r.offsetY + r.height > originalHeight + 1e-6)
         throw new Error(`Region of "${img.name}": offset + size exceeds the original ${originalWidth}x${originalHeight}`);
-      return { ...r, image: img.id, originalWidth, originalHeight };
+      const { rotated, ...rest } = r;
+      return { ...rest, image: img.id, originalWidth, originalHeight, ...(rotated ? { rotated: true } : {}) };
     });
     if (a.atlas.white) inPage("White block", a.atlas.white);
     const missing = doc.images.filter((i) => !i.src && !seen.has(i.id));
@@ -131,6 +134,7 @@ defineOp({
       regions,
       ...(a.atlas.white ? { white: a.atlas.white } : {}),
       padding: a.atlas.padding,
+      ...(a.atlas.scale && a.atlas.scale !== 1 ? { scale: a.atlas.scale } : {}),
     };
     // Image assets are shared between undo snapshots, so replace them instead of mutating.
     if (a.stripImageSources) doc.images = doc.images.map((img) => (seen.has(img.id) ? { ...img, src: "" } : img));

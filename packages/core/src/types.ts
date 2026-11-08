@@ -71,6 +71,8 @@ export interface AtlasRegion {
   offsetY: number;
   originalWidth: number;
   originalHeight: number;
+  /** Stored turned 90° clockwise to pack tighter: on the page it covers height × width at (x, y). */
+  rotated?: boolean;
 }
 
 /** A solid white block in a page; untextured shapes sample it so they batch with packed images. */
@@ -88,6 +90,8 @@ export interface AtlasData {
   white?: AtlasWhite;
   /** Pixels kept empty around each packed rectangle (informational). */
   padding: number;
+  /** Images were stored at this fraction of their size (informational; uvs already account for it). */
+  scale?: number;
 }
 
 interface AttachmentBase {
@@ -476,6 +480,30 @@ export interface SkeletonData {
   transform: TransformConstraintData[];
   path: PathConstraintData[];
   physics: PhysicsConstraintData[];
+  /** Sliders: animations scrubbed by a bone property or an input. Applied first, before the constraints above. */
+  sliders?: SliderData[];
+}
+
+/**
+ * Slider (Spine 4.2-style): a driver value scrubs an animation. The driver is a bone's local property (`bone` +
+ * `property`) or a number input (`input`, by id). `from`..`to` of the driver maps to `timeFrom`..`timeTo` seconds of
+ * the animation (default: its whole length), clamped, or wrapped with `loop`. The animation is blended in by `mix`,
+ * or added on top of the current pose with `additive` (its change from the setup pose, times `mix`).
+ */
+export interface SliderData {
+  id: Id;
+  name: string;
+  animation: Id;
+  bone?: Id;
+  property?: BoneProperty;
+  input?: Id;
+  from: number;
+  to: number;
+  timeFrom?: number;
+  timeTo?: number;
+  mix: number;
+  loop: boolean;
+  additive: boolean;
 }
 
 /** Bezier handles [cx1, cy1, cx2, cy2] in normalised 0..1 key-span space. */
@@ -563,6 +591,10 @@ export interface AnimationData {
   events: EventKey[];
   /** Audio track: sounds started at a time. Looping ones stop when the animation ends or is replaced. */
   audio?: AudioKey[];
+  /** false: a helper / work-in-progress animation, left out of exports unless picked by hand. Default true. */
+  export?: boolean;
+  /** Colour shown for the animation in the editor's lists. */
+  color?: Hex;
 }
 
 // ---------- Audio ----------

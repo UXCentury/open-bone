@@ -356,3 +356,102 @@ function segDistSq(px: number, py: number, ax: number, ay: number, bx: number, b
 }
 
 const round = (n: number, k = 1e3) => Math.round(n * k) / k;
+
+// ---------- Weights panel (Direct mode, Smooth, Auto, Prune) ----------
+
+/** Average weight of each bone over some vertices, biggest first. */
+export function averageWeights(table: WeightTable, verts: number[]): { bone: string; w: number }[] {
+  const sum = new Map<string, number>();
+  for (const v of verts) for (const [b, w] of table[v] ?? []) sum.set(b, (sum.get(b) ?? 0) + w);
+  return [...sum].map(([bone, s]) => ({ bone, w: s / Math.max(1, verts.length) })).sort((a, b) => b.w - a.w);
+}
+
+const normalise = (m: Map<string, number>, min = 1e-4) => {
+  for (const [b, w] of m) if (w < min) m.delete(b);
+  const total = [...m.values()].reduce((s, w) => s + w, 0);
+  if (total > 0) for (const [b, w] of m) m.set(b, w / total);
+};
+
+/** Set `bone` to `value` on each vertex; the other influences share the rest in their current proportions. */
+export function setBoneWeight(table: WeightTable, verts: number[], bone: string, value: number): number[] {
+  const changed: number[] = [];
+  const v01 = Math.min(1, Math.max(0, value));
+  for (const v of verts) {
+    const m = table[v];
+    const others = [...m].filter(([b]) => b !== bone).reduce((s, [, w]) => s + w, 0);
+    // The only influence can't drop below 100%: there is nothing to take the rest.
+    if (others <= 1e-6 && v01 < 1) continue;
+    const k = others > 1e-6 ? (1 - v01) / others : 0;
+    for (const [b, w] of m) if (b !== bone) m.set(b, w * k);
+    m.set(bone, v01);
+    normalise(m);
+    changed.push(v);
+  }
+  return changed;
+}
+
+/** Blend each vertex's weights toward the average of its mesh neighbours (strength 0..1). */
+export function smoothWeights(table: WeightTable, verts: number[], triangles: number[], strength = 0.5): number[] {
+  const neighbours = new Map<number, Set<number>>();
+  for (let i = 0; i < triangles.length; i += 3) {
+    const t = [triangles[i], triangles[i + 1], triangles[i + 2]];
+    for (const a of t) for (const b of t) if (a !== b) (neighbours.get(a) ?? neighbours.set(a, new Set()).get(a)!).add(b);
+  }
+  const next = verts.map((v) => {
+    const ns = [...(neighbours.get(v) ?? [])];
+    if (!ns.length) return null;
+    const avg = new Map<string, number>();
+    for (const n of ns) for (const [b, w] of table[n]) avg.set(b, (avg.get(b) ?? 0) + w / ns.length);
+    const m = new Map<string, number>();
+    for (const b of new Set([...table[v].keys(), ...avg.keys()])) m.set(b, (1 - strength) * (table[v].get(b) ?? 0) + strength * (avg.get(b) ?? 0));
+    normalise(m);
+    return m;
+  });
+  const changed: number[] = [];
+  verts.forEach((v, i) => {
+    if (next[i]) {
+      table[v] = next[i]!;
+      changed.push(v);
+    }
+  });
+  return changed;
+}
+
+/** Drop influences below `threshold` and keep at most `maxInfluences` per vertex, then renormalise. */
+export function pruneWeights(table: WeightTable, verts: number[], threshold = 0.05, maxInfluences = 4): number[] {
+  const changed: number[] = [];
+  for (const v of verts) {
+    const m = table[v];
+    const kept = [...m].sort((a, b) => b[1] - a[1]).filter(([, w], i) => i === 0 || (w >= threshold && i < maxInfluences));
+    if (kept.length === m.size) continue;
+    table[v] = new Map(kept);
+    normalise(table[v]);
+    changed.push(v);
+  }
+  return changed;
+}
+
+/** Recompute weights from the nearest bone segments (like the autoWeights op), for some vertices only. */
+export function autoWeightsFor(table: WeightTable, verts: number[], world: number[], bones: string[], maxInfluences = 2, falloff = 2): number[] {
+  const sw = setupWorld(store.doc);
+  const segs = bones
+    .map((id) => {
+      const b = store.doc.skeleton.bones.find((x) => x.id === id);
+      const m = sw.get(id);
+      if (!b || !m) return null;
+      const [ex, ey] = applyM(m, Math.max(b.length, 1e-3), 0);
+      return { id, ax: m.x, ay: m.y, ex, ey };
+    })
+    .filter(Boolean) as { id: string; ax: number; ay: number; ex: number; ey: number }[];
+  if (!segs.length) return [];
+  for (const v of verts) {
+    const x = world[v * 2];
+    const y = world[v * 2 + 1];
+    const scored = segs.map((s) => ({ id: s.id, score: 1 / Math.pow(Math.sqrt(segDistSq(x, y, s.ax, s.ay, s.ex, s.ey)) + 1, falloff) }));
+    scored.sort((a, b) => b.score - a.score);
+    const top = scored.slice(0, maxInfluences);
+    const total = top.reduce((s, t) => s + t.score, 0) || 1;
+    table[v] = new Map(top.map((t) => [t.id, t.score / total]));
+  }
+  return verts;
+}

@@ -233,6 +233,9 @@ input.tiny { width: 52px; }
 /* curve graph editor */
 .timeline-body { flex: 1; display: flex; min-height: 0; }
 .timeline-body .timeline-area { min-width: 0; }
+.timeline-bar .anim-color { width: 22px; height: 20px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: none; }
+.timeline-bar .rec { color: var(--muted); }
+.timeline-bar .rec.on { color: #fff; background: #c62f3a; border-color: #e0444f; box-shadow: 0 0 0 2px #ff5d5d33; }
 .timeline-bar .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .timeline-bar .seg button { border: 0; border-radius: 0; background: transparent; padding: 2px 10px; color: var(--muted); }
 .timeline-bar .seg button + button { border-left: 1px solid var(--line); }
@@ -537,6 +540,10 @@ button.help-btn { font-size: 14px; padding: 1px 8px; }
 .shortcuts-dialog .modal-foot { flex-wrap: wrap; }
 @media (max-width: 600px) { .sc-label { min-width: 0; flex-basis: 100%; } .play-panel { width: calc(100% - 24px); } }
 /* audio */
+.track-row.audio-row { height: 44px; }
+.audio-row .event-key.audio-key { top: 3px; height: 36px; padding: 0; display: flex; align-items: flex-start; }
+.audio-row .audio-key .wave { position: absolute; left: 0; top: 0; height: 36px; pointer-events: none; opacity: 0.9; }
+.audio-row .audio-key .audio-name { position: relative; padding: 1px 5px; font-size: 10px; text-shadow: 0 1px 2px #000a; }
 .event-key.audio-key { background: #1f8f6a; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
 .event-key.audio-key.loop { border-right: 3px dashed #9ff3d3; }
 .event-key.audio-key.selected { background: var(--warn); color: #000; }
@@ -561,3 +568,12 @@ input.small { width: 90px; }
 .binding-ranges { padding-top: 0; }
 .binding-ranges input[type="color"] { width: 36px; height: 20px; padding: 0; }
 .edge.on-complete line:not(.hit) { stroke: #6b7280; }
+
+.stats { padding: 2px 10px 8px; font-variant-numeric: tabular-nums; }
+.stat-row { display: flex; justify-content: space-between; gap: 8px; padding: 1px 0; white-space: pre; }
+
+.preview-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.preview-bar { display: flex; gap: 4px; align-items: center; padding: 4px 6px; flex-wrap: wrap; }
+.preview-bar select:first-child { flex: 1; min-width: 0; }
+.preview-canvas { flex: 1; width: 100%; min-height: 80px; display: block; }
+.preview-canvas.outline { cursor: crosshair; }

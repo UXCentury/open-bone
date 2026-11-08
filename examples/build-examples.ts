@@ -2,11 +2,11 @@
  * Builds the example projects in this folder using the same ops the editor and MCP server use.
  * Run: pnpm tsx examples/build-examples.ts
  */
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCanvas } from "@napi-rs/canvas";
-import { DocumentStore, createDocument, serialize, validate } from "@openbone/core";
+import { DocumentStore, createDocument, lipSync, serialize, validate } from "@openbone/core";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -756,6 +756,98 @@ function knight() {
   return s.doc;
 }
 
+/** Mono samples of a 16-bit PCM WAV file. */
+function readWav(file: string): { samples: Float32Array; rate: number } {
+  const b = readFileSync(file);
+  let p = 12;
+  let rate = 22050;
+  let channels = 1;
+  while (p + 8 <= b.length) {
+    const id = b.toString("ascii", p, p + 4);
+    const size = b.readUInt32LE(p + 4);
+    if (id === "fmt ") {
+      channels = b.readUInt16LE(p + 10);
+      rate = b.readUInt32LE(p + 12);
+    } else if (id === "data") {
+      const n = Math.floor(size / 2 / channels);
+      const samples = new Float32Array(n);
+      for (let i = 0; i < n; i++) {
+        let v = 0;
+        for (let c = 0; c < channels; c++) v += b.readInt16LE(p + 8 + (i * channels + c) * 2);
+        samples[i] = v / channels / 32768;
+      }
+      return { samples, rate };
+    }
+    p += 8 + size + (size % 2);
+  }
+  throw new Error(`${file}: no PCM data`);
+}
+
+/** Robot: lip sync example. Its voice is formant-synthesised; the mouth keys come from the same lipSync analysis as the editor's Lip sync dialog. */
+function robot() {
+  const s = new DocumentStore(createDocument("Robot"));
+  const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
+  A("setDocument", { width: 500, height: 560, originX: 250, originY: 520 });
+  A("addBone", { name: "body", y: 40, length: 0 });
+  // The neck points up from the top of the torso; the head turns back upright so its shapes use x right, y up.
+  A("addBone", { name: "neck", parent: "body", y: 140, rotation: 90, length: 30 });
+  A("addBone", { name: "head", parent: "neck", x: 30, rotation: -90, length: 0 });
+  A("addBone", { name: "antenna", parent: "head", y: 150, rotation: 90, length: 60 });
+  A("addBone", { name: "mouth", parent: "head", y: 40, length: 0 });
+  const shape = (slot: string, bone: string, args: Record<string, unknown>) => {
+    A("addSlot", { bone, name: slot });
+    A("addShape", { slot, ...args });
+  };
+  shape("torso", "body", { shape: "rect", x: 0, y: 60, width: 220, height: 170, radius: 28, fill: "#5b6b8c", stroke: "#2c3550", strokeWidth: 4 });
+  shape("panel", "body", { shape: "rect", x: 0, y: 70, width: 120, height: 70, radius: 10, fill: "#3a4566" });
+  shape("light", "body", { shape: "ellipse", x: -30, y: 70, width: 22, height: 22, fill: "#3ddc84" });
+  shape("neck", "neck", { shape: "rect", x: 15, y: 0, width: 30, height: 40, radius: 6, fill: "#46536f" });
+  shape("antenna-stick", "antenna", { shape: "rect", x: 30, y: 0, width: 60, height: 6, radius: 3, fill: "#2c3550" });
+  shape("antenna-ball", "antenna", { shape: "ellipse", x: 62, y: 0, width: 22, height: 22, fill: "#ff5d5d" });
+  shape("head", "head", { shape: "rect", x: 0, y: 75, width: 240, height: 170, radius: 36, fill: "#7d8db0", stroke: "#2c3550", strokeWidth: 4 });
+  shape("face", "head", { shape: "rect", x: 0, y: 75, width: 200, height: 125, radius: 26, fill: "#1b2133" });
+  for (const [name, x] of [["eye-l", -48], ["eye-r", 48]] as const) shape(name, "head", { shape: "ellipse", x, y: 105, width: 38, height: 38, fill: "#8ad4ff" });
+  // Mouth shapes, one attachment each (named so the editor's Lip sync dialog guesses them).
+  A("addSlot", { bone: "mouth", name: "mouth" });
+  const mouth = (name: string, args: Record<string, unknown>) => A("addShape", { slot: "mouth", name, activate: name === "mouth-rest", fill: "#8ad4ff", ...args });
+  mouth("mouth-rest", { shape: "rect", width: 70, height: 6, radius: 3 });
+  mouth("mouth-closed", { shape: "rect", width: 56, height: 10, radius: 5 });
+  mouth("mouth-small", { shape: "ellipse", width: 40, height: 16 });
+  mouth("mouth-open", { shape: "ellipse", width: 58, height: 30 });
+  mouth("mouth-wide", { shape: "rect", width: 86, height: 40, radius: 18 });
+  mouth("mouth-round", { shape: "ellipse", width: 30, height: 30 });
+  A("addBoundingBox", { slot: "head", name: "head-hit", y: 75, width: 240, height: 170 });
+
+  const voice = readWav(path.join(here, "assets/robot-voice.wav"));
+  const length = voice.samples.length / voice.rate;
+  A("addAudio", { name: "robot-voice", src: "assets/robot-voice.wav", duration: Math.round(length * 1000) / 1000, bus: "sfx" });
+
+  const K = (anim: string, target: string, id: string, property: string, keys: [number, number | string][], curve = "easeInOut") =>
+    A("setKeys", { animation: anim, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });
+  // idle: antenna sways, eyes blink, status light pulses.
+  A("createAnimation", { name: "idle", duration: 3 });
+  K("idle", "bone", "antenna", "rotation", [[0, 90], [1.5, 84], [3, 90]]);
+  K("idle", "bone", "head", "rotation", [[0, -90], [1.5, -91.5], [3, -90]]);
+  for (const eye of ["eye-l", "eye-r"]) K("idle", "slot", eye, "color", [[0, "#ffffff"], [2.6, "#ffffff"], [2.7, "#ffffff22"], [2.8, "#ffffff"]], "linear");
+  K("idle", "slot", "light", "color", [[0, "#ffffff"], [1.5, "#ffffff55"], [3, "#ffffff"]]);
+  // talk: the voice, lip-synced mouth, a little head and antenna motion.
+  A("createAnimation", { name: "talk", duration: Math.round(length * 30) / 30 });
+  const keys = lipSync(voice.samples, voice.rate, { fps: 30 });
+  A("setKeys", { animation: "talk", target: "slot", id: "mouth", property: "attachment", keys: keys.map((k) => ({ time: k.time, value: `mouth-${k.shape}`, curve: "stepped" })) });
+  A("addAudioKey", { animation: "talk", sound: "robot-voice", time: 0 });
+  K("talk", "bone", "head", "rotation", [[0, -90], [0.8, -87], [1.6, -92], [2.4, -88], [length, -90]]);
+  K("talk", "bone", "antenna", "rotation", [[0, 90], [0.4, 100], [0.9, 82], [1.5, 96], [2.2, 84], [length, 90]]);
+  K("talk", "slot", "light", "color", [[0, "#ffffff"], [0.2, "#ffd166"], [length - 0.2, "#ffd166"], [length, "#ffffff"]]);
+
+  A("createStateMachine", { name: "robot" });
+  A("addInput", { stateMachine: "robot", name: "talk", type: "trigger" });
+  A("addState", { stateMachine: "robot", animation: "idle", x: 120, y: 120 });
+  A("addState", { stateMachine: "robot", animation: "talk", loop: false, onComplete: "idle", x: 380, y: 120 });
+  A("addTransition", { stateMachine: "robot", from: "idle", to: "talk", conditions: [{ input: "talk" }], duration: 0.15 });
+  A("addListener", { stateMachine: "robot", slot: "head", event: "click", actions: [{ type: "fireTrigger", input: "talk" }] });
+  return s.doc;
+}
+
 // Build only when run as a script (tests import the example builders).
 const runAsScript = process.argv[1] === fileURLToPath(import.meta.url);
 if (runAsScript) {
@@ -763,7 +855,7 @@ if (runAsScript) {
   for (let i = 0; i < SMOKE_FRAMES; i++) writeFileSync(path.join(here, `assets/${frameName("smoke", i)}.png`), makeSmoke(i));
 }
 if (runAsScript)
-for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()], ["campfire.obone", campfire()], ["rocket.obone", rocket()], ["crash.obone", crash()], ["knight.obone", knight()]] as const) {
+for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()], ["campfire.obone", campfire()], ["rocket.obone", rocket()], ["crash.obone", crash()], ["knight.obone", knight()], ["robot.obone", robot()]] as const) {
   const issues = validate(doc);
   if (issues.some((i) => i.level === "error")) throw new Error(`${file}: ${JSON.stringify(issues)}`);
   writeFileSync(path.join(here, file), serialize(doc));

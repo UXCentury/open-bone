@@ -6,7 +6,7 @@ import { toggleViewAid } from "../guides.ts";
 import { type PanelId, showPanel } from "../layout.ts";
 import { deleteSelectedVertices, nudgeSelected, selectAllVertices } from "../mesh-edit.ts";
 import { playActive, playFullWindow, restartPlay, setPlayFit, setPlayFullWindow, setPlayPaused, playPaused, stepSpeed, stopPlay, togglePlay } from "../play.ts";
-import {
+import { multiBones,
   apply,
   currentAnimation,
   doc,
@@ -96,10 +96,14 @@ function setKey() {
   const t = Math.round(time() * 1000) / 1000;
   transaction("set key", () => {
     if (s.kind === "bone") {
-      const b = sk.boneById_(s.id);
-      if (!b) return;
-      for (const property of BONE_PROPERTIES)
-        store.apply("setKeys", { animation: anim, target: "bone", id: s.id, property, keys: [{ time: t, value: Math.round((b as unknown as Record<string, number>)[property] * 1000) / 1000 }] });
+      // Every bone of a multi-selection gets keyed together.
+      const ids = multiBones().length > 1 ? multiBones() : [s.id];
+      for (const id of ids) {
+        const b = sk.boneById_(id);
+        if (!b) continue;
+        for (const property of BONE_PROPERTIES)
+          store.apply("setKeys", { animation: anim, target: "bone", id, property, keys: [{ time: t, value: Math.round((b as unknown as Record<string, number>)[property] * 1000) / 1000 }] });
+      }
     } else {
       const slot = sk.slotById_(s.id);
       if (!slot) return;

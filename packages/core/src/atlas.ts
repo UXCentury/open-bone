@@ -20,12 +20,21 @@ export interface PackOptions {
   powerOfTwo?: boolean;
   /** Make pages square. Default false. */
   square?: boolean;
+  /** Let rectangles turn 90° when that packs tighter. Default false. */
+  allowRotation?: boolean;
+  /** Ids that must never be rotated (their consumers cannot draw a turned rectangle). */
+  noRotate?: ReadonlySet<string>;
 }
 
 export interface PackedRect extends PackInput {
   x: number;
   y: number;
+  /** Stored turned 90° clockwise: its footprint on the page is height × width. */
+  rotated?: boolean;
 }
+
+/** Width and height a packed rect takes on the page. */
+export const footprint = (r: { width: number; height: number; rotated?: boolean }) => (r.rotated ? { w: r.height, h: r.width } : { w: r.width, h: r.height });
 
 export interface PackedPage {
   width: number;
@@ -47,26 +56,32 @@ class MaxRectsBin {
     this.free = w > 0 && h > 0 ? [{ x: 0, y: 0, w, h }] : [];
   }
 
-  insert(w: number, h: number): { x: number; y: number } | null {
+  insert(w: number, h: number, canRotate = false): { x: number; y: number; rotated: boolean } | null {
     let best: Rect | null = null;
     let bestShort = Infinity;
     let bestLong = Infinity;
+    let rotated = false;
     for (const f of this.free) {
-      if (w > f.w || h > f.h) continue;
-      const dw = f.w - w;
-      const dh = f.h - h;
-      const short = Math.min(dw, dh);
-      const long = Math.max(dw, dh);
-      if (short < bestShort || (short === bestShort && long < bestLong)) {
-        best = f;
-        bestShort = short;
-        bestLong = long;
+      for (const turn of canRotate && w !== h ? [false, true] : [false]) {
+        const rw = turn ? h : w;
+        const rh = turn ? w : h;
+        if (rw > f.w || rh > f.h) continue;
+        const dw = f.w - rw;
+        const dh = f.h - rh;
+        const short = Math.min(dw, dh);
+        const long = Math.max(dw, dh);
+        if (short < bestShort || (short === bestShort && long < bestLong)) {
+          best = f;
+          bestShort = short;
+          bestLong = long;
+          rotated = turn;
+        }
       }
     }
     if (!best) return null;
-    const placed = { x: best.x, y: best.y, w, h };
+    const placed = { x: best.x, y: best.y, w: rotated ? h : w, h: rotated ? w : h };
     this.place(placed);
-    return placed;
+    return { x: placed.x, y: placed.y, rotated };
   }
 
   private place(r: Rect) {
@@ -99,22 +114,22 @@ const nextPot = (n: number) => (n <= 1 ? 1 : 2 ** Math.ceil(Math.log2(n)));
  * Pack `rects` into `w x h` (page pixels) with `pad` around each, in the given order.
  * Returns the placed rects and the ones that did not fit.
  */
-function packInto(rects: PackInput[], w: number, h: number, pad: number) {
+function packInto(rects: PackInput[], w: number, h: number, pad: number, rot?: { noRotate?: ReadonlySet<string> }) {
   // Inner bin starts at (pad, pad); each rect reserves `pad` after itself, so every gap and edge gets `pad`.
   const bin = new MaxRectsBin(w - pad, h - pad);
   const placed: PackedRect[] = [];
   const left: PackInput[] = [];
   for (const r of rects) {
-    const p = bin.insert(r.width + pad, r.height + pad);
-    if (p) placed.push({ ...r, x: p.x + pad, y: p.y + pad });
+    const p = bin.insert(r.width + pad, r.height + pad, !!rot && !rot.noRotate?.has(r.id));
+    if (p) placed.push({ id: r.id, width: r.width, height: r.height, x: p.x + pad, y: p.y + pad, ...(p.rotated ? { rotated: true } : {}) });
     else left.push(r);
   }
   return { placed, left };
 }
 
 const bounds = (rects: PackedRect[], pad: number) => ({
-  w: Math.max(0, ...rects.map((r) => r.x + r.width)) + pad,
-  h: Math.max(0, ...rects.map((r) => r.y + r.height)) + pad,
+  w: Math.max(0, ...rects.map((r) => r.x + footprint(r).w)) + pad,
+  h: Math.max(0, ...rects.map((r) => r.y + footprint(r).h)) + pad,
 });
 
 /**
@@ -138,18 +153,21 @@ export function packRects(input: PackInput[], opts: PackOptions = {}): PackedPag
     if (!(r.width > 0 && r.height > 0)) throw new Error(`"${r.id}" has no size (${r.width}x${r.height})`);
     const w = Math.ceil(r.width);
     const h = Math.ceil(r.height);
-    if (w + 2 * pad > capW || h + 2 * pad > capH)
+    const fits = (a: number, b: number) => a + 2 * pad <= capW && b + 2 * pad <= capH;
+    if (!fits(w, h) && !(opts.allowRotation && !opts.noRotate?.has(r.id) && fits(h, w)))
       throw new Error(`"${r.id}" (${w}x${h} + ${pad}px padding) does not fit in a ${capW}x${capH} page`);
     return { id: r.id, width: w, height: h };
   });
   // Big first: longest side, then area, then id (deterministic).
   rects.sort((a, b) => Math.max(b.width, b.height) - Math.max(a.width, a.height) || b.width * b.height - a.width * a.height || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 
+  const rot = opts.allowRotation ? { noRotate: opts.noRotate } : undefined;
   const pages: PackedPage[] = [];
   let remaining = rects;
   while (remaining.length) {
-    const { placed, left } = packInto(remaining, capW, capH, pad);
-    pages.push(shrink(placed, { pad, capW, capH, pot, square }));
+    const { placed, left } = packInto(remaining, capW, capH, pad, rot);
+    if (!placed.length) throw new Error(`"${remaining[0].id}" does not fit in a ${capW}x${capH} page`);
+    pages.push(shrink(placed, { pad, capW, capH, pot, square, rot }));
     remaining = left;
   }
   return pages;
@@ -158,12 +176,14 @@ export function packRects(input: PackInput[], opts: PackOptions = {}): PackedPag
 /** Find the smallest page that still holds every rect of a full page. */
 function shrink(
   rects: PackedRect[],
-  o: { pad: number; capW: number; capH: number; pot: boolean; square: boolean },
+  o: { pad: number; capW: number; capH: number; pot: boolean; square: boolean; rot?: { noRotate?: ReadonlySet<string> } },
 ): PackedPage {
   const { pad, capW, capH } = o;
   const area = rects.reduce((s, r) => s + (r.width + pad) * (r.height + pad), 0);
-  const minW = Math.max(...rects.map((r) => r.width)) + 2 * pad;
-  const minH = Math.max(...rects.map((r) => r.height)) + 2 * pad;
+  // With rotation a rect only needs its shorter side to fit across.
+  const turnable = (r: PackedRect) => !!o.rot && !o.rot.noRotate?.has(r.id);
+  const minW = Math.max(...rects.map((r) => (turnable(r) ? Math.min(r.width, r.height) : r.width))) + 2 * pad;
+  const minH = Math.max(...rects.map((r) => (turnable(r) ? Math.min(r.width, r.height) : r.height))) + 2 * pad;
   const candidates: [number, number][] = [];
   if (o.pot) {
     for (let w = nextPot(minW); w <= capW; w *= 2) for (let h = nextPot(minH); h <= capH; h *= 2) if (!o.square || w === h) candidates.push([w, h]);
@@ -181,7 +201,7 @@ function shrink(
   for (const [w, h] of candidates) {
     if (w * h < area) continue;
     if (best && w * h >= best.width * best.height && o.pot) break;
-    const { placed, left } = packInto(rects, w, h, pad);
+    const { placed, left } = packInto(rects, w, h, pad, o.rot);
     if (left.length) continue;
     let page: PackedPage;
     if (o.pot) page = { width: w, height: h, rects: placed };
@@ -209,6 +229,8 @@ export interface AtlasLayoutOptions extends PackOptions {
   white?: boolean;
   /** Page id prefix. Default "atlas_page". */
   pageId?: string;
+  /** Store images at this fraction of their size (smaller pages, softer art). Default 1. */
+  scale?: number;
 }
 
 /**
@@ -217,12 +239,13 @@ export interface AtlasLayoutOptions extends PackOptions {
  */
 export function layoutAtlas(images: Pick<ImageAsset, "id" | "width" | "height">[], opts: AtlasLayoutOptions = {}): AtlasData {
   const padding = Math.max(0, Math.floor(opts.padding ?? 2));
-  const input: PackInput[] = images.map((i) => ({ id: i.id, width: i.width, height: i.height }));
+  const scale = Math.min(1, Math.max(0.01, opts.scale ?? 1));
+  const sized = (n: number) => Math.max(1, Math.round(n * scale));
+  const input: PackInput[] = images.map((i) => ({ id: i.id, width: sized(i.width), height: sized(i.height) }));
   if (input.length && opts.white !== false) input.push({ id: WHITE_ID, width: ATLAS_WHITE_SIZE, height: ATLAS_WHITE_SIZE });
   const packed = packRects(input, { ...opts, padding });
   const prefix = opts.pageId ?? "atlas_page";
-  const atlas: AtlasData = { pages: [], regions: [], padding };
-  const byId = new Map(images.map((i) => [i.id, i]));
+  const atlas: AtlasData = { pages: [], regions: [], padding, ...(scale !== 1 ? { scale } : {}) };
   packed.forEach((p, i) => {
     const page: AtlasPage = { id: `${prefix}${i}`, name: `atlas ${i + 1}`, src: "", width: p.width, height: p.height };
     atlas.pages.push(page);
@@ -231,7 +254,6 @@ export function layoutAtlas(images: Pick<ImageAsset, "id" | "width" | "height">[
         atlas.white = { page: page.id, x: r.x, y: r.y, width: r.width, height: r.height };
         continue;
       }
-      const img = byId.get(r.id)!;
       atlas.regions.push({
         image: r.id,
         page: page.id,
@@ -241,24 +263,40 @@ export function layoutAtlas(images: Pick<ImageAsset, "id" | "width" | "height">[
         height: r.height,
         offsetX: 0,
         offsetY: 0,
-        originalWidth: img.width,
-        originalHeight: img.height,
+        // Page pixels: with `scale` these are smaller than the image asset's size (uvs only use the ratios).
+        originalWidth: r.width,
+        originalHeight: r.height,
+        ...(r.rotated ? { rotated: true } : {}),
       });
     }
   });
   return atlas;
 }
 
-/** page uv = offset + image uv * scale (both axes, v down). */
+/**
+ * page uv = offset + image uv * scale (both axes, v down). A rotated region (stored turned 90° clockwise) maps
+ * page u = ou - v * su, page v = ov + u * sv.
+ */
 export interface UvMap {
   ou: number;
   ov: number;
   su: number;
   sv: number;
+  rotated?: boolean;
 }
 
 /** Linear map from 0..1 uvs of the original image to uvs in the atlas page. */
 export function atlasUvMap(region: AtlasRegion, page: Pick<AtlasPage, "width" | "height">): UvMap {
+  if (region.rotated) {
+    // Image pixel (ix, iy) of the trimmed rect sits at page (x + height - iy, y + ix).
+    return {
+      ou: (region.x + region.height + region.offsetY) / page.width,
+      ov: (region.y - region.offsetX) / page.height,
+      su: region.originalHeight / page.width,
+      sv: region.originalWidth / page.height,
+      rotated: true,
+    };
+  }
   return {
     ou: (region.x - region.offsetX) / page.width,
     ov: (region.y - region.offsetY) / page.height,
@@ -269,10 +307,46 @@ export function atlasUvMap(region: AtlasRegion, page: Pick<AtlasPage, "width" | 
 
 export function remapUvs(uvs: ArrayLike<number>, m: UvMap, out: Float32Array = new Float32Array(uvs.length)): Float32Array {
   for (let i = 0; i < uvs.length; i += 2) {
-    out[i] = m.ou + uvs[i] * m.su;
-    out[i + 1] = m.ov + uvs[i + 1] * m.sv;
+    const u = uvs[i];
+    const v = uvs[i + 1];
+    out[i] = m.rotated ? m.ou - v * m.su : m.ou + u * m.su;
+    out[i + 1] = m.rotated ? m.ov + u * m.sv : m.ov + v * m.sv;
   }
   return out;
+}
+
+/** The page rectangle a packed region covers (its footprint: width and height swap when rotated). */
+export const regionPageRect = (r: AtlasRegion) => ({ x: r.x, y: r.y, width: r.rotated ? r.height : r.width, height: r.rotated ? r.width : r.height });
+
+/**
+ * Lay out images at the largest scale (down to `minScale`) that fits on a single page, for "auto scale" packing.
+ * Returns the layout and the scale used (1 when everything already fits).
+ */
+export function layoutAtlasFit(images: Pick<ImageAsset, "id" | "width" | "height">[], opts: AtlasLayoutOptions & { minScale?: number } = {}): { atlas: AtlasData; scale: number } {
+  const fitsOne = (scale: number) => {
+    try {
+      const a = layoutAtlas(images, { ...opts, scale });
+      return a.pages.length <= 1 ? a : null;
+    } catch {
+      return null;
+    }
+  };
+  const full = fitsOne(1);
+  if (full) return { atlas: full, scale: 1 };
+  const min = Math.max(0.05, opts.minScale ?? 0.25);
+  let lo = min;
+  let hi = 1;
+  let best = fitsOne(min);
+  if (!best) return { atlas: layoutAtlas(images, { ...opts, scale: min }), scale: min };
+  for (let i = 0; i < 10; i++) {
+    const mid = (lo + hi) / 2;
+    const a = fitsOne(mid);
+    if (a) {
+      best = a;
+      lo = mid;
+    } else hi = mid;
+  }
+  return { atlas: best, scale: Math.round(lo * 1000) / 1000 };
 }
 
 /** True when the packed rect holds only part of the original image (it was trimmed). */

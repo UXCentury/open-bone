@@ -134,12 +134,30 @@ defineOp({
 defineOp({
   name: "updateAnimation",
   group: "animation",
-  description: "Rename an animation or change its duration.",
-  schema: z.object({ animation: ref("Animation"), name: z.string().optional(), duration: z.number().min(0).optional() }),
+  description:
+    "Rename an animation, change its duration, mark whether it is exported (export: false keeps a helper animation out of exports unless picked), or give it a colour for the editor's lists (color: null removes it).",
+  schema: z.object({
+    animation: ref("Animation"),
+    name: z.string().optional(),
+    duration: z.number().min(0).optional(),
+    export: z.boolean().optional(),
+    color: z.string().regex(/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/).nullable().optional(),
+  }),
   apply(doc, a) {
     const anim = get.animation(doc, a.animation);
-    if (a.name) anim.name = a.name;
+    if (a.name) {
+      if (doc.animations.some((x) => x !== anim && x.name === a.name)) throw new Error(`Animation "${a.name}" already exists`);
+      anim.name = a.name;
+    }
     if (a.duration !== undefined) anim.duration = a.duration;
+    if (a.export !== undefined) {
+      if (a.export) delete anim.export;
+      else anim.export = false;
+    }
+    if (a.color !== undefined) {
+      if (a.color) anim.color = a.color;
+      else delete anim.color;
+    }
     return {};
   },
 });
@@ -152,6 +170,10 @@ defineOp({
   apply(doc, a) {
     const anim = get.animation(doc, a.animation);
     doc.animations = doc.animations.filter((x) => x !== anim);
+    if (doc.skeleton.sliders) {
+      doc.skeleton.sliders = doc.skeleton.sliders.filter((s) => s.animation !== anim.id);
+      if (!doc.skeleton.sliders.length) delete doc.skeleton.sliders;
+    }
     for (const sm of doc.stateMachines)
       for (const l of sm.layers)
         for (const s of l.states) {

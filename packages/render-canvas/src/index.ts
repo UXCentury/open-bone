@@ -1,4 +1,4 @@
-import { type AtlasData, type OpenBoneDocument, apply, buildSpline, splinePolyline } from "@openbone/core";
+import { type AtlasData, type AtlasRegion, type OpenBoneDocument, apply, buildSpline, regionPageRect, splinePolyline } from "@openbone/core";
 import { type ClipRegion, type DrawItem, type Skeleton, type TextContext, drawTextBox, particleDotAlpha } from "@openbone/runtime";
 
 /** Minimal 2D context surface (browser CanvasRenderingContext2D or @napi-rs/canvas SKRSContext2D). */
@@ -375,8 +375,14 @@ export function drawAtlasPage(ctx: Ctx2D, atlas: AtlasData, pageId: string, imag
     // Source images may be stored at a different resolution than the asset size; scale the source rect.
     const kx = (img.width || r.originalWidth) / r.originalWidth;
     const ky = (img.height || r.originalHeight) / r.originalHeight;
-    ctx.drawImage(img, r.offsetX * kx, r.offsetY * ky, r.width * kx, r.height * ky, r.x, r.y, r.width, r.height);
-    extrude(ctx, r, Math.min(2, Math.floor(atlas.padding / 2)));
+    if (r.rotated) {
+      // Stored turned 90° clockwise: image pixel (ix, iy) lands at page (x + height - iy, y + ix).
+      ctx.save();
+      ctx.setTransform(0, 1, -1, 0, r.x + r.height, r.y);
+      ctx.drawImage(img, r.offsetX * kx, r.offsetY * ky, r.width * kx, r.height * ky, 0, 0, r.width, r.height);
+      ctx.restore();
+    } else ctx.drawImage(img, r.offsetX * kx, r.offsetY * ky, r.width * kx, r.height * ky, r.x, r.y, r.width, r.height);
+    extrude(ctx, regionPageRect(r), Math.min(2, Math.floor(atlas.padding / 2)));
   }
   const w = atlas.white;
   if (w && w.page === pageId) {
@@ -390,6 +396,20 @@ export function drawAtlasPage(ctx: Ctx2D, atlas: AtlasData, pageId: string, imag
  * Copy a packed rect's edge pixels `e` pixels outwards into its padding. Linear filtering at the rect's border
  * then blends with the edge colour instead of transparent padding, matching a loose texture's CLAMP_TO_EDGE.
  */
+/**
+ * Cut a packed image back out of its atlas page into `ctx` (sized originalWidth × originalHeight), undoing the trim
+ * offset and any 90° rotation. Used to re-pack an already packed document.
+ */
+export function drawRegionFromPage(ctx: Ctx2D, page: CanvasImageSource, r: AtlasRegion) {
+  ctx.save();
+  if (r.rotated) {
+    // Inverse of the packing transform: page (px, py) → image (py - y + offsetX, x + height - px + offsetY).
+    ctx.setTransform(0, -1, 1, 0, r.offsetX - r.y, r.x + r.height + r.offsetY);
+    ctx.drawImage(page, r.x, r.y, r.height, r.width, r.x, r.y, r.height, r.width);
+  } else ctx.drawImage(page, r.x, r.y, r.width, r.height, r.offsetX, r.offsetY, r.width, r.height);
+  ctx.restore();
+}
+
 function extrude(ctx: Ctx2D, r: { x: number; y: number; width: number; height: number }, e: number) {
   if (e <= 0) return;
   const W = r.width + 2 * e;

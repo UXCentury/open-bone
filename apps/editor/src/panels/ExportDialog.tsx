@@ -118,7 +118,7 @@ const clamp = (v: number, lo: number, hi: number, d: number) => (Number.isFinite
 const SETTINGS_KEY = "openbone.export.v1";
 interface SavedSettings {
   format?: Format;
-  data?: { pretty?: boolean; nonessential?: boolean; cleanUp?: boolean; precision?: "float32" | "float64"; prune?: boolean; embed?: boolean; pack?: boolean; padding?: number; maxSize?: number; pot?: boolean };
+  data?: { pretty?: boolean; nonessential?: boolean; cleanUp?: boolean; precision?: "float32" | "float64"; prune?: boolean; embed?: boolean; pack?: boolean; padding?: number; maxSize?: number; pot?: boolean; rotate?: boolean; atlasScale?: number | "auto" };
   media?: Partial<Omit<MediaOptions, "animation" | "skin">> & { transparent?: boolean; animation?: string | null; skin?: string | null };
   picks?: { animations?: string[]; stateMachines?: string[]; scripts?: string[]; skins?: string[] };
   openAfter?: boolean;
@@ -163,7 +163,8 @@ export function ExportDialog() {
 
   const [format, setFormat] = createSignal<Format>(saved.format ?? "project");
   // ---- data options ----
-  const [anims, setAnims] = createSignal(all(source.animations));
+  // Animations marked "don't export" (helpers, work in progress) start unticked.
+  const [anims, setAnims] = createSignal(all(source.animations.filter((a) => a.export !== false)));
   const [sms, setSms] = createSignal(all(source.stateMachines));
   const [scripts, setScripts] = createSignal(all(source.scripts));
   const [skins, setSkins] = createSignal(all(extraSkins));
@@ -179,6 +180,8 @@ export function ExportDialog() {
   const [padding, setPadding] = createSignal(sd.padding ?? 2);
   const [maxSize, setMaxSize] = createSignal(sd.maxSize ?? 2048);
   const [pot, setPot] = createSignal(sd.pot ?? true);
+  const [rotate, setRotate] = createSignal(sd.rotate ?? false);
+  const [atlasScale, setAtlasScale] = createSignal<number | "auto">(sd.atlasScale ?? 1);
   const [packed, setPacked] = createSignal<PackOutcome | null>(null);
   const [packError, setPackError] = createSignal("");
   // ---- media options ----
@@ -288,10 +291,10 @@ export function ExportDialog() {
           cleanUpAnimations: cleanUp(),
         };
   const result = createMemo<ExportResult>(() => exportDocument(source, options()));
-  const packSettings = () => ({ padding: padding(), maxSize: maxSize(), powerOfTwo: pot() });
+  const packSettings = () => ({ padding: padding(), maxSize: maxSize(), powerOfTwo: pot(), rotate: rotate(), scale: atlasScale() });
   let packSeq = 0;
   createEffect(
-    on([result, pack, padding, maxSize, pot, format], () => {
+    on([result, pack, padding, maxSize, pot, rotate, atlasScale, format], () => {
       const seq = ++packSeq;
       setPacked(null);
       setPackError("");
@@ -420,7 +423,7 @@ export function ExportDialog() {
   const namesOf = (list: Named[], ids: Set<string>) => list.filter((x) => ids.has(x.id)).map((x) => x.name);
   const currentSettings = (): SavedSettings => ({
     format: format(),
-    data: { pretty: pretty(), nonessential: nonessential(), cleanUp: cleanUp(), precision: precision(), prune: prune(), embed: embed(), pack: pack(), padding: padding(), maxSize: maxSize(), pot: pot() },
+    data: { pretty: pretty(), nonessential: nonessential(), cleanUp: cleanUp(), precision: precision(), prune: prune(), embed: embed(), pack: pack(), padding: padding(), maxSize: maxSize(), pot: pot(), rotate: rotate(), atlasScale: atlasScale() },
     media: {
       animation: mediaAnim()?.name ?? null,
       skin: source.skeleton.skins.find((k) => k.id === mSkin())?.name ?? null,
@@ -474,6 +477,8 @@ export function ExportDialog() {
     if (d.padding !== undefined) setPadding(d.padding);
     if (d.maxSize !== undefined) setMaxSize(d.maxSize);
     if (d.pot !== undefined) setPot(d.pot);
+    if (d.rotate !== undefined) setRotate(d.rotate);
+    if (d.atlasScale !== undefined) setAtlasScale(d.atlasScale);
     const m = s.media ?? {};
     if (m.animation !== undefined) setMAnim(findId(source.animations, m.animation) ?? mAnim());
     if (m.skin !== undefined) setMSkin(findId(source.skeleton.skins, m.skin));
@@ -769,8 +774,21 @@ export function ExportDialog() {
                     <label class="check">
                       <input type="checkbox" checked={pot()} onChange={(e) => setPot(e.currentTarget.checked)} /> Power-of-two page sizes
                     </label>
+                    <label class="check" title="Turn images 90° when that packs them tighter (images used by particles stay upright)">
+                      <input type="checkbox" checked={rotate()} onChange={(e) => setRotate(e.currentTarget.checked)} /> Rotate to fit tighter
+                    </label>
+                    <Row label="Scale">
+                      <select
+                        title="Store images smaller to save memory and download size. Auto shrinks only as much as needed to fit everything on one page."
+                        value={String(atlasScale())}
+                        onChange={(e) => setAtlasScale(e.currentTarget.value === "auto" ? "auto" : +e.currentTarget.value)}
+                      >
+                        <For each={[1, 0.75, 0.5, 0.25]}>{(n) => <option value={n} selected={atlasScale() === n}>{Math.round(n * 100)}%</option>}</For>
+                        <option value="auto" selected={atlasScale() === "auto"}>Auto (fit one page)</option>
+                      </select>
+                    </Row>
                     <div class="muted small">
-                      <Show when={packError()} fallback={packed() ? `${plural(result().doc.images.length, "image")} → ${plural(packed()!.pages.length, "page")}: ${packed()!.pages.map((p) => `${p.width}×${p.height}`).join(", ")}` : "Packing…"}>
+                      <Show when={packError()} fallback={packed() ? `${plural(result().doc.images.length, "image")} → ${plural(packed()!.pages.length, "page")}: ${packed()!.pages.map((p) => `${p.width}×${p.height}`).join(", ")}${packed()!.scale !== 1 ? ` at ${Math.round(packed()!.scale * 100)}%` : ""}` : "Packing…"}>
                         <span class="error">⛔ {packError()}</span>
                       </Show>
                     </div>

@@ -1,4 +1,5 @@
-import { type Attachment, attachmentOwner, type BindingTarget, type BoneProperty, type ClippingAttachment, CONSTRAINT_PROPERTIES, defaultSkin, descendantIds, estimateTextBox, getAttachment, type SequenceAttachment, shapeOutline, type SkinData, slotAttachments, templateInputs } from "@openbone/core";
+import { animationDuration, type Attachment, attachmentOwner, type BindingTarget, type BoneProperty, type ClippingAttachment, CONSTRAINT_PROPERTIES, defaultSkin, descendantIds, estimateTextBox, getAttachment, type SequenceAttachment, shapeOutline, type SkinData, slotAttachments, templateInputs } from "@openbone/core";
+import { regionGridMesh, retraceMesh, traceRegion } from "../mesh-trace.ts";
 import { lastBackground, setBackground } from "../background.ts";
 import { For, Match, Show, Switch, createSignal } from "solid-js";
 import { commitBone, keyBoneProperty, keyConstraint, keySlot } from "../edit.ts";
@@ -123,6 +124,17 @@ function BoneInspector(p: { id: string }) {
             }
           >
             + Physics chain
+          </button>
+          <button
+            disabled={!doc().animations.length}
+            title={doc().animations.length ? "Slider: this bone's rotation scrubs an animation (e.g. a corrective or shadow animation)" : "Create an animation first"}
+            onClick={() => {
+              const anim = doc().animations[0];
+              const r = apply("addSlider", { animation: anim.id, bone: p.id, property: "rotation", from: 0, to: 90 }) as { id: string } | undefined;
+              if (r) setSelection({ kind: "slider", id: r.id });
+            }}
+          >
+            + Slider
           </button>
         </div>
         <For each={constraintsOf(p.id)}>
@@ -352,17 +364,22 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
                 <NumberField label="Scale X" step={0.01} value={r().scaleX} onCommit={(v) => set({ scaleX: v })} />
                 <NumberField label="Scale Y" step={0.01} value={r().scaleY} onCommit={(v) => set({ scaleY: v })} />
                 <ColorField label="Tint" value={r().color} onCommit={(v) => set({ color: v })} />
-                <button
-                  title="Replace with a deformable grid mesh using the same image"
-                  onClick={() =>
-                    transaction("convert to mesh", () => {
-                      store.apply("deleteAttachment", { slot: p.slotId, attachment: r().name, skin: p.owner.id });
-                      store.apply("addMesh", { slot: p.slotId, skin: p.owner.id, name: r().name, image: r().image, x: r().x, y: r().y, width: r().width * r().scaleX, height: r().height * r().scaleY, cols: 4, rows: 4 });
-                    })
-                  }
-                >
-                  Convert to mesh (4×4)
-                </button>
+                <div class="btn-row">
+                  <button title="Replace with a mesh that hugs the image's visible pixels (automatic outline)" onClick={() => void traceRegion(p.slotId, p.owner.id, r())}>
+                    Trace mesh…
+                  </button>
+                  <button
+                    title="Replace with a deformable 4×4 grid mesh using the same image"
+                    onClick={() =>
+                      transaction("convert to mesh", () => {
+                        store.apply("deleteAttachment", { slot: p.slotId, attachment: r().name, skin: p.owner.id });
+                        store.apply("addMesh", { slot: p.slotId, skin: p.owner.id, name: r().name, image: r().image, ...regionGridMesh(r()), color: r().color });
+                      })
+                    }
+                  >
+                    Grid mesh (4×4)
+                  </button>
+                </div>
               </>
             );
           }}
@@ -399,6 +416,13 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
                   {m().vertices.length / 2} vertices · {m().triangles.length / 3} triangles · {m().weights ? "weighted" : "unweighted (follows slot bone)"}
                 </div>
                 <BindBones slotId={p.slotId} attachment={m().name} skin={p.owner.id} />
+                <button
+                  disabled={!!m().weights?.length}
+                  title={m().weights?.length ? "Weighted meshes cannot be re-traced (the weights would be lost)" : "Rebuild this mesh from the image's visible pixels, where it sits now"}
+                  onClick={() => void retraceMesh(p.slotId, p.owner.id, m())}
+                >
+                  Re-trace outline…
+                </button>
               </>
             );
           }}
@@ -628,6 +652,51 @@ function PathInspector(p: { id: string }) {
   );
 }
 
+function SliderInspector(p: { id: string }) {
+  const c = () => doc().skeleton.sliders?.find((x) => x.id === p.id);
+  const set = (props: Record<string, unknown>) => apply("updateSlider", { slider: p.id, ...props });
+  const numberInputs = () =>
+    doc().stateMachines.flatMap((m) => m.inputs.filter((i) => i.type === "number").map((i) => ({ value: `input:${i.id}`, label: `input ${m.name} · ${i.name}` })));
+  const driver = () => (c()!.input ? `input:${c()!.input}` : `bone:${c()!.bone}`);
+  const anim = () => doc().animations.find((a) => a.id === c()?.animation);
+  return (
+    <Show when={c()}>
+      <Section title="Slider">
+        <TextField label="Name" value={c()!.name} onCommit={(v) => set({ name: v })} />
+        <div class="hint">
+          The driver's value from <b>{c()!.from}</b> to <b>{c()!.to}</b> plays <b>{anim()?.name ?? "?"}</b> from {c()!.timeFrom ?? 0}s to {c()!.timeTo ?? (anim() ? animationDuration(anim()!) : 0)}s
+          {c()!.additive ? ", added on top" : ""}. Applied before IK and the other constraints.
+        </div>
+        <SelectField label="Animation" value={c()!.animation} options={doc().animations.map((a) => ({ value: a.id, label: a.name }))} onCommit={(v) => set({ animation: v })} />
+        <SelectField
+          label="Driver"
+          value={driver()}
+          options={[...doc().skeleton.bones.map((b) => ({ value: `bone:${b.id}`, label: `bone ${b.name}` })), ...numberInputs()]}
+          onCommit={(v) => set(v.startsWith("input:") ? { input: v.slice(6) } : { bone: v.slice(5) })}
+        />
+        <Show when={c()!.bone}>
+          <SelectField
+            label="Property"
+            value={c()!.property ?? "rotation"}
+            options={["rotation", "x", "y", "scaleX", "scaleY", "shearX", "shearY"].map((v) => ({ value: v, label: v }))}
+            onCommit={(v) => set({ property: v })}
+          />
+        </Show>
+        <NumberField label="From" value={c()!.from} onCommit={(v) => set({ from: v })} />
+        <NumberField label="To" value={c()!.to} onCommit={(v) => set({ to: v })} />
+        <NumberField label="Time from" step={0.01} value={c()!.timeFrom ?? 0} onCommit={(v) => set({ timeFrom: v })} />
+        <NumberField label="Time to" step={0.01} value={c()!.timeTo ?? (anim() ? animationDuration(anim()!) : 0)} onCommit={(v) => set({ timeTo: v })} />
+        <NumberField label="Mix" step={0.01} value={c()!.mix} onCommit={(v) => set({ mix: Math.min(1, Math.max(0, v)) })} />
+        <Check label="Loop" title="Wrap past the range instead of stopping at its ends" checked={c()!.loop} onChange={(v) => set({ loop: v })} />
+        <Check label="Additive" title="Add the animation's change on top of the pose instead of replacing it" checked={c()!.additive} onChange={(v) => set({ additive: v })} />
+        <button class="danger" onClick={() => apply("deleteSlider", { slider: p.id }) !== undefined && setSelection(null)}>
+          Delete
+        </button>
+      </Section>
+    </Show>
+  );
+}
+
 function PhysicsInspector(p: { id: string }) {
   const c = () => doc().skeleton.physics.find((x) => x.id === p.id);
   const set = (props: Record<string, unknown>) => apply("updatePhysicsConstraint", { constraint: p.id, ...props });
@@ -712,6 +781,7 @@ export function Inspector() {
         <Match when={selection()?.kind === "transform" && selection()}>{(s) => <TransformInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "path" && selection()}>{(s) => <PathInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "physics" && selection()}>{(s) => <PhysicsInspector id={s().id} />}</Match>
+        <Match when={selection()?.kind === "slider" && selection()}>{(s) => <SliderInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "image" && selection()}>{(s) => <ImageInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "sound" && selection()}>{(s) => <SoundInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "bus" && selection()}>{(s) => <BusInspector id={s().id} />}</Match>

@@ -1,10 +1,11 @@
 import { type Curve, EASINGS, type Key, type Timeline as TL, animationDuration } from "@openbone/core";
-import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import { tip } from "../shortcuts/index.ts";
 import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey, transaction } from "../state.ts";
 import { askText } from "../dialogs.tsx";
 import { AudioTrack, addSoundKey } from "./AudioPanel.tsx";
 import { GraphView, timelineColor, timelineKey } from "./GraphView.tsx";
+import { lipSyncDialog } from "../lipsync-ui.ts";
 
 /** Dopesheet (keys per row) or Graph (value curves); remembered while the editor is open. */
 const [timelineView, setTimelineView] = createSignal<"dopesheet" | "graph">("dopesheet");
@@ -114,7 +115,9 @@ export function Timeline() {
     const a = anim();
     return a ? Math.max(animationDuration(a), 0.001) : 1;
   };
-  const span = () => Math.max(duration(), 2) + 0.5;
+  // The timeline fills its panel (and a bit past the end), like Spine's: no empty band after the last second.
+  const [areaWidth, setAreaWidth] = createSignal(0);
+  const span = () => Math.max(duration() + 0.5, 2.5, (areaWidth() - LABEL_W - 4) / pps());
   const fps = () => doc().fps;
   const snap = (t: number) => Math.max(0, Math.round(t * fps()) / fps());
 
@@ -281,10 +284,27 @@ export function Timeline() {
               onChange={(e) => apply("updateAnimation", { animation: anim()!.id, duration: Number(e.currentTarget.value) })}
             />
           </label>
+          <input
+            type="color"
+            class="anim-color"
+            title="Animation colour (shown in the lists)"
+            value={anim()!.color?.slice(0, 7) ?? "#8a93a6"}
+            onChange={(e) => apply("updateAnimation", { animation: anim()!.id, color: e.currentTarget.value })}
+          />
+          <label class="check" title="Export this animation (untick for helper or work-in-progress animations; they can still be picked in the export dialog)">
+            <input type="checkbox" checked={anim()!.export !== false} onChange={(e) => apply("updateAnimation", { animation: anim()!.id, export: e.currentTarget.checked })} /> Export
+          </label>
         </Show>
-        <label class="check" title="Dragging bones in Animate mode creates keys">
-          <input type="checkbox" checked={autoKey()} onChange={(e) => setAutoKey(e.currentTarget.checked)} /> Auto-key
-        </label>
+        <button
+            class="rec"
+            classList={{ on: autoKey() }}
+            aria-pressed={autoKey()}
+            title={autoKey() ? "Recording: dragging bones in Animate mode sets keys (keys past the end extend the animation). Click to stop." : "Not recording: click so dragging bones in Animate mode sets keys"}
+            onClick={() => setAutoKey(!autoKey())}
+          >
+            ● Rec
+          </button>
+        
         <Show when={selKey()}>
           <span class="sep" />
           <Show when={selectedCurve()}>
@@ -343,6 +363,9 @@ export function Timeline() {
         <button title="Add a sound key at the current time" disabled={!anim()} onClick={() => anim() && void addSoundKey(anim()!, snap(time()))}>
           + Sound
         </button>
+        <button title="Lip sync: key a mouth slot's images to the speech in a sound, from the current time" onClick={() => void lipSyncDialog(anim()?.id ?? null)}>
+          Lip sync…
+        </button>
         <label class="check" title="Zoom">
           🔍
           <input type="range" min="60" max="800" value={pps()} onInput={(e) => setPps(Number(e.currentTarget.value))} />
@@ -372,7 +395,16 @@ export function Timeline() {
           />
         </Show>
         <Show when={timelineView() === "dopesheet"}>
-        <div class="timeline-area" ref={area}>
+        <div
+          class="timeline-area"
+          ref={(el) => {
+            area = el;
+            const ro = new ResizeObserver(() => setAreaWidth(el.clientWidth));
+            ro.observe(el);
+            setAreaWidth(el.clientWidth);
+            onCleanup(() => ro.disconnect());
+          }}
+        >
           <div class="ruler-row" style={{ width: `${LABEL_W + span() * pps()}px` }}>
             <div class="row-label" />
             <div class="ruler" onPointerDown={scrub}>
@@ -487,7 +519,7 @@ export function Timeline() {
               );
             }}
           </For>
-          <div class="playhead" style={{ left: `${LABEL_W + time() * pps()}px`, height: `${(rowCount() + (anim()!.events.length ? 2 : 1) + (anim()!.audio?.length ? 1 : 0)) * 24}px` }} />
+          <div class="playhead" style={{ left: `${LABEL_W + time() * pps()}px`, height: `${(rowCount() + (anim()!.events.length ? 2 : 1)) * 24 + (anim()!.audio?.length ? 44 : 0)}px` }} />
         </div>
         <Show when={showGraph()}>
           <Show

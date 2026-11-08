@@ -17,6 +17,7 @@ import { Inspector } from "./Inspector.tsx";
 import { ScriptsPanel } from "./ScriptsPanel.tsx";
 import { StateMachinePanel } from "./StateMachinePanel.tsx";
 import { Timeline } from "./Timeline.tsx";
+import { OutlinePanel, PreviewPanel } from "./Preview.tsx";
 
 function PanelContent(p: { id: PanelId }) {
   return (
@@ -35,6 +36,12 @@ function PanelContent(p: { id: PanelId }) {
       </Match>
       <Match when={p.id === "scripts"}>
         <ScriptsPanel />
+      </Match>
+      <Match when={p.id === "preview"}>
+        <PreviewPanel />
+      </Match>
+      <Match when={p.id === "outline"}>
+        <OutlinePanel />
       </Match>
     </Switch>
   );

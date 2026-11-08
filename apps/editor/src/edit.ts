@@ -15,6 +15,19 @@ export function ensureAnimation(): string | null {
   return res?.id ?? null;
 }
 
+/**
+ * Set keys like the `setKeys` op, and when a key lands past an animation's fixed length, extend the length to it
+ * (recording past the end grows the animation, as in Spine). One undo step.
+ */
+function setKeysExtending(args: { animation: string; keys: { time: number; [k: string]: unknown }[]; [k: string]: unknown }) {
+  transaction("key", () => {
+    store.apply("setKeys", args);
+    const a = store.doc.animations.find((x) => x.id === args.animation);
+    const last = Math.max(...args.keys.map((k) => k.time));
+    if (a && a.duration > 0 && last > a.duration + 1e-6) store.apply("updateAnimation", { animation: a.id, duration: last });
+  });
+}
+
 /** Write bone values: setup pose in Setup mode, keyframes at the current time in Animate mode. */
 export function commitBone(boneId: string, props: Record<string, number>) {
   if (mode() === "setup") {
@@ -30,18 +43,18 @@ export function commitBone(boneId: string, props: Record<string, number>) {
   transaction("key bone", () => {
     for (const [property, value] of Object.entries(props))
       if (BONE_PROPERTIES.includes(property as BoneProperty))
-        store.apply("setKeys", { animation: anim, target: "bone", id: boneId, property, keys: [{ time: round3(time()), value }] });
+        setKeysExtending({ animation: anim, target: "bone", id: boneId, property, keys: [{ time: round3(time()), value }] });
   });
 }
 
 export function keyBoneProperty(boneId: string, property: BoneProperty, value: number) {
   const anim = ensureAnimation();
-  if (anim) apply("setKeys", { animation: anim, target: "bone", id: boneId, property, keys: [{ time: round3(time()), value }] });
+  if (anim) setKeysExtending({ animation: anim, target: "bone", id: boneId, property, keys: [{ time: round3(time()), value }] });
 }
 
 export function keySlot(slotId: string, property: "color" | "attachment", value: string | null) {
   const anim = ensureAnimation();
-  if (anim) apply("setKeys", { animation: anim, target: "slot", id: slotId, property, keys: [{ time: round3(time()), value, curve: property === "attachment" ? "stepped" : "linear" }] });
+  if (anim) setKeysExtending({ animation: anim, target: "slot", id: slotId, property, keys: [{ time: round3(time()), value, curve: property === "attachment" ? "stepped" : "linear" }] });
 }
 
 /** Key a constraint value at the current time (Animate mode). */
@@ -49,7 +62,7 @@ export function keyConstraint(target: "ik" | "transform" | "path" | "physics", i
   const anim = ensureAnimation();
   // IK switches (bend, stretch, compress) change at keys instead of blending.
   const stepped = target === "ik" && (property === "bend" || property === "stretch" || property === "compress");
-  if (anim) apply("setKeys", { animation: anim, target, id, property, keys: [{ time: round3(time()), value, ...(stepped ? { curve: "stepped" } : {}) }] });
+  if (anim) setKeysExtending({ animation: anim, target, id, property, keys: [{ time: round3(time()), value, ...(stepped ? { curve: "stepped" } : {}) }] });
 }
 
 export function commitAttachmentMove(slotId: string, name: string, x: number, y: number) {

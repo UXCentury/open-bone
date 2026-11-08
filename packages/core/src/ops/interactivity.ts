@@ -131,6 +131,10 @@ defineOp({
     }
     for (const li of sm.listeners) li.actions = li.actions.filter((x) => !("input" in x) || x.input !== input.id);
     sm.bindings = (sm.bindings ?? []).filter((b) => b.input !== input.id);
+    if (doc.skeleton.sliders) {
+      doc.skeleton.sliders = doc.skeleton.sliders.filter((s) => s.input !== input.id);
+      if (!doc.skeleton.sliders.length) delete doc.skeleton.sliders;
+    }
     return {};
   },
 });

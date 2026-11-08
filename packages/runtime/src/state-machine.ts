@@ -516,7 +516,8 @@ export class StateMachineInstance extends Emitter<SMEvents> {
         s.prevTime = s.time > 0 ? s.time : Math.min(s.prevTime, s.time); // keys at 0 fire on the first step
         s.time += dt * s.data.speed;
       }
-      if (l.current) this.collectEvents(l.current);
+      // No time passed: nothing was crossed (keys at 0 fire on the first real step, not twice).
+      if (l.current && dt > 0) this.collectEvents(l.current);
       if (l.from) {
         l.mixTime += dt;
         if (l.mixTime >= l.mixDuration) l.from = null;

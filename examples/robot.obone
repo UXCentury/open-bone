@@ -1,0 +1,1029 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "Robot",
+  "width": 500,
+  "height": 560,
+  "originX": 250,
+  "originY": 520,
+  "background": null,
+  "fps": 30,
+  "images": [],
+  "skeleton": {
+    "bones": [
+      {
+        "id": "bone_qdihj81",
+        "name": "root",
+        "parent": null,
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_zqff582",
+        "name": "body",
+        "parent": "bone_qdihj81",
+        "length": 0,
+        "x": 0,
+        "y": 40,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_0wdod83",
+        "name": "neck",
+        "parent": "bone_zqff582",
+        "length": 30,
+        "x": 0,
+        "y": 140,
+        "rotation": 90,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_002cw84",
+        "name": "head",
+        "parent": "bone_0wdod83",
+        "length": 0,
+        "x": 30,
+        "y": 0,
+        "rotation": -90,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_r4bi985",
+        "name": "antenna",
+        "parent": "bone_002cw84",
+        "length": 60,
+        "x": 0,
+        "y": 150,
+        "rotation": 90,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_j7vos86",
+        "name": "mouth",
+        "parent": "bone_002cw84",
+        "length": 0,
+        "x": 0,
+        "y": 40,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot_dt4ih87",
+        "name": "torso",
+        "bone": "bone_zqff582",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_o5mcl88",
+        "name": "panel",
+        "bone": "bone_zqff582",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_cplql89",
+        "name": "light",
+        "bone": "bone_zqff582",
+        "color": "#ffffff",
+        "attachment": "ellipse",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_0gln28a",
+        "name": "neck",
+        "bone": "bone_0wdod83",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_fk4n78b",
+        "name": "antenna-stick",
+        "bone": "bone_r4bi985",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_cah888c",
+        "name": "antenna-ball",
+        "bone": "bone_r4bi985",
+        "color": "#ffffff",
+        "attachment": "ellipse",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_hiczo8d",
+        "name": "head",
+        "bone": "bone_002cw84",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_c36pm8e",
+        "name": "face",
+        "bone": "bone_002cw84",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_p2klm8f",
+        "name": "eye-l",
+        "bone": "bone_002cw84",
+        "color": "#ffffff",
+        "attachment": "ellipse",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_51gy78g",
+        "name": "eye-r",
+        "bone": "bone_002cw84",
+        "color": "#ffffff",
+        "attachment": "ellipse",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_t385f8h",
+        "name": "mouth",
+        "bone": "bone_j7vos86",
+        "color": "#ffffff",
+        "attachment": "mouth-rest",
+        "blend": "normal"
+      }
+    ],
+    "skins": [
+      {
+        "id": "skin_default",
+        "name": "default",
+        "attachments": {
+          "slot_dt4ih87": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": 60,
+              "rotation": 0,
+              "width": 220,
+              "height": 170,
+              "radius": 28,
+              "fill": "#5b6b8c",
+              "stroke": "#2c3550",
+              "strokeWidth": 4
+            }
+          },
+          "slot_o5mcl88": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": 70,
+              "rotation": 0,
+              "width": 120,
+              "height": 70,
+              "radius": 10,
+              "fill": "#3a4566"
+            }
+          },
+          "slot_cplql89": {
+            "ellipse": {
+              "type": "shape",
+              "name": "ellipse",
+              "shape": "ellipse",
+              "x": -30,
+              "y": 70,
+              "rotation": 0,
+              "width": 22,
+              "height": 22,
+              "radius": 0,
+              "fill": "#3ddc84"
+            }
+          },
+          "slot_0gln28a": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 15,
+              "y": 0,
+              "rotation": 0,
+              "width": 30,
+              "height": 40,
+              "radius": 6,
+              "fill": "#46536f"
+            }
+          },
+          "slot_fk4n78b": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 30,
+              "y": 0,
+              "rotation": 0,
+              "width": 60,
+              "height": 6,
+              "radius": 3,
+              "fill": "#2c3550"
+            }
+          },
+          "slot_cah888c": {
+            "ellipse": {
+              "type": "shape",
+              "name": "ellipse",
+              "shape": "ellipse",
+              "x": 62,
+              "y": 0,
+              "rotation": 0,
+              "width": 22,
+              "height": 22,
+              "radius": 0,
+              "fill": "#ff5d5d"
+            }
+          },
+          "slot_hiczo8d": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": 75,
+              "rotation": 0,
+              "width": 240,
+              "height": 170,
+              "radius": 36,
+              "fill": "#7d8db0",
+              "stroke": "#2c3550",
+              "strokeWidth": 4
+            },
+            "head-hit": {
+              "type": "boundingBox",
+              "name": "head-hit",
+              "vertices": [
+                -120,
+                -10,
+                120,
+                -10,
+                120,
+                160,
+                -120,
+                160
+              ]
+            }
+          },
+          "slot_c36pm8e": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": 75,
+              "rotation": 0,
+              "width": 200,
+              "height": 125,
+              "radius": 26,
+              "fill": "#1b2133"
+            }
+          },
+          "slot_p2klm8f": {
+            "ellipse": {
+              "type": "shape",
+              "name": "ellipse",
+              "shape": "ellipse",
+              "x": -48,
+              "y": 105,
+              "rotation": 0,
+              "width": 38,
+              "height": 38,
+              "radius": 0,
+              "fill": "#8ad4ff"
+            }
+          },
+          "slot_51gy78g": {
+            "ellipse": {
+              "type": "shape",
+              "name": "ellipse",
+              "shape": "ellipse",
+              "x": 48,
+              "y": 105,
+              "rotation": 0,
+              "width": 38,
+              "height": 38,
+              "radius": 0,
+              "fill": "#8ad4ff"
+            }
+          },
+          "slot_t385f8h": {
+            "mouth-rest": {
+              "type": "shape",
+              "name": "mouth-rest",
+              "shape": "rect",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 70,
+              "height": 6,
+              "radius": 3,
+              "fill": "#8ad4ff"
+            },
+            "mouth-closed": {
+              "type": "shape",
+              "name": "mouth-closed",
+              "shape": "rect",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 56,
+              "height": 10,
+              "radius": 5,
+              "fill": "#8ad4ff"
+            },
+            "mouth-small": {
+              "type": "shape",
+              "name": "mouth-small",
+              "shape": "ellipse",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 40,
+              "height": 16,
+              "radius": 0,
+              "fill": "#8ad4ff"
+            },
+            "mouth-open": {
+              "type": "shape",
+              "name": "mouth-open",
+              "shape": "ellipse",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 58,
+              "height": 30,
+              "radius": 0,
+              "fill": "#8ad4ff"
+            },
+            "mouth-wide": {
+              "type": "shape",
+              "name": "mouth-wide",
+              "shape": "rect",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 86,
+              "height": 40,
+              "radius": 18,
+              "fill": "#8ad4ff"
+            },
+            "mouth-round": {
+              "type": "shape",
+              "name": "mouth-round",
+              "shape": "ellipse",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 30,
+              "height": 30,
+              "radius": 0,
+              "fill": "#8ad4ff"
+            }
+          }
+        }
+      }
+    ],
+    "ik": [],
+    "transform": [],
+    "path": [],
+    "physics": []
+  },
+  "events": [],
+  "animations": [
+    {
+      "id": "anim_yae6f8k",
+      "name": "idle",
+      "duration": 3,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_r4bi985",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 90,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.5,
+              "value": 84,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 3,
+              "value": 90,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_002cw84",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": -90,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.5,
+              "value": -91.5,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 3,
+              "value": -90,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_p2klm8f",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 2.6,
+              "value": "#ffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 2.7,
+              "value": "#ffffff22",
+              "curve": "linear"
+            },
+            {
+              "time": 2.8,
+              "value": "#ffffff",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_51gy78g",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 2.6,
+              "value": "#ffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 2.7,
+              "value": "#ffffff22",
+              "curve": "linear"
+            },
+            {
+              "time": 2.8,
+              "value": "#ffffff",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_cplql89",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff",
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.5,
+              "value": "#ffffff55",
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 3,
+              "value": "#ffffff",
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_4z3sq8l",
+      "name": "talk",
+      "duration": 3.8333333333333335,
+      "timelines": [
+        {
+          "target": "slot",
+          "id": "slot_t385f8h",
+          "property": "attachment",
+          "keys": [
+            {
+              "time": 0,
+              "value": "mouth-rest",
+              "curve": "stepped"
+            },
+            {
+              "time": 0.23333333333333334,
+              "value": "mouth-small",
+              "curve": "stepped"
+            },
+            {
+              "time": 0.3333333333333333,
+              "value": "mouth-wide",
+              "curve": "stepped"
+            },
+            {
+              "time": 0.5666666666666667,
+              "value": "mouth-round",
+              "curve": "stepped"
+            },
+            {
+              "time": 0.8,
+              "value": "mouth-closed",
+              "curve": "stepped"
+            },
+            {
+              "time": 0.9333333333333333,
+              "value": "mouth-wide",
+              "curve": "stepped"
+            },
+            {
+              "time": 1.3,
+              "value": "mouth-small",
+              "curve": "stepped"
+            },
+            {
+              "time": 1.4,
+              "value": "mouth-closed",
+              "curve": "stepped"
+            },
+            {
+              "time": 1.4666666666666666,
+              "value": "mouth-round",
+              "curve": "stepped"
+            },
+            {
+              "time": 1.7,
+              "value": "mouth-wide",
+              "curve": "stepped"
+            },
+            {
+              "time": 1.8333333333333333,
+              "value": "mouth-small",
+              "curve": "stepped"
+            },
+            {
+              "time": 1.9,
+              "value": "mouth-round",
+              "curve": "stepped"
+            },
+            {
+              "time": 2.2666666666666666,
+              "value": "mouth-rest",
+              "curve": "stepped"
+            },
+            {
+              "time": 2.466666666666667,
+              "value": "mouth-round",
+              "curve": "stepped"
+            },
+            {
+              "time": 2.6333333333333333,
+              "value": "mouth-wide",
+              "curve": "stepped"
+            },
+            {
+              "time": 2.8,
+              "value": "mouth-small",
+              "curve": "stepped"
+            },
+            {
+              "time": 2.966666666666667,
+              "value": "mouth-wide",
+              "curve": "stepped"
+            },
+            {
+              "time": 3.1333333333333333,
+              "value": "mouth-closed",
+              "curve": "stepped"
+            },
+            {
+              "time": 3.2,
+              "value": "mouth-small",
+              "curve": "stepped"
+            },
+            {
+              "time": 3.2666666666666666,
+              "value": "mouth-wide",
+              "curve": "stepped"
+            },
+            {
+              "time": 3.533333333333333,
+              "value": "mouth-rest",
+              "curve": "stepped"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_002cw84",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": -90,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.8,
+              "value": -87,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.6,
+              "value": -92,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 2.4,
+              "value": -88,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 3.819909297052154,
+              "value": -90,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_r4bi985",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 90,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.4,
+              "value": 100,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.9,
+              "value": 82,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.5,
+              "value": 96,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 2.2,
+              "value": 84,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 3.819909297052154,
+              "value": 90,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_cplql89",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff",
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.2,
+              "value": "#ffd166",
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 3.619909297052154,
+              "value": "#ffd166",
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 3.819909297052154,
+              "value": "#ffffff",
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        }
+      ],
+      "events": [],
+      "audio": [
+        {
+          "time": 0,
+          "sound": "snd_dz4hw8j"
+        }
+      ]
+    }
+  ],
+  "stateMachines": [
+    {
+      "id": "sm_7b9j08m",
+      "name": "robot",
+      "inputs": [
+        {
+          "id": "in_muasx8n",
+          "name": "talk",
+          "type": "trigger",
+          "default": false
+        }
+      ],
+      "bindings": [],
+      "layers": [
+        {
+          "id": "sm_7b9j08m_layer1",
+          "name": "Layer 1",
+          "entry": "st_6jab98o",
+          "states": [
+            {
+              "id": "st_6jab98o",
+              "name": "idle",
+              "type": "animation",
+              "animation": "anim_yae6f8k",
+              "loop": true,
+              "speed": 1,
+              "x": 120,
+              "y": 120
+            },
+            {
+              "id": "st_qod7m8p",
+              "name": "talk",
+              "type": "animation",
+              "animation": "anim_4z3sq8l",
+              "loop": false,
+              "speed": 1,
+              "onComplete": "st_6jab98o",
+              "x": 380,
+              "y": 120
+            }
+          ],
+          "transitions": [
+            {
+              "id": "tr_dutix8q",
+              "from": "st_6jab98o",
+              "to": "st_qod7m8p",
+              "conditions": [
+                {
+                  "input": "in_muasx8n",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.15,
+              "exitTime": null
+            }
+          ]
+        }
+      ],
+      "listeners": [
+        {
+          "id": "lis_gmsvm8r",
+          "name": "click",
+          "slot": "slot_hiczo8d",
+          "event": "click",
+          "actions": [
+            {
+              "type": "fireTrigger",
+              "input": "in_muasx8n"
+            }
+          ]
+        }
+      ],
+      "scripts": []
+    }
+  ],
+  "scripts": [],
+  "audio": {
+    "master": 1,
+    "muted": false,
+    "assets": [
+      {
+        "id": "aud_t84bq8i",
+        "name": "robot-voice",
+        "src": "assets/robot-voice.wav",
+        "duration": 3.82
+      }
+    ],
+    "buses": [
+      {
+        "id": "bus_sfx",
+        "name": "sfx",
+        "volume": 1,
+        "muted": false
+      },
+      {
+        "id": "bus_music",
+        "name": "music",
+        "volume": 1,
+        "muted": false
+      },
+      {
+        "id": "bus_ui",
+        "name": "ui",
+        "volume": 1,
+        "muted": false
+      }
+    ],
+    "sounds": [
+      {
+        "id": "snd_dz4hw8j",
+        "name": "robot-voice",
+        "asset": "aud_t84bq8i",
+        "bus": "bus_sfx",
+        "volume": 1,
+        "rate": 1,
+        "loop": false,
+        "fadeIn": 0,
+        "fadeOut": 0
+      }
+    ]
+  }
+}

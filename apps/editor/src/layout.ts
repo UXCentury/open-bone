@@ -5,7 +5,7 @@ import { createSignal } from "solid-js";
  * tabs and has a size; panels can be dragged between docks. Saved per browser in localStorage.
  */
 
-export type PanelId = "hierarchy" | "inspector" | "timeline" | "statemachine" | "scripts";
+export type PanelId = "hierarchy" | "inspector" | "timeline" | "statemachine" | "scripts" | "preview" | "outline";
 export type DockId = "left" | "right" | "bottom";
 
 export interface DockState {
@@ -23,6 +23,8 @@ export const PANELS: Record<PanelId, { title: string }> = {
   timeline: { title: "Timeline" },
   statemachine: { title: "State Machine" },
   scripts: { title: "Scripts" },
+  preview: { title: "Preview" },
+  outline: { title: "Outline" },
 };
 export const DOCKS: DockId[] = ["left", "right", "bottom"];
 export const DEFAULT_SIZE: Record<DockId, number> = { left: 250, right: 280, bottom: 290 };
@@ -33,12 +35,12 @@ const KEY = "openbone.layout.v1";
 export function defaultLayout(): Layout {
   return {
     left: { panels: ["hierarchy"], active: "hierarchy", size: DEFAULT_SIZE.left },
-    right: { panels: ["inspector"], active: "inspector", size: DEFAULT_SIZE.right },
+    right: { panels: ["inspector", "preview", "outline"], active: "inspector", size: DEFAULT_SIZE.right },
     bottom: { panels: ["timeline", "statemachine", "scripts"], active: "timeline", size: DEFAULT_SIZE.bottom },
   };
 }
 
-/** A stored layout is used only if it is well-formed and holds every panel exactly once. */
+/** A stored layout is used if it is well-formed; each panel appears once (missing new panels are added). */
 function sanitize(raw: unknown): Layout | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Partial<Record<DockId, Partial<DockState>>>;
@@ -52,7 +54,11 @@ function sanitize(raw: unknown): Layout | null {
     const size = typeof s.size === "number" && Number.isFinite(s.size) ? Math.max(MIN_SIZE[d], s.size) : DEFAULT_SIZE[d];
     out[d] = { panels, active: s.active && panels.includes(s.active) ? s.active : (panels[0] ?? null), size };
   }
-  return seen.size === Object.keys(PANELS).length ? out : null;
+  if (!seen.size) return null;
+  // Panels added in a newer version join the right dock, so a saved layout survives upgrades.
+  for (const p of Object.keys(PANELS) as PanelId[]) if (!seen.has(p)) out.right.panels.push(p);
+  out.right.active ??= out.right.panels[0] ?? null;
+  return out;
 }
 
 function load(): Layout {

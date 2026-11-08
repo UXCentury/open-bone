@@ -23,6 +23,7 @@ import {
   type TransformConstraintData,
   DEG,
   RAD,
+  animationDuration,
   apply,
   atlasUvMap,
   boneWorld,
@@ -35,6 +36,7 @@ import {
   multiply,
   parseHex,
   pointInPolygon,
+  regionPageRect,
   remapUvs,
   sequenceCounter,
   sequenceFrameIndex,
@@ -46,6 +48,7 @@ import {
   worldScaleX,
   worldScaleY,
 } from "@openbone/core";
+import { applyAnimation } from "./animation.ts";
 import { type EmitterValues, MAX_PARTICLE_STEPS, PARTICLE_STEP, ParticleEmitter, hashString } from "./particles.ts";
 import type { TextDraw } from "./text.ts";
 
@@ -339,7 +342,7 @@ export class Skeleton {
         ? [r.offsetX / r.originalWidth, r.offsetY / r.originalHeight, (r.offsetX + r.width) / r.originalWidth, (r.offsetY + r.height) / r.originalHeight]
         : null;
       const quad = trim ? new Float32Array([trim[0], trim[1], trim[2], trim[1], trim[2], trim[3], trim[0], trim[3]]) : REGION_UVS;
-      const rect = { x: r.x, y: r.y, width: r.width, height: r.height };
+      const rect = regionPageRect(r);
       this.packed.set(r.image, { page, rect, map, regionUvs: remapUvs(quad, map), trim });
     }
     for (const sm of doc.stateMachines) for (const i of sm.inputs) if (typeof i.default === "number") this.inputDefaults.set(i.id, i.default);
@@ -494,6 +497,7 @@ export class Skeleton {
 
   /** Solve world transforms, then constraints in order: IK, transform, path, physics. */
   updateWorldTransform() {
+    this.applySliders();
     const root = this.rootMatrix;
     for (const b of this.bones) {
       b.resetApplied();
@@ -509,6 +513,47 @@ export class Skeleton {
     const pdt = this.particlePending;
     this.particlePending = 0;
     if (this.particleClock === "realtime" && pdt > 0) this.advanceParticles(pdt);
+  }
+
+  // ---------------- Sliders ----------------
+
+  /** Sliders scrub an animation from a driver (a bone's local property or a number input), before constraints. */
+  private applySliders() {
+    const list = this.doc.skeleton.sliders;
+    if (!list?.length) return;
+    // A slider's animation must not take over the time sequences follow (that belongs to the main animation).
+    const savedTime = this.animationTime;
+    for (const sl of list) {
+      if (sl.mix <= 0) continue;
+      const anim = this.doc.animations.find((a) => a.id === sl.animation);
+      if (!anim) continue;
+      let v: number | undefined;
+      if (sl.bone) v = this.boneById.get(sl.bone)?.[sl.property ?? "rotation"];
+      else if (sl.input) v = this.inputValues.get(sl.input) ?? this.inputDefaults.get(sl.input) ?? 0;
+      if (v === undefined) continue;
+      const span = sl.to - sl.from;
+      let f = span === 0 ? 0 : (v - sl.from) / span;
+      f = sl.loop ? f - Math.floor(f) : Math.min(1, Math.max(0, f));
+      const t0 = sl.timeFrom ?? 0;
+      const t1 = sl.timeTo ?? animationDuration(anim);
+      const t = t0 + f * (t1 - t0);
+      if (!sl.additive) {
+        applyAnimation(this, anim, t, sl.mix);
+        continue;
+      }
+      // Additive: add the animation's change from the setup pose on top of the current pose.
+      const props = ["x", "y", "rotation", "scaleX", "scaleY", "shearX", "shearY"] as const;
+      const before = this.bones.map((b) => props.map((p) => b[p]));
+      for (const b of this.bones) b.setToSetupPose();
+      applyAnimation(this, anim, t, 1);
+      this.bones.forEach((b, i) => {
+        props.forEach((p, k) => {
+          const delta = p === "rotation" ? wrap(b[p] - b.data[p]) : b[p] - b.data[p];
+          b[p] = before[i][k] + delta * sl.mix;
+        });
+      });
+    }
+    this.animationTime = savedTime;
   }
 
   // ---------------- IK ----------------
@@ -890,10 +935,11 @@ export class Skeleton {
     const textureRect = whole
       ? undefined
       : {
-          x: uvs[0] * texture.width,
-          y: uvs[1] * texture.height,
-          width: (uvs[4] - uvs[0]) * texture.width,
-          height: (uvs[5] - uvs[1]) * texture.height,
+          // Bounding box of the quad's uvs (a rotated atlas region swaps its corners).
+          x: Math.min(uvs[0], uvs[4]) * texture.width,
+          y: Math.min(uvs[1], uvs[5]) * texture.height,
+          width: Math.abs(uvs[4] - uvs[0]) * texture.width,
+          height: Math.abs(uvs[5] - uvs[1]) * texture.height,
         };
     return {
       slot,

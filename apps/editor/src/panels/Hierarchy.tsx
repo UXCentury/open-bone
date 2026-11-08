@@ -15,11 +15,13 @@ import {
   setTime,
   stateMachineId,
   selectedBoneId,
+  multiBones,
 } from "../state.ts";
 import { showPanel } from "../layout.ts";
 import { Section } from "./fields.tsx";
 import { askConfirm, askText, uniqueName } from "../dialogs.tsx";
 import { AudioSection } from "./AudioPanel.tsx";
+import { StatsSection } from "./Stats.tsx";
 
 // ---- skeleton tree: guide lines and collapsible nodes (bones and slots), like Spine's tree ----
 const [collapsedNodes, setCollapsedNodes] = createSignal<Set<string>>(new Set());
@@ -137,7 +139,7 @@ function BoneNode(p: { bone: BoneData }) {
   const slots = () => doc().skeleton.slots.filter((s) => s.bone === p.bone.id && shown(s.id));
   const sel = () => selection();
   const has = () => children().length + slots().length > 0;
-  const boneSelected = () => sel()?.kind === "bone" && sel()!.id === p.bone.id;
+  const boneSelected = () => (sel()?.kind === "bone" && sel()!.id === p.bone.id) || multiBones().includes(p.bone.id);
   return (
     <div class="tnode">
       <div class="tree-row" ref={(el) => scrollWhenSelected(el, boneSelected)} classList={{ selected: boneSelected() }} onClick={() => setSelection({ kind: "bone", id: p.bone.id })}>
@@ -378,7 +380,7 @@ export function Hierarchy() {
           </Show>
         </div>
       </Section>
-      <Show when={doc().skeleton.ik.length + doc().skeleton.transform.length + doc().skeleton.path.length + doc().skeleton.physics.length > 0}>
+      <Show when={doc().skeleton.ik.length + doc().skeleton.transform.length + doc().skeleton.path.length + doc().skeleton.physics.length + (doc().skeleton.sliders?.length ?? 0) > 0}>
         <Section title="Constraints">
           <For each={doc().skeleton.ik}>
             {(c) => (
@@ -405,6 +407,14 @@ export function Hierarchy() {
             {(c) => (
               <div class="tree-row" classList={{ selected: selection()?.kind === "physics" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "physics", id: c.id })}>
                 <span class="icon">≋</span> {c.name}
+              </div>
+            )}
+          </For>
+          <For each={doc().skeleton.sliders ?? []}>
+            {(c) => (
+              <div class="tree-row" classList={{ selected: selection()?.kind === "slider" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "slider", id: c.id })}>
+                <span class="icon">⇆</span> {c.name}
+                <span class="muted"> · {doc().animations.find((a) => a.id === c.animation)?.name ?? "?"}</span>
               </div>
             )}
           </For>
@@ -443,7 +453,10 @@ export function Hierarchy() {
                 if (name && name !== a.name) apply("updateAnimation", { animation: a.id, name });
               }}
             >
-              <span class="icon">▶</span> {a.name}
+              <span class="icon" style={a.color ? { color: a.color } : {}}>▶</span> <span classList={{ muted: a.export === false }}>{a.name}</span>
+              <Show when={a.export === false}>
+                <span class="skin-badge" title="Not exported unless picked in the export dialog">no export</span>
+              </Show>
               <button class="row-del" title="Delete" onClick={(e) => { e.stopPropagation(); void askConfirm({ title: `Delete animation "${a.name}"?`, message: "Its keys are removed and state machine states that play it are left empty. You can undo this.", confirmLabel: "Delete", danger: true }).then((ok) => ok && apply("deleteAnimation", { animation: a.id })); }}>×</button>
             </div>
           )}
@@ -466,6 +479,7 @@ export function Hierarchy() {
           )}
         </For>
       </Section>
+      <StatsSection />
     </div>
   );
 }

@@ -1,7 +1,8 @@
-import type { AnimationData, LayerData, SoundData, StateData } from "@openbone/core";
-import { For, Show, createSignal } from "solid-js";
+import { type AnimationData, type LayerData, type SoundData, type StateData, animationDuration } from "@openbone/core";
+import { For, Show, createEffect, createSignal } from "solid-js";
 import { audioMuted, audition, importAudio, setAudioMuted } from "../audio.ts";
 import { askConfirm, askForm, askText, uniqueName } from "../dialogs.tsx";
+import { decodedNow, drawWaveform } from "../waveform.ts";
 import { apply, currentStateMachine, doc, selection, setSelection, time } from "../state.ts";
 import { NumberField, Section, SelectField, TextField } from "./fields.tsx";
 
@@ -341,7 +342,7 @@ export function AudioTrack(p: { anim: AnimationData; pps: number; width: number;
     setSelKey(null);
   };
   return (
-    <div class="track-row" style={{ width: `${p.width}px` }} onKeyDown={(e) => (e.key === "Delete" || e.key === "Backspace") && selKey() && (e.stopPropagation(), del())}>
+    <div class="track-row audio-row" style={{ width: `${p.width}px` }} onKeyDown={(e) => (e.key === "Delete" || e.key === "Backspace") && selKey() && (e.stopPropagation(), del())}>
       <div class="row-label" title="Sounds started by this animation">
         ♪ audio
         <Show when={selKey()}>
@@ -355,10 +356,20 @@ export function AudioTrack(p: { anim: AnimationData; pps: number; width: number;
           {(k) => {
             const s = () => sounds().find((x) => x.id === k.sound);
             const loop = () => k.loop ?? s()?.loop ?? false;
+            const asset = () => assets().find((x) => x.id === s()?.asset);
+            const rate = () => k.rate ?? s()?.rate ?? 1;
             const len = () => {
-              const a = assets().find((x) => x.id === s()?.asset);
-              return a?.duration ? a.duration / (k.rate ?? s()?.rate ?? 1) : 0;
+              const a = asset();
+              return a?.duration ? a.duration / rate() : 0;
             };
+            // Waveform under the key: the sound's length, or up to the animation's end for a loop.
+            const seconds = () => (loop() ? Math.max(len(), animationDuration(p.anim) - k.time) : len());
+            let canvas: HTMLCanvasElement | undefined;
+            createEffect(() => {
+              const d = decodedNow(asset());
+              const sec = seconds();
+              if (canvas && d && sec > 0) drawWaveform(canvas, d, { pps: p.pps, rate: rate(), seconds: sec, color: isSel(k) ? "#ffe08a" : "#6fe3b4" });
+            });
             return (
               <div
                 class="event-key audio-key"
@@ -368,8 +379,11 @@ export function AudioTrack(p: { anim: AnimationData; pps: number; width: number;
                 onPointerDown={(e) => drag(e, k)}
                 onDblClick={() => void edit(k)}
               >
-                ♪ {s()?.name ?? "?"}
-                {loop() ? " ⟳" : ""}
+                <canvas class="wave" ref={canvas} />
+                <span class="audio-name">
+                  ♪ {s()?.name ?? "?"}
+                  {loop() ? " ⟳" : ""}
+                </span>
               </div>
             );
           }}

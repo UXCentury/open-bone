@@ -62,6 +62,7 @@ export type Selection =
   | { kind: "transform"; id: string }
   | { kind: "path"; id: string }
   | { kind: "physics"; id: string }
+  | { kind: "slider"; id: string }
   | { kind: "image"; id: string }
   | { kind: "sound"; id: string }
   /** id "master" selects the master mix. */
@@ -85,6 +86,13 @@ export const [weightBone, setWeightBone] = createSignal<string | null>(null);
 export const [brushRadius, setBrushRadius] = createSignal(30);
 export const [brushStrength, setBrushStrength] = createSignal(0.5);
 export const [brushMode, setBrushMode] = createSignal<"add" | "subtract">("add");
+/** Bones selected together (box select / shift-click), besides the primary `selection`. Empty = just the primary. */
+export const [multiBones, setMultiBones] = createSignal<string[]>([]);
+/** Mesh tool soft selection: dragging vertices also pulls unselected ones within `softRadius` screen px, with falloff. */
+export const [softSelect, setSoftSelect] = createSignal(false);
+export const [softRadius, setSoftRadius] = createSignal(60);
+/** Weights tool: paint with the brush, or select vertices and set their weights directly. */
+export const [weightMode, setWeightMode] = createSignal<"brush" | "direct">("brush");
 /** Onion skin: ghost poses at ±step·i frames for i = 1..count (Animate mode). */
 export const [onionSkin, setOnionSkin] = createSignal(false);
 export const [onionCount, setOnionCount] = createSignal(2);

@@ -92,6 +92,22 @@ describe("staged flow", () => {
     expect(s.doc.stateMachines[0].layers[0].states.find((x) => x.name === "idle")!.inputs).toBeUndefined();
   });
 
+  it("a zero-length step does not fire keys at 0 twice", () => {
+    const s = crash();
+    s.apply("addEvent", { name: "go" });
+    s.apply("addEventKey", { animation: "flyout", event: "go", time: 0 });
+    const sm = new OpenBoneInstance(s.doc).useStateMachine("game");
+    const fired: string[] = [];
+    sm.on("event", (e) => fired.push(e.name));
+    sm.advance(0.1);
+    sm.fire("start");
+    sm.advance(0);
+    sm.advance(1 / 60);
+    sm.advance(0);
+    sm.advance(1 / 60);
+    expect(fired).toEqual(["go"]);
+  });
+
   it("onComplete leaves a looping state after its first cycle", () => {
     const s = crash();
     s.apply("updateState", { stateMachine: "game", state: "idle", onComplete: "flying" });

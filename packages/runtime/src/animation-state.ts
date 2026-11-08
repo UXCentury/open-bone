@@ -113,10 +113,13 @@ export class AnimationState extends Emitter<Events> {
         e.mixTime += dt;
         if (e.mixTime >= e.mixDuration) e.mixingFrom = null;
       }
-      playAudioKeys(this.audio, e.animation, e.prevTime, e.time, e.loop, e.uid);
-      for (const ev of eventsBetween(this.skeleton.doc, e.animation, e.prevTime, e.time, e.loop)) {
-        if (ev.audio) this.audio.play(ev.audio, { volume: ev.volume, owner: e.uid, source: `event:${ev.name}` });
-        this.emit("event", ev, track);
+      // No time passed: nothing was crossed (keys at 0 fire on the first real step, not twice).
+      if (dt > 0) {
+        playAudioKeys(this.audio, e.animation, e.prevTime, e.time, e.loop, e.uid);
+        for (const ev of eventsBetween(this.skeleton.doc, e.animation, e.prevTime, e.time, e.loop)) {
+          if (ev.audio) this.audio.play(ev.audio, { volume: ev.volume, owner: e.uid, source: `event:${ev.name}` });
+          this.emit("event", ev, track);
+        }
       }
       const d = e.duration;
       if (d > 0) {

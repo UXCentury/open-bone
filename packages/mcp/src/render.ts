@@ -1,6 +1,6 @@
 import { type Image, createCanvas, loadImage } from "@napi-rs/canvas";
-import { type AtlasData, type AtlasLayoutOptions, type OpenBoneDocument, atlasRegion, layoutAtlas, textureAssets } from "@openbone/core";
-import { CanvasRenderer, type Ctx2D, drawAtlasPage } from "@openbone/render-canvas";
+import { type AtlasData, type AtlasLayoutOptions, type OpenBoneDocument, atlasRegion, layoutAtlas, layoutAtlasFit, textureAssets } from "@openbone/core";
+import { CanvasRenderer, type Ctx2D, drawAtlasPage, drawRegionFromPage } from "@openbone/render-canvas";
 import { OpenBoneInstance, type ScriptHost } from "@openbone/runtime";
 // @ts-expect-error gifenc ships without types (CommonJS)
 import gifenc from "gifenc";
@@ -191,7 +191,11 @@ export async function renderGif(
  * Lay out every image of `doc` on atlas pages and compose the page PNGs (as data: URIs). Images that already
  * live only in an atlas are cut back out of their page. The result is ready for the `setAtlas` op.
  */
-export async function packAtlas(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument, opts: AtlasLayoutOptions = {}): Promise<AtlasData> {
+export async function packAtlas(
+  session: Pick<ProjectSession, "readImageSrc">,
+  doc: OpenBoneDocument,
+  opts: AtlasLayoutOptions & { autoScale?: boolean; minScale?: number } = {},
+): Promise<AtlasData> {
   const loaded = await loadImages(session, doc);
   const sources = new Map<string, unknown>();
   for (const img of doc.images) {
@@ -206,10 +210,20 @@ export async function packAtlas(session: Pick<ProjectSession, "readImageSrc">, d
     if (!hit || !page) throw new Error(`Image "${img.name}" has no pixels`);
     const { region: r } = hit;
     const c = createCanvas(r.originalWidth, r.originalHeight);
-    c.getContext("2d").drawImage(page, r.x, r.y, r.width, r.height, r.offsetX, r.offsetY, r.width, r.height);
+    drawRegionFromPage(c.getContext("2d") as unknown as Ctx2D, page as unknown as CanvasImageSource, r);
     sources.set(img.id, c);
   }
-  const atlas = layoutAtlas(doc.images, opts);
+  // Images a particle emitter draws as its look render from a plain page rect: never rotate those.
+  const noRotate = new Set<string>(opts.noRotate ?? []);
+  for (const skin of doc.skeleton.skins)
+    for (const atts of Object.values(skin.attachments)) for (const a of Object.values(atts)) if (a.type === "particles" && a.image) noRotate.add(a.image);
+  // Packed images were cut out at their stored size: lay out from that.
+  const sized = doc.images.map((img) => {
+    const hit = !img.src ? atlasRegion(doc, img.id) : null;
+    return hit ? { id: img.id, width: hit.region.originalWidth, height: hit.region.originalHeight } : img;
+  });
+  const layout = { ...opts, noRotate };
+  const atlas = opts.autoScale ? layoutAtlasFit(sized, layout).atlas : layoutAtlas(sized, layout);
   for (const page of atlas.pages) {
     const c = createCanvas(page.width, page.height);
     const missing = drawAtlasPage(c.getContext("2d") as unknown as Ctx2D, atlas, page.id, (id) => sources.get(id) as CanvasImageSource);

@@ -82,6 +82,28 @@ describe("atlas packing renders the same", () => {
     for (let i = 0; i < reqs.length; i++) expect(diff(before[i], await pixels((await renderPng(s, reqs[i])).png)).share).toBeLessThan(0.001);
   });
 
+  it("rotated packing (knight: painted regions + weighted cape mesh) renders the same, and re-packs", async () => {
+    const s = await open("knight.obone");
+    const reqs = frames(s).slice(0, 5);
+    const before = await Promise.all(reqs.map(async (r) => pixels((await renderPng(s, r)).png)));
+    const atlas = await packAtlas(s, s.doc, { padding: 2, powerOfTwo: false, allowRotation: true });
+    expect(atlas.regions.some((r) => r.rotated)).toBe(true);
+    s.store.apply("setAtlas", { atlas, stripImageSources: true });
+    expect(validate(s.doc).filter((i) => i.level === "error")).toEqual([]);
+    const check = async () => {
+      for (let i = 0; i < reqs.length; i++) {
+        const d = diff(before[i], await pixels((await renderPng(s, reqs[i])).png));
+        // Turned images are resampled through a rotation: allow a few edge pixels to differ slightly.
+        expect(d.share, `frame ${i}`).toBeLessThan(0.002);
+      }
+    };
+    await check();
+    // Re-pack from the rotated pages without rotation: images are cut back out upright.
+    s.store.apply("setAtlas", { atlas: await packAtlas(s, s.doc, { padding: 3, powerOfTwo: false }), stripImageSources: true });
+    expect(s.doc.atlas!.regions.some((r) => r.rotated)).toBe(false);
+    await check();
+  });
+
   it("pack_atlas works on a saved project and the file keeps only the pages", async () => {
     const s = await open("walker.obone");
     const dir = mkdtempSync(path.join(tmpdir(), "ob-atlas-"));

@@ -4,7 +4,7 @@ import { distToSegmentSq, gridMesh, shapeOutline, triangulate } from "../geometr
 import { smoothKnots } from "../path.ts";
 import { apply as applyM, invert, worldRotation } from "../math.ts";
 import { setupWorld } from "../setup.ts";
-import type { Attachment, BoneData, OpenBoneDocument, SkinData, VertexWeight } from "../types.ts";
+import type { Attachment, BoneData, OpenBoneDocument, SkinData, SliderData, VertexWeight } from "../types.ts";
 import { defineOp, hex, optId, ref } from "./registry.ts";
 import { checkSequenceProps } from "./sequence-props.ts";
 
@@ -104,6 +104,7 @@ defineOp({
     sk.transform = sk.transform.filter((c) => !c.bones.some((x) => ids.has(x)) && !ids.has(c.target));
     sk.path = sk.path.filter((c) => !c.bones.some((x) => ids.has(x)) && !slotIds.has(c.target));
     sk.physics = sk.physics.filter((c) => !ids.has(c.bone));
+    if (sk.sliders) sk.sliders = sk.sliders.filter((c) => !c.bone || !ids.has(c.bone));
     dropConstraintTimelines(doc);
     for (const anim of doc.animations)
       anim.timelines = anim.timelines.filter(
@@ -1103,3 +1104,115 @@ defineOp({
 export function setupWorldRotation(doc: OpenBoneDocument, boneId: string): number {
   return worldRotation(setupWorld(doc).get(boneId)!);
 }
+
+// ---------------- Sliders ----------------
+
+const sliderProps = {
+  animation: ref("Animation").optional(),
+  bone: ref("Bone").nullable().optional().describe("Driver bone (its local property scrubs the animation)"),
+  property: z.enum(["rotation", "x", "y", "scaleX", "scaleY", "shearX", "shearY"]).optional().describe("Driver property of the bone"),
+  input: z.string().nullable().optional().describe("Driver number input (name or id, any state machine) instead of a bone"),
+  from: z.number().optional().describe("Driver value that shows timeFrom"),
+  to: z.number().optional().describe("Driver value that shows timeTo"),
+  timeFrom: z.number().min(0).nullable().optional(),
+  timeTo: z.number().min(0).nullable().optional().describe("Default: the animation's length"),
+  mix: mix01.optional(),
+  loop: z.boolean().optional().describe("Wrap past the range instead of clamping"),
+  additive: z.boolean().optional().describe("Add the animation's change from the setup pose instead of replacing"),
+};
+
+function resolveInput(doc: OpenBoneDocument, ref: string): string {
+  for (const sm of doc.stateMachines) {
+    const i = sm.inputs.find((x) => x.id === ref || x.name === ref);
+    if (i) {
+      if (i.type !== "number") throw new Error(`Input "${i.name}" is ${i.type}; sliders need a number input`);
+      return i.id;
+    }
+  }
+  throw new Error(`Input "${ref}" not found`);
+}
+
+function findSlider(doc: OpenBoneDocument, ref: string): SliderData {
+  const s = (doc.skeleton.sliders ?? []).find((x) => x.id === ref || x.name === ref);
+  if (!s) throw new Error(`Slider "${ref}" not found`);
+  return s;
+}
+
+function applySliderProps(doc: OpenBoneDocument, sl: SliderData, a: z.infer<z.ZodObject<typeof sliderProps>>) {
+  if (a.animation) sl.animation = get.animation(doc, a.animation).id;
+  if (a.bone !== undefined) {
+    if (a.bone === null) delete sl.bone;
+    else {
+      sl.bone = get.bone(doc, a.bone).id;
+      delete sl.input;
+    }
+  }
+  if (a.input !== undefined) {
+    if (a.input === null) delete sl.input;
+    else {
+      sl.input = resolveInput(doc, a.input);
+      delete sl.bone;
+      delete sl.property;
+    }
+  }
+  if (a.property) sl.property = a.property;
+  if (sl.bone && !sl.property) sl.property = "rotation";
+  if (a.from !== undefined) sl.from = a.from;
+  if (a.to !== undefined) sl.to = a.to;
+  for (const k of ["timeFrom", "timeTo"] as const) {
+    const v = a[k];
+    if (v === null) delete sl[k];
+    else if (v !== undefined) sl[k] = v;
+  }
+  if (a.mix !== undefined) sl.mix = a.mix;
+  if (a.loop !== undefined) sl.loop = a.loop;
+  if (a.additive !== undefined) sl.additive = a.additive;
+}
+
+defineOp({
+  name: "addSlider",
+  group: "constraint",
+  description:
+    "Add a slider: a driver scrubs an animation (Spine 4.2 sliders). Driver = a bone's local property (bone + property, e.g. shoulder rotation 0..100 plays a shadow or corrective animation) or a number input. from..to of the driver maps to timeFrom..timeTo seconds (default the whole animation); mix blends it in; additive adds its change on top. Sliders apply before IK and the other constraints.",
+  schema: z.object({ id: optId, name: z.string().optional(), ...sliderProps, animation: ref("Animation") }),
+  apply(doc, a) {
+    const sliders = (doc.skeleton.sliders ??= []);
+    const name = a.name ?? `slider${sliders.length + 1}`;
+    if (sliders.some((x) => x.name === name)) throw new Error(`Slider "${name}" already exists`);
+    const sl: SliderData = { id: a.id ?? newId("slider"), name, animation: get.animation(doc, a.animation).id, from: 0, to: 1, mix: 1, loop: false, additive: false };
+    applySliderProps(doc, sl, a);
+    if (!sl.bone && !sl.input) throw new Error("A slider needs a driver: bone (+ property) or input");
+    sliders.push(sl);
+    return { id: sl.id };
+  },
+});
+
+defineOp({
+  name: "updateSlider",
+  group: "constraint",
+  description: "Change a slider's animation, driver (bone + property, or input), ranges, mix, loop, additive or name.",
+  schema: z.object({ slider: z.string().describe("Slider name or id"), name: z.string().optional(), ...sliderProps }),
+  apply(doc, a) {
+    const sl = findSlider(doc, a.slider);
+    if (a.name && a.name !== sl.name) {
+      if ((doc.skeleton.sliders ?? []).some((x) => x.name === a.name)) throw new Error(`Slider "${a.name}" already exists`);
+      sl.name = a.name;
+    }
+    applySliderProps(doc, sl, a);
+    if (!sl.bone && !sl.input) throw new Error("A slider needs a driver: bone (+ property) or input");
+    return {};
+  },
+});
+
+defineOp({
+  name: "deleteSlider",
+  group: "constraint",
+  description: "Delete a slider.",
+  schema: z.object({ slider: z.string().describe("Slider name or id") }),
+  apply(doc, a) {
+    const sl = findSlider(doc, a.slider);
+    doc.skeleton.sliders = (doc.skeleton.sliders ?? []).filter((x) => x !== sl);
+    if (!doc.skeleton.sliders.length) delete doc.skeleton.sliders;
+    return {};
+  },
+});

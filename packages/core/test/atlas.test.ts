@@ -6,7 +6,10 @@ import {
   atlasUvMap,
   createDocument,
   exportDocument,
+  footprint,
   layoutAtlas,
+  layoutAtlasFit,
+  regionPageRect,
   packRects,
   remapUvs,
   validate,
@@ -210,5 +213,73 @@ describe("setAtlas op", () => {
     const s = project();
     s.doc.images[0].src = "";
     expect(validate(s.doc).some((i) => i.level === "error" && /no src/.test(i.message))).toBe(true);
+  });
+});
+
+describe("packer rotation and scaling", () => {
+  // Tall strips that only share a page tightly when some turn sideways.
+  const strips = [
+    { id: "a", width: 40, height: 400 },
+    { id: "b", width: 40, height: 400 },
+    { id: "c", width: 400, height: 40 },
+    { id: "d", width: 400, height: 40 },
+  ];
+
+  it("rotating packs into a smaller page and never overlaps", () => {
+    const plain = packRects(strips, { padding: 0, powerOfTwo: false, maxWidth: 512, maxHeight: 512 });
+    const turned = packRects(strips, { padding: 0, powerOfTwo: false, maxWidth: 512, maxHeight: 512, allowRotation: true });
+    const area = (ps: typeof plain) => ps.reduce((s, p) => s + p.width * p.height, 0);
+    expect(area(turned)).toBeLessThanOrEqual(area(plain));
+    for (const page of turned) {
+      const rs = page.rects.map((r) => ({ x: r.x, y: r.y, ...footprint(r) }));
+      for (const r of rs) {
+        expect(r.x + r.w).toBeLessThanOrEqual(page.width);
+        expect(r.y + r.h).toBeLessThanOrEqual(page.height);
+      }
+      for (let i = 0; i < rs.length; i++)
+        for (let j = i + 1; j < rs.length; j++) {
+          const [p, q] = [rs[i], rs[j]];
+          expect(p.x + p.w <= q.x || q.x + q.w <= p.x || p.y + p.h <= q.y || q.y + q.h <= p.y).toBe(true);
+        }
+    }
+  });
+
+  it("a rectangle too tall for the page fits once rotated; noRotate is respected", () => {
+    const wide = [{ id: "w", width: 500, height: 100 }];
+    expect(() => packRects(wide, { maxWidth: 256, maxHeight: 512, powerOfTwo: false, padding: 0 })).toThrow();
+    const p = packRects(wide, { maxWidth: 256, maxHeight: 512, powerOfTwo: false, padding: 0, allowRotation: true });
+    expect(p[0].rects[0].rotated).toBe(true);
+    expect(() => packRects(wide, { maxWidth: 256, maxHeight: 512, powerOfTwo: false, padding: 0, allowRotation: true, noRotate: new Set(["w"]) })).toThrow();
+  });
+
+  it("rotated regions map image corners onto the turned page rect", () => {
+    const r = { image: "i", page: "p", x: 10, y: 20, width: 30, height: 50, offsetX: 0, offsetY: 0, originalWidth: 30, originalHeight: 50, rotated: true };
+    const page = { width: 100, height: 100 };
+    const m = atlasUvMap(r, page);
+    const at = (u: number, v: number) => {
+      const o = remapUvs([u, v], m);
+      return [Math.round(o[0] * page.width), Math.round(o[1] * page.height)];
+    };
+    // Turned 90° clockwise into a 50 × 30 footprint at (10, 20): image top-left → page top-right.
+    expect(at(0, 0)).toEqual([60, 20]);
+    expect(at(1, 0)).toEqual([60, 50]);
+    expect(at(0, 1)).toEqual([10, 20]);
+    expect(at(1, 1)).toEqual([10, 50]);
+    expect(regionPageRect(r)).toEqual({ x: 10, y: 20, width: 50, height: 30 });
+  });
+
+  it("scale shrinks the stored images; auto-fit finds a scale that fits one page", () => {
+    const imgs = [
+      { id: "a", width: 800, height: 800 },
+      { id: "b", width: 800, height: 800 },
+    ];
+    const half = layoutAtlas(imgs, { scale: 0.5, powerOfTwo: false, padding: 0, white: false });
+    expect(half.regions[0].width).toBe(400);
+    expect(half.scale).toBe(0.5);
+    const { atlas, scale } = layoutAtlasFit(imgs, { maxWidth: 1024, maxHeight: 1024, powerOfTwo: false, padding: 2, white: false });
+    expect(atlas.pages.length).toBe(1);
+    expect(scale).toBeLessThan(1);
+    expect(scale).toBeGreaterThan(0.55);
+    expect(layoutAtlasFit([{ id: "s", width: 100, height: 100 }], { white: false }).scale).toBe(1);
   });
 });
