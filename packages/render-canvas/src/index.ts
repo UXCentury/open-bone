@@ -1,5 +1,5 @@
 import { type AtlasData, type OpenBoneDocument, apply, buildSpline, splinePolyline } from "@openbone/core";
-import { type ClipRegion, type DrawItem, type Skeleton, particleDotAlpha } from "@openbone/runtime";
+import { type ClipRegion, type DrawItem, type Skeleton, type TextContext, drawTextBox, particleDotAlpha } from "@openbone/runtime";
 
 /** Minimal 2D context surface (browser CanvasRenderingContext2D or @napi-rs/canvas SKRSContext2D). */
 export type Ctx2D = CanvasRenderingContext2D;
@@ -98,7 +98,16 @@ export class CanvasRenderer {
     if (it.particles) return this.drawParticles(it);
     const v = it.vertices;
     const idx = it.indices;
-    if (!it.image) {
+    if (it.text) {
+      // Text: draw in the box frame (y down), mapped onto the box by its world matrix.
+      const m = it.text.matrix;
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.transform(m.a, m.c, m.b, m.d, m.x, m.y);
+      ctx.scale(1, -1);
+      drawTextBox(ctx as unknown as TextContext, it.text, it.color);
+      ctx.restore();
+    } else if (!it.image) {
       // Solid shape: fill the outline polygon (indices only needed by GPU renderers).
       ctx.globalAlpha = 1;
       ctx.beginPath();

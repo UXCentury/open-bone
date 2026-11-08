@@ -467,3 +467,11 @@ button.help-btn { font-size: 14px; padding: 1px 8px; }
 .seq-frame.current { background: #2b3445; }
 .seq-frame .row-actions { margin-left: auto; }
 .seq-num { color: var(--muted); font-size: 11px; }
+/* Input bindings, string inputs, onComplete edges */
+input.small { width: 90px; }
+.input-name { cursor: pointer; }
+.binding { border-top: 1px solid #ffffff10; padding: 2px 0; }
+.binding select { max-width: 110px; }
+.binding-ranges { padding-top: 0; }
+.binding-ranges input[type="color"] { width: 36px; height: 20px; padding: 0; }
+.edge.on-complete line:not(.hit) { stroke: #6b7280; }

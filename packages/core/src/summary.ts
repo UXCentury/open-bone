@@ -41,21 +41,24 @@ export function summarize(d: OpenBoneDocument): string {
     lines.push(`- ${a.name} [${a.id}] ${r(animationDuration(a))}s, ${a.timelines.length} timelines, ${a.events.length} event keys${a.audio?.length ? `, ${a.audio.length} audio keys` : ""}`);
   for (const sm of d.stateMachines) {
     lines.push(`## State machine ${sm.name} [${sm.id}]`);
-    lines.push(`  inputs: ${sm.inputs.map((i) => `${i.name}:${i.type}=${i.default}`).join(", ") || "none"}`);
+    lines.push(`  inputs: ${sm.inputs.map((i) => `${i.name}:${i.type}=${JSON.stringify(i.default)}`).join(", ") || "none"}`);
     for (const l of sm.layers) {
       const sn = (id: string) => (id === "@any" ? "@any" : (l.states.find((s) => s.id === id)?.name ?? id));
       lines.push(`  layer ${l.name} (entry: ${l.entry ? sn(l.entry) : "none"})`);
       for (const s of l.states) {
         const anim = d.animations.find((a) => a.id === s.animation)?.name;
-        lines.push(`    state ${s.name} [${s.id}] ${s.type}${anim ? ` ${anim}` : ""}${s.loop ? " loop" : ""}`);
+        const next = s.onComplete ? ` → ${sn(s.onComplete)} on complete` : "";
+        lines.push(`    state ${s.name} [${s.id}] ${s.type}${anim ? ` ${anim}` : ""}${s.loop ? " loop" : ""}${next}`);
       }
       for (const t of l.transitions) {
         const cond = t.conditions
-          .map((c) => `${sm.inputs.find((i) => i.id === c.input)?.name} ${c.op} ${c.value}`)
+          .map((c) => `${sm.inputs.find((i) => i.id === c.input)?.name} ${c.op} ${JSON.stringify(c.value)}`)
           .join(" && ");
         lines.push(`    ${sn(t.from)} → ${sn(t.to)} [${t.id}] ${cond || "(always)"} fade ${t.duration}s${t.exitTime != null ? ` exit@${t.exitTime}` : ""}`);
       }
     }
+    for (const b of sm.bindings ?? [])
+      lines.push(`  binding [${b.id}] ${sm.inputs.find((i) => i.id === b.input)?.name} ${b.inMin}..${b.inMax} → ${b.target} ${b.object}.${b.property} ${b.outMin}..${b.outMax}`);
     for (const li of sm.listeners)
       lines.push(`  listener ${li.name}: ${li.event} on ${d.skeleton.slots.find((s) => s.id === li.slot)?.name ?? "artboard"} → ${li.actions.map((a) => a.type).join(", ")}`);
   }

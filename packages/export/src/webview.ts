@@ -104,6 +104,9 @@ window.addEventListener("message", (e) => {
     else if (i.type === "bool") {
       const box = el("input", { type: "checkbox", checked: !!i.value, onchange: () => send({ type: "setInput", name: i.name, value: box.checked }) });
       controls.append(el("label", {}, box, " " + i.name));
+    } else if (i.type === "string") {
+      const text = el("input", { type: "text", value: i.value ?? "", oninput: () => send({ type: "setInput", name: i.name, value: text.value }) });
+      controls.append(el("label", {}, i.name + " ", text));
     } else {
       const range = el("input", { type: "range", min: 0, max: 1, step: 0.01, value: i.value ?? 0, oninput: () => send({ type: "setInput", name: i.name, value: Number(range.value) }) });
       controls.append(el("label", {}, i.name + " ", range));
@@ -130,7 +133,7 @@ export interface WebViewPackOptions extends WebViewPage {
   /** The player bundle source (see `pnpm build:player-bundle`). */
   bundle: string;
   /** Inputs of the chosen state machine, used for the README and examples. */
-  inputs?: { name: string; type: "bool" | "number" | "trigger" }[];
+  inputs?: { name: string; type: "bool" | "number" | "trigger" | "string" }[];
   /** Android package for the Kotlin class. Default `com.openbone`. */
   androidPackage?: string;
 }
@@ -186,7 +189,7 @@ export function webViewPackZip(platform: WebViewPlatform, o: WebViewPackOptions)
 interface TemplateContext {
   base: string;
   title: string;
-  inputs: { name: string; type: "bool" | "number" | "trigger" }[];
+  inputs: { name: string; type: "bool" | "number" | "trigger" | "string" }[];
   stateMachine?: string;
   pkg: string;
 }
@@ -197,7 +200,7 @@ The page exposes \`window.OpenBone\`. The native classes call \`OpenBone.receive
 
 | Command | Fields |
 | --- | --- |
-| \`setInput\` | \`name\`, \`value\` (bool or number) |
+| \`setInput\` | \`name\`, \`value\` (bool, number or string) |
 | \`fire\` | \`name\` (trigger input) |
 | \`play\` | \`animation\` (optional; switches from the state machine to that animation), \`loop\` |
 | \`pause\` | |
@@ -287,6 +290,7 @@ class OpenBoneController {
 
   Future<void> setBool(String name, bool value) => send({'type': 'setInput', 'name': name, 'value': value});
   Future<void> setNumber(String name, num value) => send({'type': 'setInput', 'name': name, 'value': value});
+  Future<void> setString(String name, String value) => send({'type': 'setInput', 'name': name, 'value': value});
   Future<void> fire(String name) => send({'type': 'fire', 'name': name});
   Future<void> play({String? animation, bool loop = true}) =>
       send({'type': 'play', if (animation != null) 'animation': animation, 'loop': loop});
@@ -343,7 +347,9 @@ function flutterExample(c: TemplateContext) {
       ? `            ElevatedButton(onPressed: () => controller.fire('${i.name}'), child: const Text('${i.name}')),`
       : i.type === "bool"
         ? `            ElevatedButton(onPressed: () => controller.setBool('${i.name}', true), child: const Text('${i.name} on')),`
-        : `            ElevatedButton(onPressed: () => controller.setNumber('${i.name}', 1), child: const Text('${i.name} = 1')),`,
+        : i.type === "string"
+          ? `            ElevatedButton(onPressed: () => controller.setString('${i.name}', 'Hello'), child: const Text('${i.name} = Hello')),`
+          : `            ElevatedButton(onPressed: () => controller.setNumber('${i.name}', 1), child: const Text('${i.name} = 1')),`,
   );
   return `// Example: show the "${c.title}" animation with buttons for its inputs.
 import 'package:flutter/material.dart';
@@ -494,6 +500,7 @@ class OpenBoneView @JvmOverloads constructor(
 
     fun setInput(name: String, value: Boolean) = send(JSONObject().put("type", "setInput").put("name", name).put("value", value))
     fun setInput(name: String, value: Double) = send(JSONObject().put("type", "setInput").put("name", name).put("value", value))
+    fun setInput(name: String, value: String) = send(JSONObject().put("type", "setInput").put("name", name).put("value", value))
     fun fire(name: String) = send(JSONObject().put("type", "fire").put("name", name))
     fun play(animation: String? = null, loop: Boolean = true) =
         send(JSONObject().put("type", "play").put("loop", loop).apply { if (animation != null) put("animation", animation) })
@@ -599,7 +606,7 @@ ${inputsTable(c)}
 val view = OpenBoneView(context)
 view.load("openbone/${c.base}")
 view.listener = OpenBoneView.Listener { m -> Log.d("OpenBone", m.toString()) }
-${c.inputs.length ? c.inputs.map((i) => (i.type === "trigger" ? `view.fire("${i.name}")` : i.type === "bool" ? `view.setInput("${i.name}", true)` : `view.setInput("${i.name}", 1.0)`)).join("\n") : 'view.play("idle")'}
+${c.inputs.length ? c.inputs.map((i) => (i.type === "trigger" ? `view.fire("${i.name}")` : i.type === "bool" ? `view.setInput("${i.name}", true)` : i.type === "string" ? `view.setInput("${i.name}", "Hello")` : `view.setInput("${i.name}", 1.0)`)).join("\n") : 'view.play("idle")'}
 \`\`\`
 
 or from XML: \`<${c.pkg}.OpenBoneView android:id="@+id/openbone" android:layout_width="match_parent" android:layout_height="300dp" />\`
@@ -662,6 +669,7 @@ public final class OpenBoneView: UIView {
 
     public func setInput(_ name: String, _ value: Bool) { send(["type": "setInput", "name": name, "value": value]) }
     public func setInput(_ name: String, _ value: Double) { send(["type": "setInput", "name": name, "value": value]) }
+    public func setInput(_ name: String, _ value: String) { send(["type": "setInput", "name": name, "value": value]) }
     public func fire(_ name: String) { send(["type": "fire", "name": name]) }
     public func play(_ animation: String? = nil, loop: Bool = true) {
         var command: [String: Any] = ["type": "play", "loop": loop]
@@ -723,6 +731,7 @@ public final class OpenBoneController: ObservableObject {
 
     public func setInput(_ name: String, _ value: Bool) { view?.setInput(name, value) }
     public func setInput(_ name: String, _ value: Double) { view?.setInput(name, value) }
+    public func setInput(_ name: String, _ value: String) { view?.setInput(name, value) }
     public func fire(_ name: String) { view?.fire(name) }
     public func play(_ animation: String? = nil, loop: Bool = true) { view?.play(animation, loop: loop) }
     public func pause() { view?.pause() }
@@ -767,7 +776,9 @@ function iosExample(c: TemplateContext) {
         ? `                Button("${i.name}") { controller.fire("${i.name}") }`
         : i.type === "bool"
           ? `                Button("${i.name} on") { controller.setInput("${i.name}", true) }`
-          : `                Button("${i.name} = 1") { controller.setInput("${i.name}", 1.0) }`,
+          : i.type === "string"
+            ? `                Button("${i.name} = Hello") { controller.setInput("${i.name}", "Hello") }`
+            : `                Button("${i.name} = 1") { controller.setInput("${i.name}", 1.0) }`,
     )
     .join("\n");
   return `// Examples showing "${c.title}" in SwiftUI and UIKit.
@@ -825,7 +836,7 @@ ${inputsTable(c)}
 OpenBoneAnimation(folder: "OpenBone/${c.base}", controller: controller) { message in
     print(message["type"] ?? "")
 }
-${c.inputs.length ? c.inputs.map((i) => (i.type === "trigger" ? `controller.fire("${i.name}")` : i.type === "bool" ? `controller.setInput("${i.name}", true)` : `controller.setInput("${i.name}", 1.0)`)).join("\n") : 'controller.play("idle")'}
+${c.inputs.length ? c.inputs.map((i) => (i.type === "trigger" ? `controller.fire("${i.name}")` : i.type === "bool" ? `controller.setInput("${i.name}", true)` : i.type === "string" ? `controller.setInput("${i.name}", "Hello")` : `controller.setInput("${i.name}", 1.0)`)).join("\n") : 'controller.play("idle")'}
 \`\`\`
 
    UIKit:

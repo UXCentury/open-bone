@@ -1,10 +1,11 @@
-import { ANY_STATE, type Condition, type ConditionOp, type LayerData, type StateData, type TransitionData } from "@openbone/core";
+import { ANY_STATE, type Condition, type ConditionOp, type InputData, type InputValue, type LayerData, type StateData, type TransitionData } from "@openbone/core";
 import { For, Match, Show, Switch, createSignal, onCleanup } from "solid-js";
 import { apply, currentStateMachine, doc, running, setRunning, setStateMachineId, toast } from "../state.ts";
 import { eventLog, smInstance } from "./Viewport.tsx";
 import { askForm, askText, uniqueName } from "../dialogs.tsx";
 import { StateSounds } from "./AudioPanel.tsx";
 import { emitterSlots } from "./ParticlesInspector.tsx";
+import { BindingList } from "./Bindings.tsx";
 
 const W = 130;
 const H = 40;
@@ -21,18 +22,38 @@ export function StateMachinePanel() {
   };
   const [sel, setSel] = createSignal<Sel>(null);
   const [active, setActive] = createSignal<Record<string, string | null>>({});
-  const [liveInputs, setLiveInputs] = createSignal<Record<string, boolean | number>>({});
+  const [liveInputs, setLiveInputs] = createSignal<Record<string, InputValue>>({});
   const timer = setInterval(() => {
     const inst = smInstance();
     if (!inst) return;
     setActive(inst.activeStates);
-    const vals: Record<string, boolean | number> = {};
+    const vals: Record<string, InputValue> = {};
     for (const i of inst.data.inputs) vals[i.id] = inst.inputs.get(i.id) ?? false;
     setLiveInputs(vals);
   }, 80);
   onCleanup(() => clearInterval(timer));
 
   const smArgs = () => ({ stateMachine: sm()!.id, layer: layer()!.id });
+
+  /** Slider range for a number input: 0..1, widened to cover its default and the ranges of bindings it drives. */
+  const rangeOf = (id: string): [number, number] => {
+    const s = sm()!;
+    const i = s.inputs.find((x) => x.id === id);
+    const vals = [0, 1, Number(i?.default ?? 0), ...(s.bindings ?? []).filter((b) => b.input === id).flatMap((b) => [b.inMin, b.inMax])];
+    return [Math.min(...vals), Math.max(...vals)];
+  };
+
+  const editInput = async (i: InputData) => {
+    const r = await askForm({
+      title: `Input “${i.name}”`,
+      confirmLabel: "Save",
+      fields: [
+        { key: "name", type: "text", label: "Name", value: i.name, validate: uniqueName(sm()!.inputs.map((x) => x.name), i.name) },
+        ...(i.type === "trigger" ? [] : [{ key: "default", type: "text" as const, label: "Default", value: String(i.default), required: i.type !== "string" }]),
+      ],
+    });
+    if (r) apply("updateInput", { stateMachine: sm()!.id, input: i.id, name: r.name, ...(i.type === "trigger" ? {} : { default: parseDefault(i.type, r.default ?? "") }) });
+  };
 
   // ---------- graph interaction ----------
   let svg!: SVGSVGElement;
@@ -113,7 +134,7 @@ export function StateMachinePanel() {
   const inputName = (id: string) => sm()?.inputs.find((i) => i.id === id)?.name ?? "?";
   const condText = (c: Condition) => {
     const i = sm()?.inputs.find((x) => x.id === c.input);
-    return i?.type === "trigger" ? `⚡${i.name}` : `${inputName(c.input)} ${c.op} ${c.value}`;
+    return i?.type === "trigger" ? `⚡${i.name}` : `${inputName(c.input)} ${c.op} ${i?.type === "string" ? JSON.stringify(c.value) : c.value}`;
   };
 
   const addState = () => {
@@ -166,11 +187,13 @@ export function StateMachinePanel() {
                         { value: "bool", label: "Boolean", description: "On / off, e.g. hover" },
                         { value: "number", label: "Number", description: "A value, e.g. speed" },
                         { value: "trigger", label: "Trigger", description: "Fires once, e.g. jump" },
+                        { value: "string", label: "Text", description: "A string, e.g. a player name shown by a text attachment" },
                       ],
                     },
+                    { key: "default", type: "text", label: "Default", required: false, placeholder: "optional (number, true/false or text)" },
                   ],
                 });
-                if (r) apply("addInput", { stateMachine: sm()!.id, name: r.name, type: r.type });
+                if (r) apply("addInput", { stateMachine: sm()!.id, name: r.name, type: r.type, ...(r.default.trim() && r.type !== "trigger" ? { default: parseDefault(r.type, r.default) } : {}) });
               }}
             >
               +
@@ -179,8 +202,13 @@ export function StateMachinePanel() {
           <For each={sm()!.inputs} fallback={<div class="muted pad">Inputs are what your app (or listeners) control.</div>}>
             {(i) => (
               <div class="input-row">
-                <span class={`badge ${i.type}`}>{i.type === "trigger" ? "⚡" : i.type === "bool" ? "◐" : "#"}</span>
-                <span class="grow">{i.name}</span>
+                <span class={`badge ${i.type}`}>{i.type === "trigger" ? "⚡" : i.type === "bool" ? "◐" : i.type === "string" ? "T" : "#"}</span>
+                <span class="grow input-name" title={running() ? i.name : "Click to rename or change the default"} onClick={() => !running() && editInput(i)}>
+                  {i.name}
+                  <Show when={i.type !== "trigger" && !running()}>
+                    <span class="muted"> = {JSON.stringify(i.default)}</span>
+                  </Show>
+                </span>
                 <Show
                   when={running()}
                   fallback={
@@ -196,9 +224,9 @@ export function StateMachinePanel() {
                     <Match when={i.type === "number"}>
                       <input
                         type="range"
-                        min="0"
-                        max="1"
-                        step="0.01"
+                        min={rangeOf(i.id)[0]}
+                        max={rangeOf(i.id)[1]}
+                        step={(rangeOf(i.id)[1] - rangeOf(i.id)[0]) / 200}
                         value={Number(liveInputs()[i.id] ?? 0)}
                         onInput={(e) => smInstance()?.setNumber(i.id, Number(e.currentTarget.value))}
                       />
@@ -207,11 +235,18 @@ export function StateMachinePanel() {
                     <Match when={i.type === "trigger"}>
                       <button onClick={() => smInstance()?.fire(i.id)}>Fire</button>
                     </Match>
+                    <Match when={i.type === "string"}>
+                      <input class="small" type="text" value={String(liveInputs()[i.id] ?? "")} onInput={(e) => smInstance()?.setString(i.id, e.currentTarget.value)} />
+                    </Match>
                   </Switch>
                 </Show>
               </div>
             )}
           </For>
+          <div class="col-title" style={{ "margin-top": "10px" }}>
+            Bindings
+          </div>
+          <BindingList sm={sm()!} />
           <div class="col-title" style={{ "margin-top": "10px" }}>
             Listeners
           </div>
@@ -291,6 +326,18 @@ export function StateMachinePanel() {
                         <text x={g().mx} y={g().my - 6}>
                           {t.conditions.map(condText).join(" & ") || (t.exitTime != null ? `exit ${t.exitTime}` : "on end")}
                         </text>
+                      </g>
+                    );
+                  }}
+                </For>
+                <For each={layer()!.states.filter((s) => s.onComplete && layer()!.states.some((x) => x.id === s.onComplete))}>
+                  {(s) => {
+                    const g = () => edge({ id: "", from: s.id, to: s.onComplete!, conditions: [], duration: 0, exitTime: null });
+                    return (
+                      <g class="edge on-complete" onPointerDown={(e) => { e.stopPropagation(); setSel({ kind: "state", id: s.id }); }}>
+                        <line x1={g().sx} y1={g().sy} x2={g().ex} y2={g().ey} class="hit" />
+                        <line x1={g().sx} y1={g().sy} x2={g().ex} y2={g().ey} stroke-dasharray="5 4" marker-end="url(#arrow)" />
+                        <text x={g().mx} y={g().my - 6}>on complete</text>
                       </g>
                     );
                   }}
@@ -434,6 +481,15 @@ function StateProps(p: { state: StateData; layer: LayerData; onDeleted: () => vo
           }}
         </For>
       </Show>
+      <Show when={p.state.type !== "exit"}>
+        <label class="field" title="Play the animation once (the first cycle when looping), then go to this state. The state's own transitions still win, so a trigger can interrupt it.">
+          <span>On complete</span>
+          <select value={p.state.onComplete ?? ""} onChange={(e) => apply("updateState", { ...args(), onComplete: e.currentTarget.value || null })}>
+            <option value="" selected={!p.state.onComplete}>stay</option>
+            <For each={p.layer.states.filter((x) => x.id !== p.state.id)}>{(x) => <option value={x.id} selected={x.id === p.state.onComplete}>→ {x.name}</option>}</For>
+          </select>
+        </label>
+      </Show>
       <div class="btn-row">
         <button disabled={p.layer.entry === p.state.id} onClick={() => apply("updateState", { ...args(), entry: true })}>
           Set as entry
@@ -489,7 +545,14 @@ function TransitionProps(p: { t: TransitionData; layer: LayerData; onDeleted: ()
           const update = (patch: Partial<Condition>) => setConds(p.t.conditions.map((x, j) => (j === i() ? { ...x, ...patch } : x)));
           return (
             <div class="field cond">
-              <select value={c.input} onChange={(e) => update({ input: e.currentTarget.value })}>
+              <select
+                value={c.input}
+                onChange={(e) => {
+                  // A different input type needs a value of its own type.
+                  const next = sm().inputs.find((x) => x.id === e.currentTarget.value);
+                  update({ input: e.currentTarget.value, op: "==", value: emptyValue(next?.type) });
+                }}
+              >
                 <For each={sm().inputs}>{(x) => <option value={x.id} selected={x.id === (c.input)}>{x.name}</option>}</For>
               </select>
               <Switch>
@@ -501,6 +564,12 @@ function TransitionProps(p: { t: TransitionData; layer: LayerData; onDeleted: ()
                     <option value="true">is true</option>
                     <option value="false">is false</option>
                   </select>
+                </Match>
+                <Match when={input()?.type === "string"}>
+                  <select value={c.op} onChange={(e) => update({ op: e.currentTarget.value as ConditionOp })}>
+                    <For each={["==", "!="] as ConditionOp[]}>{(o) => <option selected={o === c.op}>{o}</option>}</For>
+                  </select>
+                  <input class="small" type="text" value={String(c.value)} onChange={(e) => update({ value: e.currentTarget.value })} />
                 </Match>
                 <Match when={input()?.type === "number"}>
                   <select value={c.op} onChange={(e) => update({ op: e.currentTarget.value as ConditionOp })}>
@@ -520,7 +589,7 @@ function TransitionProps(p: { t: TransitionData; layer: LayerData; onDeleted: ()
         disabled={!sm().inputs.length}
         onClick={() => {
           const first = sm().inputs[0];
-          setConds([...p.t.conditions, { input: first.id, op: "==", value: first.type === "number" ? 0 : true }]);
+          setConds([...p.t.conditions, { input: first.id, op: "==", value: emptyValue(first.type) }]);
         }}
       >
         + Condition
@@ -574,7 +643,7 @@ function ListenerList() {
         : action() === "runScript"
           ? { type: "runScript", script: t, fn: "onAction" }
           : action() === "setInput"
-            ? { type: "setInput", input: t, value: input?.type === "number" ? 1 : true }
+            ? { type: "setInput", input: t, value: input?.type === "number" ? 1 : input?.type === "string" ? "" : true }
             : { type: action(), input: t };
     apply("addListener", { stateMachine: sm().id, slot: slot() || null, event: event(), actions: [act] });
   };
@@ -638,4 +707,16 @@ function ListenerList() {
       </div>
     </>
   );
+}
+
+/** A neutral condition value for an input type. */
+function emptyValue(type: InputData["type"] | undefined): InputValue {
+  return type === "number" ? 0 : type === "string" ? "" : true;
+}
+
+/** Parse a default typed into a dialog for an input of the given type. */
+function parseDefault(type: InputData["type"] | string, v: string): InputValue {
+  if (type === "number") return Number(v) || 0;
+  if (type === "bool") return /^(true|1|yes|on)$/i.test(v.trim());
+  return v;
 }

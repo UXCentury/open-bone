@@ -15,7 +15,7 @@ const { GIFEncoder, applyPalette, quantize } = gifenc as {
 export interface Step {
   /** Seconds to advance after applying this step's inputs. */
   advance?: number;
-  setInputs?: Record<string, boolean | number>;
+  setInputs?: Record<string, boolean | number | string>;
   fire?: string[];
   /** Pointer in artboard pixels (y-down, top-left origin). */
   pointer?: { type: "down" | "up" | "move"; x: number; y: number };

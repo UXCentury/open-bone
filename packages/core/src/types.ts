@@ -318,10 +318,38 @@ export interface ParticlesAttachment extends AttachmentBase {
   seed: number;
 }
 
+export type TextAlign = "left" | "center" | "right";
+
+/**
+ * Text drawn in a box centred at (x, y) in slot-bone space. `text` is a template: `{name}` or
+ * `{name:format}` is replaced by the state machine input called `name` (see `formatTemplate`), `{{`/`}}` are
+ * literal braces. The box (`width` x `height`) is the hit area and the alignment frame; text is centred vertically.
+ */
+export interface TextAttachment extends AttachmentBase {
+  type: "text";
+  text: string;
+  x: number;
+  y: number;
+  rotation: number;
+  width: number;
+  height: number;
+  font: string;
+  /** Pixel size (skeleton units). */
+  size: number;
+  /** CSS font weight 100..900. */
+  weight: number;
+  color: Hex;
+  align: TextAlign;
+  /** Outline colour; drawn behind the fill when `outlineWidth` > 0. */
+  outline?: Hex;
+  outlineWidth?: number;
+}
+
 export type Attachment =
   | ParticlesAttachment
   | ClippingAttachment
   | SequenceAttachment
+  | TextAttachment
   | RegionAttachment
   | MeshAttachment
   | ShapeAttachment
@@ -596,20 +624,21 @@ export interface StateSound {
 
 // ---------- State machines (Rive-style interactivity) ----------
 
-export type InputType = "bool" | "number" | "trigger";
+export type InputType = "bool" | "number" | "trigger" | "string";
+export type InputValue = boolean | number | string;
 export interface InputData {
   id: Id;
   name: string;
   type: InputType;
-  default: boolean | number;
+  default: InputValue;
 }
 
 export type ConditionOp = "==" | "!=" | ">" | "<" | ">=" | "<=";
 export interface Condition {
   input: Id;
-  /** Ignored for triggers (a trigger condition passes when the trigger fired). */
+  /** Ignored for triggers (a trigger condition passes when the trigger fired). Strings support == and !=. */
   op: ConditionOp;
-  value: boolean | number;
+  value: InputValue;
 }
 
 export interface BlendEntry {
@@ -637,6 +666,11 @@ export interface StateData {
   sounds?: StateSound[];
   /** Particle emitters switched on/off when this state is entered. */
   emitters?: StateEmitter[];
+  /**
+   * State to go to once the animation has played through once (for looping states: after the first cycle).
+   * Checked after the state's own transitions, so a trigger can still interrupt it.
+   */
+  onComplete?: Id | null;
 }
 
 /** Special `from` value: transition can fire from any state of the layer. */
@@ -664,7 +698,7 @@ export interface LayerData {
 export type PointerEventType = "down" | "up" | "enter" | "exit" | "move" | "click";
 
 export type ListenerAction =
-  | { type: "setInput"; input: Id; value: boolean | number }
+  | { type: "setInput"; input: Id; value: InputValue }
   | { type: "toggleInput"; input: Id }
   | { type: "fireTrigger"; input: Id }
   | { type: "reportEvent"; event: Id }
@@ -699,10 +733,34 @@ export interface ScriptData {
   code: string;
 }
 
+/** Properties an input binding can drive. `color` (slots only) blends between two hex colours. */
+export type BindingTarget = "bone" | "slot" | ConstraintTarget;
+export type BindingProperty = BoneProperty | "color" | "alpha" | IkProperty | TransformProperty | PathProperty | PhysicsProperty;
+
+/**
+ * Drives a property from a number input every frame, after animations: the input is mapped linearly from
+ * `[inMin, inMax]` to `[outMin, outMax]` (clamped). For slot `color` the outputs are hex colours; for slot
+ * `alpha` they are 0..1. Bindings run in array order, so a later one wins on the same property.
+ */
+export interface InputBinding {
+  id: Id;
+  input: Id;
+  target: BindingTarget;
+  /** Bone, slot or constraint id. */
+  object: Id;
+  property: BindingProperty;
+  inMin: number;
+  inMax: number;
+  outMin: number | Hex;
+  outMax: number | Hex;
+}
+
 export interface StateMachineData {
   id: Id;
   name: string;
   inputs: InputData[];
+  /** Input → property drivers applied every frame after animations. */
+  bindings: InputBinding[];
   layers: LayerData[];
   listeners: ListenerData[];
   /** Scripts running for the whole lifetime of the state machine. */

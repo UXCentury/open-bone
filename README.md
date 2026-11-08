@@ -30,8 +30,9 @@
 - **Onion skin**: ghost poses before (red) and after (green) the current frame.
 
 ### Interactivity (Rive-style)
-- **State machines** with layers, bool/number/trigger inputs, animation and 1D blend states, any-state transitions, conditions, exit times and cross-fades.
-- **Pointer listeners** on hit boxes (down, up, enter, exit, move, click) that set inputs, fire triggers, report events, play or stop sounds, or run scripts.
+- **State machines** with layers, bool/number/string/trigger inputs, animation and 1D blend states, any-state transitions, conditions, exit times, cross-fades and **"on complete" hand-offs** for staged flows (play once, then continue).
+- **Live data**: **text attachments** whose content is a template bound to inputs (`{multiplier:0.00}x`, thousands separators, signs, percent), and **input bindings** that drive bone, slot (colour, alpha) and constraint properties from a number input with a clamped linear mapping. See the crash-game example.
+- **Pointer listeners** on hit boxes (down, up, enter, exit, move, click) that set inputs, fire triggers, report events, play or stop sounds, start or stop particles, or run scripts.
 - **Sandboxed scripts** (QuickJS-WASM, memory cap and per-call deadline) with an `ob` API: `onStart`, `onUpdate`, `onEvent`, `onPointer`.
 
 ### Audio

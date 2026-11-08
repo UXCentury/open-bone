@@ -123,6 +123,7 @@ export function Toolbar() {
           <option value="campfire">Campfire (sprite sequences)</option>
           <option value="tail">Tail (path constraint, physics)</option>
           <option value="rocket">Rocket (particles)</option>
+          <option value="crash">Crash game (stages, live text, bindings)</option>
         </select>
         <input ref={fileInput} type="file" accept=".obone,.obonb,.json,application/json,application/octet-stream" hidden onChange={(e) => open(e.currentTarget.files)} />
       </div>

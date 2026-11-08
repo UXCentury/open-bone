@@ -159,12 +159,16 @@ export function Viewport() {
     setSmInstance(inst);
   }
 
+  const inputDefault = (name: string) => currentStateMachine()?.inputs.find((i) => i.name === name)?.default;
+
   function pose(sk: Skeleton, dt: number) {
     const sm = smInstance();
     if (running() && sm) {
       sk.particleClock = "realtime";
       sm.advance(dt);
     } else {
+      // Outside Run, text templates show the current state machine's input defaults.
+      sk.textValues = inputDefault;
       const anim = currentAnimation();
       if (mode() === "animate" && anim) {
         if (playing()) {
@@ -792,7 +796,7 @@ export function Viewport() {
     }
     if (slot && t === "translate" && mode() === "setup") {
       const att = sk!.getAttachment(slot);
-      if (att && (att.type === "region" || att.type === "sequence" || att.type === "shape" || att.type === "point")) {
+      if (att && (att.type === "region" || att.type === "sequence" || att.type === "shape" || att.type === "point" || att.type === "text")) {
         drag = { kind: "attachment", slotId: slot.data.id, name: att.name, start: [x, y], base: [att.x, att.y], cur: [att.x, att.y], inv: invert(slot.bone.world), preview: null, startWorld: applyM(slot.bone.world, att.x, att.y) as [number, number] };
         return;
       }
@@ -882,6 +886,7 @@ export function Viewport() {
       // Preview on a throwaway copy of the document; the real edit is one op on release.
       drag.preview ??= new Skeleton(structuredClone(store.doc));
       const ps = drag.preview;
+      ps.textValues = inputDefault;
       const att = ps.getAttachment(ps.slotById_(drag.slotId)!, drag.name);
       if (att && "x" in att) {
         att.x = drag.cur[0];

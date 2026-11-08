@@ -1,4 +1,4 @@
-import { type Attachment, type BoneProperty, CONSTRAINT_PROPERTIES, type ClippingAttachment, type SequenceAttachment, type SkinData, attachmentOwner, defaultSkin, descendantIds, getAttachment, shapeOutline, slotAttachments } from "@openbone/core";
+import { type Attachment, attachmentOwner, type BindingTarget, type BoneProperty, type ClippingAttachment, CONSTRAINT_PROPERTIES, defaultSkin, descendantIds, estimateTextBox, getAttachment, type SequenceAttachment, shapeOutline, type SkinData, slotAttachments, templateInputs } from "@openbone/core";
 import { For, Match, Show, Switch, createSignal } from "solid-js";
 import { commitBone, keyBoneProperty, keyConstraint, keySlot } from "../edit.ts";
 import { imageFor } from "../images.ts";
@@ -8,6 +8,7 @@ import { ColorField, NumberField, Section, SelectField, TextField } from "./fiel
 import { AudioAssetInspector, BusInspector, SoundInspector } from "./AudioPanel.tsx";
 import { SequenceEditor } from "./SequenceEditor.tsx";
 import { PRESET_NAMES, ParticlesEditor } from "./ParticlesInspector.tsx";
+import { BindingList } from "./Bindings.tsx";
 
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-4;
 
@@ -315,7 +316,7 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
       <TextField label="Name" value={p.att.name} onCommit={(v) => set({ name: v })} />
       <SkinControls slotId={p.slotId} att={p.att} owner={p.owner} />
       <Switch>
-        <Match when={p.att.type === "region" || p.att.type === "sequence" || p.att.type === "shape" || p.att.type === "point"}>
+        <Match when={p.att.type === "region" || p.att.type === "sequence" || p.att.type === "shape" || p.att.type === "point" || p.att.type === "text"}>
           <NumberField label="X" value={(p.att as { x: number }).x} onCommit={(v) => set({ x: v })} />
           <NumberField label="Y" value={(p.att as { y: number }).y} onCommit={(v) => set({ y: v })} />
           <NumberField label="Rotation" value={(p.att as { rotation: number }).rotation} onCommit={(v) => set({ rotation: v })} />
@@ -366,6 +367,9 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
               </>
             );
           }}
+        </Match>
+        <Match when={p.att.type === "text" && p.att}>
+          {(_a) => <TextAttachmentEditor att={() => p.att as Extract<Attachment, { type: "text" }>} set={set} />}
         </Match>
         <Match when={p.att.type === "mesh" && p.att}>
           {(_a) => {
@@ -449,6 +453,12 @@ function SlotInspector(p: { id: string; attachment?: string }) {
         </div>
         <div class="btn-row">
           <button onClick={() => apply("addShape", { slot: p.id, name: `shape${atts().length + 1}`, shape: "ellipse", width: 50, height: 50, fill: "#ff9f43", ...skinArg() })}>+ Shape</button>
+          <button
+            title="Text; {input} or {input:0.00} shows a state machine input"
+            onClick={() => apply("addText", { slot: p.id, name: atts().includes("text") ? `text${atts().length + 1}` : "text", text: "Text", ...skinArg() })}
+          >
+            + Text
+          </button>
           <button onClick={() => apply("addBoundingBox", { slot: p.id, width: 100, height: 100, ...skinArg() })}>+ Hit box</button>
           <button onClick={() => apply("addPoint", { slot: p.id, ...skinArg() })}>+ Point</button>
           <button
@@ -682,7 +692,56 @@ export function Inspector() {
         <Match when={selection()?.kind === "bus" && selection()}>{(s) => <BusInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "audio" && selection()}>{(s) => <AudioAssetInspector id={s().id} />}</Match>
       </Switch>
+      <Show when={bindingTarget()}>
+        {(t) => (
+          <Section title="Bindings">
+            <div class="hint">Number inputs that drive this {t().target} every frame, after animations.</div>
+            <BindingList target={t().target} object={t().id} />
+          </Section>
+        )}
+      </Show>
     </div>
+  );
+}
+
+/** The selected bone, slot or constraint, when it can be driven by an input binding. */
+function bindingTarget(): { target: BindingTarget; id: string } | null {
+  const s = selection();
+  if (!s || s.kind === "image") return null;
+  const d = doc();
+  const exists = s.kind === "bone" ? d.skeleton.bones : s.kind === "slot" ? d.skeleton.slots : (d.skeleton[s.kind as "ik"] ?? []);
+  return exists.some((x) => x.id === s.id) ? { target: s.kind as BindingTarget, id: s.id } : null;
+}
+
+const WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+
+/** Text attachment: template, font and box. */
+function TextAttachmentEditor(p: { att: () => Extract<Attachment, { type: "text" }>; set: (props: Record<string, unknown>) => void }) {
+  const t = () => (doc(), p.att());
+  const used = () => templateInputs(t().text);
+  return (
+    <>
+      <label class="field">
+        <span>Text</span>
+        <textarea rows={2} value={t().text} onChange={(e) => p.set({ text: e.currentTarget.value })} />
+      </label>
+      <div class="hint">
+        {"{name}"} shows an input; {"{name:0.00}"} formats numbers (#,##0 thousands, + sign, % percent, any other characters kept).
+        <Show when={used().length}> Uses: {used().join(", ")}.</Show>
+      </div>
+      <TextField label="Font" value={t().font} placeholder="sans-serif" onCommit={(v) => p.set({ font: v || "sans-serif" })} />
+      <NumberField label="Size" value={t().size} onCommit={(v) => p.set({ size: Math.max(1, v) })} />
+      <SelectField label="Weight" value={String(t().weight)} options={WEIGHTS.map((w) => ({ value: String(w), label: String(w) }))} onCommit={(v) => p.set({ weight: Number(v) })} />
+      <SelectField label="Align" value={t().align} options={["left", "center", "right"].map((v) => ({ value: v, label: v }))} onCommit={(v) => p.set({ align: v })} />
+      <ColorField label="Color" value={t().color} onCommit={(v) => p.set({ color: v })} />
+      <ColorField label="Outline" value={t().outline ?? "#000000"} onCommit={(v) => p.set({ outline: v, outlineWidth: t().outlineWidth || 2 })} />
+      <NumberField label="Outline W" value={t().outlineWidth ?? 0} onCommit={(v) => p.set({ outlineWidth: Math.max(0, v), outline: t().outline ?? "#000000" })} />
+      <NumberField label="Box W" value={t().width} onCommit={(v) => p.set({ width: Math.max(1, v) })} />
+      <NumberField label="Box H" value={t().height} onCommit={(v) => p.set({ height: Math.max(1, v) })} />
+      <button title="Size the box (alignment frame and hit area) to the text, estimated" onClick={() => p.set(estimateTextBox(t().text, t().size))}>
+        Fit box to text
+      </button>
+    </>
   );
 }
 

@@ -1,11 +1,23 @@
 import { z } from "zod";
 import { findSound } from "../audio.ts";
 import { get, newId } from "../document.ts";
-import type { Condition, ListenerAction, OpenBoneDocument, StateMachineData } from "../types.ts";
+import type { Condition, InputType, InputValue, ListenerAction, OpenBoneDocument, StateMachineData } from "../types.ts";
 import { ANY_STATE } from "../types.ts";
 import { defineOp, optId, ref } from "./registry.ts";
 
 const smRef = ref("State machine");
+const inputValue = z.union([z.boolean(), z.number(), z.string()]);
+
+/** Convert a value to an input's type (the default for its type when missing). */
+export function coerceInput(type: InputType, v: InputValue | undefined): InputValue {
+  if (type === "number") {
+    const n = Number(v ?? 0);
+    return Number.isFinite(n) ? n : 0;
+  }
+  if (type === "string") return v === undefined ? "" : String(v);
+  if (typeof v === "string") return v === "true";
+  return Boolean(v ?? false);
+}
 const layerRef = ref("Layer").optional().describe("Defaults to the first layer");
 
 defineOp({
@@ -21,6 +33,7 @@ defineOp({
       id,
       name: a.name,
       inputs: [],
+      bindings: [],
       layers: [{ id: layerId, name: a.layerName, entry: null, states: [], transitions: [] }],
       listeners: [],
       scripts: [],
@@ -57,28 +70,50 @@ defineOp({
 defineOp({
   name: "addInput",
   group: "interactivity",
-  description: "Add an input the host app / listeners / scripts control: bool, number or trigger (one-shot).",
+  description:
+    "Add an input the host app / listeners / scripts control: bool, number, string or trigger (one-shot). Text attachments show inputs with {name} templates; number inputs can drive properties through bindings (addBinding).",
   schema: z.object({
     stateMachine: smRef,
     id: optId,
-    name: z.string(),
-    type: z.enum(["bool", "number", "trigger"]),
-    default: z.union([z.boolean(), z.number()]).optional(),
+    name: z.string().regex(/^[^{}:]+$/, "Input names cannot contain { } or :"),
+    type: z.enum(["bool", "number", "trigger", "string"]),
+    default: inputValue.optional(),
   }),
   apply(doc, a) {
     const sm = get.stateMachine(doc, a.stateMachine);
     if (sm.inputs.some((i) => i.name === a.name)) throw new Error(`Input "${a.name}" already exists`);
     const id = (a.id ??= newId("in"));
-    const def = a.default ?? (a.type === "number" ? 0 : false);
-    sm.inputs.push({ id, name: a.name, type: a.type, default: def });
+    sm.inputs.push({ id, name: a.name, type: a.type, default: coerceInput(a.type, a.default) });
     return { id };
+  },
+});
+
+defineOp({
+  name: "updateInput",
+  group: "interactivity",
+  description: "Rename an input or change its default value.",
+  schema: z.object({
+    stateMachine: smRef,
+    input: ref("Input"),
+    name: z.string().regex(/^[^{}:]+$/, "Input names cannot contain { } or :").optional(),
+    default: inputValue.optional(),
+  }),
+  apply(doc, a) {
+    const sm = get.stateMachine(doc, a.stateMachine);
+    const input = get.input(sm, a.input);
+    if (a.name && a.name !== input.name) {
+      if (sm.inputs.some((i) => i.name === a.name)) throw new Error(`Input "${a.name}" already exists`);
+      input.name = a.name;
+    }
+    if (a.default !== undefined) input.default = coerceInput(input.type, a.default);
+    return {};
   },
 });
 
 defineOp({
   name: "deleteInput",
   group: "interactivity",
-  description: "Delete an input and every condition/action using it.",
+  description: "Delete an input and every condition, action and binding using it.",
   schema: z.object({ stateMachine: smRef, input: ref("Input") }),
   apply(doc, a) {
     const sm = get.stateMachine(doc, a.stateMachine);
@@ -89,6 +124,7 @@ defineOp({
       for (const s of l.states) if (s.blendInput === input.id) s.blendInput = undefined;
     }
     for (const li of sm.listeners) li.actions = li.actions.filter((x) => !("input" in x) || x.input !== input.id);
+    sm.bindings = (sm.bindings ?? []).filter((b) => b.input !== input.id);
     return {};
   },
 });
@@ -97,7 +133,7 @@ defineOp({
   name: "addState",
   group: "interactivity",
   description:
-    "Add a state to a layer. 'animation' plays one animation; 'blend1d' blends animations by a number input; 'exit' stops the layer. The first state added becomes the entry state.",
+    "Add a state to a layer. 'animation' plays one animation; 'blend1d' blends animations by a number input; 'exit' stops the layer. The first state added becomes the entry state. onComplete names a state to go to once the animation has played through (play once, then continue).",
   schema: z.object({
     stateMachine: smRef,
     layer: layerRef,
@@ -110,6 +146,7 @@ defineOp({
     blendInput: ref("Number input").optional(),
     blend: z.array(z.object({ animation: ref("Animation"), value: z.number() })).optional(),
     entry: z.boolean().optional().describe("Make this the layer's entry state"),
+    onComplete: ref("State").nullable().optional().describe("State to go to when the animation finishes (after the first cycle when looping)"),
     x: z.number().optional(),
     y: z.number().optional(),
   }),
@@ -130,6 +167,7 @@ defineOp({
       speed: a.speed,
       ...(a.blendInput ? { blendInput: get.input(sm, a.blendInput).id } : {}),
       ...(a.blend ? { blend: a.blend.map((e) => ({ animation: get.animation(doc, e.animation).id, value: e.value })) } : {}),
+      ...(a.onComplete ? { onComplete: a.onComplete === name ? id : get.state(layer, a.onComplete).id } : {}),
       x: a.x ?? 160 + (n % 4) * 180,
       y: a.y ?? 80 + Math.floor(n / 4) * 120,
     });
@@ -141,7 +179,7 @@ defineOp({
 defineOp({
   name: "updateState",
   group: "interactivity",
-  description: "Change a state's name, animation, loop, speed, blend setup, editor position, or make it the entry.",
+  description: "Change a state's name, animation, loop, speed, blend setup, onComplete target (null clears it), editor position, or make it the entry.",
   schema: z.object({
     stateMachine: smRef,
     layer: layerRef,
@@ -153,6 +191,7 @@ defineOp({
     blendInput: ref("Number input").optional(),
     blend: z.array(z.object({ animation: ref("Animation"), value: z.number() })).optional(),
     entry: z.boolean().optional(),
+    onComplete: ref("State").nullable().optional(),
     x: z.number().optional(),
     y: z.number().optional(),
   }),
@@ -160,6 +199,10 @@ defineOp({
     const sm = get.stateMachine(doc, a.stateMachine);
     const layer = get.layer(sm, a.layer);
     const s = get.state(layer, a.state);
+    if (a.onComplete !== undefined) {
+      if (a.onComplete === null) delete s.onComplete;
+      else s.onComplete = get.state(layer, a.onComplete).id;
+    }
     if (a.name) s.name = a.name;
     if (a.animation !== undefined) s.animation = a.animation === null ? undefined : get.animation(doc, a.animation).id;
     if (a.loop !== undefined) s.loop = a.loop;
@@ -184,6 +227,7 @@ defineOp({
     const s = get.state(layer, a.state);
     layer.states = layer.states.filter((x) => x !== s);
     layer.transitions = layer.transitions.filter((t) => t.from !== s.id && t.to !== s.id);
+    for (const x of layer.states) if (x.onComplete === s.id) delete x.onComplete;
     if (layer.entry === s.id) layer.entry = layer.states[0]?.id ?? null;
     return {};
   },
@@ -192,11 +236,15 @@ defineOp({
 const conditionSchema = z.object({
   input: ref("Input"),
   op: z.enum(["==", "!=", ">", "<", ">=", "<="]).default("=="),
-  value: z.union([z.boolean(), z.number()]).default(true),
+  value: inputValue.default(true),
 });
 
 function resolveConditions(sm: StateMachineData, list: z.infer<typeof conditionSchema>[]): Condition[] {
-  return list.map((c) => ({ input: get.input(sm, c.input).id, op: c.op, value: c.value }));
+  return list.map((c) => {
+    const input = get.input(sm, c.input);
+    if (input.type === "string" && !["==", "!="].includes(c.op)) throw new Error(`String input "${input.name}" only supports == and !=`);
+    return { input: input.id, op: c.op, value: input.type === "trigger" ? true : coerceInput(input.type, c.value) };
+  });
 }
 
 defineOp({
@@ -263,7 +311,7 @@ defineOp({
 });
 
 const actionSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("setInput"), input: ref("Input"), value: z.union([z.boolean(), z.number()]) }),
+  z.object({ type: z.literal("setInput"), input: ref("Input"), value: inputValue }),
   z.object({ type: z.literal("toggleInput"), input: ref("Bool input") }),
   z.object({ type: z.literal("fireTrigger"), input: ref("Trigger input") }),
   z.object({ type: z.literal("reportEvent"), event: z.string().describe("Event name (created if missing)") }),
@@ -282,8 +330,10 @@ function soundId(doc: OpenBoneDocument, r: string): string {
 
 function resolveAction(doc: OpenBoneDocument, sm: StateMachineData, x: z.infer<typeof actionSchema>): ListenerAction {
   switch (x.type) {
-    case "setInput":
-      return { type: "setInput", input: get.input(sm, x.input).id, value: x.value };
+    case "setInput": {
+      const input = get.input(sm, x.input);
+      return { type: "setInput", input: input.id, value: coerceInput(input.type, x.value) };
+    }
     case "toggleInput":
       return { type: "toggleInput", input: get.input(sm, x.input).id };
     case "fireTrigger":

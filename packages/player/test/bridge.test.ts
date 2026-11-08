@@ -5,6 +5,8 @@ describe("bridge commands", () => {
   it("parses valid commands from strings and objects", () => {
     expect(parseCommand('{"type":"setInput","name":"speed","value":0.5}')).toEqual({ type: "setInput", name: "speed", value: 0.5 });
     expect(parseCommand({ type: "setInput", name: "on", value: true })).toEqual({ type: "setInput", name: "on", value: true });
+    // String inputs (e.g. a name shown by a text template).
+    expect(parseCommand({ type: "setInput", name: "player", value: "Ann" })).toEqual({ type: "setInput", name: "player", value: "Ann" });
     expect(parseCommand({ type: "fire", name: "jump" })).toEqual({ type: "fire", name: "jump" });
     expect(parseCommand({ type: "play" })).toEqual({ type: "play" });
     expect(parseCommand({ type: "play", animation: "walk", loop: false, extra: 1 })).toEqual({ type: "play", animation: "walk", loop: false });
@@ -17,8 +19,8 @@ describe("bridge commands", () => {
     expect(() => parseCommand("{}")).toThrow(/type/);
     expect(() => parseCommand({ type: "fly" })).toThrow(/unknown command "fly"/);
     expect(() => parseCommand({ type: "fire" })).toThrow(/needs a string `name`/);
-    expect(() => parseCommand({ type: "setInput", name: "x", value: "1" })).toThrow(/boolean or number/);
-    expect(() => parseCommand({ type: "setInput", name: "x", value: Number.NaN })).toThrow(/boolean or number/);
+    expect(() => parseCommand({ type: "setInput", name: "x", value: Number.NaN })).toThrow(/boolean, number or string/);
+    expect(() => parseCommand({ type: "setInput", name: "x", value: { a: 1 } })).toThrow(/boolean, number or string/);
     expect(() => parseCommand("not json")).toThrow();
   });
 

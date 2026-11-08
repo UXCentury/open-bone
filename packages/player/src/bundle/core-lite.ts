@@ -14,3 +14,4 @@ export * from "../../../core/src/atlas.ts";
 export * from "../../../core/src/audio.ts";
 export * from "../../../core/src/sequence.ts";
 export * from "../../../core/src/particles.ts";
+export * from "../../../core/src/template.ts";

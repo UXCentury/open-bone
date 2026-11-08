@@ -269,5 +269,6 @@ export function normalizeDocument(d: OpenBoneDocument): OpenBoneDocument {
         const rec = a as unknown as Record<string, unknown>;
         for (const [k, v] of Object.entries(defaultParticleSettings())) if (rec[k] === undefined && k !== "image") rec[k] = v;
       }
+  for (const sm of d.stateMachines) sm.bindings ??= [];
   return d;
 }

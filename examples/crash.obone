@@ -1,0 +1,1773 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "Crash",
+  "width": 800,
+  "height": 500,
+  "originX": 110,
+  "originY": 420,
+  "background": "#0b1020",
+  "fps": 30,
+  "images": [],
+  "skeleton": {
+    "bones": [
+      {
+        "id": "bone_h5jq03l",
+        "name": "root",
+        "parent": null,
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_lim0i3m",
+        "name": "climb",
+        "parent": "bone_h5jq03l",
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_cqx5d3n",
+        "name": "rocket",
+        "parent": "bone_lim0i3m",
+        "length": 70,
+        "x": 0,
+        "y": 0,
+        "rotation": 35,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal",
+        "color": "#ff9f43"
+      },
+      {
+        "id": "bone_75ln43o",
+        "name": "flame",
+        "parent": "bone_cqx5d3n",
+        "length": 30,
+        "x": -34,
+        "y": 0,
+        "rotation": 180,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_2lrbj3p",
+        "name": "boom",
+        "parent": "bone_cqx5d3n",
+        "length": 0,
+        "x": 10,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_1pu003q",
+        "name": "hud",
+        "parent": "bone_h5jq03l",
+        "length": 0,
+        "x": 290,
+        "y": 300,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_04fpi3r",
+        "name": "status",
+        "parent": "bone_h5jq03l",
+        "length": 0,
+        "x": 290,
+        "y": 236,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_ve8qo3s",
+        "name": "button",
+        "parent": "bone_h5jq03l",
+        "length": 0,
+        "x": 570,
+        "y": -40,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot_dvuls3t",
+        "name": "sky",
+        "bone": "bone_h5jq03l",
+        "color": "#0b1020",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_ccie43u",
+        "name": "ground",
+        "bone": "bone_h5jq03l",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_krror3v",
+        "name": "pad",
+        "bone": "bone_h5jq03l",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_5na7j3w",
+        "name": "flame",
+        "bone": "bone_75ln43o",
+        "color": "#ffffff",
+        "attachment": "polygon",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_69qbo3x",
+        "name": "flame-core",
+        "bone": "bone_75ln43o",
+        "color": "#ffffff",
+        "attachment": "polygon",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_g9dnr3y",
+        "name": "fins",
+        "bone": "bone_cqx5d3n",
+        "color": "#ffffff",
+        "attachment": "polygon",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_1mlzc3z",
+        "name": "body",
+        "bone": "bone_cqx5d3n",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_lbsmp40",
+        "name": "nose",
+        "bone": "bone_cqx5d3n",
+        "color": "#ffffff",
+        "attachment": "polygon",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_wkcic41",
+        "name": "window",
+        "bone": "bone_cqx5d3n",
+        "color": "#ffffff",
+        "attachment": "ellipse",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_3kwh342",
+        "name": "boom",
+        "bone": "bone_2lrbj3p",
+        "color": "#ffffff00",
+        "attachment": "polygon",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_o2ndh43",
+        "name": "boom-core",
+        "bone": "bone_2lrbj3p",
+        "color": "#ffffff00",
+        "attachment": "ellipse",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_5e22d44",
+        "name": "multiplier",
+        "bone": "bone_1pu003q",
+        "color": "#ffffff",
+        "attachment": "text",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_xl23e45",
+        "name": "status",
+        "bone": "bone_04fpi3r",
+        "color": "#ffffff",
+        "attachment": "text",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_oa15246",
+        "name": "button-bg",
+        "bone": "bone_ve8qo3s",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_bvunt47",
+        "name": "button-label",
+        "bone": "bone_ve8qo3s",
+        "color": "#ffffff",
+        "attachment": "text",
+        "blend": "normal"
+      }
+    ],
+    "skins": [
+      {
+        "id": "skin_default",
+        "name": "default",
+        "attachments": {
+          "slot_dvuls3t": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 290,
+              "y": 170,
+              "rotation": 0,
+              "width": 800,
+              "height": 500,
+              "radius": 0,
+              "fill": "#ffffff"
+            }
+          },
+          "slot_ccie43u": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 290,
+              "y": -40,
+              "rotation": 0,
+              "width": 800,
+              "height": 80,
+              "radius": 0,
+              "fill": "#111827"
+            }
+          },
+          "slot_krror3v": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": -8,
+              "rotation": 0,
+              "width": 90,
+              "height": 14,
+              "radius": 4,
+              "fill": "#374151"
+            }
+          },
+          "slot_5na7j3w": {
+            "polygon": {
+              "type": "shape",
+              "name": "polygon",
+              "shape": "polygon",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 50,
+              "height": 50,
+              "radius": 0,
+              "points": [
+                0,
+                12,
+                46,
+                0,
+                0,
+                -12
+              ],
+              "fill": "#f97316"
+            }
+          },
+          "slot_69qbo3x": {
+            "polygon": {
+              "type": "shape",
+              "name": "polygon",
+              "shape": "polygon",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 50,
+              "height": 50,
+              "radius": 0,
+              "points": [
+                0,
+                6,
+                26,
+                0,
+                0,
+                -6
+              ],
+              "fill": "#fde047"
+            }
+          },
+          "slot_g9dnr3y": {
+            "polygon": {
+              "type": "shape",
+              "name": "polygon",
+              "shape": "polygon",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 50,
+              "height": 50,
+              "radius": 0,
+              "points": [
+                -34,
+                0,
+                -18,
+                24,
+                -6,
+                0,
+                -18,
+                -24
+              ],
+              "fill": "#dc2626"
+            }
+          },
+          "slot_1mlzc3z": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 76,
+              "height": 26,
+              "radius": 13,
+              "fill": "#e5e7eb",
+              "stroke": "#9ca3af",
+              "strokeWidth": 2
+            }
+          },
+          "slot_lbsmp40": {
+            "polygon": {
+              "type": "shape",
+              "name": "polygon",
+              "shape": "polygon",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 50,
+              "height": 50,
+              "radius": 0,
+              "points": [
+                30,
+                11,
+                52,
+                0,
+                30,
+                -11
+              ],
+              "fill": "#dc2626"
+            }
+          },
+          "slot_wkcic41": {
+            "ellipse": {
+              "type": "shape",
+              "name": "ellipse",
+              "shape": "ellipse",
+              "x": 12,
+              "y": 0,
+              "rotation": 0,
+              "width": 14,
+              "height": 14,
+              "radius": 0,
+              "fill": "#38bdf8",
+              "stroke": "#1e3a8a",
+              "strokeWidth": 2
+            }
+          },
+          "slot_3kwh342": {
+            "polygon": {
+              "type": "shape",
+              "name": "polygon",
+              "shape": "polygon",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 50,
+              "height": 50,
+              "radius": 0,
+              "points": [
+                60,
+                0,
+                24.7,
+                8,
+                48.5,
+                35.3,
+                15.3,
+                21,
+                18.5,
+                57.1,
+                0,
+                26,
+                -18.5,
+                57.1,
+                -15.3,
+                21,
+                -48.5,
+                35.3,
+                -24.7,
+                8,
+                -60,
+                0,
+                -24.7,
+                -8,
+                -48.5,
+                -35.3,
+                -15.3,
+                -21,
+                -18.5,
+                -57.1,
+                0,
+                -26,
+                18.5,
+                -57.1,
+                15.3,
+                -21,
+                48.5,
+                -35.3,
+                24.7,
+                -8
+              ],
+              "fill": "#fb923c"
+            }
+          },
+          "slot_o2ndh43": {
+            "ellipse": {
+              "type": "shape",
+              "name": "ellipse",
+              "shape": "ellipse",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 50,
+              "height": 50,
+              "radius": 0,
+              "fill": "#fef08a"
+            }
+          },
+          "slot_5e22d44": {
+            "text": {
+              "type": "text",
+              "name": "text",
+              "text": "{multiplier:0.00}x",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 360,
+              "height": 100,
+              "font": "sans-serif",
+              "size": 84,
+              "weight": 800,
+              "color": "#ffffff",
+              "align": "center",
+              "outline": "#0b1020",
+              "outlineWidth": 4
+            }
+          },
+          "slot_xl23e45": {
+            "text": {
+              "type": "text",
+              "name": "text",
+              "text": "{status}",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 420,
+              "height": 32,
+              "font": "sans-serif",
+              "size": 22,
+              "weight": 500,
+              "color": "#cbd5e1",
+              "align": "center"
+            }
+          },
+          "slot_oa15246": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 150,
+              "height": 48,
+              "radius": 24,
+              "fill": "#22c55e"
+            }
+          },
+          "slot_bvunt47": {
+            "text": {
+              "type": "text",
+              "name": "text",
+              "text": "START",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 150,
+              "height": 48,
+              "font": "sans-serif",
+              "size": 22,
+              "weight": 700,
+              "color": "#052e16",
+              "align": "center"
+            }
+          }
+        }
+      }
+    ],
+    "ik": [],
+    "transform": [],
+    "path": [],
+    "physics": []
+  },
+  "events": [],
+  "animations": [
+    {
+      "id": "anim_syrzp48",
+      "name": "idle",
+      "duration": 1.2,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_cqx5d3n",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 90,
+              "curve": "linear"
+            },
+            {
+              "time": 1.2,
+              "value": 90,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_cqx5d3n",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 14,
+              "curve": "linear"
+            },
+            {
+              "time": 1.2,
+              "value": 14,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_75ln43o",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.25,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "value": 0.35,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.2,
+              "value": 0.25,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_oa15246",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff",
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "value": "#bbf7d0",
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.2,
+              "value": "#ffffff",
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_6mhxk49",
+      "name": "flyout",
+      "duration": 0.9,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_cqx5d3n",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 90,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.9,
+              "value": 35,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_cqx5d3n",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 14,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.9,
+              "value": 0,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_cqx5d3n",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.3,
+              "value": 1.15,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.9,
+              "value": 1,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_75ln43o",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.3,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": 1.8,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.9,
+              "value": 1.3,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_oa15246",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 0.3,
+              "value": "#ffffff00",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_bvunt47",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 0.3,
+              "value": "#ffffff00",
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_7wrw14a",
+      "name": "flying",
+      "duration": 0.6,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_cqx5d3n",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 33,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.3,
+              "value": 37,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "value": 33,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_cqx5d3n",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.3,
+              "value": 4,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "value": 0,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_75ln43o",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1.2,
+              "curve": "linear"
+            },
+            {
+              "time": 0.15,
+              "value": 1.6,
+              "curve": "linear"
+            },
+            {
+              "time": 0.3,
+              "value": 1.1,
+              "curve": "linear"
+            },
+            {
+              "time": 0.45,
+              "value": 1.5,
+              "curve": "linear"
+            },
+            {
+              "time": 0.6,
+              "value": 1.2,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_75ln43o",
+          "property": "scaleY",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": "linear"
+            },
+            {
+              "time": 0.3,
+              "value": 1.2,
+              "curve": "linear"
+            },
+            {
+              "time": 0.6,
+              "value": 1,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_oa15246",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff00",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_bvunt47",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff00",
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_yu5d74b",
+      "name": "crash",
+      "duration": 1.8,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_cqx5d3n",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 35,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "value": -160,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_cqx5d3n",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "value": -40,
+              "curve": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_75ln43o",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1.4,
+              "curve": "linear"
+            },
+            {
+              "time": 0.2,
+              "value": 0,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_1mlzc3z",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0.2,
+              "value": "#ffffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": "#ffffff00",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_lbsmp40",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0.2,
+              "value": "#ffffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": "#ffffff00",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_g9dnr3y",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0.2,
+              "value": "#ffffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": "#ffffff00",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_wkcic41",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0.2,
+              "value": "#ffffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": "#ffffff00",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_3kwh342",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff00",
+              "curve": "linear"
+            },
+            {
+              "time": 0.1,
+              "value": "#ffffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 0.9,
+              "value": "#ffffff00",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_o2ndh43",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff00",
+              "curve": "linear"
+            },
+            {
+              "time": 0.1,
+              "value": "#ffffffff",
+              "curve": "linear"
+            },
+            {
+              "time": 0.6,
+              "value": "#ffffff00",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_2lrbj3p",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.2,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.5,
+              "value": 1.8,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_2lrbj3p",
+          "property": "scaleY",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.2,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.5,
+              "value": 1.8,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_2lrbj3p",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": "linear"
+            },
+            {
+              "time": 0.9,
+              "value": 40,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_5e22d44",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ef4444",
+              "curve": "linear"
+            },
+            {
+              "time": 1.8,
+              "value": "#ef4444",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_oa15246",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff00",
+              "curve": "linear"
+            },
+            {
+              "time": 1.4,
+              "value": "#ffffff00",
+              "curve": "linear"
+            },
+            {
+              "time": 1.8,
+              "value": "#ffffff",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_bvunt47",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff00",
+              "curve": "linear"
+            },
+            {
+              "time": 1.4,
+              "value": "#ffffff00",
+              "curve": "linear"
+            },
+            {
+              "time": 1.8,
+              "value": "#ffffff",
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_rxi2s4c",
+      "name": "cashout",
+      "duration": 1.6,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_cqx5d3n",
+          "property": "x",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 0.8,
+              "value": 700,
+              "curve": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_cqx5d3n",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 0.8,
+              "value": 260,
+              "curve": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_75ln43o",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1.3,
+              "curve": "linear"
+            },
+            {
+              "time": 0.3,
+              "value": 2.2,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_5e22d44",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#22c55e",
+              "curve": "linear"
+            },
+            {
+              "time": 1.6,
+              "value": "#22c55e",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_1pu003q",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.2,
+              "value": 1.2,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.5,
+              "value": 1,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_1pu003q",
+          "property": "scaleY",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.2,
+              "value": 1.2,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.5,
+              "value": 1,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_oa15246",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff00",
+              "curve": "linear"
+            },
+            {
+              "time": 1.2,
+              "value": "#ffffff00",
+              "curve": "linear"
+            },
+            {
+              "time": 1.6,
+              "value": "#ffffff",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_bvunt47",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff00",
+              "curve": "linear"
+            },
+            {
+              "time": 1.2,
+              "value": "#ffffff00",
+              "curve": "linear"
+            },
+            {
+              "time": 1.6,
+              "value": "#ffffff",
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    }
+  ],
+  "stateMachines": [
+    {
+      "id": "sm_5wr774d",
+      "name": "game",
+      "inputs": [
+        {
+          "id": "in_9i5294e",
+          "name": "start",
+          "type": "trigger",
+          "default": false
+        },
+        {
+          "id": "in_xxkai4f",
+          "name": "crash",
+          "type": "trigger",
+          "default": false
+        },
+        {
+          "id": "in_xuej84g",
+          "name": "cashout",
+          "type": "trigger",
+          "default": false
+        },
+        {
+          "id": "in_ldq714h",
+          "name": "multiplier",
+          "type": "number",
+          "default": 1
+        },
+        {
+          "id": "in_4ddcb4i",
+          "name": "status",
+          "type": "string",
+          "default": "Press START"
+        }
+      ],
+      "bindings": [
+        {
+          "id": "bind_lslfa4t",
+          "input": "in_ldq714h",
+          "target": "bone",
+          "object": "bone_lim0i3m",
+          "property": "x",
+          "inMin": 1,
+          "inMax": 10,
+          "outMin": 0,
+          "outMax": 520
+        },
+        {
+          "id": "bind_eyc054u",
+          "input": "in_ldq714h",
+          "target": "bone",
+          "object": "bone_lim0i3m",
+          "property": "y",
+          "inMin": 1,
+          "inMax": 10,
+          "outMin": 0,
+          "outMax": 300
+        },
+        {
+          "id": "bind_or0314v",
+          "input": "in_ldq714h",
+          "target": "slot",
+          "object": "slot_dvuls3t",
+          "property": "color",
+          "inMin": 1,
+          "inMax": 10,
+          "outMin": "#0b1020",
+          "outMax": "#4c1d95"
+        }
+      ],
+      "layers": [
+        {
+          "id": "sm_5wr774d_layer1",
+          "name": "Layer 1",
+          "entry": "st_zkijg4j",
+          "states": [
+            {
+              "id": "st_zkijg4j",
+              "name": "idle",
+              "type": "animation",
+              "animation": "anim_syrzp48",
+              "loop": true,
+              "speed": 1,
+              "x": 80,
+              "y": 160
+            },
+            {
+              "id": "st_5k18y4k",
+              "name": "flying",
+              "type": "animation",
+              "animation": "anim_7wrw14a",
+              "loop": true,
+              "speed": 1,
+              "x": 520,
+              "y": 160
+            },
+            {
+              "id": "st_h4aek4l",
+              "name": "flyout",
+              "type": "animation",
+              "animation": "anim_6mhxk49",
+              "loop": false,
+              "speed": 1,
+              "onComplete": "st_5k18y4k",
+              "x": 300,
+              "y": 160
+            },
+            {
+              "id": "st_tcsog4m",
+              "name": "crash",
+              "type": "animation",
+              "animation": "anim_yu5d74b",
+              "loop": false,
+              "speed": 1,
+              "onComplete": "st_zkijg4j",
+              "x": 740,
+              "y": 60
+            },
+            {
+              "id": "st_15w954n",
+              "name": "cashout",
+              "type": "animation",
+              "animation": "anim_rxi2s4c",
+              "loop": false,
+              "speed": 1,
+              "onComplete": "st_zkijg4j",
+              "x": 740,
+              "y": 260
+            }
+          ],
+          "transitions": [
+            {
+              "id": "tr_4jmnr4o",
+              "from": "st_zkijg4j",
+              "to": "st_h4aek4l",
+              "conditions": [
+                {
+                  "input": "in_9i5294e",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.1,
+              "exitTime": null
+            },
+            {
+              "id": "tr_5jech4p",
+              "from": "st_h4aek4l",
+              "to": "st_tcsog4m",
+              "conditions": [
+                {
+                  "input": "in_xxkai4f",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.05,
+              "exitTime": null
+            },
+            {
+              "id": "tr_ztrgo4q",
+              "from": "st_h4aek4l",
+              "to": "st_15w954n",
+              "conditions": [
+                {
+                  "input": "in_xuej84g",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.1,
+              "exitTime": null
+            },
+            {
+              "id": "tr_hhjhj4r",
+              "from": "st_5k18y4k",
+              "to": "st_tcsog4m",
+              "conditions": [
+                {
+                  "input": "in_xxkai4f",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.05,
+              "exitTime": null
+            },
+            {
+              "id": "tr_rtmys4s",
+              "from": "st_5k18y4k",
+              "to": "st_15w954n",
+              "conditions": [
+                {
+                  "input": "in_xuej84g",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.1,
+              "exitTime": null
+            }
+          ]
+        }
+      ],
+      "listeners": [
+        {
+          "id": "lis_nrkbw4w",
+          "name": "start button",
+          "slot": "slot_bvunt47",
+          "event": "click",
+          "actions": [
+            {
+              "type": "fireTrigger",
+              "input": "in_9i5294e"
+            }
+          ]
+        }
+      ],
+      "scripts": []
+    }
+  ],
+  "scripts": []
+}

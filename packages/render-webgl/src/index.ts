@@ -1,4 +1,17 @@
-import { type ClipRegion, type DrawItem, PARTICLE_DOT_SIZE, PARTICLE_DOT_TEXTURE, type Skeleton, particleDotAlpha } from "@openbone/runtime";
+import { type ClipRegion, type DrawItem, PARTICLE_DOT_SIZE, PARTICLE_DOT_TEXTURE, type Skeleton, type TextContext, type TextDraw, cssFont, drawTextBox, particleDotAlpha } from "@openbone/runtime";
+
+/** One rasterised text item: re-drawn only when its content, style or pixel scale changes. */
+interface TextTexture {
+  key: string;
+  tex: WebGLTexture;
+  canvas: HTMLCanvasElement | OffscreenCanvas;
+  /** Padding (skeleton units) around the box, so outlines and overhangs are not cut off. */
+  pad: number;
+  used: number;
+}
+
+/** Largest side of a text texture in pixels. */
+const MAX_TEXT_TEXTURE = 2048;
 
 const VS = `#version 300 es
 in vec2 aPos; in vec2 aUv; in vec4 aColor;
@@ -32,6 +45,9 @@ export class WebGLRenderer {
   private curTex: WebGLTexture | null = null;
   private curBlend = "";
   private curClip: ClipRegion | undefined;
+  private texts = new Map<string, TextTexture>();
+  private zoom = 1;
+  private frame = 0;
   /** Draw calls issued by the last render() (clip-mask stencil writes included). */
   drawCalls = 0;
 
@@ -136,6 +152,8 @@ export class WebGLRenderer {
     const sx = 2 / w;
     const sy = -2 / h;
     gl.uniformMatrix3fv(this.uView, false, [z * sx, 0, 0, 0, -z * sy, 0, tx * sx - 1, ty * sy + 1, 1]);
+    this.zoom = z;
+    this.frame++;
     this.curTex = null;
     this.curBlend = "";
     this.curClip = undefined;
@@ -144,6 +162,75 @@ export class WebGLRenderer {
     for (const it of sk.drawList()) this.push(it);
     this.flush();
     gl.disable(gl.STENCIL_TEST);
+    // Drop text textures of slots that stopped showing text.
+    for (const [k, t] of this.texts)
+      if (this.frame - t.used > 60) {
+        gl.deleteTexture(t.tex);
+        this.texts.delete(k);
+      }
+  }
+
+  /** Rasterise a text item into its texture (cached per slot and attachment). */
+  private textTexture(it: DrawItem & { text: TextDraw }): TextTexture | null {
+    const t = it.text;
+    const m = t.matrix;
+    // Pixels per skeleton unit on screen, in powers of two so zooming does not re-rasterise every frame.
+    const px = Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)) * this.zoom;
+    let scale = 2 ** Math.ceil(Math.log2(Math.max(0.25, px)));
+    const pad = t.outlineWidth + t.size * 0.25;
+    const w = t.width + pad * 2;
+    const h = t.height + pad * 2;
+    scale = Math.min(scale, MAX_TEXT_TEXTURE / Math.max(w, h));
+    const id = `${it.slot.data.id}/${it.attachment.name}`;
+    const key = `${t.content}|${cssFont(t)}|${t.align}|${t.width}x${t.height}|${t.fill}|${t.outline}|${t.outlineWidth}|${scale}`;
+    let entry = this.texts.get(id);
+    if (entry && entry.key === key) {
+      entry.used = this.frame;
+      return entry;
+    }
+    const W = Math.max(1, Math.ceil(w * scale));
+    const H = Math.max(1, Math.ceil(h * scale));
+    const gl = this.gl;
+    if (!entry) {
+      const canvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(W, H) : document.createElement("canvas");
+      entry = { key: "", tex: gl.createTexture()!, canvas, pad, used: this.frame };
+      this.texts.set(id, entry);
+    }
+    const c = entry.canvas;
+    c.width = W;
+    c.height = H;
+    const ctx = c.getContext("2d") as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+    if (!ctx) return null;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    ctx.setTransform(scale, 0, 0, scale, W / 2, H / 2);
+    drawTextBox(ctx as unknown as TextContext, t);
+    gl.bindTexture(gl.TEXTURE_2D, entry.tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (this.curTex === entry.tex) this.curTex = null;
+    entry.key = key;
+    entry.pad = pad;
+    entry.used = this.frame;
+    return entry;
+  }
+
+  /** Quad of a text item's texture: the box grown by the padding (TL, TR, BR, BL in world space). */
+  private static textQuad(t: TextDraw, pad: number): Float32Array {
+    const m = t.matrix;
+    const hw = t.width / 2 + pad;
+    const hh = t.height / 2 + pad;
+    const out = new Float32Array(8);
+    const corners = [-hw, hh, hw, hh, hw, -hh, -hw, -hh];
+    for (let i = 0; i < 8; i += 2) {
+      out[i] = m.a * corners[i] + m.b * corners[i + 1] + m.x;
+      out[i + 1] = m.c * corners[i] + m.d * corners[i + 1] + m.y;
+    }
+    return out;
   }
 
   /** Switch the stencil mask: write the clip polygon into the stencil buffer, then draw only where it is set. */
@@ -183,12 +270,25 @@ export class WebGLRenderer {
 
   private push(it: DrawItem) {
     if (it.clip !== this.curClip) this.setClip(it.clip);
+    if (it.text) {
+      this.flush();
+      const tt = this.textTexture(it as DrawItem & { text: TextDraw });
+      if (!tt) return;
+      it = { ...it, vertices: WebGLRenderer.textQuad(it.text, tt.pad), texture: null };
+      this.curTex = tt.tex;
+      this.setBlend(it.blend);
+      return this.pushGeometry(it);
+    }
     const tex = it.texture ? (this.texture(it.texture.id) ?? this.white) : this.white;
     if (tex !== this.curTex || it.blend !== this.curBlend) {
       this.flush();
       this.curTex = tex;
       this.setBlend(it.blend);
     }
+    this.pushGeometry(it);
+  }
+
+  private pushGeometry(it: DrawItem) {
     const n = it.vertices.length / 2;
     if (this.nv + n > this.verts.length / 8 || this.ni + it.indices.length > this.idx.length) this.flush();
     const base = this.nv;
@@ -242,6 +342,8 @@ export class WebGLRenderer {
 
   dispose() {
     this.invalidate();
+    for (const t of this.texts.values()) this.gl.deleteTexture(t.tex);
+    this.texts.clear();
     this.gl.deleteBuffer(this.vbo);
     this.gl.deleteBuffer(this.ibo);
     this.gl.deleteProgram(this.prog);

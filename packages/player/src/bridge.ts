@@ -12,7 +12,7 @@
 export const BRIDGE_VERSION = 1;
 
 export type BridgeCommand =
-  | { type: "setInput"; name: string; value: boolean | number }
+  | { type: "setInput"; name: string; value: boolean | number | string }
   | { type: "fire"; name: string }
   | { type: "play"; animation?: string; loop?: boolean }
   | { type: "pause" }
@@ -22,8 +22,8 @@ export type BridgeCommand =
 
 export interface BridgeInputInfo {
   name: string;
-  type: "bool" | "number" | "trigger";
-  value: boolean | number | null;
+  type: "bool" | "number" | "trigger" | "string";
+  value: boolean | number | string | null;
 }
 
 export type BridgeMessage =
@@ -69,7 +69,8 @@ export function parseCommand(input: string | unknown): BridgeCommand {
   switch (c.type) {
     case "setInput": {
       const v = c.value;
-      if (typeof v !== "boolean" && !(typeof v === "number" && Number.isFinite(v))) throw new Error('OpenBone bridge: "setInput" needs a boolean or number `value`');
+      if (typeof v !== "boolean" && typeof v !== "string" && !(typeof v === "number" && Number.isFinite(v)))
+        throw new Error('OpenBone bridge: "setInput" needs a boolean, number or string `value`');
       return { type: "setInput", name: str("name"), value: v };
     }
     case "fire":
@@ -94,7 +95,7 @@ export function parseCommand(input: string | unknown): BridgeCommand {
 
 /** What the bridge needs from a player (structural, so tests can pass a fake). */
 export interface BridgePlayer {
-  setInput(name: string, value: boolean | number): void;
+  setInput(name: string, value: boolean | number | string): void;
   fire(name: string): void;
   play(): void;
   pause(): void;
