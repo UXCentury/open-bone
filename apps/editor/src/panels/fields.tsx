@@ -73,16 +73,18 @@ export function ColorField(p: { label: string; value: string; onCommit: (v: stri
       <input
         type="number"
         min={0}
-        max={1}
-        step={0.05}
+        max={100}
+        step={5}
         class="alpha"
-        title="Alpha"
-        value={round(alpha())}
+        title="Opacity (%)"
+        aria-label={`${p.label} opacity (percent)`}
+        value={Math.round(alpha() * 100)}
         onChange={(e) => {
-          const a = Math.max(0, Math.min(1, Number(e.currentTarget.value)));
+          const a = Math.max(0, Math.min(100, Number(e.currentTarget.value) || 0)) / 100;
           p.onCommit(a >= 1 ? rgb() : rgb() + hex2(a));
         }}
       />
+      <span class="unit">%</span>
       <Show when={p.onKey}>
         <button class="key-btn" classList={{ keyed: p.keyed }} title="Set key at current time" onClick={p.onKey}>
           ◆

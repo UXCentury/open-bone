@@ -1,9 +1,10 @@
-import { createDocument, parseDocument } from "@openbone/core";
+import { parseDocument } from "@openbone/core";
 import { For, Show } from "solid-js";
 import { bridgeStatus, connectBridge, disconnectBridge, bridgeUndo, bridgeRedo } from "../bridge.ts";
 import { imageSize, readFileAsDataUrl } from "../images.ts";
-import { resetLayout, swapSides } from "../layout.ts";
-import { openProject, saveProject } from "../storage.ts";
+import { closeMenu, menuOpen, menuOwner, openMenu } from "../menu.tsx";
+import { mainMenu } from "../editor-menus.ts";
+import { openProject } from "../storage.ts";
 import {
   apply,
   fileName,
@@ -27,7 +28,6 @@ import {
   setExportOpen,
   skinArg,
 } from "../state.ts";
-import { askConfirm } from "../dialogs.tsx";
 import { playActive, togglePlay } from "../play.ts";
 import { tip } from "../shortcuts/index.ts";
 import { setOpenFileHandler, setShortcutsOpen } from "../shortcuts/actions.ts";
@@ -71,6 +71,7 @@ export async function importImages(files: FileList | File[]) {
 
 export function Toolbar() {
   let fileInput!: HTMLInputElement;
+  let menuBtn!: HTMLButtonElement;
   let imageInput!: HTMLInputElement;
   setOpenFileHandler(() => openProject(() => fileInput.click()));
   const locked = playActive;
@@ -93,40 +94,19 @@ export function Toolbar() {
       </div>
       <div class="group">
         <button
-          disabled={locked()}
-          onClick={async () => {
-            const ok = await askConfirm({
-              title: "Start a new project?",
-              message: "Unsaved changes to the current project will be lost. Save first if you want to keep them.",
-              confirmLabel: "Discard and start new",
-              danger: true,
-            });
-            if (ok) loadDocument(createDocument("Untitled"), "untitled.obone");
+          class="menu-btn"
+          classList={{ open: menuOpen() && menuOwner() === menuBtn }}
+          ref={menuBtn}
+          aria-haspopup="menu"
+          title="Menu: new, open, save, export, examples, layout"
+          onClick={() => {
+            if (menuOpen() && menuOwner() === menuBtn) return closeMenu();
+            const r = menuBtn.getBoundingClientRect();
+            openMenu(r.left, r.bottom + 4, mainMenu(), menuBtn);
           }}
         >
-          New
+          ☰ Menu
         </button>
-        <button disabled={locked()} title={tip("Open a project", "file.open")} onClick={() => openProject(() => fileInput.click())}>Open</button>
-        <button onClick={() => saveProject()} title={tip("Save", "file.save")}>Save</button>
-        <button disabled={locked()} onClick={() => setExportOpen(true)} title={tip("Export a file with the parts you choose, with a live preview", "file.export")}>
-          Export…
-        </button>
-        <select
-          disabled={locked()}
-          onChange={(e) => {
-            if (e.currentTarget.value) openExample(e.currentTarget.value);
-            e.currentTarget.value = "";
-          }}
-        >
-          <option value="">Examples…</option>
-          <option value="walker">Walker (IK, mesh, blend, script)</option>
-          <option value="button">Interactive button</option>
-          <option value="campfire">Campfire (sprite sequences)</option>
-          <option value="tail">Tail (path constraint, physics)</option>
-          <option value="rocket">Rocket (particles)</option>
-          <option value="crash">Crash game (stages, live text, bindings)</option>
-          <option value="knight">Knight (painted parts, cape mesh)</option>
-        </select>
         <input ref={fileInput} type="file" accept=".obone,.obonb,.json,application/json,application/octet-stream" hidden onChange={(e) => open(e.currentTarget.files)} />
       </div>
       <div class="group">
@@ -182,22 +162,6 @@ export function Toolbar() {
       <div class="group">
         <label class="check" title={tip("Show bones", "view.bones")}><input type="checkbox" disabled={locked()} checked={showBones()} onChange={(e) => setShowBones(e.currentTarget.checked)} /> Bones</label>
         <label class="check" title={tip("Show mesh wireframes", "view.mesh")}><input type="checkbox" disabled={locked()} checked={showMesh()} onChange={(e) => setShowMesh(e.currentTarget.checked)} /> Mesh</label>
-      </div>
-      <div class="group">
-        <select
-          disabled={locked()}
-          title="Panel layout: drag panel tabs to move them, drag the dividers to resize"
-          onChange={(e) => {
-            const v = e.currentTarget.value;
-            if (v === "reset") resetLayout();
-            else if (v === "swap") swapSides();
-            e.currentTarget.value = "";
-          }}
-        >
-          <option value="">Layout…</option>
-          <option value="swap">Swap left and right panels</option>
-          <option value="reset">Reset to default layout</option>
-        </select>
       </div>
       <div class="spacer" />
       <div class="group">

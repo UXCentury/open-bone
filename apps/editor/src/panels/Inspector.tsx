@@ -747,6 +747,40 @@ function ImageInspector(p: { id: string }) {
   );
 }
 
+/**
+ * Background: a checkbox turns it on (off = transparent, the default), then a colour and its opacity in percent.
+ */
+function BackgroundField() {
+  const bg = () => doc().background;
+  const on = () => bg() !== null;
+  const color = () => (bg() ?? lastBackground()).slice(0, 7);
+  const opacity = () => {
+    const v = bg() ?? lastBackground();
+    return v.length >= 9 ? Math.round((parseInt(v.slice(7, 9), 16) / 255) * 100) : 100;
+  };
+  const hexA = (pct: number) => (pct >= 100 ? "" : Math.round((pct / 100) * 255).toString(16).padStart(2, "0"));
+  return (
+    <div class="field bg-field" title="Off: no background, so the artboard shows a checkerboard and the player and exports are transparent. Also the BG button above the viewport.">
+      <span>Background</span>
+      <input type="checkbox" aria-label="Background on" checked={on()} onChange={(e) => setBackground(e.currentTarget.checked ? lastBackground() : null)} />
+      <input type="color" aria-label="Background colour" disabled={!on()} value={color()} onChange={(e) => setBackground(e.currentTarget.value + hexA(opacity()))} />
+      <input
+        type="number"
+        class="alpha"
+        aria-label="Background opacity (percent)"
+        title="Opacity (%)"
+        disabled={!on()}
+        min={0}
+        max={100}
+        step={5}
+        value={opacity()}
+        onChange={(e) => setBackground(color() + hexA(Math.max(0, Math.min(100, Number(e.currentTarget.value) || 0))))}
+      />
+      <span class="unit">%</span>
+    </div>
+  );
+}
+
 function DocumentInspector() {
   const d = () => doc();
   return (
@@ -756,11 +790,7 @@ function DocumentInspector() {
       <NumberField label="Height" value={d().height} onCommit={(v) => apply("setDocument", { height: v })} />
       <NumberField label="Origin X" value={d().originX} onCommit={(v) => apply("setDocument", { originX: v })} />
       <NumberField label="Origin Y" value={d().originY} onCommit={(v) => apply("setDocument", { originY: v })} />
-      <ColorField label="Background" value={d().background ?? lastBackground()} onCommit={(v) => setBackground(v)} />
-      <label class="field" title="No background: the artboard shows a checkerboard, and the player and exports are transparent. Also the BG button above the viewport.">
-        <span>Transparent</span>
-        <input type="checkbox" checked={d().background === null} onChange={(e) => setBackground(e.currentTarget.checked ? null : lastBackground())} />
-      </label>
+      <BackgroundField />
       <NumberField label="FPS" value={d().fps} onCommit={(v) => apply("setDocument", { fps: v })} />
       <div class="hint">
         Select a bone or slot to edit it. Tools: V rotate · T translate · S scale · B create bone. Drop images on the viewport. Ctrl+Z undo.

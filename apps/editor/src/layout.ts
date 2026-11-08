@@ -13,7 +13,15 @@ export interface DockState {
   active: PanelId | null;
   /** Width (left/right) or height (bottom) in CSS px. */
   size: number;
+  /**
+   * A second tab group sharing the dock (split): below the first in the left/right docks, beside it in the bottom
+   * dock. `ratio` is the share of the dock the first group takes.
+   */
+  split?: { panels: PanelId[]; active: PanelId | null; ratio: number };
 }
+
+/** Which tab group of a dock: the first, or the split one. */
+export type GroupId = "main" | "split";
 
 export type Layout = Record<DockId, DockState>;
 
@@ -53,6 +61,17 @@ function sanitize(raw: unknown): Layout | null {
     panels.forEach((p) => seen.add(p));
     const size = typeof s.size === "number" && Number.isFinite(s.size) ? Math.max(MIN_SIZE[d], s.size) : DEFAULT_SIZE[d];
     out[d] = { panels, active: s.active && panels.includes(s.active) ? s.active : (panels[0] ?? null), size };
+    const sp = s.split;
+    if (sp && Array.isArray(sp.panels)) {
+      const sPanels = sp.panels.filter((p): p is PanelId => p in PANELS && !seen.has(p));
+      sPanels.forEach((p) => seen.add(p));
+      const ratio = typeof sp.ratio === "number" && Number.isFinite(sp.ratio) ? Math.min(0.85, Math.max(0.15, sp.ratio)) : 0.6;
+      const active = sp.active && sPanels.includes(sp.active) ? sp.active : (sPanels[0] ?? null);
+      if (sPanels.length) {
+        if (!panels.length) out[d] = { panels: sPanels, active, size };
+        else out[d].split = { panels: sPanels, active, ratio };
+      }
+    }
   }
   if (!seen.size) return null;
   // Panels added in a newer version join the right dock, so a saved layout survives upgrades.
@@ -81,35 +100,78 @@ function setLayout(next: Layout) {
   }
 }
 
-const clone = (l: Layout): Layout => ({
-  left: { ...l.left, panels: [...l.left.panels] },
-  right: { ...l.right, panels: [...l.right.panels] },
-  bottom: { ...l.bottom, panels: [...l.bottom.panels] },
-});
+const cloneDock = (d: DockState): DockState => ({ ...d, panels: [...d.panels], ...(d.split ? { split: { ...d.split, panels: [...d.split.panels] } } : {}) });
+const clone = (l: Layout): Layout => ({ left: cloneDock(l.left), right: cloneDock(l.right), bottom: cloneDock(l.bottom) });
 
-export const dockOf = (panel: PanelId): DockId => DOCKS.find((d) => layout()[d].panels.includes(panel)) ?? "bottom";
+/** The tab group object of a dock (the dock itself for "main"). */
+const groupOf = (d: DockState, g: GroupId): { panels: PanelId[]; active: PanelId | null } | undefined => (g === "main" ? d : d.split);
 
-/** Move a panel to a dock (at `index` among its tabs, default last) and make it the active tab there. */
-export function movePanel(panel: PanelId, to: DockId, index?: number) {
-  const l = clone(layout());
-  const from = DOCKS.find((d) => l[d].panels.includes(panel));
-  if (from) {
-    const i = l[from].panels.indexOf(panel);
-    l[from].panels.splice(i, 1);
-    if (from === to && index !== undefined && index > i) index--;
-    if (l[from].active === panel) l[from].active = l[from].panels[Math.max(0, i - 1)] ?? null;
+/** Where a panel is docked: its dock and tab group. */
+export function whereIs(panel: PanelId): { dock: DockId; group: GroupId } {
+  for (const d of DOCKS) {
+    if (layout()[d].panels.includes(panel)) return { dock: d, group: "main" };
+    if (layout()[d].split?.panels.includes(panel)) return { dock: d, group: "split" };
   }
-  const at = Math.max(0, Math.min(index ?? l[to].panels.length, l[to].panels.length));
-  l[to].panels.splice(at, 0, panel);
-  l[to].active = panel;
+  return { dock: "bottom", group: "main" };
+}
+export const dockOf = (panel: PanelId): DockId => whereIs(panel).dock;
+
+/** After removing tabs: an emptied split disappears; an emptied first group is replaced by the split. */
+function tidy(d: DockState) {
+  if (d.split && !d.split.panels.length) delete d.split;
+  if (!d.panels.length && d.split) {
+    d.panels = d.split.panels;
+    d.active = d.split.active;
+    delete d.split;
+  }
+}
+
+/**
+ * Move a panel into a dock's tab group (at `index` among its tabs, default last) and make it active there.
+ * group "newSplit" splits the dock: the panel opens in a second group below (side docks) or beside (bottom dock);
+ * if the dock is already split it joins the split group.
+ */
+export function movePanel(panel: PanelId, to: DockId, index?: number, group: GroupId | "newSplit" = "main") {
+  const l = clone(layout());
+  const from = whereIs(panel);
+  const src = groupOf(l[from.dock], from.group)!;
+  const i = src.panels.indexOf(panel);
+  if (i >= 0) {
+    src.panels.splice(i, 1);
+    if (from.dock === to && from.group === group && index !== undefined && index > i) index--;
+    if (src.active === panel) src.active = src.panels[Math.max(0, i - 1)] ?? null;
+  }
+  const dock = l[to];
+  // A split needs something left in the first group; otherwise it is just a move into the dock.
+  if (group === "newSplit" && !dock.panels.length) group = "main";
+  if (group === "newSplit") {
+    dock.split ??= { panels: [], active: null, ratio: 0.6 };
+    group = "split";
+  }
+  const target = groupOf(dock, group) ?? dock;
+  const at = Math.max(0, Math.min(index ?? target.panels.length, target.panels.length));
+  target.panels.splice(at, 0, panel);
+  target.active = panel;
+  for (const d of DOCKS) tidy(l[d]);
   setLayout(l);
 }
 
 export function setActive(dock: DockId, panel: PanelId) {
-  if (layout()[dock].active === panel) return;
   const l = clone(layout());
-  l[dock].active = panel;
+  const g: GroupId = l[dock].split?.panels.includes(panel) ? "split" : "main";
+  const target = groupOf(l[dock], g)!;
+  if (target.active === panel) return;
+  target.active = panel;
   setLayout(l);
+}
+
+/** Share of a split dock the first group takes (0.15 .. 0.85). */
+export function setSplitRatio(dock: DockId, ratio: number, persist = true) {
+  const l = clone(layout());
+  if (!l[dock].split) return;
+  l[dock].split!.ratio = Math.min(0.85, Math.max(0.15, ratio));
+  if (persist) setLayout(l);
+  else setLayoutRaw(l);
 }
 
 /** Bring a panel to the front wherever it is docked. */
@@ -127,6 +189,9 @@ export function setDockSize(dock: DockId, size: number, persist = true) {
 export function resetLayout() {
   setLayout(defaultLayout());
 }
+
+/** Every panel in a dock (both groups). */
+export const dockPanels = (d: DockState): PanelId[] => [...d.panels, ...(d.split?.panels ?? [])];
 
 export function swapSides() {
   const l = clone(layout());

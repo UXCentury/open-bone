@@ -53,7 +53,7 @@
 - **Setup and Animate modes**, undo/redo for every change.
 - **Skeleton tree** with parent/child guide lines, collapsible bones and slots (Alt-click: a whole branch), **search** (matches shown with their parents; Enter selects the first) and auto-scroll to whatever you select in the viewport.
 - **Viewport aids**: checkerboard (transparent backgrounds supported), origin lines, red/green **move arrows** on the selected bone (axis-locked dragging), grid, rulers, draggable guides (saved per project) and **smart snapping** to the artboard centre/edges/origin, guides, grid, other bone joints and mesh vertices (hold Ctrl/⌘ to bypass).
-- **Dockable workspace**: resize panels, drag panel tabs to any side or group them, collapse sections; the layout is remembered and can be reset.
+- **Dockable workspace**: resize panels, drag panel tabs to any side or group them, split a dock in two (drop a tab on its lower or right part; Layout → "Preview under the Inspector"), collapse sections; the layout is remembered and can be reset. File commands, Examples (a gallery with live previews) and Layout live under the ☰ Menu button, and right-click opens editor context menus (bone and slot actions, tools, view toggles).
 - **Play mode** (▶ Play, `P`): run the result in the editor exactly as shipped, with a floating panel to toggle inputs, fire triggers and watch events, state changes and script logs; pick the state machine or animation, skin and speed, fit or 1:1, full window. Stop returns to the exact editing state.
 - **Keyboard shortcuts** that use ⌘ on macOS and Ctrl on Windows/Linux, with a searchable reference (`?`) where every key can be rebound (conflict-checked, saved per browser).
 - **Preview** panel (plays an animation or runs a state machine live, clickable, while you edit), **Outline** minimap (click to move the view) and **Stats** (bones, vertices, vertex transforms, triangles, clipping, estimated draw calls).
@@ -87,7 +87,7 @@ pnpm install
 pnpm dev
 ```
 
-The editor opens at http://localhost:5180 with the *Walker* example (IK legs, weighted cape mesh, idle/walk blend, jump trigger, eye-follow script). The *Examples* menu also has a **robot** (lip sync: its mouth is keyed from its voice; click it to talk), a **knight** (painted parts, weighted cape mesh, idle/march/wave, click to wave), an interactive button (state machine, clipping mask, click sound), a tail (path and physics constraints), a campfire (sprite sequences), a rocket (particles, click to toggle the engine) and a **crash game** (staged flow idle → fly-out → flying → crash or cash-out, a live multiplier text, input bindings and a sprite-sequence explosion). The knight, button, rocket and crash-game art is painted (see [examples/assets/canva/LICENSE.md](examples/assets/canva/LICENSE.md); MIT like the rest of the repo). Press **▶ Play** to try any of them. The player demo is at http://localhost:5180/player.html.
+The editor opens at http://localhost:5180 with the *Walker* example (IK legs, weighted cape mesh, idle/walk blend, jump trigger, eye-follow script). The *Examples* menu also has **Pip the fox** (lip sync with a real voice: art and voice made with ElevenLabs, mouth keyed automatically; click it to talk), a **robot** (lip sync with a synthesised voice), a **knight** (painted parts, weighted cape mesh, idle/march/wave, click to wave), an interactive button (state machine, clipping mask, click sound), a tail (path and physics constraints), a campfire (sprite sequences), a rocket (particles, click to toggle the engine) and a **crash game** (staged flow idle → fly-out → flying → crash or cash-out, a live multiplier text, input bindings and a sprite-sequence explosion). The knight, button, rocket and crash-game art is painted (see [examples/assets/canva/LICENSE.md](examples/assets/canva/LICENSE.md); MIT like the rest of the repo). Press **▶ Play** to try any of them. The player demo is at http://localhost:5180/player.html.
 
 ```bash
 pnpm test
@@ -153,7 +153,7 @@ Requires Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3
 | `packages/cli` | `openbone` command line |
 | `apps/editor` | SolidJS editor |
 | `apps/desktop` | Tauri 2 shell around the editor, with native file dialogs |
-| `examples` | Walker, robot, knight, button, tail, campfire, rocket and crash-game projects, their art, and the script that builds them |
+| `examples` | Walker, fox, robot, knight, button, tail, campfire, rocket and crash-game projects, their art, and the script that builds them |
 
 Read [docs/architecture.md](docs/architecture.md) for the design and [docs/format.md](docs/format.md) for the file format.
 

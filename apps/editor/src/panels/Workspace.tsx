@@ -2,6 +2,7 @@ import { For, type JSX, Match, Show, Switch, createSignal, onCleanup } from "sol
 import {
   DEFAULT_SIZE,
   type DockId,
+  type GroupId,
   MIN_SIZE,
   PANELS,
   type PanelId,
@@ -11,6 +12,7 @@ import {
   setActive,
   setDockSize,
   setDraggingPanel,
+  setSplitRatio,
 } from "../layout.ts";
 import { Hierarchy } from "./Hierarchy.tsx";
 import { Inspector } from "./Inspector.tsx";
@@ -49,7 +51,7 @@ function PanelContent(p: { id: PanelId }) {
 
 // ---------------- drag & drop ----------------
 
-type Drop = { dock: DockId; index?: number; rect: DOMRect };
+type Drop = { dock: DockId; index?: number; group?: GroupId | "newSplit"; rect: DOMRect };
 const [ghost, setGhost] = createSignal<{ x: number; y: number; title: string } | null>(null);
 const [drop, setDrop] = createSignal<Drop | null>(null);
 
@@ -61,13 +63,27 @@ function dropTarget(x: number, y: number): Drop | null {
   const tabs = el?.closest<HTMLElement>(".dock-tabs[data-dock]");
   if (tabs) {
     const dock = tabs.dataset.dock as DockId;
+    const group = (tabs.dataset.group ?? "main") as GroupId;
     const items = [...tabs.querySelectorAll<HTMLElement>(".dock-tab")];
     let index = items.findIndex((t) => {
       const r = t.getBoundingClientRect();
       return x < r.left + r.width / 2;
     });
     if (index < 0) index = items.length;
-    return { dock, index, rect: tabs.closest<HTMLElement>(".dock")!.getBoundingClientRect() };
+    return { dock, index, group, rect: tabs.closest<HTMLElement>(".dock-group")!.getBoundingClientRect() };
+  }
+  const groupEl = el?.closest<HTMLElement>(".dock-group[data-dock]");
+  if (groupEl) {
+    const dock = groupEl.dataset.dock as DockId;
+    const group = (groupEl.dataset.group ?? "main") as GroupId;
+    const r = groupEl.getBoundingClientRect();
+    // The far part of an unsplit dock (bottom of a side dock, right of the bottom dock) splits it.
+    if (group === "main" && !layout()[dock].split) {
+      const side = dock !== "bottom";
+      const t = side ? (y - r.top) / r.height : (x - r.left) / r.width;
+      if (t > 0.6) return { dock, group: "newSplit", rect: side ? new DOMRect(r.left, r.top + r.height * 0.5, r.width, r.height * 0.5) : new DOMRect(r.left + r.width * 0.5, r.top, r.width * 0.5, r.height) };
+    }
+    return { dock, group, rect: r };
   }
   const dockEl = el?.closest<HTMLElement>(".dock[data-dock]");
   if (dockEl) return { dock: dockEl.dataset.dock as DockId, rect: dockEl.getBoundingClientRect() };
@@ -113,7 +129,7 @@ function startTabDrag(e: PointerEvent, dock: DockId, panel: PanelId) {
       if (commit) setActive(dock, panel);
       return;
     }
-    if (commit && d) movePanel(panel, d.dock, d.index);
+    if (commit && d) movePanel(panel, d.dock, d.index, d.group === "newSplit" ? "newSplit" : (d.group ?? "main"));
   };
   const up = () => end(true);
   const key = (k: KeyboardEvent) => {
@@ -137,7 +153,7 @@ export function DragOverlay() {
             class="drop-preview"
             style={{ left: `${d().rect.left}px`, top: `${d().rect.top}px`, width: `${d().rect.width}px`, height: `${d().rect.height}px` }}
           >
-            <span>{d().index !== undefined ? "Add as tab" : `Dock ${d().dock}`}</span>
+            <span>{d().group === "newSplit" ? "Split" : d().index !== undefined ? "Add as tab" : `Dock ${d().dock}`}</span>
           </div>
         )}
       </Show>
@@ -148,35 +164,90 @@ export function DragOverlay() {
 
 // ---------------- docks ----------------
 
+/** One tab group: a tab strip and the active panel. */
+function TabGroup(p: { dock: DockId; group: GroupId; panels: PanelId[]; active: PanelId | null; style?: JSX.CSSProperties }) {
+  return (
+    <div class="dock-group" data-dock={p.dock} data-group={p.group} style={p.style}>
+      <div class="dock-tabs" data-dock={p.dock} data-group={p.group} role="tablist" aria-label={`${p.dock} dock${p.group === "split" ? " (split)" : ""}`}>
+        <For each={p.panels}>
+          {(panel) => (
+            <button
+              class="dock-tab"
+              role="tab"
+              aria-selected={p.active === panel}
+              classList={{ active: p.active === panel, dragged: draggingPanel() === panel }}
+              title="Drag to move this panel: onto a tab strip to group it, to another side, or to the lower part of a dock to split it"
+              onPointerDown={(e) => startTabDrag(e, p.dock, panel)}
+              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setActive(p.dock, panel)}
+            >
+              {PANELS[panel].title}
+            </button>
+          )}
+        </For>
+      </div>
+      <div class="dock-body" role="tabpanel">
+        <Show when={p.active} keyed>
+          {(id) => <PanelContent id={id} />}
+        </Show>
+      </div>
+    </div>
+  );
+}
+
+/** Divider between the two groups of a split dock. Double-click evens them out. */
+function GroupSplitter(p: { dock: DockId }) {
+  const side = p.dock !== "bottom";
+  const down = (e: PointerEvent) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    const el = e.currentTarget as HTMLElement;
+    const box = el.parentElement!.getBoundingClientRect();
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch {
+      /* synthetic pointer */
+    }
+    document.body.classList.add(side ? "resizing-y" : "resizing-x");
+    const ratio = (m: PointerEvent) => (side ? (m.clientY - box.top) / box.height : (m.clientX - box.left) / box.width);
+    const move = (m: PointerEvent) => setSplitRatio(p.dock, ratio(m), false);
+    const up = (m: PointerEvent) => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerup", up);
+      document.body.classList.remove("resizing-x", "resizing-y");
+      setSplitRatio(p.dock, ratio(m), true);
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+  };
+  return (
+    <div
+      class={`group-splitter ${side ? "splitter-y" : "splitter-x"}`}
+      role="separator"
+      aria-orientation={side ? "horizontal" : "vertical"}
+      title="Drag to resize the two groups · double-click to even them"
+      onPointerDown={down}
+      onDblClick={() => setSplitRatio(p.dock, 0.5)}
+    />
+  );
+}
+
 export function Dock(p: { id: DockId }) {
   const state = () => layout()[p.id];
   const style = (): JSX.CSSProperties =>
     p.id === "bottom" ? { height: `min(${state().size}px, calc(100% - 140px))` } : { width: `min(${state().size}px, 45vw)` };
+  const share = (r: number): JSX.CSSProperties => ({ flex: `${r} 1 0` });
   return (
     <Show when={state().panels.length}>
-      <section class={`dock dock-${p.id}`} data-dock={p.id} style={style()}>
-        <div class="dock-tabs" data-dock={p.id} role="tablist" aria-label={`${p.id} dock`}>
-          <For each={state().panels}>
-            {(panel) => (
-              <button
-                class="dock-tab"
-                role="tab"
-                aria-selected={state().active === panel}
-                classList={{ active: state().active === panel, dragged: draggingPanel() === panel }}
-                title="Drag to move this panel to another side"
-                onPointerDown={(e) => startTabDrag(e, p.id, panel)}
-                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setActive(p.id, panel)}
-              >
-                {PANELS[panel].title}
-              </button>
-            )}
-          </For>
-        </div>
-        <div class="dock-body" role="tabpanel">
-          <Show when={state().active} keyed>
-            {(id) => <PanelContent id={id} />}
-          </Show>
-        </div>
+      <section class={`dock dock-${p.id}`} classList={{ "dock-split": !!state().split }} data-dock={p.id} style={style()}>
+        <TabGroup dock={p.id} group="main" panels={state().panels} active={state().active} style={state().split ? share(state().split!.ratio) : { flex: "1 1 0" }} />
+        <Show when={state().split}>
+          {(sp) => (
+            <>
+              <GroupSplitter dock={p.id} />
+              <TabGroup dock={p.id} group="split" panels={sp().panels} active={sp().active} style={share(1 - sp().ratio)} />
+            </>
+          )}
+        </Show>
       </section>
     </Show>
   );
