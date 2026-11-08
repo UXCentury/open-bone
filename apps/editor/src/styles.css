@@ -430,6 +430,8 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
 .viewport.with-rulers .viewport-hint { top: 26px; left: 28px; }
 .viewport.with-rulers .mesh-panel { top: 52px; left: 28px; }
 .viewport.with-rulers .view-bar { top: 24px; }
+.view-bar .pose-chain { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.view-bar .pose-chain select { padding: 1px 4px; }
 .view-bar .bg-toggle { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px; font-size: 11px; }
 .bg-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid #ffffff40; }
 .bg-swatch.none { background: conic-gradient(#d6d9df 25%, #eceef2 0 50%, #d6d9df 0 75%, #eceef2 0) 0 0 / 6px 6px; }

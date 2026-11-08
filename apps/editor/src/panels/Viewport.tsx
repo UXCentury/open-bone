@@ -3,7 +3,7 @@ import { toggleBackground } from "../background.ts";
 import { applySequencePreview } from "../sequence-import.ts";
 import { type Guide, clearGuides, guides, newGuideId, removeGuide, setViewAid, toggleViewAid, upsertGuide, viewAids } from "../guides.ts";
 import { CanvasRenderer } from "@openbone/render-canvas";
-import { type Bone, type ScriptHost, Skeleton, StateMachineInstance, applyAnimation, trustedFunctionHost } from "@openbone/runtime";
+import { type Bone, type ScriptHost, Skeleton, StateMachineInstance, applyAnimation, poseChainFrom, poseEffector, poseGrabPoint, solvePose, trustedFunctionHost } from "@openbone/runtime";
 import { createQuickJsHost } from "@openbone/scripting";
 import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { imageFor, setImageReadyCallback } from "../images.ts";
@@ -42,6 +42,9 @@ import {
   store,
   time,
   tool,
+  poseChain,
+  setPoseChain,
+  transaction,
   apply,
   setRunning,
   toast,
@@ -77,6 +80,8 @@ type Drag =
   | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
   | { kind: "bone"; op: "rotate" | "translate" | "scale"; bone: Bone; start: [number, number]; startWorld: [number, number]; base: Partial<BoneData>; cur: Partial<BoneData>; axis?: "x" | "y" }
   | { kind: "guide"; guide: Guide; isNew: boolean }
+  /** Pose tool: the chain bends so the grabbed point follows the pointer; rotations previewed until release. */
+  | { kind: "pose"; chain: Bone[]; local: [number, number]; base: Map<Bone, number>; cur: Map<Bone, number>; target: [number, number] }
   | { kind: "attachment"; slotId: string; name: string; start: [number, number]; base: [number, number]; cur: [number, number]; inv: ReturnType<typeof invert>; preview: Skeleton | null; startWorld: [number, number] }
   | { kind: "create"; parent: Bone | null; start: [number, number]; end: [number, number] }
   | { kind: "vertex"; t: MeshTarget; start: [number, number]; anchor: number; base: Map<number, [number, number]>; moved: Map<number, [number, number]>; preview: Skeleton | null }
@@ -200,6 +205,7 @@ export function Viewport() {
         sk.setToSetupPose();
       }
       if (drag?.kind === "bone") Object.assign(drag.bone, drag.cur);
+      if (drag?.kind === "pose") for (const [b, r] of drag.cur) b.rotation = r;
       sk.update(dt);
       sk.updateWorldTransform();
     }
@@ -274,6 +280,7 @@ export function Viewport() {
     if (meshToolOn()) drawMeshOverlay(ctx, v, shown);
     const gz = gizmoBone(shown);
     if (gz) drawGizmo(ctx, dpr, gz);
+    if (drag?.kind === "pose") drawPoseTarget(ctx, dpr, drag);
     if (drag?.kind === "create") {
       ctx.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
       ctx.beginPath();
@@ -384,6 +391,36 @@ export function Viewport() {
     ctx.lineWidth = 1;
     ctx.fillRect(sx - 4.5, sy - 4.5, 9, 9);
     ctx.strokeRect(sx - 4.5, sy - 4.5, 9, 9);
+    ctx.restore();
+  }
+
+  /** Pose drag: the chain highlighted, and a line from the grabbed point to the pointer. */
+  function drawPoseTarget(ctx: CanvasRenderingContext2D, dpr: number, d: Extract<Drag, { kind: "pose" }>) {
+    const [ex, ey] = poseEffector({ bones: d.chain, local: d.local });
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.strokeStyle = "#ffcc00";
+    ctx.lineWidth = 3;
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    for (const b of d.chain) {
+      const [tx, ty] = applyM(b.world, b.data.length, 0);
+      ctx.moveTo(skToScreenX(b.world.x), skToScreenY(b.world.y));
+      ctx.lineTo(skToScreenX(tx), skToScreenY(ty));
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(skToScreenX(ex), skToScreenY(ey));
+    ctx.lineTo(skToScreenX(d.target[0]), skToScreenY(d.target[1]));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = "#ffcc00";
+    ctx.beginPath();
+    ctx.arc(skToScreenX(d.target[0]), skToScreenY(d.target[1]), 4, 0, Math.PI * 2);
+    ctx.fill();
     ctx.restore();
   }
 
@@ -895,6 +932,19 @@ export function Viewport() {
     }
     const bone = pickBone(x, y);
     const slot = bone ? null : pickSlot(x, y);
+    if (t === "pose") {
+      // Grab a bone (or the bone of a clicked image): it and its parents bend so the grabbed point follows.
+      const grabbed = bone ?? slot?.bone ?? null;
+      if (!grabbed) {
+        setSelection(null);
+        return;
+      }
+      setSelection({ kind: "bone", id: grabbed.data.id });
+      const chain = poseChainFrom(grabbed, e.shiftKey ? 1 : poseChain());
+      const base = new Map(chain.map((b) => [b, b.rotation] as [Bone, number]));
+      drag = { kind: "pose", chain, local: poseGrabPoint(grabbed, x, y), base, cur: new Map(base), target: [x, y] };
+      return;
+    }
     if (bone) setSelection({ kind: "bone", id: bone.data.id });
     else if (slot) setSelection({ kind: "slot", id: slot.data.id });
     else {
@@ -941,6 +991,15 @@ export function Viewport() {
       if (a.snap && !e.ctrlKey && !e.metaKey && a.grid && a.snapGrid && Math.abs(pos - Math.round(pos / a.gridSize) * a.gridSize) < 6 / view.zoom) pos = Math.round(pos / a.gridSize) * a.gridSize;
       drag.guide = { ...drag.guide, pos: Math.round(pos) };
       hoverInfo = `guide ${drag.guide.axis} = ${drag.guide.pos}${(drag.guide.axis === "x" ? mx < RULER : my < RULER) ? "  (release to remove)" : ""}`;
+      return;
+    }
+    if (drag.kind === "pose") {
+      // Solve from the current preview pose so the chain moves smoothly with the pointer.
+      for (const [b, r] of drag.cur) b.rotation = r;
+      sk!.updateWorldTransform();
+      solvePose({ bones: drag.chain, local: drag.local }, x, y);
+      drag.cur = new Map(drag.chain.map((b) => [b, round2(b.rotation)] as [Bone, number]));
+      drag.target = [x, y];
       return;
     }
     if (drag.kind === "pan") {
@@ -1038,6 +1097,14 @@ export function Viewport() {
     drag = null;
     snapLines = [];
     if (!d) return;
+    if (d.kind === "pose") {
+      const changed = d.chain.filter((b) => Math.abs(d.cur.get(b)! - d.base.get(b)!) > 1e-6);
+      if (changed.length)
+        transaction(changed.length > 1 ? `Pose ${changed.length} bones` : "Pose bone", () => {
+          for (const b of changed) commitBone(b.data.id, { rotation: d.cur.get(b)! });
+        });
+      return;
+    }
     if (d.kind === "guide") {
       const overRuler = d.guide.axis === "x" ? mx < RULER : my < RULER;
       if (overRuler) {
@@ -1203,6 +1270,15 @@ export function Viewport() {
           <span class="bg-swatch" classList={{ none: !doc().background }} style={doc().background ? { background: doc().background! } : {}} />
           BG
         </button>
+        <Show when={tool() === "pose"}>
+          <label class="pose-chain" title="Pose tool: how many bones bend when you drag one (the dragged bone and its parents). Shift-drag moves only the grabbed bone.">
+            Chain
+            <select value={String(poseChain())} onChange={(e) => setPoseChain(Number(e.currentTarget.value))}>
+              <For each={[1, 2, 3, 4, 5]}>{(n) => <option value={n} selected={poseChain() === n}>{n}</option>}</For>
+              <option value="99" selected={poseChain() === 99}>to root</option>
+            </select>
+          </label>
+        </Show>
         <Show when={aidsOpen()}>
           <div class="aids-pop" role="dialog" aria-label="Grid and snapping options">
             <label class="field">

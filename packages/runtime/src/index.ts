@@ -8,3 +8,4 @@ export * from "./emitter.ts";
 export * from "./audio.ts";
 export * from "./particles.ts";
 export * from "./text.ts";
+export * from "./pose.ts";

@@ -222,6 +222,12 @@ function setupValues(kind: ConstraintTarget, c: object): Record<string, number> 
     if (kind === "transform" && p === "mix") continue;
     out[p] = typeof src[p] === "number" ? (src[p] as number) : 0;
   }
+  if (kind === "ik") {
+    // Keyable switches start from the constraint's own settings.
+    out.bend = src.bendPositive ? 1 : -1;
+    out.stretch = src.stretch ? 1 : 0;
+    out.compress = src.compress ? 1 : 0;
+  }
   return out;
 }
 
@@ -510,6 +516,11 @@ export class Skeleton {
   private applyIk(c: IkConstraintData, v: Record<string, number>) {
     const mix = v.mix;
     if (mix <= 0) return;
+    // Bend, stretch and compress can be keyed (stepped); otherwise they are the constraint's settings.
+    const bendPositive = (v.bend ?? (c.bendPositive ? 1 : -1)) > 0;
+    const stretch = (v.stretch ?? (c.stretch ? 1 : 0)) > 0;
+    const compress = (v.compress ?? (c.compress ? 1 : 0)) > 0;
+    const uniform = !!c.uniform;
     const target = this.boneById.get(c.target);
     const bones = c.bones.map((id) => this.boneById.get(id)).filter(Boolean) as Bone[];
     if (!target || bones.length === 0) return;
@@ -528,12 +539,16 @@ export class Skeleton {
       b.applied.rotation += wrap(want - b.applied.rotation) * mix;
       b.updateWorld(root);
       const len = b.data.length * worldScaleX(b.world);
-      if ((c.stretch || c.compress) && len > 1e-6) {
+      if ((stretch || compress) && len > 1e-6) {
         const k = Math.hypot(dx, dy) / len;
-        if ((k > 1 && c.stretch) || (k < 1 && c.compress)) {
+        if ((k > 1 && stretch) || (k < 1 && compress)) {
           const s = 1 + (k - 1) * mix;
           b.world.a *= s;
           b.world.c *= s;
+          if (uniform) {
+            b.world.b *= s;
+            b.world.d *= s;
+          }
         }
       }
       b.updateSubtree(root, false);
@@ -560,7 +575,7 @@ export class Skeleton {
     const ay = py + uy * dEff;
     const base = Math.atan2(uy, ux);
     const cosA = (l1 * l1 + dEff * dEff - l2 * l2) / (2 * l1 * dEff || 1);
-    const a1 = base + (c.bendPositive ? -1 : 1) * Math.acos(Math.max(-1, Math.min(1, cosA)));
+    const a1 = base + (bendPositive ? -1 : 1) * Math.acos(Math.max(-1, Math.min(1, cosA)));
     // Rotate parent so its child origin points along a1.
     const curDir = Math.atan2(ch.world.y - py, ch.world.x - px);
     const sP = det(p.parent ? p.parent.world : root);
@@ -578,13 +593,16 @@ export class Skeleton {
     p.updateWorld(root);
     ch.updateWorld(root);
     // Stretch: scale both bones along their length so the tip reaches the real target.
-    if (c.stretch && dRaw > dEff + 1e-9) {
+    if (stretch && dRaw > dEff + 1e-9) {
       const s = 1 + (dRaw / dEff - 1) * mix;
       const cw = ch.world;
+      const u = uniform ? s : 1;
       p.world.a *= s;
       p.world.c *= s;
+      p.world.b *= u;
+      p.world.d *= u;
       const [ox, oy] = apply(p.world, ch.applied.x, ch.applied.y);
-      ch.world = { a: cw.a * s, b: cw.b, c: cw.c * s, d: cw.d, x: ox, y: oy };
+      ch.world = { a: cw.a * s, b: cw.b * u, c: cw.c * s, d: cw.d * u, x: ox, y: oy };
     }
     ch.updateSubtree(root, false);
     for (const sib of p.children) if (sib !== ch) sib.updateSubtree(root);

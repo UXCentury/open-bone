@@ -379,6 +379,8 @@ export interface IkConstraintData {
   stretch: boolean;
   /** 1-bone only: scale the bone down when the target is closer than its length. */
   compress: boolean;
+  /** With stretch/compress: scale both axes (keeps the image's proportions) instead of only along the bone. */
+  uniform?: boolean;
 }
 
 export interface TransformConstraintData {
@@ -482,7 +484,10 @@ export type Curve = "linear" | "stepped" | [number, number, number, number];
 export type BoneProperty = "rotation" | "x" | "y" | "scaleX" | "scaleY" | "shearX" | "shearY";
 export const BONE_PROPERTIES: BoneProperty[] = ["rotation", "x", "y", "scaleX", "scaleY", "shearX", "shearY"];
 
-export type IkProperty = "mix" | "softness";
+/** bend (1 = positive, -1 = negative), stretch and compress (1 = on, 0 = off) key in steps, like Spine's IK timeline. */
+export type IkProperty = "mix" | "softness" | "bend" | "stretch" | "compress";
+/** IK values that switch at each key instead of blending. */
+export const IK_STEP_PROPERTIES: IkProperty[] = ["bend", "stretch", "compress"];
 export type TransformProperty = "mix" | "mixRotate" | "mixTranslate" | "mixScale" | "mixShear";
 export type PathProperty = "position" | "spacing" | "mixRotate" | "mixX" | "mixY";
 export type PhysicsProperty = "mix" | "inertia" | "strength" | "damping" | "mass" | "gravity" | "wind";
@@ -498,7 +503,7 @@ export const CONSTRAINT_PROPERTIES: {
   path: PathProperty[];
   physics: PhysicsProperty[];
 } = {
-  ik: ["mix", "softness"],
+  ik: ["mix", "softness", "bend", "stretch", "compress"],
   transform: ["mix", "mixRotate", "mixTranslate", "mixScale", "mixShear"],
   path: ["position", "spacing", "mixRotate", "mixX", "mixY"],
   physics: ["mix", "inertia", "strength", "damping", "mass", "gravity", "wind"],

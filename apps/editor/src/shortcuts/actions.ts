@@ -186,6 +186,7 @@ export function setupShortcuts(): () => void {
     b("tool.select", () => setTool("select")),
     b("tool.translate", () => setTool("translate")),
     b("tool.scale", () => setTool("scale")),
+    b("tool.pose", () => setTool("pose")),
     b("tool.bone", () => setTool("bone")),
     b("tool.mesh", () => setTool("mesh")),
     b("tool.weights", () => setTool("weights")),

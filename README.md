@@ -11,7 +11,7 @@
 - **Slots** with draw order, colour/alpha tint and blend modes (normal, additive, multiply, screen).
 - **Skins**: create, duplicate, rename and delete outfits, switch them live in the viewport, player and previews; attachments can override the default skin per outfit.
 - **Constraints**
-  - **IK**: 1- and 2-bone, mix, bend direction, softness, stretch and compress.
+  - **IK**: 1- and 2-bone, mix, bend direction, softness, stretch, compress and uniform scaling; mix and softness blend between keys, bend/stretch/compress key in steps (like Spine's IK timeline).
   - **Transform**: rotate/translate/scale/shear mixes, world or local space, absolute or relative.
   - **Path**: place and rotate a bone chain along a bezier path, with position, spacing and rotate modes.
   - **Physics**: secondary motion (hair, cloth, tails) with inertia, strength, damping, gravity and wind; deterministic fixed timestep.
@@ -45,7 +45,7 @@
 - **Mixer**: named buses (sfx, music, ui, or your own) with volume and mute, and a master volume. The runtime only emits play/stop/fade commands; the player and editor play them with Web Audio, unlocking on the first click or key press.
 
 ### Editor
-- **Tools**: select/rotate, translate, scale, create bone, **mesh vertex editing** (select, drag, add, delete, nudge; re-triangulates) and **weight painting** (brush with add/remove, radius and strength, heat-map and per-vertex weight readout).
+- **Tools**: select/rotate, translate, scale, **Pose** (`I`: drag any bone and it plus its parents bend to follow, inverse kinematics without setting up a constraint; chain length 1–5 or to the root, Shift for just the grabbed bone; keys in Animate mode), create bone, **mesh vertex editing** (select, drag, add, delete, nudge; re-triangulates) and **weight painting** (brush with add/remove, radius and strength, heat-map and per-vertex weight readout).
 - **Setup and Animate modes**, undo/redo for every change.
 - **Skeleton tree** with parent/child guide lines, collapsible bones and slots (Alt-click: a whole branch), **search** (matches shown with their parents; Enter selects the first) and auto-scroll to whatever you select in the viewport.
 - **Viewport aids**: checkerboard (transparent backgrounds supported), origin lines, red/green **move arrows** on the selected bone (axis-locked dragging), grid, rulers, draggable guides (saved per project) and **smart snapping** to the artboard centre/edges/origin, guides, grid, other bone joints and mesh vertices (hold Ctrl/⌘ to bypass).

@@ -4,6 +4,7 @@ import {
   type EventKey,
   type Key,
   type OpenBoneDocument,
+  IK_STEP_PROPERTIES,
   animationDuration,
   evalCurve,
   lerp,
@@ -110,7 +111,10 @@ export function applyAnimation(sk: Skeleton, anim: AnimationData, time: number, 
         const values = sk.constraintValues.get(tl.id);
         if (!values) break;
         const prop: string = tl.property;
-        values[prop] = lerp(values[prop] ?? 0, sampleNumber(tl.keys, time), alpha);
+        if (tl.target === "ik" && (IK_STEP_PROPERTIES as string[]).includes(prop)) {
+          // Switches (bend direction, stretch, compress) change at keys, never blend.
+          if (alpha >= 0.5) values[prop] = Number(sampleStep(tl.keys as Key<number | boolean>[], time));
+        } else values[prop] = lerp(values[prop] ?? 0, sampleNumber(tl.keys, time), alpha);
         break;
       }
       case "particles": {

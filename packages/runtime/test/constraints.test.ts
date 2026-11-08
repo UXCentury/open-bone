@@ -91,6 +91,51 @@ describe("IK softness / stretch / compress", () => {
   });
 });
 
+describe("IK keyed switches and uniform", () => {
+  const elbowY = (sk: Skeleton) => sk.findBone("lower")!.world.y;
+
+  it("bend direction keys in steps and flips the elbow", () => {
+    const s = arm(120, 0);
+    s.apply("addIkConstraint", { name: "ik", bones: ["upper", "lower"], target: "target", bendPositive: true });
+    s.apply("createAnimation", { name: "a", duration: 1 });
+    s.apply("setKeys", { animation: "a", target: "ik", id: "ik", property: "bend", keys: [{ time: 0, value: 1, curve: "stepped" }, { time: 0.5, value: -1, curve: "stepped" }] });
+    const inst = new OpenBoneInstance(s.doc);
+    inst.play("a");
+    inst.advance(0.25);
+    const before = elbowY(inst.skeleton);
+    inst.advance(0.5); // t = 0.75
+    const after = elbowY(inst.skeleton);
+    expect(Math.sign(before)).toBe(-Math.sign(after));
+    expect(Math.abs(before)).toBeCloseTo(Math.abs(after), 3);
+    // The tip still reaches the target either way.
+    expect(dist(tipOf(inst.skeleton, "lower"), [120, 0])).toBeLessThan(0.01);
+  });
+
+  it("stretch can be keyed on and off", () => {
+    const s = arm(260, 0);
+    s.apply("addIkConstraint", { name: "ik", bones: ["upper", "lower"], target: "target" });
+    s.apply("createAnimation", { name: "a", duration: 1 });
+    s.apply("setKeys", { animation: "a", target: "ik", id: "ik", property: "stretch", keys: [{ time: 0, value: 0, curve: "stepped" }, { time: 0.5, value: 1, curve: "stepped" }] });
+    const inst = new OpenBoneInstance(s.doc);
+    inst.play("a");
+    inst.advance(0.2);
+    expect(dist(tipOf(inst.skeleton, "lower"), [0, 0])).toBeCloseTo(200, 1);
+    inst.advance(0.5);
+    expect(dist(tipOf(inst.skeleton, "lower"), [0, 0])).toBeCloseTo(260, 1);
+  });
+
+  it("uniform stretch scales across the bone too", () => {
+    const sy = (uniform: boolean) => {
+      const s = arm(260, 0);
+      s.apply("addIkConstraint", { bones: ["upper", "lower"], target: "target", stretch: true, uniform });
+      const w = new Skeleton(s.doc).findBone("upper")!.world;
+      return Math.hypot(w.b, w.d);
+    };
+    expect(sy(false)).toBeCloseTo(1, 5);
+    expect(sy(true)).toBeCloseTo(1.3, 3);
+  });
+});
+
 describe("transform constraint modes", () => {
   function pair() {
     const s = new DocumentStore(createDocument("tc"));

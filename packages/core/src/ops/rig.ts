@@ -793,6 +793,7 @@ const ikProps = {
   softness: z.number().min(0).optional().describe("2-bone only: distance before full extension where the chain eases into straight (0 = off)"),
   stretch: z.boolean().optional().describe("Scale bones up along their length when the target is out of reach"),
   compress: z.boolean().optional().describe("1-bone only: scale the bone down when the target is closer than its length"),
+  uniform: z.boolean().optional().describe("With stretch/compress: scale both axes, keeping proportions"),
 };
 
 defineOp({
@@ -826,6 +827,7 @@ defineOp({
       softness: a.softness ?? 0,
       stretch: a.stretch ?? false,
       compress: a.compress ?? false,
+      ...(a.uniform ? { uniform: true } : {}),
     });
     return { id, name };
   },
@@ -834,7 +836,7 @@ defineOp({
 defineOp({
   name: "updateIkConstraint",
   group: "constraint",
-  description: "Change an IK constraint's mix, bend direction, softness, stretch/compress, target or name.",
+  description: "Change an IK constraint's mix, bend direction, softness, stretch/compress/uniform, target or name. Animate bend/stretch/compress with setKeys (properties bend: 1|-1, stretch: 1|0, compress: 1|0; stepped).",
   schema: z.object({ constraint: ref("IK constraint"), name: z.string().optional(), target: ref("Bone").optional(), ...ikProps }),
   apply(doc, a) {
     const ik = get.ik(doc, a.constraint);
@@ -844,7 +846,7 @@ defineOp({
       if (ik.bones.some((b) => descendantIds(doc, b).has(t.id))) throw new Error("IK target must not be a descendant of a constrained bone");
       ik.target = t.id;
     }
-    assignDefined(ik, a, ["mix", "bendPositive", "softness", "stretch", "compress"]);
+    assignDefined(ik, a, ["mix", "bendPositive", "softness", "stretch", "compress", "uniform"]);
     return {};
   },
 });

@@ -260,6 +260,23 @@ function Check(p: { label: string; checked: boolean; onChange: (v: boolean) => v
   );
 }
 
+/** An IK on/off setting: a checkbox in Setup mode; in Animate mode it sets a stepped key (◆), like Spine's IK keys. */
+function IkSwitch(p: { id: string; prop: "bend" | "stretch" | "compress"; label: string; title?: string; checked: boolean; onSetup: (v: boolean) => void; on?: number; off?: number }) {
+  const animate = () => mode() === "animate";
+  const value = (v: boolean) => (v ? (p.on ?? 1) : (p.off ?? 0));
+  return (
+    <label class="field" title={p.title}>
+      <span>{p.label}</span>
+      <input type="checkbox" checked={p.checked} onChange={(e) => (animate() ? keyConstraint("ik", p.id, p.prop, value(e.currentTarget.checked)) : p.onSetup(e.currentTarget.checked))} />
+      <Show when={animate()}>
+        <button class="key-btn" classList={{ keyed: isKeyed("ik", p.id, p.prop) }} title={`Key ${p.label} at this time (stepped)`} onClick={(e) => (e.preventDefault(), keyConstraint("ik", p.id, p.prop, value(p.checked)))}>
+          ◆
+        </button>
+      </Show>
+    </label>
+  );
+}
+
 function AnimateHint() {
   return (
     <Show when={mode() === "animate"}>
@@ -513,10 +530,13 @@ function IkInspector(p: { id: string }) {
         <Show when={c()!.bones.length === 2}>
           <CNumber kind="ik" id={p.id} prop="softness" label="Softness" min={0} value={c()!.softness} />
         </Show>
-        <Check label="Bend +" checked={c()!.bendPositive} onChange={(v) => set({ bendPositive: v })} />
-        <Check label="Stretch" title="Scale bones up to reach a far target" checked={c()!.stretch} onChange={(v) => set({ stretch: v })} />
+        <IkSwitch id={p.id} prop="bend" label="Bend +" title="Which way the elbow/knee bends" checked={c()!.bendPositive} onSetup={(v) => set({ bendPositive: v })} on={1} off={-1} />
+        <IkSwitch id={p.id} prop="stretch" label="Stretch" title="Scale bones up to reach a far target" checked={c()!.stretch} onSetup={(v) => set({ stretch: v })} />
         <Show when={c()!.bones.length === 1}>
-          <Check label="Compress" title="Scale the bone down when the target is closer than its length" checked={c()!.compress} onChange={(v) => set({ compress: v })} />
+          <IkSwitch id={p.id} prop="compress" label="Compress" title="Scale the bone down when the target is closer than its length" checked={c()!.compress} onSetup={(v) => set({ compress: v })} />
+        </Show>
+        <Show when={c()!.stretch || (c()!.bones.length === 1 && c()!.compress)}>
+          <Check label="Uniform" title="Scale both axes when stretching or compressing, so the art keeps its proportions" checked={!!c()!.uniform} onChange={(v) => set({ uniform: v })} />
         </Show>
         <button class="danger" onClick={() => apply("deleteConstraint", { constraint: p.id }) !== undefined && setSelection(null)}>
           Delete

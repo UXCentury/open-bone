@@ -47,7 +47,9 @@ export function keySlot(slotId: string, property: "color" | "attachment", value:
 /** Key a constraint value at the current time (Animate mode). */
 export function keyConstraint(target: "ik" | "transform" | "path" | "physics", id: string, property: string, value: number) {
   const anim = ensureAnimation();
-  if (anim) apply("setKeys", { animation: anim, target, id, property, keys: [{ time: round3(time()), value }] });
+  // IK switches (bend, stretch, compress) change at keys instead of blending.
+  const stepped = target === "ik" && (property === "bend" || property === "stretch" || property === "compress");
+  if (anim) apply("setKeys", { animation: anim, target, id, property, keys: [{ time: round3(time()), value, ...(stepped ? { curve: "stepped" } : {}) }] });
 }
 
 export function commitAttachmentMove(slotId: string, name: string, x: number, y: number) {

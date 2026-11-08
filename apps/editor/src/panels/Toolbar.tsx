@@ -38,6 +38,7 @@ const TOOLS: { id: Tool; label: string; title: string }[] = [
   { id: "select", label: "⟲", title: "Select / rotate bones" },
   { id: "translate", label: "✥", title: "Translate bones / move attachments" },
   { id: "scale", label: "⤡", title: "Scale bones, shift = uniform" },
+  { id: "pose", label: "IK", title: "Pose: drag a bone and its parents bend to follow (inverse kinematics). Shift: only that bone" },
   { id: "bone", label: "🦴", title: "Create bone: drag from parent" },
   { id: "mesh", label: "◇", title: "Edit mesh vertices: select, drag, Ctrl/⌘-click to add, Delete to remove" },
   { id: "weights", label: "◐", title: "Paint mesh weights for a bone" },

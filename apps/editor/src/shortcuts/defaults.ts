@@ -31,6 +31,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDef[] = [
   { id: "tool.select", label: "Select / rotate tool", group: "Tools", keys: ["V", "R"], scope: "editor" },
   { id: "tool.translate", label: "Translate tool", group: "Tools", keys: ["T"], scope: "editor" },
   { id: "tool.scale", label: "Scale tool", group: "Tools", keys: ["S"], scope: "editor" },
+  { id: "tool.pose", label: "Pose tool (IK drag)", group: "Tools", keys: ["I"], scope: "editor" },
   { id: "tool.bone", label: "Create bone tool", group: "Tools", keys: ["B"], scope: "editor" },
   { id: "tool.mesh", label: "Mesh edit tool", group: "Tools", keys: ["M"], scope: "editor" },
   { id: "tool.weights", label: "Weight paint tool", group: "Tools", keys: ["W"], scope: "editor" },
