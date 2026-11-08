@@ -4,6 +4,7 @@ import { OpenBoneInstance } from "@openbone/runtime";
 import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { WebAudioBackend } from "@openbone/player";
 import { audio as editorAudio, resolveAudioUrl } from "../audio.ts";
+import { fillArtboard } from "../checker.ts";
 import { imageFor } from "../images.ts";
 import { animationId, doc } from "../state.ts";
 import { viewportApi } from "./Viewport.tsx";
@@ -33,8 +34,7 @@ export function renderInstance(
   ctx.fillStyle = "#15171c";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   const f = fitArtboard(d, w, h);
-  ctx.fillStyle = d.background ?? "#2a2e37";
-  ctx.fillRect(f.ox * dpr, f.oy * dpr, d.width * f.z * dpr, d.height * f.z * dpr);
+  fillArtboard(ctx, d.background, f.ox * dpr, f.oy * dpr, d.width * f.z * dpr, d.height * f.z * dpr, 6 * dpr);
   const resolve = (id: string) => {
     const a = textureAssets(d).find((i) => i.id === id);
     return a ? image(a) : null;

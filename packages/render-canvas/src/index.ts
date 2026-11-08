@@ -46,6 +46,53 @@ export class CanvasRenderer {
     public images: ImageResolver,
   ) {}
 
+  /** Tinted copies of images, per image and (quantised) colour: drawn instead of the image when a slot is tinted. */
+  private tints = new WeakMap<object, Map<string, CanvasImageSource>>();
+
+  private makeCanvas(w: number, h: number): { getContext(id: "2d"): Ctx2D | null } | null {
+    try {
+      if (typeof OffscreenCanvas !== "undefined") return new OffscreenCanvas(w, h) as never;
+      if (typeof document !== "undefined") return Object.assign(document.createElement("canvas"), { width: w, height: h });
+      // Headless (@napi-rs/canvas): a canvas of the same kind as ours.
+      const C = (this.ctx.canvas as unknown as { constructor: new (w: number, h: number) => never }).constructor;
+      return new C(w, h);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * The image multiplied by a colour, with its own transparency kept (so a tint never darkens what is behind it).
+   * Colours are quantised to 1/64 so a keyed, changing tint reuses a few copies instead of making one per frame.
+   */
+  private tinted(img: CanvasImageSource, r: number, g: number, b: number, rect?: { x: number; y: number; width: number; height: number }): CanvasImageSource | null {
+    const q = (x: number) => Math.round(Math.max(0, Math.min(1, x)) * 64);
+    const key = `${q(r)},${q(g)},${q(b)}${rect ? `@${rect.x},${rect.y},${rect.width},${rect.height}` : ""}`;
+    let m = this.tints.get(img as object);
+    if (!m) this.tints.set(img as object, (m = new Map()));
+    const hit = m.get(key);
+    if (hit) return hit;
+    const src = img as { naturalWidth?: number; naturalHeight?: number; width: number; height: number };
+    // A packed image is tinted on its own (its rect of the page), so it samples exactly like the loose image.
+    const w = rect ? rect.width : src.naturalWidth || src.width;
+    const h = rect ? rect.height : src.naturalHeight || src.height;
+    if (!w || !h) return null;
+    const c = this.makeCanvas(w, h);
+    const g2 = c?.getContext("2d");
+    if (!c || !g2) return null;
+    const put = () => (rect ? g2.drawImage(img, rect.x, rect.y, w, h, 0, 0, w, h) : g2.drawImage(img, 0, 0));
+    put();
+    g2.globalCompositeOperation = "multiply";
+    g2.fillStyle = `rgb(${(q(r) / 64) * 255},${(q(g) / 64) * 255},${(q(b) / 64) * 255})`;
+    g2.fillRect(0, 0, w, h);
+    g2.globalCompositeOperation = "destination-in";
+    put();
+    if (m.size > 24) m.delete(m.keys().next().value!);
+    const out = c as unknown as CanvasImageSource;
+    m.set(key, out);
+    return out;
+  }
+
   /** Set ctx transform so skeleton space (y-up, origin at doc origin) maps to canvas pixels. */
   private setView(doc: OpenBoneDocument, view = { x: 0, y: 0, zoom: 1 }) {
     const z = view.zoom;
@@ -123,7 +170,10 @@ export class CanvasRenderer {
     } else {
       // Packed images sample their atlas page; uvs are already in page space.
       const tex = it.texture ?? it.image;
-      const img = this.images(tex.id) as CanvasImageSource | null;
+      const raw = this.images(tex.id) as CanvasImageSource | null;
+      const tint = it.color[0] < 1 || it.color[1] < 1 || it.color[2] < 1;
+      const tintedImg = raw && tint ? this.tinted(raw, it.color[0], it.color[1], it.color[2], it.textureRect ?? undefined) : null;
+      const img = tintedImg ?? raw;
       ctx.globalAlpha = it.color[3];
       const iw = tex.width;
       const ih = tex.height;
@@ -171,12 +221,13 @@ export class CanvasRenderer {
         ctx.transform(a, b, c, d, e, f);
         // A packed image draws only its own rect of the page (not its neighbours or edge padding).
         const tr = it.textureRect;
-        if (tr) ctx.drawImage(img, tr.x, tr.y, tr.width, tr.height, tr.x, tr.y, tr.width, tr.height);
+        if (tr && tintedImg) ctx.drawImage(img, 0, 0, tr.width, tr.height, tr.x, tr.y, tr.width, tr.height);
+        else if (tr) ctx.drawImage(img, tr.x, tr.y, tr.width, tr.height, tr.x, tr.y, tr.width, tr.height);
         else ctx.drawImage(img, 0, 0);
         ctx.restore();
       }
-      if (it.color[0] < 1 || it.color[1] < 1 || it.color[2] < 1) {
-        // Approximate tint by multiplying a colour fill over the geometry.
+      if (tint && !tintedImg) {
+        // No offscreen canvas to tint into: approximate by multiplying a colour fill over the geometry.
         ctx.save();
         ctx.globalCompositeOperation = "multiply";
         ctx.globalAlpha = 1;

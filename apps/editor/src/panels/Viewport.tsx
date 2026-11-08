@@ -1,5 +1,6 @@
 import { type BoneData, RAD, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint, textureAssets } from "@openbone/core";
 import { toggleBackground } from "../background.ts";
+import { checkerPattern, fillArtboard } from "../checker.ts";
 import { applySequencePreview } from "../sequence-import.ts";
 import { type Guide, clearGuides, guides, newGuideId, removeGuide, setViewAid, toggleViewAid, upsertGuide, viewAids } from "../guides.ts";
 import { CanvasRenderer } from "@openbone/render-canvas";
@@ -267,8 +268,7 @@ export function Viewport() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     // artboard: its background colour, or a light checkerboard when the background is transparent
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = d.background ?? checkerPattern(ctx, "#d6d9df", "#eceef2", 10);
-    ctx.fillRect(view.x, view.y, d.width * view.zoom, d.height * view.zoom);
+    fillArtboard(ctx, d.background, view.x, view.y, d.width * view.zoom, d.height * view.zoom);
     ctx.strokeStyle = "#3a3f4b";
     ctx.strokeRect(view.x, view.y, d.width * view.zoom, d.height * view.zoom);
     if (viewAids().grid) drawGrid(ctx, w, h);
@@ -329,28 +329,7 @@ export function Viewport() {
     }
   }
 
-  // ---- checkerboard, origin lines, axis gizmo ----
-  const patterns = new Map<string, CanvasPattern>();
-  function checkerPattern(ctx: CanvasRenderingContext2D, a: string, b: string, cell: number): CanvasPattern | string {
-    const key = `${a}${b}${cell}`;
-    let p = patterns.get(key);
-    if (!p) {
-      const c = document.createElement("canvas");
-      c.width = c.height = Math.max(2, Math.round(cell * 2));
-      const g = c.getContext("2d")!;
-      g.fillStyle = a;
-      g.fillRect(0, 0, c.width, c.height);
-      g.fillStyle = b;
-      g.fillRect(0, 0, c.width / 2, c.height / 2);
-      g.fillRect(c.width / 2, c.height / 2, c.width / 2, c.height / 2);
-      const made = ctx.createPattern(c, "repeat");
-      if (!made) return a;
-      p = made;
-      patterns.set(key, p);
-    }
-    return p;
-  }
-
+  // ---- origin lines, axis gizmo ----
   /** Thin lines through the skeleton origin, like Spine's world axes. */
   function drawOriginLines(ctx: CanvasRenderingContext2D, w: number, h: number, background: string | null) {
     const ox = Math.round(skToScreenX(0)) + 0.5;

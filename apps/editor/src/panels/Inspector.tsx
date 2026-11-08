@@ -763,20 +763,21 @@ function BackgroundField() {
     <div class="field bg-field" title="Off: no background, so the artboard shows a checkerboard and the player and exports are transparent. Also the BG button above the viewport.">
       <span>Background</span>
       <input type="checkbox" aria-label="Background on" checked={on()} onChange={(e) => setBackground(e.currentTarget.checked ? lastBackground() : null)} />
-      <input type="color" aria-label="Background colour" disabled={!on()} value={color()} onChange={(e) => setBackground(e.currentTarget.value + hexA(opacity()))} />
-      <input
-        type="number"
-        class="alpha"
-        aria-label="Background opacity (percent)"
-        title="Opacity (%)"
-        disabled={!on()}
-        min={0}
-        max={100}
-        step={5}
-        value={opacity()}
-        onChange={(e) => setBackground(color() + hexA(Math.max(0, Math.min(100, Number(e.currentTarget.value) || 0))))}
-      />
-      <span class="unit">%</span>
+      <Show when={on()} fallback={<span class="muted small">transparent</span>}>
+        <input type="color" aria-label="Background colour" value={color()} onChange={(e) => setBackground(e.currentTarget.value + hexA(opacity()))} />
+        <input
+          type="number"
+          class="alpha"
+          aria-label="Background opacity (percent)"
+          title="Opacity (%): below 100 the artboard shows through, like the checkerboard"
+          min={0}
+          max={100}
+          step={5}
+          value={opacity()}
+          onChange={(e) => setBackground(color() + hexA(Math.max(0, Math.min(100, Number(e.currentTarget.value) || 0))))}
+        />
+        <span class="unit">%</span>
+      </Show>
     </div>
   );
 }

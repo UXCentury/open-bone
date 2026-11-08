@@ -397,28 +397,55 @@ function campfire() {
       A("addImage", { name, src: `assets/${name}.png`, width: w, height: h });
       return name;
     });
-  A("addBone", { name: "fire", y: 30, length: 0 });
+  A("addBone", { name: "fire", y: 0, length: 0 });
   A("addBone", { name: "smoke", parent: "fire", y: 270, length: 0 });
-  // Glow behind everything, then smoke and flames, then the logs in front of the flames' base.
+  // A three-bone tongue of fire that bends and licks: a mesh flame weighted to it sways on top of the frame flames.
+  A("addBone", { name: "tongue1", parent: "fire", x: 6, y: -20, rotation: 90, length: 65, color: "#ff7a00" });
+  A("addBone", { name: "tongue2", parent: "tongue1", x: 65, length: 65, color: "#ff7a00" });
+  A("addBone", { name: "tongue3", parent: "tongue2", x: 65, length: 60, color: "#ff7a00" });
+  // Painted logs and stone ring (see assets/eleven/LICENSE.md): 460 × 306 art drawn 270 wide, centred at y 30.
+  const LW = 270, LH = 180, LY = 30, k = LW / 460;
+  const art = (ix: number, iy: number) => [Math.round((ix * k - LW / 2) * 10) / 10, Math.round((LY + LH / 2 - iy * k) * 10) / 10];
+  A("addImage", { name: "campfire-logs", src: "assets/eleven/campfire-logs.png", width: 460, height: 306 });
+
+  // Back to front: glow, smoke, the logs, firelight on the logs, the flames on the wood, then the front stones again
+  // (clipped to their outline) so the flames' base sits down among the coals, behind the stones.
   A("addSlot", { bone: "root", name: "glow" });
   A("addShape", { slot: "glow", shape: "ellipse", y: 90, width: 380, height: 260, fill: "#ff8a000d" });
   A("addSlot", { bone: "smoke", name: "smoke" });
   A("addSequence", { slot: "smoke", name: "smoke", frames: frames("smoke", SMOKE_FRAMES, 48, 48), fps: 8, mode: "pingPong", scaleX: 2, scaleY: 2 });
-  const flame = frames("flame", FLAME_FRAMES, 64, 96);
-  A("addSlot", { bone: "fire", name: "flame", blend: "additive" });
-  A("addSequence", { slot: "flame", name: "flame", frames: flame, y: 140, width: 150, height: 225, fps: 15, mode: "loop" });
-  // A second, smaller flame starts half a loop later so the two never match.
-  A("addSlot", { bone: "fire", name: "flame-small", blend: "additive" });
-  A("addSequence", { slot: "flame-small", name: "flame", frames: flame, x: 46, y: 92, width: 86, height: 130, fps: 15, offset: 6 });
-  // Painted logs and stone ring (see assets/eleven/LICENSE.md); drawn over the flames' base so
-  // the fire rises out of the pile.
-  A("addImage", { name: "campfire-logs", src: "assets/eleven/campfire-logs.png", width: 460, height: 306 });
   A("addSlot", { bone: "root", name: "logs" });
-  A("addRegion", { slot: "logs", image: "campfire-logs", y: 30, width: 270, height: 180 });
-  // Breathing: the fire bone scales a little; the glow pulses.
+  A("addRegion", { slot: "logs", image: "campfire-logs", y: LY, width: LW, height: LH });
+  // Firelight: the same art again, added in orange and flickering, so the wood and stones look lit by the fire.
+  A("addSlot", { bone: "root", name: "firelight", color: "#ff7a1a55", blend: "additive" });
+  A("addRegion", { slot: "firelight", name: "lit", image: "campfire-logs", y: LY, width: LW, height: LH });
+  const flame = frames("flame", FLAME_FRAMES, 64, 96);
+  A("addSlot", { bone: "fire", name: "flame-small", blend: "additive" });
+  A("addSequence", { slot: "flame-small", name: "flame", frames: flame, x: 46, y: 58, width: 100, height: 180, fps: 15, offset: 6 });
+  A("addSlot", { bone: "fire", name: "flame", color: "#ffffffe6", blend: "additive" });
+  A("addSequence", { slot: "flame", name: "flame", frames: flame, x: 4, y: 115, width: 170, height: 330, fps: 15, mode: "loop" });
+  A("addSlot", { bone: "fire", name: "tongue", color: "#ffd9a6aa", blend: "additive" });
+  A("addMesh", { slot: "tongue", name: "tongue", image: frameName("flame", 5), x: 6, y: 82, width: 100, height: 220, cols: 3, rows: 6 });
+  A("autoWeights", { slot: "tongue", attachment: "tongue", bones: ["tongue1", "tongue2", "tongue3"], maxInfluences: 2 });
+  // Front stones: their top edge traced on the art (pixel coordinates), everything below it drawn over the flames.
+  const front = [[0, 306], [460, 306], [460, 180], [440, 172], [400, 170], [375, 182], [355, 205], [330, 212], [300, 215], [240, 213], [200, 218], [160, 215], [122, 212], [110, 195], [80, 180], [40, 178], [10, 195], [0, 210]].flatMap(([x, y]) => art(x, y));
+  A("addSlot", { bone: "root", name: "front-mask" });
+  A("addSlot", { bone: "root", name: "front-stones" });
+  A("addClipping", { slot: "front-mask", name: "front-mask", vertices: front, end: "front-stones" });
+  A("addRegion", { slot: "front-stones", name: "front", image: "campfire-logs", y: LY, width: LW, height: LH });
+
+  // burn: the fire breathes, the tongue licks (each bone a little later and further than its parent), the firelight
+  // flickers on the wood and the glow pulses.
   A("createAnimation", { name: "burn", duration: 1.6 });
-  A("setKeys", { animation: "burn", target: "bone", id: "fire", property: "scaleY", keys: [{ time: 0, value: 1, curve: "easeInOut" }, { time: 0.8, value: 1.08, curve: "easeInOut" }, { time: 1.6, value: 1 }] });
-  A("setKeys", { animation: "burn", target: "slot", id: "glow", property: "color", keys: [{ time: 0, value: "#ffffff" }, { time: 0.8, value: "#ffffffaa" }, { time: 1.6, value: "#ffffff" }] });
+  const K = (target: string, id: string, property: string, keys: [number, number | string][], curve = "easeInOut") =>
+    A("setKeys", { animation: "burn", target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });
+  K("bone", "fire", "scaleY", [[0, 1], [0.8, 1.08], [1.6, 1]]);
+  K("bone", "tongue1", "rotation", [[0, 90], [0.4, 95], [0.8, 87], [1.2, 93], [1.6, 90]]);
+  K("bone", "tongue2", "rotation", [[0, -4], [0.5, 8], [0.9, -9], [1.3, 6], [1.6, -4]]);
+  K("bone", "tongue3", "rotation", [[0, 10], [0.6, -14], [1.0, 16], [1.35, -8], [1.6, 10]]);
+  K("bone", "tongue1", "scaleX", [[0, 1], [0.3, 1.12], [0.7, 0.92], [1.1, 1.1], [1.6, 1]]);
+  K("slot", "firelight", "color", [[0, "#ff7a1a55"], [0.15, "#ff7a1a3a"], [0.35, "#ff8a2a66"], [0.6, "#ff7a1a40"], [0.8, "#ff8a2a5c"], [1.05, "#ff7a1a33"], [1.3, "#ff8a2a60"], [1.6, "#ff7a1a55"]], "linear");
+  K("slot", "glow", "color", [[0, "#ffffff"], [0.8, "#ffffffaa"], [1.6, "#ffffff"]]);
   // The crackle loops for as long as the fire burns (a looping sound on a state plays until the state exits).
   sfx(A, "crackle", "campfire-loop", { loop: true, volume: 0.8, fadeIn: 0.5 });
   A("createStateMachine", { name: "fire" });

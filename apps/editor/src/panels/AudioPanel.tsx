@@ -5,6 +5,7 @@ import { askConfirm, askForm, askText, uniqueName } from "../dialogs.tsx";
 import { decodedNow, drawWaveform } from "../waveform.ts";
 import { apply, currentStateMachine, doc, selection, setSelection, time } from "../state.ts";
 import { NumberField, Section, SelectField, TextField } from "./fields.tsx";
+import { MiniPlayer } from "./MiniPlayer.tsx";
 
 const sounds = () => doc().audio?.sounds ?? [];
 const buses = () => doc().audio?.buses ?? [];
@@ -141,8 +142,8 @@ export function SoundInspector(p: { id: string }) {
         <Check label="Loop" checked={s()!.loop} onChange={(v) => set({ loop: v })} title="Looping sounds stop when the state or animation that started them ends" />
         <NumberField label="Fade in" step={0.05} value={s()!.fadeIn} onCommit={(v) => set({ fadeIn: Math.max(0, v) })} />
         <NumberField label="Fade out" step={0.05} value={s()!.fadeOut} onCommit={(v) => set({ fadeOut: Math.max(0, v) })} />
+        <MiniPlayer asset={assets().find((a) => a.id === s()!.asset)} volume={s()!.volume} rate={s()!.rate} loop={s()!.loop} />
         <div class="btn-row">
-          <button onClick={() => audition(p.id)}>▶ Play</button>
           <button
             class="danger"
             onClick={() =>
@@ -230,6 +231,7 @@ export function AudioAssetInspector(p: { id: string }) {
           {fmt(a()!.duration)}s · {a()!.src.startsWith("data:") ? "embedded" : a()!.src}
         </div>
         <div class="hint">Used by: {used().map((s) => s.name).join(", ") || "no sound"}</div>
+        <MiniPlayer asset={a()} />
         <div class="btn-row">
           <button
             onClick={async () => {
