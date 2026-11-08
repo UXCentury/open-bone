@@ -184,8 +184,16 @@ export class Player {
   }
 
   // ---- convenience API (Rive-like) ----
-  setInput(name: string, value: boolean | number) {
+  setInput(name: string, value: boolean | number | string) {
     this.stateMachine?.setInput(name, value);
+  }
+  /**
+   * Show fixed text (or a `{input}` template) in a slot's text attachment instead of its own; null restores it.
+   * Works with or without a state machine.
+   */
+  setText(slot: string, text: string | null) {
+    this.instance?.skeleton.setText(slot, text);
+    if (!this.playing && this.instance) this.draw();
   }
   fire(name: string) {
     this.stateMachine?.fire(name);

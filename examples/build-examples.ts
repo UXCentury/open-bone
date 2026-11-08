@@ -317,7 +317,141 @@ function tail() {
   return s.doc;
 }
 
-for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()]] as const) {
+// ---------- crash: staged game flow driven by live data ----------
+// idle → flyout (plays once) → flying (loops) → crash | cashout (play once) → idle.
+// The host app ramps `multiplier`; a text attachment shows it and bindings move the rocket and tint the sky.
+function crash() {
+  const s = new DocumentStore(createDocument("Crash", { background: "#0b1020" }));
+  const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
+  A("setDocument", { width: 800, height: 500, originX: 110, originY: 420 });
+  A("addBone", { name: "climb", length: 0 });
+  A("addBone", { name: "rocket", parent: "climb", rotation: 35, length: 70, color: "#ff9f43" });
+  A("addBone", { name: "flame", parent: "rocket", x: -34, rotation: 180, length: 30 });
+  A("addBone", { name: "boom", parent: "rocket", x: 10, length: 0 });
+  A("addBone", { name: "hud", x: 290, y: 300, length: 0 });
+  A("addBone", { name: "status", x: 290, y: 236, length: 0 });
+  A("addBone", { name: "button", x: 570, y: -40, length: 0 });
+
+  // Backdrop (its colour is bound to the multiplier), ground and launch pad.
+  A("addSlot", { bone: "root", name: "sky", color: "#0b1020" });
+  A("addShape", { slot: "sky", shape: "rect", x: 290, y: 170, width: 800, height: 500, fill: "#ffffff" });
+  A("addSlot", { bone: "root", name: "ground" });
+  A("addShape", { slot: "ground", shape: "rect", x: 290, y: -40, width: 800, height: 80, fill: "#111827" });
+  A("addSlot", { bone: "root", name: "pad" });
+  A("addShape", { slot: "pad", shape: "rect", y: -8, width: 90, height: 14, radius: 4, fill: "#374151" });
+
+  // Rocket.
+  A("addSlot", { bone: "flame", name: "flame" });
+  A("addShape", { slot: "flame", shape: "polygon", points: [0, 12, 46, 0, 0, -12], fill: "#f97316" });
+  A("addSlot", { bone: "flame", name: "flame-core" });
+  A("addShape", { slot: "flame-core", shape: "polygon", points: [0, 6, 26, 0, 0, -6], fill: "#fde047" });
+  A("addSlot", { bone: "rocket", name: "fins" });
+  A("addShape", { slot: "fins", shape: "polygon", points: [-34, 0, -18, 24, -6, 0, -18, -24], fill: "#dc2626" });
+  A("addSlot", { bone: "rocket", name: "body" });
+  A("addShape", { slot: "body", shape: "rect", width: 76, height: 26, radius: 13, fill: "#e5e7eb", stroke: "#9ca3af", strokeWidth: 2 });
+  A("addSlot", { bone: "rocket", name: "nose" });
+  A("addShape", { slot: "nose", shape: "polygon", points: [30, 11, 52, 0, 30, -11], fill: "#dc2626" });
+  A("addSlot", { bone: "rocket", name: "window" });
+  A("addShape", { slot: "window", shape: "ellipse", x: 12, width: 14, height: 14, fill: "#38bdf8", stroke: "#1e3a8a", strokeWidth: 2 });
+  A("addSlot", { bone: "boom", name: "boom", color: "#ffffff00" });
+  A("addShape", { slot: "boom", shape: "polygon", points: star(10, 60, 26), fill: "#fb923c" });
+  A("addSlot", { bone: "boom", name: "boom-core", color: "#ffffff00" });
+  A("addShape", { slot: "boom-core", shape: "ellipse", width: 50, height: 50, fill: "#fef08a" });
+
+  // HUD: the live multiplier and a status line (a string input), both text templates.
+  A("addSlot", { bone: "hud", name: "multiplier" });
+  A("addText", { slot: "multiplier", text: "{multiplier:0.00}x", size: 84, weight: 800, width: 360, height: 100, color: "#ffffff", outline: "#0b1020", outlineWidth: 4 });
+  A("addSlot", { bone: "status", name: "status" });
+  A("addText", { slot: "status", text: "{status}", size: 22, weight: 500, width: 420, height: 32, color: "#cbd5e1" });
+
+  // Start button: the text attachment's box is the hit area for the click listener.
+  A("addSlot", { bone: "button", name: "button-bg" });
+  A("addShape", { slot: "button-bg", shape: "rect", width: 150, height: 48, radius: 24, fill: "#22c55e" });
+  A("addSlot", { bone: "button", name: "button-label" });
+  A("addText", { slot: "button-label", text: "START", size: 22, weight: 700, width: 150, height: 48, color: "#052e16" });
+
+  const K = (anim: string, target: string, id: string, property: string, keys: [number, number | string][], curve: string = "linear") =>
+    A("setKeys", { animation: anim, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });
+  // idle: parked on the pad, pilot light flickering.
+  A("createAnimation", { name: "idle", duration: 1.2 });
+  K("idle", "bone", "rocket", "rotation", [[0, 90], [1.2, 90]]);
+  K("idle", "bone", "rocket", "y", [[0, 14], [1.2, 14]]);
+  K("idle", "bone", "flame", "scaleX", [[0, 0.25], [0.6, 0.35], [1.2, 0.25]], "easeInOut");
+  K("idle", "slot", "button-bg", "color", [[0, "#ffffff"], [0.6, "#bbf7d0"], [1.2, "#ffffff"]], "easeInOut");
+  // flyout: lift off and tip over towards the flight path (plays once).
+  A("createAnimation", { name: "flyout", duration: 0.9 });
+  K("flyout", "bone", "rocket", "rotation", [[0, 90], [0.9, 35]], "easeInOut");
+  K("flyout", "bone", "rocket", "y", [[0, 14], [0.9, 0]], "easeOut");
+  K("flyout", "bone", "rocket", "scaleX", [[0, 1], [0.3, 1.15], [0.9, 1]], "easeOut");
+  K("flyout", "bone", "flame", "scaleX", [[0, 0.3], [0.25, 1.8], [0.9, 1.3]], "easeOut");
+  K("flyout", "slot", "button-bg", "color", [[0, "#ffffff"], [0.3, "#ffffff00"]]);
+  K("flyout", "slot", "button-label", "color", [[0, "#ffffff"], [0.3, "#ffffff00"]]);
+  // flying: loop, wobble and roaring flame.
+  A("createAnimation", { name: "flying", duration: 0.6 });
+  K("flying", "bone", "rocket", "rotation", [[0, 33], [0.3, 37], [0.6, 33]], "easeInOut");
+  K("flying", "bone", "rocket", "y", [[0, 0], [0.3, 4], [0.6, 0]], "easeInOut");
+  K("flying", "bone", "flame", "scaleX", [[0, 1.2], [0.15, 1.6], [0.3, 1.1], [0.45, 1.5], [0.6, 1.2]]);
+  K("flying", "bone", "flame", "scaleY", [[0, 1], [0.3, 1.2], [0.6, 1]]);
+  for (const slot of ["button-bg", "button-label"]) K("flying", "slot", slot, "color", [[0, "#ffffff00"]]);
+  // crash: spin out, explode, number turns red (plays once, then back to idle).
+  A("createAnimation", { name: "crash", duration: 1.8 });
+  K("crash", "bone", "rocket", "rotation", [[0, 35], [0.6, -160]], "easeOut");
+  K("crash", "bone", "rocket", "y", [[0, 0], [0.6, -40]], "easeIn");
+  K("crash", "bone", "flame", "scaleX", [[0, 1.4], [0.2, 0]]);
+  for (const slot of ["body", "nose", "fins", "window"]) K("crash", "slot", slot, "color", [[0.2, "#ffffffff"], [0.5, "#ffffff00"]]);
+  K("crash", "slot", "boom", "color", [[0, "#ffffff00"], [0.1, "#ffffffff"], [0.9, "#ffffff00"]]);
+  K("crash", "slot", "boom-core", "color", [[0, "#ffffff00"], [0.1, "#ffffffff"], [0.6, "#ffffff00"]]);
+  K("crash", "bone", "boom", "scaleX", [[0, 0.2], [0.5, 1.8]], "easeOut");
+  K("crash", "bone", "boom", "scaleY", [[0, 0.2], [0.5, 1.8]], "easeOut");
+  K("crash", "bone", "boom", "rotation", [[0, 0], [0.9, 40]]);
+  K("crash", "slot", "multiplier", "color", [[0, "#ef4444"], [1.8, "#ef4444"]]);
+  for (const slot of ["button-bg", "button-label"]) K("crash", "slot", slot, "color", [[0, "#ffffff00"], [1.4, "#ffffff00"], [1.8, "#ffffff"]]);
+  // cashout: rocket zooms off, number turns green (plays once, then back to idle).
+  A("createAnimation", { name: "cashout", duration: 1.6 });
+  K("cashout", "bone", "rocket", "x", [[0, 0], [0.8, 700]], "easeIn");
+  K("cashout", "bone", "rocket", "y", [[0, 0], [0.8, 260]], "easeIn");
+  K("cashout", "bone", "flame", "scaleX", [[0, 1.3], [0.3, 2.2]]);
+  K("cashout", "slot", "multiplier", "color", [[0, "#22c55e"], [1.6, "#22c55e"]]);
+  K("cashout", "bone", "hud", "scaleX", [[0, 1], [0.2, 1.2], [0.5, 1]], "easeOut");
+  K("cashout", "bone", "hud", "scaleY", [[0, 1], [0.2, 1.2], [0.5, 1]], "easeOut");
+  for (const slot of ["button-bg", "button-label"]) K("cashout", "slot", slot, "color", [[0, "#ffffff00"], [1.2, "#ffffff00"], [1.6, "#ffffff"]]);
+
+  A("createStateMachine", { name: "game" });
+  for (const name of ["start", "crash", "cashout"]) A("addInput", { stateMachine: "game", name, type: "trigger" });
+  A("addInput", { stateMachine: "game", name: "multiplier", type: "number", default: 1 });
+  A("addInput", { stateMachine: "game", name: "status", type: "string", default: "Press START" });
+  A("addState", { stateMachine: "game", animation: "idle", x: 80, y: 160 });
+  A("addState", { stateMachine: "game", animation: "flying", x: 520, y: 160 });
+  A("addState", { stateMachine: "game", animation: "flyout", loop: false, onComplete: "flying", x: 300, y: 160 });
+  A("addState", { stateMachine: "game", animation: "crash", loop: false, onComplete: "idle", x: 740, y: 60 });
+  A("addState", { stateMachine: "game", animation: "cashout", loop: false, onComplete: "idle", x: 740, y: 260 });
+  const T = (from: string, to: string, input: string, duration = 0.1) =>
+    A("addTransition", { stateMachine: "game", from, to, conditions: [{ input }], duration });
+  T("idle", "flyout", "start");
+  for (const from of ["flyout", "flying"]) {
+    T(from, "crash", "crash", 0.05);
+    T(from, "cashout", "cashout");
+  }
+  // Live data: 1x → 10x carries the rocket up and right, and the sky warms up.
+  A("addBinding", { stateMachine: "game", input: "multiplier", target: "bone", object: "climb", property: "x", inMin: 1, inMax: 10, outMin: 0, outMax: 520 });
+  A("addBinding", { stateMachine: "game", input: "multiplier", target: "bone", object: "climb", property: "y", inMin: 1, inMax: 10, outMin: 0, outMax: 300 });
+  A("addBinding", { stateMachine: "game", input: "multiplier", target: "slot", object: "sky", property: "color", inMin: 1, inMax: 10, outMin: "#0b1020", outMax: "#4c1d95" });
+  A("addListener", { stateMachine: "game", name: "start button", slot: "button-label", event: "click", actions: [{ type: "fireTrigger", input: "start" }] });
+  return s.doc;
+}
+
+/** Spiky star polygon: `n` points between radius r0 and r1. */
+function star(n: number, r1: number, r0: number): number[] {
+  const out: number[] = [];
+  for (let i = 0; i < n * 2; i++) {
+    const a = (i / (n * 2)) * Math.PI * 2;
+    const r = i % 2 ? r0 : r1;
+    out.push(Math.round(Math.cos(a) * r * 10) / 10, Math.round(Math.sin(a) * r * 10) / 10);
+  }
+  return out;
+}
+
+for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()], ["crash.obone", crash()]] as const) {
   const issues = validate(doc);
   if (issues.some((i) => i.level === "error")) throw new Error(`${file}: ${JSON.stringify(issues)}`);
   writeFileSync(path.join(here, file), serialize(doc));

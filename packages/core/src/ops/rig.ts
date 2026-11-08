@@ -282,7 +282,7 @@ defineOp({
 
 // ---------------- Attachments ----------------
 
-function putAttachment(doc: OpenBoneDocument, slotRef: string, skinRef: string | undefined, att: Attachment, activate: boolean) {
+export function putAttachment(doc: OpenBoneDocument, slotRef: string, skinRef: string | undefined, att: Attachment, activate: boolean) {
   const slot = get.slot(doc, slotRef);
   const skin: SkinData = skinRef ? get.skin(doc, skinRef) : defaultSkin(doc);
   (skin.attachments[slot.id] ??= {})[att.name] = att;
@@ -290,13 +290,13 @@ function putAttachment(doc: OpenBoneDocument, slotRef: string, skinRef: string |
   return { slot: slot.id, name: att.name, skin: skin.id };
 }
 
-const attTarget = {
+export const attTarget = {
   slot: ref("Slot"),
   name: z.string().optional().describe("Attachment name (defaults to the image/shape name)"),
   skin: ref("Skin").optional().describe("Defaults to the default skin"),
   activate: z.boolean().default(true).describe("Show this attachment in the slot's setup pose"),
 };
-const placement = {
+export const placement = {
   x: z.number().default(0),
   y: z.number().default(0),
   rotation: z.number().default(0),
@@ -764,6 +764,9 @@ function dropConstraintTimelines(doc: OpenBoneDocument) {
   };
   for (const anim of doc.animations)
     anim.timelines = anim.timelines.filter((t) => !(t.target in live) || live[t.target as keyof typeof live].has(t.id));
+  // State machine input bindings whose bone, slot or constraint is gone.
+  const objects = new Set([...sk.bones, ...sk.slots, ...sk.ik, ...sk.transform, ...sk.path, ...sk.physics].map((x) => x.id));
+  for (const sm of doc.stateMachines) if (sm.bindings) sm.bindings = sm.bindings.filter((b) => objects.has(b.object));
 }
 
 function constraintName(doc: OpenBoneDocument, base: string): string {

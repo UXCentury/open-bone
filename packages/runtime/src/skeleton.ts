@@ -9,6 +9,7 @@ import {
   type Id,
   type IkConstraintData,
   type ImageAsset,
+  type InputValue,
   type LocalTransform,
   type OpenBoneDocument,
   type PathConstraintData,
@@ -24,6 +25,7 @@ import {
   boneWorld,
   buildSpline,
   defaultSkin,
+  formatTemplate,
   identity,
   invert,
   isTrimmed,
@@ -38,6 +40,7 @@ import {
   worldScaleX,
   worldScaleY,
 } from "@openbone/core";
+import type { TextDraw } from "./text.ts";
 
 export class Bone {
   parent: Bone | null = null;
@@ -154,6 +157,8 @@ export interface DrawItem {
   stroke?: { color: RGBA; width: number; outline: Float32Array };
   /** Clipping mask this item is drawn inside (shared object for consecutive items under the same mask). */
   clip?: ClipRegion;
+  /** Text attachments: what to draw in the box (`vertices` is the box quad, `color` the slot tint). */
+  text?: TextDraw;
 }
 
 /** A clipping mask in world space: outline polygon plus its triangulation (for stencil-based renderers). */
@@ -250,6 +255,10 @@ export class Skeleton {
   /** Time passed to update() and not yet consumed by the physics solver. */
   private pendingDt = 0;
   private setupCache: Map<Id, Affine> | null = null;
+  /** Values for text templates by input name; the state machine running this skeleton sets it. */
+  textValues: (name: string) => InputValue | undefined = () => undefined;
+  /** Text shown instead of an attachment's own template, by slot id (see setText). */
+  textOverrides = new Map<Id, string>();
 
   constructor(public doc: OpenBoneDocument) {
     for (const bd of doc.skeleton.bones) {
@@ -669,6 +678,27 @@ export class Skeleton {
     b.updateSubtree(this.rootMatrix, false);
   }
 
+  /** Show fixed text (or a template) in a slot's text attachment instead of its own; null restores it. */
+  setText(slotRef: string, text: string | null) {
+    const slot = this.findSlot(slotRef);
+    if (!slot) throw new Error(`Slot "${slotRef}" not found`);
+    if (text === null) this.textOverrides.delete(slot.data.id);
+    else this.textOverrides.set(slot.data.id, text);
+  }
+
+  /** The text a slot's text attachment shows right now (template filled in). */
+  textContent(slot: Slot, att: Extract<Attachment, { type: "text" }>): string {
+    return formatTemplate(this.textOverrides.get(slot.data.id) ?? att.text, this.textValues);
+  }
+
+  /** Box centre → world matrix of a text attachment. */
+  textMatrix(slot: Slot, att: Extract<Attachment, { type: "text" }>): Affine {
+    const r = att.rotation * DEG;
+    const c = Math.cos(r);
+    const s = Math.sin(r);
+    return multiply(slot.bone.world, { a: c, b: -s, c: s, d: c, x: att.x, y: att.y });
+  }
+
   getAttachment(slot: Slot, name: string | null = slot.attachmentName): Attachment | null {
     if (name == null) return null;
     const id = slot.data.id;
@@ -678,9 +708,9 @@ export class Skeleton {
   /** World-space vertices of a slot's region/mesh/path/bbox/shape/point attachment. */
   attachmentWorldVertices(slot: Slot, att: Attachment): Float32Array {
     const m = slot.bone.world;
-    if (att.type === "region") {
-      const hw = (att.width / 2) * att.scaleX;
-      const hh = (att.height / 2) * att.scaleY;
+    if (att.type === "region" || att.type === "text") {
+      const hw = (att.width / 2) * (att.type === "region" ? att.scaleX : 1);
+      const hh = (att.height / 2) * (att.type === "region" ? att.scaleY : 1);
       const cos = Math.cos(att.rotation * DEG);
       const sin = Math.sin(att.rotation * DEG);
       // TL, TR, BR, BL (y-up)
@@ -784,6 +814,33 @@ export class Skeleton {
           color,
           blend: slot.data.blend,
         });
+      } else if (att.type === "text") {
+        const color = slot.color;
+        if (color[3] <= 0) break draw;
+        items.push({
+          slot,
+          attachment: att,
+          image: null,
+          texture: null,
+          vertices: this.attachmentWorldVertices(slot, att),
+          uvs: REGION_UVS,
+          indices: REGION_INDICES,
+          color,
+          blend: slot.data.blend,
+          text: {
+            content: this.textContent(slot, att),
+            font: att.font,
+            size: att.size,
+            weight: att.weight,
+            align: att.align,
+            width: att.width,
+            height: att.height,
+            fill: parseHex(att.color),
+            outline: att.outline && att.outlineWidth ? parseHex(att.outline) : null,
+            outlineWidth: att.outlineWidth ?? 0,
+            matrix: this.textMatrix(slot, att),
+          },
+        });
       } else if (att.type === "shape") {
         const outline = this.attachmentWorldVertices(slot, att);
         const key = `${att.shape}|${att.width}|${att.height}|${att.radius}|${att.points?.join(",")}`;
@@ -829,7 +886,7 @@ export class Skeleton {
     }
     if (!att) return null;
     if (att.type === "boundingBox" || att.type === "shape" || att.type === "clipping") return this.attachmentWorldVertices(slot, att);
-    if (att.type === "region") return this.attachmentWorldVertices(slot, att);
+    if (att.type === "region" || att.type === "text") return this.attachmentWorldVertices(slot, att);
     if (att.type === "mesh") {
       const v = this.attachmentWorldVertices(slot, att);
       return v.slice(0, att.hull * 2);

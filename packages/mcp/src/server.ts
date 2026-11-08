@@ -17,7 +17,7 @@ const fail = (e: unknown) => ({ isError: true, content: [{ type: "text" as const
 
 const stepSchema = z.object({
   advance: z.number().min(0).optional().describe("Seconds to advance after applying this step (default 1/30)"),
-  setInputs: z.record(z.string(), z.union([z.boolean(), z.number()])).optional(),
+  setInputs: z.record(z.string(), z.union([z.boolean(), z.number(), z.string()])).optional(),
   fire: z.array(z.string()).optional().describe("Trigger inputs to fire"),
   pointer: z
     .object({ type: z.enum(["down", "up", "move"]), x: z.number(), y: z.number() })

@@ -3,8 +3,8 @@ import type { ScriptData } from "@openbone/core";
 /** Functions a script can call (exposed as the global `ob`). */
 export interface ScriptApi {
   time(): number;
-  input(name: string): boolean | number | undefined;
-  setInput(name: string, value: boolean | number): void;
+  input(name: string): boolean | number | string | undefined;
+  setInput(name: string, value: boolean | number | string): void;
   fire(name: string): void;
   emit(event: string, payload?: { int?: number; float?: number; string?: string }): void;
   bone(name: string): { x: number; y: number; rotation: number; scaleX: number; scaleY: number; worldX: number; worldY: number; worldRotation: number } | null;

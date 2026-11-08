@@ -2,7 +2,9 @@ import {
   ANY_STATE,
   type AnimationData,
   type Condition,
+  type InputBinding,
   type InputData,
+  type InputValue,
   type LayerData,
   type ListenerAction,
   type ListenerData,
@@ -12,12 +14,16 @@ import {
   type StateMachineData,
   type TransitionData,
   animationDuration,
+  bindingT,
   parseHex,
 } from "@openbone/core";
 import { type FiredEvent, applyAnimation, eventsBetween, localTime } from "./animation.ts";
 import { Emitter } from "./emitter.ts";
 import type { ScriptApi, ScriptHandle, ScriptHost } from "./scripting.ts";
 import type { Skeleton } from "./skeleton.ts";
+
+/** Cross-fade seconds for an onComplete hand-over. */
+const ON_COMPLETE_MIX = 0.1;
 
 class StateInstance {
   time = 0;
@@ -41,7 +47,7 @@ export type SMEvents = {
   /** An event reported by an animation key, listener or script. */
   event: [FiredEvent];
   stateChange: [{ layer: string; from: string | null; to: string }];
-  inputChange: [{ name: string; value: boolean | number }];
+  inputChange: [{ name: string; value: InputValue }];
   log: [unknown[]];
   error: [Error];
 };
@@ -58,7 +64,7 @@ export interface StateMachineOptions {
  */
 export class StateMachineInstance extends Emitter<SMEvents> {
   readonly doc: OpenBoneDocument;
-  inputs = new Map<string, boolean | number>();
+  inputs = new Map<string, InputValue>();
   private fired = new Set<string>();
   private layers: LayerInstance[];
   private pending: { type: PointerEventType; x: number; y: number }[] = [];
@@ -81,21 +87,29 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     this.doc = skeleton.doc;
     for (const i of data.inputs) this.inputs.set(i.id, i.type === "trigger" ? false : i.default);
     this.layers = data.layers.map((l) => new LayerInstance(l));
+    // Text templates read this machine's inputs by name.
+    skeleton.textValues = (name) => this.getInput(name);
   }
 
   // ---------------- Inputs ----------------
   private input(ref: string): InputData | undefined {
     return this.data.inputs.find((i) => i.id === ref || i.name === ref);
   }
-  getInput(name: string): boolean | number | undefined {
+  getInput(name: string): InputValue | undefined {
     const i = this.input(name);
     return i ? this.inputs.get(i.id) : undefined;
   }
-  setInput(name: string, value: boolean | number) {
+  setInput(name: string, value: InputValue) {
     const i = this.input(name);
     if (!i) throw new Error(`Input "${name}" not found`);
     if (i.type === "trigger") return this.fire(name);
-    const v = i.type === "bool" ? Boolean(value) : Number(value);
+    let v: InputValue;
+    if (i.type === "string") v = String(value);
+    else if (i.type === "bool") v = typeof value === "string" ? value === "true" : Boolean(value);
+    else {
+      v = Number(value);
+      if (!Number.isFinite(v)) return;
+    }
     if (this.inputs.get(i.id) === v) return;
     this.inputs.set(i.id, v);
     this.emit("inputChange", { name: i.name, value: v });
@@ -105,6 +119,13 @@ export class StateMachineInstance extends Emitter<SMEvents> {
   }
   setNumber(name: string, v: number) {
     this.setInput(name, v);
+  }
+  setString(name: string, v: string) {
+    this.setInput(name, v);
+  }
+  /** Show fixed text (or a template) in a slot's text attachment; null goes back to the attachment's own text. */
+  setText(slot: string, text: string | null) {
+    this.skeleton.setText(slot, text);
   }
   fire(name: string) {
     const i = this.input(name);
@@ -319,8 +340,10 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     const want = c.value;
     switch (c.op) {
       case "==":
+        if (input.type === "string") return String(v) === String(want);
         return v === want || (typeof v === "number" && typeof want === "number" && Math.abs(v - want) < 1e-9);
       case "!=":
+        if (input.type === "string") return String(v) !== String(want);
         return v !== want;
       case ">":
         return Number(v) > Number(want);
@@ -358,6 +381,12 @@ export class StateMachineInstance extends Emitter<SMEvents> {
       const to = l.data.states.find((s) => s.id === t.to);
       if (to) this.enter(l, to, t.duration);
       return;
+    }
+    // "On complete": play once, then continue to the next state.
+    const next = cur?.data.onComplete;
+    if (cur && next && this.progress(cur) >= 1) {
+      const to = l.data.states.find((s) => s.id === next);
+      if (to) this.enter(l, to, ON_COMPLETE_MIX);
     }
   }
 
@@ -453,6 +482,7 @@ export class StateMachineInstance extends Emitter<SMEvents> {
       if (o.color) s.color = parseHex(o.color);
       if (o.attachment !== undefined) s.attachmentName = o.attachment;
     }
+    this.applyBindings();
     sk.update(dt);
     sk.updateWorldTransform();
 
@@ -462,6 +492,32 @@ export class StateMachineInstance extends Emitter<SMEvents> {
       this.emit("event", e);
       for (const h of this.scripts) this.safeCall(h, "onEvent", e);
       for (const l of this.layers) for (const h of l.current?.scripts ?? []) this.safeCall(h, "onEvent", e);
+    }
+  }
+
+  /** Drive bound properties from their inputs (after animations and script overrides). */
+  applyBindings() {
+    const sk = this.skeleton;
+    for (const b of this.data.bindings ?? []) {
+      const raw = this.inputs.get(b.input);
+      if (raw === undefined) continue;
+      const t = bindingT(typeof raw === "boolean" ? Number(raw) : Number(raw), b.inMin, b.inMax);
+      if (b.target === "bone") {
+        const bone = sk.boneById_(b.object);
+        if (bone) (bone as unknown as Record<string, number>)[b.property] = lerpNum(b, t);
+      } else if (b.target === "slot") {
+        const slot = sk.slotById_(b.object);
+        if (!slot) continue;
+        if (b.property === "alpha") slot.color = [slot.color[0], slot.color[1], slot.color[2], lerpNum(b, t)];
+        else if (b.property === "color") {
+          const lo = parseHex(String(b.outMin));
+          const hi = parseHex(String(b.outMax));
+          slot.color = [0, 1, 2, 3].map((k) => lo[k] + (hi[k] - lo[k]) * t) as typeof slot.color;
+        }
+      } else {
+        const v = sk.constraintValues.get(b.object);
+        if (v) v[b.property] = lerpNum(b, t);
+      }
     }
   }
 
@@ -477,3 +533,5 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     this.handles.clear();
   }
 }
+
+const lerpNum = (b: InputBinding, t: number) => Number(b.outMin) + (Number(b.outMax) - Number(b.outMin)) * t;

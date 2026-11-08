@@ -35,6 +35,11 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
    Transition with no conditions waits for the source animation to finish (exitTime 1).
    from:"@any" fires from any state. blend1d states blend animations by a number input.
    Pointer: add_bounding_box on a slot, then add_listener {slot, event:"click"|"down"|"up"|"enter"|"exit"|"move", actions:[...]}.
+   Staged flows: add_state {..., loop:false, onComplete:"next"} plays once then moves on (its own transitions can still interrupt).
+   Live data: add_input {type:"string"} or number inputs; add_text {slot, text:"{multiplier:0.00}x", size, weight, color, outline}
+   shows inputs (number patterns: 0.00, #,##0, +0, 0%); add_binding {input, target:"bone"|"slot"|"ik"|..., object, property,
+   inMin, inMax, outMin, outMax} drives a property from a number input every frame (slot color takes hex outMin/outMax).
+   simulate_state_machine / render_frame steps accept setInputs with strings too.
    Scripts: add_script {code} + attach_script. Script API (global ob): ob.input(n), ob.setInput(n,v), ob.fire(n),
    ob.emit(event,{int,float,string}), ob.bone(n), ob.setBone(n,{rotation,...}) (per-frame override), ob.slot(n,{color,attachment}),
    ob.pointer(), ob.time(), ob.log(...). Hooks: onStart(), onUpdate(dt), onEvent(e), onPointer(p), or named fns for runScript actions.

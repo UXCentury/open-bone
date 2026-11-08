@@ -29,7 +29,8 @@
 - **Onion skin**: ghost poses before (red) and after (green) the current frame.
 
 ### Interactivity (Rive-style)
-- **State machines** with layers, bool/number/trigger inputs, animation and 1D blend states, any-state transitions, conditions, exit times and cross-fades.
+- **State machines** with layers, bool/number/string/trigger inputs, animation and 1D blend states, any-state transitions, conditions, exit times, cross-fades and **"on complete" hand-offs** for staged flows (play once, then continue).
+- **Live data**: **text attachments** whose content is a template bound to inputs (`{multiplier:0.00}x`, thousands separators, signs, percent), and **input bindings** that drive bone, slot (colour, alpha) and constraint properties from a number input with a clamped linear mapping. See the crash-game example.
 - **Pointer listeners** on hit boxes (down, up, enter, exit, move, click) that set inputs, fire triggers, report events or run scripts.
 - **Sandboxed scripts** (QuickJS-WASM, memory cap and per-call deadline) with an `ob` API: `onStart`, `onUpdate`, `onEvent`, `onPointer`.
 
@@ -50,7 +51,7 @@
 ### Runtime and tools
 - Renderer-agnostic TypeScript runtime with **WebGL2** (batched) and **Canvas2D** renderers.
 - **`<openbone-player>`** web component and a `Player` class (loads `.obone`, `.json` and `.obonb`).
-- **MCP server** (78 tools; every editing op becomes a tool automatically) with render/simulate tools and a live WebSocket bridge to the editor.
+- **MCP server** (83 tools; every editing op becomes a tool automatically) with render/simulate tools and a live WebSocket bridge to the editor.
 - **CLI**: validate, summarize, render PNG/GIF, simulate state machines, apply any op.
 - **Desktop app** (Tauri 2) with native file dialogs.
 

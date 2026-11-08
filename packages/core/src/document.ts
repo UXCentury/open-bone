@@ -255,5 +255,6 @@ export function normalizeDocument(d: OpenBoneDocument): OpenBoneDocument {
     c.local ??= false;
     c.relative ??= false;
   }
+  for (const sm of d.stateMachines) sm.bindings ??= [];
   return d;
 }

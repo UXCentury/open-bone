@@ -24,12 +24,20 @@ A UTF-8 JSON document. The TypeScript source of truth is `packages/core/src/type
   },
   "events":     [{ "id", "name", "int", "float", "string", "audio?" }],
   "animations": [{ "id", "name", "duration", "timelines": [Timeline], "events": [{ "time", "event", "int?", "float?", "string?" }] }],
-  "stateMachines": [{ "id", "name", "inputs", "layers": [{ "states", "transitions", "entry" }], "listeners", "scripts" }],
+  "stateMachines": [{ "id", "name", "inputs": [{ "id", "name", "type": "bool"|"number"|"string"|"trigger", "default" }],
+                     "bindings": [{ "id", "input", "target", "object", "property", "inMin", "inMax", "outMin", "outMax" }],
+                     "layers": [{ "states": [{ "…", "onComplete?": stateId }], "transitions", "entry" }], "listeners", "scripts" }],
   "scripts": [{ "id", "name", "code" }]
 }
 ```
 
-**Attachments**: `region` (image quad), `mesh` (uvs, triangles, vertices or per-vertex `weights: [{bone,x,y,weight}]`, hull), `shape` (rect/ellipse/polygon with fill/stroke), `boundingBox` (hit polygon), `point`, `clipping` (mask polygon `vertices` plus `end`: the slots after it in draw order, through the `end` slot or to the end when null, are drawn only inside the outline; the mask itself is not drawn; one mask is active at a time), `path` (cubic bezier spline: `vertices` flat, three points per knot `[inX,inY, x,y, outX,outY]`, optional `weights` like a mesh, `closed`, `color`).
+**Attachments**: `region` (image quad), `mesh` (uvs, triangles, vertices or per-vertex `weights: [{bone,x,y,weight}]`, hull), `shape` (rect/ellipse/polygon with fill/stroke), `boundingBox` (hit polygon), `point`, `text` (see below), `clipping` (mask polygon `vertices` plus `end`: the slots after it in draw order, through the `end` slot or to the end when null, are drawn only inside the outline; the mask itself is not drawn; one mask is active at a time), `path` (cubic bezier spline: `vertices` flat, three points per knot `[inX,inY, x,y, outX,outY]`, optional `weights` like a mesh, `closed`, `color`).
+
+**Text attachments**: `{ type: "text", text, x, y, rotation, width, height, font, size, weight, color, align: "left"|"center"|"right", outline?, outlineWidth? }`. The `width x height` box is centred at `x, y` in slot-bone space; it is the alignment frame and the hit area, and lines are centred vertically in it. `text` is a template: `{name}` shows the state machine input `name`, `{name:pattern}` formats a number (`0.00` fixed decimals, `0.0#` optional ones, `#,##0` thousands separators, leading `+` always signs, trailing `%` multiplies by 100, other characters are copied: `{multiplier:0.00x}`), `{{`/`}}` are literal braces, and unknown names stay as written. Hosts can replace the template per slot at runtime (`setText`).
+
+**State machine flow**: a state's `onComplete` names the state to go to once its animation has played through (after the first cycle when it loops); the state's own transitions are checked first, so a trigger can still interrupt it. Condition values on `string` inputs compare with `==`/`!=`.
+
+**Input bindings**: each frame, after animations and script overrides, a binding maps its number (or bool, as 0/1) input linearly from `[inMin, inMax]` to `[outMin, outMax]`, clamped, and writes it to `object`'s `property`: bones `rotation|x|y|scaleX|scaleY|shearX|shearY`, slots `color` (hex outputs, blended per channel) or `alpha`, constraints any keyable value listed under Timelines. Later bindings win on the same property.
 
 **Constraints**:
 - *IK*: `softness` (2-bone) eases the chain toward straight over that distance before full reach; `stretch` scales the bones to reach a far target; `compress` (1-bone) shortens the bone for a near one.

@@ -378,3 +378,12 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
 .export-options .field > span:first-child { width: 72px; }
 /* Fieldsets default to min-width: min-content and would push past the column. */
 .export-group { min-width: 0; }
+
+/* Input bindings, string inputs, onComplete edges */
+input.small { width: 90px; }
+.input-name { cursor: pointer; }
+.binding { border-top: 1px solid #ffffff10; padding: 2px 0; }
+.binding select { max-width: 110px; }
+.binding-ranges { padding-top: 0; }
+.binding-ranges input[type="color"] { width: 36px; height: 20px; padding: 0; }
+.edge.on-complete line:not(.hit) { stroke: #6b7280; }

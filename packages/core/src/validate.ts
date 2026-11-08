@@ -130,8 +130,12 @@ export function validate(d: OpenBoneDocument): Issue[] {
         if (!stateIds.has(t.to)) err(`${sm.name}/${l.name}`, `transition to missing state`);
         for (const c of t.conditions) if (!inputIds.has(c.input)) err(`${sm.name}/${l.name}`, `condition input missing`);
       }
+      for (const s of l.states) {
+        if (s.onComplete && !stateIds.has(s.onComplete)) err(`${sm.name}/${s.name}`, "onComplete state missing");
+      }
     }
     for (const li of sm.listeners) if (li.slot && !slotIds.has(li.slot)) err(`${sm.name} listener ${li.name}`, "slot missing");
+    for (const b of sm.bindings ?? []) if (!inputIds.has(b.input)) err(`${sm.name} binding ${b.id}`, "input missing");
   }
   return issues;
 }
