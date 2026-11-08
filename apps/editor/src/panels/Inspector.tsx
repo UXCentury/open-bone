@@ -5,6 +5,7 @@ import { imageFor } from "../images.ts";
 import { activeSkin, apply, currentAnimation, doc, mode, selection, setSelection, skinArg, store, time, transaction } from "../state.ts";
 import { askConfirm } from "../dialogs.tsx";
 import { ColorField, NumberField, Section, SelectField, TextField } from "./fields.tsx";
+import { AudioAssetInspector, BusInspector, SoundInspector } from "./AudioPanel.tsx";
 
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-4;
 
@@ -656,6 +657,9 @@ export function Inspector() {
         <Match when={selection()?.kind === "path" && selection()}>{(s) => <PathInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "physics" && selection()}>{(s) => <PhysicsInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "image" && selection()}>{(s) => <ImageInspector id={s().id} />}</Match>
+        <Match when={selection()?.kind === "sound" && selection()}>{(s) => <SoundInspector id={s().id} />}</Match>
+        <Match when={selection()?.kind === "bus" && selection()}>{(s) => <BusInspector id={s().id} />}</Match>
+        <Match when={selection()?.kind === "audio" && selection()}>{(s) => <AudioAssetInspector id={s().id} />}</Match>
       </Switch>
     </div>
   );

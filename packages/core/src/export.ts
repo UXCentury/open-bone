@@ -1,3 +1,4 @@
+import { usedSounds } from "./audio.ts";
 import { cloneDocument } from "./document.ts";
 import type { Id, OpenBoneDocument } from "./types.ts";
 
@@ -27,6 +28,8 @@ export interface ExportStats {
   animations: number;
   stateMachines: number;
   scripts: number;
+  /** Audio assets kept. */
+  audio: number;
 }
 
 export interface ExportResult {
@@ -108,6 +111,15 @@ export function exportDocument(source: OpenBoneDocument, opts: ExportOptions = {
     for (const a of d.animations) for (const k of a.events) usedEvents.add(k.event);
     for (const sm of d.stateMachines) for (const li of sm.listeners) for (const a of li.actions) if (a.type === "reportEvent") usedEvents.add(a.event);
     d.events = d.events.filter((e) => usedEvents.has(e.id));
+    if (d.audio) {
+      // Keep sounds something still plays, and the assets they use. The mixer (buses, master) always stays.
+      const sounds = usedSounds(d);
+      const assets = new Set<Id>();
+      for (const s of d.audio.sounds) if (sounds.has(s.id)) assets.add(s.asset);
+      for (const id of sounds) if (d.audio.assets.some((a) => a.id === id)) assets.add(id); // events pointing straight at an asset
+      d.audio = { ...d.audio, sounds: d.audio.sounds.filter((s) => sounds.has(s.id)), assets: d.audio.assets.filter((a) => assets.has(a.id)) };
+      if (!d.audio.sounds.length && !d.audio.assets.length) delete d.audio;
+    }
   }
 
   const removedKeys = opts.cleanUpAnimations ? cleanUpAnimations(d) : 0;
@@ -129,6 +141,7 @@ export function exportDocument(source: OpenBoneDocument, opts: ExportOptions = {
       animations: d.animations.length,
       stateMachines: d.stateMachines.length,
       scripts: d.scripts.length,
+      audio: d.audio?.assets.length ?? 0,
     },
   };
 }

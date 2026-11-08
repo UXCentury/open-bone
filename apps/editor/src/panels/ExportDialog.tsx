@@ -7,6 +7,7 @@ import { MEDIA, type MediaFormat, type MediaOptions, exportMedia, frameTimes } f
 import { imageAsDataUrl, resolveImageUrl } from "../images.ts";
 import { isDesktop, saveFile, saveTextFile } from "../storage.ts";
 import { animationId, doc, fileName, setExportOpen, toast } from "../state.ts";
+import { audioAsDataUrl } from "../audio.ts";
 
 type Named = { id: string; name: string };
 type DataFormat = "project" | "json" | "binary";
@@ -160,7 +161,7 @@ export function ExportDialog() {
   const [skins, setSkins] = createSignal(all(extraSkins));
   const sd = saved.data ?? {};
   const [prune, setPrune] = createSignal(sd.prune ?? true);
-  const needsEmbed = source.images.some((i) => !i.src.startsWith("data:"));
+  const needsEmbed = source.images.some((i) => !i.src.startsWith("data:")) || !!source.audio?.assets.some((a) => !a.src.startsWith("data:"));
   const [embed, setEmbed] = createSignal(sd.embed ?? needsEmbed);
   const [pretty, setPretty] = createSignal(sd.pretty ?? true);
   const [nonessential, setNonessential] = createSignal(sd.nonessential ?? true);
@@ -379,6 +380,7 @@ export function ExportDialog() {
       ...(skinName ? { skin: skinName } : {}),
       ...(bg !== undefined ? { background: bg } : {}),
       fit: "contain",
+      audio: false,
       onStateChange: (e) => !media() && !sheetMode() && setStatus(`State: ${e.to}`),
     });
     player.ready.catch((e) => setStatus(`Preview failed: ${(e as Error).message}`));
@@ -525,6 +527,8 @@ export function ExportDialog() {
       if (isData(format())) {
         const d = usePack() ? (packed() ?? (await packForExport(result().doc, packSettings()))).doc : structuredClone(result().doc);
         if (embed() && !usePack()) for (const img of d.images) img.src = await imageAsDataUrl(img);
+        // Audio assets are shared (immutable) objects: replace them rather than editing in place.
+        if ((embed() || usePack()) && d.audio) d.audio.assets = await Promise.all(d.audio.assets.map(async (a) => ({ ...a, src: await audioAsDataUrl(a) })));
         const data = format() === "binary" ? serializeBinary(d, { precision: precision() }) : pretty() ? serialize(d) : JSON.stringify(d);
         const savedName =
           typeof data !== "string"
@@ -631,7 +635,7 @@ export function ExportDialog() {
               <fieldset class="export-group">
                 <legend>Output</legend>
                 <label class="check">
-                  <input type="checkbox" checked={embed()} onChange={(e) => setEmbed(e.currentTarget.checked)} /> Embed images in the file
+                  <input type="checkbox" checked={embed()} onChange={(e) => setEmbed(e.currentTarget.checked)} /> Embed images and audio in the file
                   <span class="muted small">{needsEmbed ? "(one self-contained file)" : "(already embedded)"}</span>
                 </label>
                 <label class="check">
@@ -693,7 +697,7 @@ export function ExportDialog() {
                   <input type="checkbox" checked={prune()} onChange={(e) => setPrune(e.currentTarget.checked)} /> Leave out unused images and events
                 </label>
                 <label class="check" title={pack() ? "Atlas pages are always embedded" : undefined}>
-                  <input type="checkbox" checked={embed() || pack()} disabled={pack()} onChange={(e) => setEmbed(e.currentTarget.checked)} /> Embed images in the file
+                  <input type="checkbox" checked={embed() || pack()} disabled={pack()} onChange={(e) => setEmbed(e.currentTarget.checked)} /> Embed images and audio in the file
                   <span class="muted small">{needsEmbed ? "(one self-contained file)" : "(already embedded)"}</span>
                 </label>
               </fieldset>

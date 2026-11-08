@@ -212,13 +212,19 @@ export function animationDuration(a: AnimationData): number {
   let t = 0;
   for (const tl of a.timelines) for (const k of tl.keys) t = Math.max(t, k.time);
   for (const e of a.events) t = Math.max(t, e.time);
+  for (const k of a.audio ?? []) t = Math.max(t, k.time);
   return t;
 }
 
 export function cloneDocument(d: OpenBoneDocument): OpenBoneDocument {
-  // Images and the atlas (large data: URIs) are treated as immutable and shared; everything else is deep-cloned.
-  const { images, atlas, ...rest } = d;
-  return { ...(structuredClone(rest) as Omit<OpenBoneDocument, "images" | "atlas">), images: images.slice(), ...(atlas ? { atlas } : {}) };
+  // Images, audio assets and the atlas (large data: URIs) are treated as immutable and shared; everything else is deep-cloned.
+  const { images, atlas, audio, ...rest } = d;
+  const out = { ...(structuredClone(rest) as Omit<OpenBoneDocument, "images" | "atlas" | "audio">), images: images.slice(), ...(atlas ? { atlas } : {}) } as OpenBoneDocument;
+  if (audio) {
+    const { assets, ...mix } = audio;
+    out.audio = { ...structuredClone(mix), assets: assets.slice() };
+  }
+  return out;
 }
 
 export function serialize(d: OpenBoneDocument, pretty = true): string {

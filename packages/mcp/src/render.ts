@@ -69,6 +69,12 @@ export function pose(doc: OpenBoneDocument, req: PoseRequest, scriptHost?: Scrip
     sm.on("inputChange", (e) => log.push(`t=${t.toFixed(3)} input ${e.name} = ${e.value}`));
     sm.on("log", (a) => log.push(`t=${t.toFixed(3)} script: ${a.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" ")}`));
     sm.on("error", (e) => log.push(`t=${t.toFixed(3)} ERROR ${e.message}`));
+    const soundName = (id: string) => doc.audio?.sounds.find((x) => x.id === id)?.name ?? id;
+    sm.on("audio", (c) =>
+      log.push(
+        `t=${t.toFixed(3)} audio ${c.type === "play" ? `play ${soundName(c.sound)} [${c.id}]${c.loop ? " loop" : ""} vol ${c.volume} (${c.source})` : c.type === "stop" ? `stop [${c.id}]${c.fade ? ` fade ${c.fade}s` : ""}` : `fade [${c.id}] → ${c.volume}`}`,
+      ),
+    );
     let t = 0;
     sm.advance(0);
     for (const s of req.steps ?? [{ advance: req.time ?? 0 }]) {

@@ -173,6 +173,60 @@ function onEvent(e) { if (e.name === "land") ob.log("landed!"); }`,
   return s.doc;
 }
 
+// ---------- sounds (synthesized, so the examples carry no third-party audio) ----------
+/** 8-bit mono WAV as a data: URI. */
+function wav(samples: Float32Array, rate: number): string {
+  const n = samples.length;
+  const buf = Buffer.alloc(44 + n);
+  buf.write("RIFF", 0);
+  buf.writeUInt32LE(36 + n, 4);
+  buf.write("WAVEfmt ", 8);
+  buf.writeUInt32LE(16, 16);
+  buf.writeUInt16LE(1, 20); // PCM
+  buf.writeUInt16LE(1, 22); // mono
+  buf.writeUInt32LE(rate, 24);
+  buf.writeUInt32LE(rate, 28);
+  buf.writeUInt16LE(1, 32);
+  buf.writeUInt16LE(8, 34);
+  buf.write("data", 36);
+  buf.writeUInt32LE(n, 40);
+  for (let i = 0; i < n; i++) buf[44 + i] = Math.round(128 + 127 * Math.max(-1, Math.min(1, samples[i])));
+  return `data:audio/wav;base64,${buf.toString("base64")}`;
+}
+
+/** A short UI click: a pitched-down blip with a fast decay. */
+function clickSound() {
+  const rate = 22050;
+  const out = new Float32Array(Math.round(rate * 0.06));
+  let phase = 0;
+  for (let i = 0; i < out.length; i++) {
+    const t = i / rate;
+    phase += (2 * Math.PI * (1400 - 9000 * t)) / rate;
+    out[i] = Math.sin(phase) * Math.exp(-t * 70) * 0.8;
+  }
+  return { src: wav(out, rate), duration: out.length / rate };
+}
+
+/** A soft hover hum that loops seamlessly (whole cycles of every partial in 0.5 s). */
+function humSound() {
+  const rate = 11025;
+  const out = new Float32Array(Math.round(rate * 0.5));
+  for (let i = 0; i < out.length; i++) {
+    const t = i / rate;
+    out[i] = 0.35 * Math.sin(2 * Math.PI * 220 * t) + 0.15 * Math.sin(2 * Math.PI * 330 * t) + 0.08 * Math.sin(2 * Math.PI * 4 * t) * Math.sin(2 * Math.PI * 440 * t);
+  }
+  return { src: wav(out, rate), duration: out.length / rate };
+}
+
+/** Button audio: a click on the press event, and a hum that loops while hovered (stops on exit). */
+export function addButtonAudio(A: (op: string, args: Record<string, unknown>) => unknown) {
+  A("addAudio", { name: "click", ...clickSound(), bus: "ui" });
+  A("addAudio", { name: "hover-hum", ...humSound(), bus: "ui", loop: true });
+  A("updateSound", { sound: "hover-hum", volume: 0.35, fadeIn: 0.15, fadeOut: 0.25 });
+  A("setEventSound", { event: "clicked", sound: "click" });
+  A("setStateSound", { stateMachine: "ui", state: "hover", sound: "hover-hum" });
+}
+
 // ---------- button ----------
 function button() {
   const s = new DocumentStore(createDocument("Button", { background: "#0f172a" }));
@@ -223,6 +277,7 @@ function button() {
   A("addListener", { stateMachine: "ui", slot: "hit", event: "enter", actions: [{ type: "setInput", input: "hover", value: true }] });
   A("addListener", { stateMachine: "ui", slot: "hit", event: "exit", actions: [{ type: "setInput", input: "hover", value: false }] });
   A("addListener", { stateMachine: "ui", slot: "hit", event: "down", actions: [{ type: "fireTrigger", input: "press" }] });
+  addButtonAudio(A);
   return s.doc;
 }
 
@@ -317,6 +372,7 @@ function tail() {
   return s.doc;
 }
 
+if (process.argv[1] === fileURLToPath(import.meta.url))
 for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()]] as const) {
   const issues = validate(doc);
   if (issues.some((i) => i.level === "error")) throw new Error(`${file}: ${JSON.stringify(issues)}`);

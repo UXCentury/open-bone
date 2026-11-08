@@ -31,6 +31,7 @@ import { askConfirm } from "../dialogs.tsx";
 import { playActive, togglePlay } from "../play.ts";
 import { tip } from "../shortcuts/index.ts";
 import { setOpenFileHandler, setShortcutsOpen } from "../shortcuts/actions.ts";
+import { MuteButton, pickAudio } from "./AudioPanel.tsx";
 
 const TOOLS: { id: Tool; label: string; title: string }[] = [
   { id: "select", label: "⟲", title: "Select / rotate bones" },
@@ -166,6 +167,8 @@ export function Toolbar() {
         >
           + Shape
         </button>
+        <button onClick={pickAudio} title="Import WAV / MP3 / OGG sounds (or drop them on the viewport)">+ Audio</button>
+        <MuteButton />
       </div>
       <div class="group">
         <label class="check" title={tip("Show bones", "view.bones")}><input type="checkbox" disabled={locked()} checked={showBones()} onChange={(e) => setShowBones(e.currentTarget.checked)} /> Bones</label>

@@ -371,7 +371,10 @@ export interface EventData {
   int: number;
   float: number;
   string: string;
+  /** Sound (id or name) played whenever this event fires. An audio asset id/name also works (played with defaults). */
   audio?: string;
+  /** Volume multiplier for `audio` (default 1). */
+  volume?: number;
 }
 
 export interface EventKey {
@@ -389,6 +392,70 @@ export interface AnimationData {
   duration: number;
   timelines: Timeline[];
   events: EventKey[];
+  /** Audio track: sounds started at a time. Looping ones stop when the animation ends or is replaced. */
+  audio?: AudioKey[];
+}
+
+// ---------- Audio ----------
+
+/** An audio file. Like images, asset objects are immutable (ops replace them) so undo snapshots can share them. */
+export interface AudioAsset {
+  id: Id;
+  name: string;
+  /** data: URI, relative path, or URL (WAV, MP3, OGG). */
+  src: string;
+  /** Seconds. 0 when unknown. */
+  duration: number;
+}
+
+/** A mixer channel (e.g. sfx, music, ui). Effective gain = master x bus x sound x play volume. */
+export interface AudioBus {
+  id: Id;
+  name: string;
+  volume: number;
+  muted: boolean;
+}
+
+/** A playable sound: an asset plus mix settings. Animations, events and state machines play sounds. */
+export interface SoundData {
+  id: Id;
+  name: string;
+  asset: Id;
+  /** Bus id; null plays straight into the master. */
+  bus: Id | null;
+  volume: number;
+  /** Playback rate (pitch). 1 = original. */
+  rate: number;
+  loop: boolean;
+  /** Seconds to fade in when started / out when stopped. */
+  fadeIn: number;
+  fadeOut: number;
+}
+
+export interface AudioData {
+  /** Master volume 0..1+. */
+  master: number;
+  muted: boolean;
+  assets: AudioAsset[];
+  buses: AudioBus[];
+  sounds: SoundData[];
+}
+
+/** A sound key on an animation's audio track. Unset fields use the sound's settings. */
+export interface AudioKey {
+  time: number;
+  sound: Id;
+  volume?: number;
+  rate?: number;
+  loop?: boolean;
+}
+
+/** Play or stop a sound when a state is entered or exited. Looping sounds played on enter stop on exit. */
+export interface StateSound {
+  sound: Id;
+  on: "enter" | "exit";
+  action: "play" | "stop";
+  volume?: number;
 }
 
 // ---------- State machines (Rive-style interactivity) ----------
@@ -430,6 +497,8 @@ export interface StateData {
   y: number;
   /** Scripts run while this state is active. */
   scripts?: Id[];
+  /** Sounds played or stopped on enter/exit. */
+  sounds?: StateSound[];
 }
 
 /** Special `from` value: transition can fire from any state of the layer. */
@@ -461,7 +530,10 @@ export type ListenerAction =
   | { type: "toggleInput"; input: Id }
   | { type: "fireTrigger"; input: Id }
   | { type: "reportEvent"; event: Id }
-  | { type: "runScript"; script: Id; fn: string };
+  | { type: "runScript"; script: Id; fn: string }
+  | { type: "playSound"; sound: Id; volume?: number }
+  /** Stops every playing instance of the sound (fade seconds; default the sound's fadeOut). */
+  | { type: "stopSound"; sound: Id; fade?: number };
 
 export interface ListenerData {
   id: Id;
@@ -509,6 +581,8 @@ export interface OpenBoneDocument {
   animations: AnimationData[];
   stateMachines: StateMachineData[];
   scripts: ScriptData[];
+  /** Audio assets, sounds and the mixer. Absent when the document has no audio. */
+  audio?: AudioData;
 }
 
 export const FORMAT_VERSION = 1 as const;

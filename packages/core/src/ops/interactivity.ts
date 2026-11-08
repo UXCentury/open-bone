@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { findSound } from "../audio.ts";
 import { get, newId } from "../document.ts";
 import type { Condition, ListenerAction, OpenBoneDocument, StateMachineData } from "../types.ts";
 import { ANY_STATE } from "../types.ts";
@@ -267,7 +268,15 @@ const actionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("fireTrigger"), input: ref("Trigger input") }),
   z.object({ type: z.literal("reportEvent"), event: z.string().describe("Event name (created if missing)") }),
   z.object({ type: z.literal("runScript"), script: ref("Script"), fn: z.string().default("onAction") }),
+  z.object({ type: z.literal("playSound"), sound: ref("Sound"), volume: z.number().min(0).optional() }),
+  z.object({ type: z.literal("stopSound"), sound: ref("Sound"), fade: z.number().min(0).optional().describe("Fade-out seconds (default: the sound's fadeOut)") }),
 ]);
+
+function soundId(doc: OpenBoneDocument, r: string): string {
+  const s = findSound(doc, r);
+  if (!s) throw new Error(`Sound "${r}" not found. Available: ${(doc.audio?.sounds ?? []).map((x) => x.name).join(", ") || "(none)"}`);
+  return s.id;
+}
 
 function resolveAction(doc: OpenBoneDocument, sm: StateMachineData, x: z.infer<typeof actionSchema>): ListenerAction {
   switch (x.type) {
@@ -287,6 +296,10 @@ function resolveAction(doc: OpenBoneDocument, sm: StateMachineData, x: z.infer<t
     }
     case "runScript":
       return { type: "runScript", script: get.script(doc, x.script).id, fn: x.fn };
+    case "playSound":
+      return { type: "playSound", sound: soundId(doc, x.sound), ...(x.volume !== undefined ? { volume: x.volume } : {}) };
+    case "stopSound":
+      return { type: "stopSound", sound: soundId(doc, x.sound), ...(x.fade !== undefined ? { fade: x.fade } : {}) };
   }
 }
 
@@ -294,7 +307,7 @@ defineOp({
   name: "addListener",
   group: "interactivity",
   description:
-    "React to pointer input on a slot's bounding box (or the whole artboard when slot is null): down, up, click, enter, exit, move → actions (setInput, toggleInput, fireTrigger, reportEvent, runScript).",
+    "React to pointer input on a slot's bounding box (or the whole artboard when slot is null): down, up, click, enter, exit, move → actions (setInput, toggleInput, fireTrigger, reportEvent, runScript, playSound, stopSound).",
   schema: z.object({
     stateMachine: smRef,
     id: optId,

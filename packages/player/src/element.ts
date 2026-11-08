@@ -5,6 +5,7 @@ import { Player } from "./player.ts";
  * <openbone-player src="hero.obone" state-machine="ui" animation="idle" skin="red" fit="contain" renderer="webgl">
  * Events: "openbone-event" (detail = FiredEvent), "openbone-state" (detail = state change), "openbone-load".
  * Methods: setInput(name, value), fire(name), setSkin(name), play(), pause(), player (the underlying Player).
+ * Audio plays after the first click/key press; `muted` attribute starts muted, `audio="off"` disables it.
  * Changing the `skin` attribute switches the outfit without reloading.
  */
 export class OpenBonePlayerElement extends HTMLElement {
@@ -48,6 +49,7 @@ export class OpenBonePlayerElement extends HTMLElement {
       autoplay: this.getAttribute("autoplay") !== "false",
       background: this.hasAttribute("background") ? this.getAttribute("background") : undefined,
       scripts: this.getAttribute("scripts") === "none" ? "none" : "quickjs",
+      audio: this.getAttribute("audio") === "off" ? false : this.hasAttribute("muted") ? "muted" : true,
       onEvent: (e: FiredEvent) => this.dispatchEvent(new CustomEvent("openbone-event", { detail: e, bubbles: true, composed: true })),
       onStateChange: (e) => this.dispatchEvent(new CustomEvent("openbone-state", { detail: e, bubbles: true, composed: true })),
       onLoad: () => this.dispatchEvent(new CustomEvent("openbone-load", { bubbles: true, composed: true })),

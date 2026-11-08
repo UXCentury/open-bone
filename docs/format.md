@@ -22,8 +22,11 @@ A UTF-8 JSON document. The TypeScript source of truth is `packages/core/src/type
                     "offsetRotation", "position", "spacing", "mixRotate", "mixX", "mixY" }],
     "physics":   [{ "id", "name", "bone", "x", "y", "rotate", "scaleX", "inertia", "strength", "damping", "mass", "gravity", "wind", "mix", "fps" }]
   },
-  "events":     [{ "id", "name", "int", "float", "string", "audio?" }],
-  "animations": [{ "id", "name", "duration", "timelines": [Timeline], "events": [{ "time", "event", "int?", "float?", "string?" }] }],
+  "events":     [{ "id", "name", "int", "float", "string", "audio?", "volume?" }],   // audio: sound id played when it fires
+  "animations": [{ "id", "name", "duration", "timelines": [Timeline], "events": [{ "time", "event", "int?", "float?", "string?" }],
+                   "audio?": [{ "time", "sound", "volume?", "rate?", "loop?" }] }],
+  "audio?": { "master", "muted", "assets": [{ "id", "name", "src", "duration" }], "buses": [{ "id", "name", "volume", "muted" }],
+              "sounds": [{ "id", "name", "asset", "bus", "volume", "rate", "loop", "fadeIn", "fadeOut" }] },
   "stateMachines": [{ "id", "name", "inputs", "layers": [{ "states", "transitions", "entry" }], "listeners", "scripts" }],
   "scripts": [{ "id", "name", "code" }]
 }
@@ -40,6 +43,8 @@ A UTF-8 JSON document. The TypeScript source of truth is `packages/core/src/type
 **Timelines**: `{target: "bone", id, property: "rotation"|"x"|"y"|"scaleX"|"scaleY"|"shearX"|"shearY", keys}`, `{target: "slot", property: "color"|"attachment"}`, `{target: "ik", property: "mix"|"softness"}`, `{target: "transform", property: "mix"|"mixRotate"|"mixTranslate"|"mixScale"|"mixShear"}` (`mix` multiplies all mixes), `{target: "path", property: "position"|"spacing"|"mixRotate"|"mixX"|"mixY"}`, `{target: "physics", property: "mix"|"inertia"|"strength"|"damping"|"mass"|"gravity"|"wind"}`, `{target: "deform", id: slotId, attachment, property: "offsets"}` (mesh or path), `{target: "drawOrder", id: "skeleton", property: "order"}`. Each key is `{time, value, curve}`, where curve is `"linear"`, `"stepped"` or bezier handles `[cx1, cy1, cx2, cy2]`.
 
 Images can be embedded as `data:` URIs or stored as paths relative to the `.obone` file.
+
+**Audio** (optional): `assets` are files (WAV, MP3, OGG; `data:` URI or relative path, `duration` in seconds, 0 if unknown). A **sound** plays an asset through a **bus** (`null` = straight into the master) with its own `volume`, `rate` (pitch), `loop` and `fadeIn`/`fadeOut` seconds. The gain of a playing sound is `master × bus.volume × sound.volume × key volume`, and 0 when the document, the bus or the host mutes it. New documents get the buses `sfx` (`bus_sfx`), `music` and `ui`. Sounds are played by: animation `audio` keys (unset fields use the sound's), an event's `audio` (every time it fires), state `sounds: [{ "sound", "on": "enter"|"exit", "action": "play"|"stop", "volume?" }]` and listener actions `{ "type": "playSound", "sound", "volume?" }` / `{ "type": "stopSound", "sound", "fade?" }`. Looping sounds started by a state or an animation stop (with their fade-out, or the transition's cross-fade if longer) when it ends. Binary files store embedded audio as raw bytes.
 
 **Texture atlas** (optional, set with the `setAtlas` op): `pages` are packed textures. Each region says where an image lives in a page: `x, y, width, height` is the packed rect in page pixels (y-down), holding the part of the original `originalWidth x originalHeight` image that starts at `offsetX, offsetY` (offsets are 0 and the sizes equal when the image is not trimmed). Attachment uvs stay in 0..1 image space in the file; the runtime maps them into page space (`page_u = (x - offsetX + u * originalWidth) / page.width`, likewise for v). Trimmed region attachments are shrunk to the packed part. `white` is a solid white block that untextured shapes sample from, so they batch with images. An image whose `src` is `""` exists only in the atlas. Pages are packed with 2 px padding by default, and edge pixels are extruded into half of the padding so linear filtering matches a loose texture.
 

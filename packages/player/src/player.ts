@@ -2,6 +2,7 @@ import { type OpenBoneDocument, parseDocument, textureAssets } from "@openbone/c
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { WebGLRenderer } from "@openbone/render-webgl";
 import { type FiredEvent, OpenBoneInstance, type ScriptHost, type StateMachineInstance } from "@openbone/runtime";
+import { WebAudioBackend } from "./audio.ts";
 
 export interface PlayerOptions {
   canvas: HTMLCanvasElement;
@@ -19,6 +20,8 @@ export interface PlayerOptions {
   renderer?: "webgl" | "canvas";
   fit?: "contain" | "cover" | "none";
   background?: string | null;
+  /** Play the document's sounds (default true). "muted" loads them but starts muted. Audio unlocks on the first click or key press. */
+  audio?: boolean | "muted";
   onEvent?: (e: FiredEvent) => void;
   onStateChange?: (e: { layer: string; from: string | null; to: string }) => void;
   onLoad?: (p: Player) => void;
@@ -39,6 +42,8 @@ export class Player {
   /** Playback rate (1 = real time). */
   speed = 1;
   ready: Promise<void>;
+  /** Web Audio playback of the document's sounds (null when audio is off or the document has none). */
+  audio: WebAudioBackend | null = null;
 
   constructor(private opts: PlayerOptions) {
     this.ready = this.load();
@@ -87,6 +92,13 @@ export class Player {
       scriptHost = await createQuickJsHost();
     }
     this.instance = new OpenBoneInstance(this.doc, { scriptHost });
+    if (o.audio !== false && this.doc.audio?.assets.length && typeof AudioContext !== "undefined") {
+      this.audio = new WebAudioBackend(this.doc, { baseUrl: base });
+      this.audio.setMuted(o.audio === "muted");
+      this.audio.unlock(o.canvas.ownerDocument?.defaultView ?? window);
+      void this.audio.preload();
+      this.instance.on("audio", this.audio.handle);
+    }
     if (o.skin) this.instance.skeleton.setSkin(o.skin);
     if (o.onEvent) this.instance.on("event", o.onEvent);
     if (o.onStateChange) this.instance.on("stateChange", o.onStateChange);
@@ -191,6 +203,14 @@ export class Player {
     cancelAnimationFrame(this.raf);
   }
 
+  /** Mute or unmute this player's sounds. */
+  setMuted(muted: boolean) {
+    this.audio?.setMuted(muted);
+  }
+  get muted() {
+    return this.audio?.muted ?? false;
+  }
+
   // ---- convenience API (Rive-like) ----
   setInput(name: string, value: boolean | number) {
     this.stateMachine?.setInput(name, value);
@@ -225,7 +245,8 @@ export class Player {
   dispose() {
     this.pause();
     this.ro?.disconnect();
-    this.instance?.stateMachine?.dispose();
+    this.instance?.dispose();
+    this.audio?.dispose();
     this.gl?.dispose();
   }
 }

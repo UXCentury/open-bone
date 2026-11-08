@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { OpenBoneDocument } from "../types.ts";
 
-export type OpGroup = "project" | "rig" | "attachment" | "constraint" | "animation" | "interactivity";
+export type OpGroup = "project" | "rig" | "attachment" | "constraint" | "animation" | "interactivity" | "audio";
 
 export interface OpDef<S extends z.ZodObject = z.ZodObject> {
   name: string;

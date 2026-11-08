@@ -442,3 +442,7 @@ button.help-btn { font-size: 14px; padding: 1px 8px; }
 .sc-conflict { flex-basis: 100%; display: flex; align-items: center; gap: 8px; padding: 4px 8px; background: #3a2f10; color: var(--warn); border-radius: 5px; }
 .shortcuts-dialog .modal-foot { flex-wrap: wrap; }
 @media (max-width: 600px) { .sc-label { min-width: 0; flex-basis: 100%; } .play-panel { width: calc(100% - 24px); } }
+/* audio */
+.event-key.audio-key { background: #1f8f6a; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.event-key.audio-key.loop { border-right: 3px dashed #9ff3d3; }
+.event-key.audio-key.selected { background: var(--warn); color: #000; }

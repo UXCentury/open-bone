@@ -19,6 +19,7 @@ import {
 import { showPanel } from "../layout.ts";
 import { Section } from "./fields.tsx";
 import { askConfirm, askText, uniqueName } from "../dialogs.tsx";
+import { AudioSection } from "./AudioPanel.tsx";
 
 function BoneNode(p: { bone: BoneData; depth: number }) {
   const children = () => doc().skeleton.bones.filter((b) => b.parent === p.bone.id);
@@ -228,6 +229,7 @@ export function Hierarchy() {
           )}
         </For>
       </Section>
+      <AudioSection />
       <Section title="Animations" actions={<button onClick={newAnimation}>+</button>}>
         <For each={doc().animations} fallback={<div class="muted pad">No animations yet</div>}>
           {(a) => (

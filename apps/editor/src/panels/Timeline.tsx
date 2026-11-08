@@ -3,6 +3,7 @@ import { For, Show, createSignal } from "solid-js";
 import { tip } from "../shortcuts/index.ts";
 import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey } from "../state.ts";
 import { askText } from "../dialogs.tsx";
+import { AudioTrack, addSoundKey } from "./AudioPanel.tsx";
 
 type KeyRef = { tl: TL; time: number } | { event: string; time: number };
 
@@ -213,6 +214,9 @@ export function Timeline() {
         >
           + Event
         </button>
+        <button title="Add a sound key at the current time" disabled={!anim()} onClick={() => anim() && void addSoundKey(anim()!, snap(time()))}>
+          + Sound
+        </button>
         <label class="check" title="Zoom">
           🔍
           <input type="range" min="60" max="800" value={pps()} onInput={(e) => setPps(Number(e.currentTarget.value))} />
@@ -262,6 +266,9 @@ export function Timeline() {
               </div>
             </div>
           </Show>
+          <Show when={anim()!.audio?.length}>
+            <AudioTrack anim={anim()!} pps={pps()} width={LABEL_W + span() * pps()} labelWidth={LABEL_W} snap={snap} onScrub={scrub} />
+          </Show>
           <For each={anim()!.timelines}>
             {(tl) => (
               <div class="track-row" style={{ width: `${LABEL_W + span() * pps()}px` }}>
@@ -293,7 +300,7 @@ export function Timeline() {
               </div>
             )}
           </For>
-          <div class="playhead" style={{ left: `${LABEL_W + time() * pps()}px`, height: `${(anim()!.timelines.length + (anim()!.events.length ? 2 : 1)) * 24}px` }} />
+          <div class="playhead" style={{ left: `${LABEL_W + time() * pps()}px`, height: `${(anim()!.timelines.length + (anim()!.events.length ? 2 : 1) + (anim()!.audio?.length ? 1 : 0)) * 24}px` }} />
         </div>
         <Show when={showGraph() && (() => { const k = selKey(); return k && "tl" in k ? k : null; })()}>
           {(k) => <CurveEditor tl={(k() as { tl: TL }).tl} time={k().time} />}

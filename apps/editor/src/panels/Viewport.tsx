@@ -5,6 +5,7 @@ import { type Bone, type ScriptHost, Skeleton, StateMachineInstance, applyAnimat
 import { createQuickJsHost } from "@openbone/scripting";
 import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { imageFor, setImageReadyCallback } from "../images.ts";
+import { playCommand, previewAudioStep, stopPreviewAudio } from "../audio.ts";
 import { commitBone, commitAttachmentMove } from "../edit.ts";
 import { isTypingTarget, kbd, shortcuts, tip } from "../shortcuts/index.ts";
 import {
@@ -100,6 +101,7 @@ export function Viewport() {
   let skRev = -1;
   let raf = 0;
   let last = performance.now();
+  let previewWasPlaying = false;
   let hoverInfo = "";
   let hoverPt: [number, number] | null = null;
   let snapLines: SnapLine[] = [];
@@ -148,6 +150,11 @@ export function Viewport() {
     inst.on("stateChange", (e) => logLine(`→ [${e.layer}] ${e.from ?? "∅"} → ${e.to}`));
     inst.on("log", (a) => logLine(`📝 ${a.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" ")}`));
     inst.on("error", (e) => logLine(`⛔ ${e.message}`));
+    inst.on("audio", (c) => {
+      playCommand(c);
+      if (c.type === "play") logLine(`🔊 ${store.doc.audio?.sounds.find((s) => s.id === c.sound)?.name ?? c.sound}${c.loop ? " ⟳" : ""} (${c.source})`);
+      else if (c.type === "stop") logLine(`🔇 stop ${c.id}${c.fade ? ` (fade ${c.fade}s)` : ""}`);
+    });
     setSmInstance(inst);
   }
 
@@ -161,9 +168,18 @@ export function Viewport() {
       if (mode() === "animate" && anim) {
         if (playing()) {
           const d = animationDuration(anim) || 1;
+          const t0 = time();
+          previewAudioStep(anim, previewWasPlaying ? t0 : t0 - 1e-6, t0 + dt, dt);
+          previewWasPlaying = true;
           setTime((t) => (t + dt) % d);
+        } else if (previewWasPlaying) {
+          previewWasPlaying = false;
+          stopPreviewAudio();
         }
         applyAnimation(sk, anim, time());
+      } else if (previewWasPlaying) {
+        previewWasPlaying = false;
+        stopPreviewAudio();
       }
       if (drag?.kind === "bone") Object.assign(drag.bone, drag.cur);
       sk.update(dt);

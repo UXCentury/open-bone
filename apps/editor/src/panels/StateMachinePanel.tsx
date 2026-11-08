@@ -3,6 +3,7 @@ import { For, Match, Show, Switch, createSignal, onCleanup } from "solid-js";
 import { apply, currentStateMachine, doc, running, setRunning, setStateMachineId, toast } from "../state.ts";
 import { eventLog, smInstance } from "./Viewport.tsx";
 import { askForm, askText, uniqueName } from "../dialogs.tsx";
+import { StateSounds } from "./AudioPanel.tsx";
 
 const W = 130;
 const H = 40;
@@ -405,6 +406,9 @@ function StateProps(p: { state: StateData; layer: LayerData; onDeleted: () => vo
         <span>Speed</span>
         <input type="number" step="0.1" value={p.state.speed} onChange={(e) => apply("updateState", { ...args(), speed: Number(e.currentTarget.value) })} />
       </label>
+      <Show when={p.state.type !== "exit"}>
+        <StateSounds state={p.state} layer={p.layer} />
+      </Show>
       <div class="btn-row">
         <button disabled={p.layer.entry === p.state.id} onClick={() => apply("updateState", { ...args(), entry: true })}>
           Set as entry
@@ -515,7 +519,10 @@ function ListenerList() {
   const [event, setEvent] = createSignal("click");
   const [action, setAction] = createSignal("fireTrigger");
   const [target, setTarget] = createSignal("");
-  const describe = (a: { type: string; input?: string; event?: string; value?: unknown; script?: string }) => {
+  const describe = (a: { type: string; input?: string; event?: string; value?: unknown; script?: string; sound?: string }) => {
+    const sname = () => doc().audio?.sounds.find((s) => s.id === a.sound)?.name;
+    if (a.type === "playSound") return `play ♪ ${sname()}`;
+    if (a.type === "stopSound") return `stop ♪ ${sname()}`;
     const iname = sm().inputs.find((i) => i.id === a.input)?.name;
     if (a.type === "setInput") return `${iname} = ${a.value}`;
     if (a.type === "toggleInput") return `toggle ${iname}`;
@@ -525,10 +532,12 @@ function ListenerList() {
   };
   const add = () => {
     const t = target();
-    if (!t) return toast("Choose an input / event / script for the action", "error");
+    if (!t) return toast("Choose an input / event / script / sound for the action", "error");
     const input = sm().inputs.find((i) => i.id === t);
     const act =
-      action() === "reportEvent"
+      action() === "playSound" || action() === "stopSound"
+        ? { type: action(), sound: t }
+        : action() === "reportEvent"
         ? { type: "reportEvent", event: t }
         : action() === "runScript"
           ? { type: "runScript", script: t, fn: "onAction" }
@@ -565,6 +574,8 @@ function ListenerList() {
           <option value="toggleInput">toggle bool</option>
           <option value="reportEvent">report event</option>
           <option value="runScript">run script</option>
+          <option value="playSound">play sound</option>
+          <option value="stopSound">stop sound</option>
         </select>
         <select value={target()} onChange={(e) => setTarget(e.currentTarget.value)}>
           <option value="" selected={!(target())}>…</option>
@@ -574,6 +585,9 @@ function ListenerList() {
             </Match>
             <Match when={action() === "runScript"}>
               <For each={doc().scripts}>{(x) => <option value={x.id} selected={x.id === (target())}>{x.name}</option>}</For>
+            </Match>
+            <Match when={action() === "playSound" || action() === "stopSound"}>
+              <For each={doc().audio?.sounds ?? []}>{(x) => <option value={x.id} selected={x.id === (target())}>{x.name}</option>}</For>
             </Match>
             <Match when={true}>
               <For each={sm().inputs}>{(x) => <option value={x.id} selected={x.id === (target())}>{x.name}</option>}</For>
