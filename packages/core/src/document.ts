@@ -171,9 +171,9 @@ export function animationDuration(a: AnimationData): number {
 }
 
 export function cloneDocument(d: OpenBoneDocument): OpenBoneDocument {
-  // Images are treated as immutable and shared; everything else is deep-cloned.
-  const { images, ...rest } = d;
-  return { ...(structuredClone(rest) as Omit<OpenBoneDocument, "images">), images: images.slice() };
+  // Images and the atlas (large data: URIs) are treated as immutable and shared; everything else is deep-cloned.
+  const { images, atlas, ...rest } = d;
+  return { ...(structuredClone(rest) as Omit<OpenBoneDocument, "images" | "atlas">), images: images.slice(), ...(atlas ? { atlas } : {}) };
 }
 
 export function serialize(d: OpenBoneDocument, pretty = true): string {

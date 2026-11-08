@@ -256,3 +256,11 @@ button.link:disabled { color: var(--muted); }
 .export-group .check { align-items: flex-start; flex-wrap: wrap; }
 .export-group .check input { margin-top: 2px; }
 .export-group .field input[type="text"] { min-width: 0; }
+.export-atlas { display: flex; flex-direction: column; gap: 5px; padding: 4px 0 4px 20px; }
+.export-atlas .field input[type="number"] { width: 56px; }
+.export-atlas .error { color: #ffd0d0; }
+.atlas-pages { display: flex; gap: 6px; flex-wrap: wrap; }
+.atlas-pages img {
+  max-width: 96px; max-height: 96px; border: 1px solid var(--line); border-radius: 4px;
+  background: repeating-conic-gradient(#2a2e36 0% 25%, #1f2229 0% 50%) 0 0 / 12px 12px;
+}

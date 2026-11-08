@@ -3,7 +3,7 @@
 ```
             ┌──────────── edits (ops) ────────────┐
  Editor ────┤                                     ├──── MCP server ◄── AI agent
- (Solid)    │  @openbone/core  DocumentStore      │     (66 tools)
+ (Solid)    │  @openbone/core  DocumentStore      │     (68 tools)
    ▲        │  op registry · undo · validate      │        │
    │        └─────────────────────────────────────┘        │
    │  live bridge (WebSocket, ops replayed both ways)  ◄───┘
@@ -45,3 +45,5 @@ Scripts are plain JavaScript run through a `ScriptHost`. `@openbone/scripting` g
 ## Rendering
 
 The runtime produces a renderer-agnostic draw list: world vertices, uvs, indices, colour and blend mode per slot. Draw items under a clipping mask share a `clip` region (world outline plus its triangulation). WebGL2 batches by texture, blend mode and mask, writing each mask into the stencil buffer; Canvas2D clips to the outline path and maps each textured triangle with an affine transform and fills vector shapes as paths.
+
+**Texture atlas.** When the document has an atlas, draw items of packed images point at their atlas page (`texture`) with uvs remapped into it, and shapes sample the page's white block, so WebGL2 draws a packed skeleton with one texture (one draw call unless blend modes or masks change). The packer (`packages/core/src/atlas.ts`, MaxRects) is pure; whoever has a canvas composes the pages with `drawAtlasPage` (render-canvas): the editor's Export dialog and the MCP `pack_atlas` tool.

@@ -7,7 +7,7 @@ import type { ScriptHost } from "@openbone/runtime";
 import { createQuickJsHost } from "@openbone/scripting";
 import { z } from "zod";
 import { GUIDE } from "./guide.ts";
-import { pose, renderGif, renderPng } from "./render.ts";
+import { packAtlas, pose, renderGif, renderPng } from "./render.ts";
 import { ProjectSession } from "./session.ts";
 
 export const snake = (s: string) => s.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
@@ -178,6 +178,31 @@ export function createServer(opts: ServerOptions = {}) {
         });
         await session.maybeAutosave();
         return text({ ok: true, ...(result as object), width: img.width, height: img.height });
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "pack_atlas",
+    {
+      description:
+        "Pack every image into texture atlas pages (embedded PNGs) and store them with set_atlas, so renderers draw packed images (and shapes) from one texture: fewer WebGL draw calls. Re-run after adding images. With stripImageSources the file carries only the pages.",
+      inputSchema: {
+        padding: z.number().int().min(0).max(32).default(2).describe("Empty pixels around each image"),
+        maxSize: z.number().int().min(16).max(8192).default(2048).describe("Largest page width/height"),
+        powerOfTwo: z.boolean().default(true),
+        stripImageSources: z.boolean().default(false),
+      },
+    },
+    async (a) => {
+      try {
+        if (!session.doc.images.length) throw new Error("No images to pack");
+        const atlas = await packAtlas(session, session.doc, { padding: a.padding, maxWidth: a.maxSize, maxHeight: a.maxSize, powerOfTwo: a.powerOfTwo });
+        session.store.apply("setAtlas", { atlas, stripImageSources: a.stripImageSources });
+        await session.maybeAutosave();
+        return text({ ok: true, pages: atlas.pages.map((p) => `${p.id} ${p.width}x${p.height}`), regions: atlas.regions.length });
       } catch (e) {
         return fail(e);
       }

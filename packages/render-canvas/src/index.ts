@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, apply } from "@openbone/core";
+import { type AtlasData, type OpenBoneDocument, apply } from "@openbone/core";
 import type { ClipRegion, DrawItem, Skeleton } from "@openbone/runtime";
 
 /** Minimal 2D context surface (browser CanvasRenderingContext2D or @napi-rs/canvas SKRSContext2D). */
@@ -105,10 +105,12 @@ export class CanvasRenderer {
         ctx.stroke();
       }
     } else {
-      const img = this.images(it.image.id) as CanvasImageSource | null;
+      // Packed images sample their atlas page; uvs are already in page space.
+      const tex = it.texture ?? it.image;
+      const img = this.images(tex.id) as CanvasImageSource | null;
       ctx.globalAlpha = it.color[3];
-      const iw = it.image.width;
-      const ih = it.image.height;
+      const iw = tex.width;
+      const ih = tex.height;
       for (let t = 0; t < idx.length; t += 3) {
         const i0 = idx[t] * 2;
         const i1 = idx[t + 1] * 2;
@@ -151,7 +153,10 @@ export class CanvasRenderer {
         ctx.closePath();
         ctx.clip();
         ctx.transform(a, b, c, d, e, f);
-        ctx.drawImage(img, 0, 0);
+        // A packed image draws only its own rect of the page (not its neighbours or edge padding).
+        const tr = it.textureRect;
+        if (tr) ctx.drawImage(img, tr.x, tr.y, tr.width, tr.height, tr.x, tr.y, tr.width, tr.height);
+        else ctx.drawImage(img, 0, 0);
         ctx.restore();
       }
       if (it.color[0] < 1 || it.color[1] < 1 || it.color[2] < 1) {
@@ -249,4 +254,60 @@ export class CanvasRenderer {
       ctx.fill();
     }
   }
+}
+
+/**
+ * Compose one atlas page: draws each packed image into its rect (the trimmed part, when trimmed) and fills the
+ * white block. `ctx` should be a fresh `page.width x page.height` canvas. Returns the images that were missing.
+ */
+export function drawAtlasPage(ctx: Ctx2D, atlas: AtlasData, pageId: string, images: ImageResolver): string[] {
+  const missing: string[] = [];
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = "source-over";
+  for (const r of atlas.regions) {
+    if (r.page !== pageId) continue;
+    const img = images(r.image) as (CanvasImageSource & ImageSource) | null | undefined;
+    if (!img) {
+      missing.push(r.image);
+      continue;
+    }
+    // Source images may be stored at a different resolution than the asset size; scale the source rect.
+    const kx = (img.width || r.originalWidth) / r.originalWidth;
+    const ky = (img.height || r.originalHeight) / r.originalHeight;
+    ctx.drawImage(img, r.offsetX * kx, r.offsetY * ky, r.width * kx, r.height * ky, r.x, r.y, r.width, r.height);
+    extrude(ctx, r, Math.min(2, Math.floor(atlas.padding / 2)));
+  }
+  const w = atlas.white;
+  if (w && w.page === pageId) {
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(w.x, w.y, w.width, w.height);
+  }
+  return missing;
+}
+
+/**
+ * Copy a packed rect's edge pixels `e` pixels outwards into its padding. Linear filtering at the rect's border
+ * then blends with the edge colour instead of transparent padding, matching a loose texture's CLAMP_TO_EDGE.
+ */
+function extrude(ctx: Ctx2D, r: { x: number; y: number; width: number; height: number }, e: number) {
+  if (e <= 0) return;
+  const W = r.width + 2 * e;
+  const H = r.height + 2 * e;
+  const data = ctx.getImageData(r.x - e, r.y - e, W, H);
+  const p = data.data;
+  for (let y = 0; y < H; y++) {
+    const sy = Math.min(Math.max(y, e), e + r.height - 1);
+    for (let x = 0; x < W; x++) {
+      const sx = Math.min(Math.max(x, e), e + r.width - 1);
+      if (sx === x && sy === y) continue;
+      const d = (y * W + x) * 4;
+      const s = (sy * W + sx) * 4;
+      p[d] = p[s];
+      p[d + 1] = p[s + 1];
+      p[d + 2] = p[s + 2];
+      p[d + 3] = p[s + 3];
+    }
+  }
+  ctx.putImageData(data, r.x - e, r.y - e);
 }

@@ -43,6 +43,53 @@ export interface ImageAsset {
   height: number;
 }
 
+// ---------- Texture atlas ----------
+
+/** One packed texture. Same shape as an ImageAsset so loaders can treat both alike. */
+export interface AtlasPage {
+  id: Id;
+  name: string;
+  /** data: URI, relative path, or URL of the page image. */
+  src: string;
+  width: number;
+  height: number;
+}
+
+/**
+ * Where an image lives inside an atlas page. `x, y, width, height` is the packed rectangle in page pixels
+ * (y-down). It holds the part of the original image that starts at `offsetX, offsetY` (y-down, in original
+ * image pixels); with no trimming the offsets are 0 and the size equals `originalWidth x originalHeight`.
+ */
+export interface AtlasRegion {
+  image: Id;
+  page: Id;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+  originalWidth: number;
+  originalHeight: number;
+}
+
+/** A solid white block in a page; untextured shapes sample it so they batch with packed images. */
+export interface AtlasWhite {
+  page: Id;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface AtlasData {
+  pages: AtlasPage[];
+  regions: AtlasRegion[];
+  white?: AtlasWhite;
+  /** Pixels kept empty around each packed rectangle (informational). */
+  padding: number;
+}
+
 interface AttachmentBase {
   name: string;
 }
@@ -335,7 +382,10 @@ export interface OpenBoneDocument {
   originY: number;
   background: Hex | null;
   fps: number;
+  /** An image whose src is "" is only available through `atlas`. */
   images: ImageAsset[];
+  /** Packed textures. Images with a region here are drawn from the atlas page instead of their own src. */
+  atlas?: AtlasData;
   skeleton: SkeletonData;
   events: EventData[];
   animations: AnimationData[];

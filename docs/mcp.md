@@ -10,7 +10,8 @@ pnpm mcp --no-bridge                      # no WebSocket bridge
 ## Tools
 
 - **Project**: `new_project`, `open_project`, `save_project` (projects with a path autosave after every edit), `get_summary`, `get_document`, `validate`, `undo`, `redo`, `import_image`, `get_guide`.
-- **Edit tools**: one per core op, for example `add_bone`, `update_bone`, `add_slot`, `add_shape`, `add_region`, `add_mesh`, `auto_weights`, `add_ik_constraint`, `create_animation`, `set_keys`, `add_event_key`, `create_state_machine`, `add_input`, `add_state`, `add_transition`, `add_listener`, `add_script`, `attach_script`. Run `pnpm cli ops` for the full list.
+- **Edit tools**: one per core op, for example `add_bone`, `update_bone`, `add_slot`, `add_shape`, `add_region`, `add_mesh`, `auto_weights`, `add_ik_constraint`, `create_animation`, `set_keys`, `add_event_key`, `create_state_machine`, `add_input`, `add_state`, `add_transition`, `add_listener`, `add_script`, `attach_script`, `set_atlas`. Run `pnpm cli ops` for the full list.
+- **`pack_atlas`**: packs every image into texture atlas pages (embedded PNGs) and stores them with `set_atlas`, so renderers draw from one texture (fewer WebGL draw calls).
 - **Verification**:
   - `render_frame`: returns a PNG (bones and hit boxes overlaid) for the setup pose, an animation at a time, or a state machine after scripted steps.
   - `render_gif`: an animated preview.
