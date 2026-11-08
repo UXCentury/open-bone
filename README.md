@@ -20,10 +20,12 @@
 - **Clipping masks**: slots after the mask, up to an end slot, are drawn only inside its outline (Canvas2D clip, WebGL2 stencil).
 - **Bezier paths** for path constraints, optionally weighted to bones.
 - **Sprite sequences**: frame-by-frame animation from numbered image files (After Effects / render output, sorted naturally), sprite sheets cut by a grid or read from TexturePacker / Aseprite JSON (hash or array, trimmed frames), or a ZIP of frames. Own fps, loop / once / ping-pong / hold-last, start offset; driven by animation or state time, by frame keys, or by a number input. Works with skins, clipping, draw order and the atlas.
+- **Particle emitters** on any slot: rate and bursts, point/circle/box/cone shapes, world or local space, lifetime, speed, gravity, drag, size, rotation and colour-over-life ranges, soft circle / square / spark streak / image looks, blend modes, and presets (fire, smoke, sparks, confetti, exhaust, coins). Seeded and deterministic, so the editor preview and image/video exports show the same particles; emitting and rate are keyable, and state machines can start, stop or burst them.
+- **Text attachments** (font, size, weight, colour, alignment, outline) whose content can be a live template bound to inputs.
 - **Texture atlas packing** (MaxRects): fewer GPU draw calls and single-file exports.
 
 ### Animation
-- Per-property timelines: bone rotate/translate/scale/shear, slot colour and attachment, IK/transform/path/physics constraint values, mesh and path deform, sequence frame, draw order.
+- Per-property timelines: bone rotate/translate/scale/shear, slot colour and attachment, IK/transform/path/physics constraint values, mesh and path deform, sequence frame, particle emitting and rate, draw order.
 - Linear, stepped and bezier curves with a **curve graph editor** (draggable handles).
 - **Dopesheet timeline** with auto-key, key dragging, events (with int/float/string payloads and audio references).
 - Track mixing and cross-fades at runtime.
@@ -54,12 +56,13 @@
 - **Data**: JSON (`.json`) or compact **binary** (`.obonb`, about 40% of JSON), with a choice of animations, state machines, scripts and skins, plus nonessential-data stripping, animation clean-up, embedded images and atlas packing.
 - **Images**: PNG and JPEG (one frame or a ZIP of every frame), animated **GIF** and **APNG**, layered **PSD** (one layer per frame).
 - **Video**: **AVI** and **MOV** (Motion-JPEG).
+- **Engines**: sprite-sheet packs (trimmed, packed sheets with frame metadata) for **Unity** (TexturePacker/Unity JSON + import guide), **Godot 4** (ready `SpriteFrames` `.tres` and an `AnimatedSprite2D` scene), **Flutter** (sheet + JSON + Flame snippet) and generic engines (TexturePacker hash/array JSON for Phaser, PixiJS, Cocos); plus **interactive WebView packages** for **Flutter**, **Android** (Kotlin `OpenBoneView`) and **iOS** (Swift, UIKit and SwiftUI) that run the full file (state machines, inputs, scripts) through a small JS bridge (`setInput`, `fire`, `play`, events back to the app). The native templates are not compiled in CI; see their READMEs.
 - Animation, skin, frame rate, scale, artboard or fit-to-content area, transparent or coloured background, quality and looping options; a live preview; export settings can be saved to a file and loaded again.
 
 ### Runtime and tools
 - Renderer-agnostic TypeScript runtime with **WebGL2** (batched) and **Canvas2D** renderers.
 - **`<openbone-player>`** web component and a `Player` class (loads `.obone`, `.json` and `.obonb`).
-- **MCP server** (96 tools; every editing op becomes a tool automatically) with render/simulate tools and a live WebSocket bridge to the editor.
+- **MCP server** (105 tools; every editing op becomes a tool automatically) with render/simulate tools and a live WebSocket bridge to the editor.
 - **CLI**: validate, summarize, render PNG/GIF, simulate state machines, apply any op.
 - **Desktop app** (Tauri 2) with native file dialogs.
 
@@ -75,7 +78,7 @@ pnpm install
 pnpm dev
 ```
 
-The editor opens at http://localhost:5180 with the *Walker* example (IK legs, weighted cape mesh, idle/walk blend, jump trigger, eye-follow script). The *Examples* menu also has an interactive button (state machine, clipping mask) and a tail (path and physics constraints). The player demo is at http://localhost:5180/player.html.
+The editor opens at http://localhost:5180 with the *Walker* example (IK legs, weighted cape mesh, idle/walk blend, jump trigger, eye-follow script). The *Examples* menu also has an interactive button (state machine, clipping mask, click sound), a tail (path and physics constraints), a campfire (sprite sequences), a rocket (particles, click to toggle the engine) and a **crash game** (staged flow idle → fly-out → flying → crash or cash-out, a live multiplier text and input bindings). Press **▶ Play** to try any of them. The player demo is at http://localhost:5180/player.html.
 
 ```bash
 pnpm test
@@ -131,17 +134,17 @@ Requires Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3
 | Package | What it is |
 |---|---|
 | `packages/core` | Document model (`.obone` JSON and `.obonb` binary), the **op registry** (every edit: validated with zod, undoable, replayable), store with undo/redo, validation, export selection, atlas packing, snapping, summaries |
-| `packages/runtime` | Pose solver, IK/transform/path/physics constraints, animation sampling and mixing, state machine, listeners, events, script host interface |
+| `packages/runtime` | Pose solver, IK/transform/path/physics constraints, animation sampling and mixing, state machine, listeners, events, input bindings, text templates, sprite sequences, particles, audio commands, script host interface |
 | `packages/scripting` | QuickJS-WASM sandbox (memory cap and CPU deadline per call) |
 | `packages/render-webgl` | Batched WebGL2 renderer |
 | `packages/render-canvas` | Canvas2D renderer (fallback, editor viewport, headless PNG/GIF in Node) |
-| `packages/player` | `<openbone-player>` and the `Player` class |
-| `packages/export` | Image and video encoders for exports: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP |
+| `packages/player` | `<openbone-player>`, the `Player` class, Web Audio playback, and the self-contained WebView bundle + JS bridge used by the mobile packages |
+| `packages/export` | Export encoders and packagers: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP, sprite sheets, Unity/Godot/Flutter packs and the Flutter/Android/iOS WebView templates |
 | `packages/mcp` | MCP server (stdio + streamable HTTP), render/simulate tools, live WebSocket bridge |
 | `packages/cli` | `openbone` command line |
 | `apps/editor` | SolidJS editor |
 | `apps/desktop` | Tauri 2 shell around the editor, with native file dialogs |
-| `examples` | Walker, button and tail projects, plus the script that builds them |
+| `examples` | Walker, button, tail, campfire, rocket and crash-game projects, plus the script that builds them |
 
 Read [docs/architecture.md](docs/architecture.md) for the design and [docs/format.md](docs/format.md) for the file format.
 
