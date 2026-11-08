@@ -15,6 +15,11 @@
 }
 * { box-sizing: border-box; }
 html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+/* The editor is an app, not a page: labels, tree rows, rulers and buttons are not selectable text, so dragging keys,
+   bones or panels never highlights them. Text you type or may want to copy stays selectable. */
+#root { user-select: none; -webkit-user-select: none; }
+#root input, #root textarea, #root [contenteditable="true"], #root .event-log, #root .play-log, #root .selectable,
+#root .dialog-msg, #root .toast, #root pre, #root code { user-select: text; -webkit-user-select: text; }
 button, select, input, textarea { font: inherit; color: var(--text); }
 button {
   background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px; cursor: pointer;
@@ -71,7 +76,12 @@ input.tiny { width: 52px; }
 .tree > .tnode > .tree-row { padding-left: 2px; }
 .tree .twisty { width: 12px; flex-shrink: 0; text-align: center; color: var(--muted); font-size: 10px; cursor: pointer; border-radius: 3px; }
 .tree .twisty:hover { color: var(--text); background: #ffffff14; }
-.tree .twisty.empty { cursor: default; background: none; }
+.tree .twisty.leaf { cursor: default; background: none; }
+.tree-search { display: flex; align-items: center; gap: 6px; padding: 4px 8px 6px; }
+.tree-search input { flex: 1; min-width: 0; }
+.tree-search .small { white-space: nowrap; }
+.tree-hit { background: #ffcc0055; color: inherit; border-radius: 2px; }
+.tree .tname { white-space: pre; }
 .slot-row { color: #c9d4ff; }
 .att-row { color: var(--muted); }
 .muted { color: var(--muted); }
@@ -119,12 +129,26 @@ input.tiny { width: 52px; }
 .tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid #2c313c; padding-left: 3px; font-size: 10px; color: var(--muted); }
 .end-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: #ff5d5d88; }
 .track { flex: 1; position: relative; border-bottom: 1px solid #23272f; }
+/* Keys take their property's colour (same as the Graph view); the shape tells the curve:
+   diamond = linear, rounded diamond = eased (bezier), square = stepped. */
 .key {
-  position: absolute; top: 6px; width: 11px; height: 11px; margin-left: -5px; background: #c4ccdb; transform: rotate(45deg); cursor: grab; border: 1px solid #0006;
+  position: absolute; top: 6px; width: 11px; height: 11px; margin-left: -5px; background: var(--key-color, #c4ccdb); transform: rotate(45deg); cursor: grab; border: 1px solid #0008; z-index: 1;
 }
-.key.eased { background: #8ad4ff; }
-.key.stepped { background: #ffb26b; border-radius: 0; }
+.key.eased { border-radius: 3px; }
+.key.stepped { transform: none; border-radius: 1px; width: 10px; height: 10px; top: 7px; }
 .key.selected { background: var(--warn); box-shadow: 0 0 0 2px #ffcc0055; }
+.key.summary { background: #e6e9ef; width: 9px; height: 9px; top: 7px; margin-left: -4px; }
+.key.summary.selected { background: var(--warn); }
+.track .hold { position: absolute; top: 10px; height: 4px; background: var(--key-color, #c4ccdb); opacity: 0.45; border-radius: 2px; pointer-events: auto; }
+.group-row .track { background: #20242c; }
+.group-row .row-label { background: #23272f; font-weight: 600; gap: 4px; align-items: center; }
+.group-row .twisty { width: 12px; text-align: center; color: var(--muted); font-size: 10px; cursor: pointer; border-radius: 3px; flex-shrink: 0; }
+.group-row .twisty:hover { color: var(--text); background: #ffffff14; }
+.group-icon { width: 16px; text-align: center; flex-shrink: 0; font-weight: normal; }
+.group-name { overflow: hidden; text-overflow: ellipsis; }
+.group-count { margin-left: auto; font-weight: normal; font-size: 10px; }
+.prop-label { padding-left: 26px; gap: 5px; align-items: center; }
+.prop-icon { width: 12px; text-align: center; flex-shrink: 0; }
 .event-key { position: absolute; top: 3px; transform: translateX(-2px); font-size: 10px; background: #6b4dff; padding: 1px 5px; border-radius: 3px; cursor: grab; white-space: nowrap; }
 .event-key.selected { background: var(--warn); color: #000; }
 .playhead { position: absolute; top: 0; width: 2px; background: var(--warn); pointer-events: none; z-index: 3; }

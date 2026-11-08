@@ -1,10 +1,10 @@
 import { type Curve, EASINGS, type Key, type Timeline as TL, animationDuration } from "@openbone/core";
-import { For, Show, createEffect, createSignal } from "solid-js";
+import { For, Show, createEffect, createMemo, createSignal } from "solid-js";
 import { tip } from "../shortcuts/index.ts";
-import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey } from "../state.ts";
+import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey, transaction } from "../state.ts";
 import { askText } from "../dialogs.tsx";
 import { AudioTrack, addSoundKey } from "./AudioPanel.tsx";
-import { GraphView } from "./GraphView.tsx";
+import { GraphView, timelineColor, timelineKey } from "./GraphView.tsx";
 
 /** Dopesheet (keys per row) or Graph (value curves); remembered while the editor is open. */
 const [timelineView, setTimelineView] = createSignal<"dopesheet" | "graph">("dopesheet");
@@ -46,6 +46,51 @@ function curveName(c: Curve): string {
   if (typeof c === "string") return c;
   const hit = Object.entries(EASINGS).find(([, v]) => v.every((x, i) => Math.abs(x - c[i]) < 1e-6));
   return hit ? hit[0] : "custom";
+}
+
+type Group = { key: string; name: string; icon: string; timelines: TL[] };
+
+const [collapsedGroups, setCollapsedGroups] = createSignal<Set<string>>(new Set());
+function toggleGroup(key: string) {
+  const s = new Set(collapsedGroups());
+  if (s.has(key)) s.delete(key);
+  else s.add(key);
+  setCollapsedGroups(s);
+}
+
+/** Which header a timeline sits under: its bone, its slot, its constraint, or draw order. */
+function groupInfo(tl: TL): { key: string; name: string; icon: string } {
+  const d = doc();
+  if (tl.target === "bone") return { key: `bone:${tl.id}`, name: d.skeleton.bones.find((b) => b.id === tl.id)?.name ?? tl.id, icon: "🦴" };
+  if (tl.target === "slot" || tl.target === "particles" || tl.target === "deform" || tl.target === "sequence")
+    return { key: `slot:${tl.id}`, name: d.skeleton.slots.find((s) => s.id === tl.id)?.name ?? tl.id, icon: "▣" };
+  if (tl.target === "ik" || tl.target === "transform" || tl.target === "path" || tl.target === "physics") {
+    const prefix = { ik: "IK", transform: "Transform", path: "Path", physics: "Physics" }[tl.target];
+    const list: { id: string; name: string }[] = d.skeleton[tl.target];
+    return { key: `${tl.target}:${tl.id}`, name: `${prefix} ${list.find((c) => c.id === tl.id)?.name ?? tl.id}`, icon: "⛓" };
+  }
+  return { key: "drawOrder", name: "Draw order", icon: "☰" };
+}
+function propName(tl: TL): string {
+  if (tl.target === "deform") return `deform ${tl.attachment}`;
+  if (tl.target === "sequence") return `frame ${tl.attachment}`;
+  if (tl.target === "drawOrder") return "order";
+  return tl.property;
+}
+const PROP_ICONS: Record<string, string> = { rotation: "↻", x: "↔", y: "↕", scaleX: "⤢", scaleY: "⤢", shearX: "▱", shearY: "▱", color: "●", attachment: "▣", emitting: "✺", rate: "✺" };
+function propIcon(tl: TL): string {
+  if (tl.target === "deform") return "◇";
+  if (tl.target === "sequence") return "🎞";
+  if (tl.target === "drawOrder") return "☰";
+  if (tl.target === "ik" || tl.target === "transform" || tl.target === "path" || tl.target === "physics") return "⛓";
+  return PROP_ICONS[tl.property] ?? "•";
+}
+/** Spans between neighbouring keys with the same value (the value holds there). */
+function holds(tl: TL): [number, number][] {
+  const ks = tl.keys as { time: number; value: unknown }[];
+  const out: [number, number][] = [];
+  for (let i = 0; i < ks.length - 1; i++) if (JSON.stringify(ks[i].value) === JSON.stringify(ks[i + 1].value)) out.push([ks[i].time, ks[i + 1].time]);
+  return out;
 }
 
 export function Timeline() {
@@ -135,6 +180,59 @@ export function Timeline() {
     if (!k || !("tl" in k)) return null;
     const key = (liveTimeline(k.tl)?.keys as { time: number; curve: Curve }[] | undefined)?.find((x) => Math.abs(x.time - k.time) < 1e-6);
     return key ? curveName(key.curve) : null;
+  };
+
+  // ---- grouped dopesheet: one collapsible header per bone / slot / constraint ----
+  const groups = createMemo(() => {
+    const a = anim();
+    if (!a) return [] as Group[];
+    const map = new Map<string, Group>();
+    for (const tl of a.timelines) {
+      const info = groupInfo(tl);
+      let g = map.get(info.key);
+      if (!g) map.set(info.key, (g = { ...info, timelines: [] }));
+      g.timelines.push(tl);
+    }
+    return [...map.values()];
+  });
+  const rowCount = () => groups().reduce((n, g) => n + 1 + (collapsedGroups().has(g.key) ? 0 : g.timelines.length), 0);
+  const summaryTimes = (g: Group) => {
+    const times: number[] = [];
+    for (const tl of g.timelines) for (const k of tl.keys as { time: number }[]) if (!times.some((t) => Math.abs(t - k.time) < 1e-6)) times.push(k.time);
+    return times.sort((x, y) => x - y);
+  };
+  const summarySelected = (g: Group, t: number) => {
+    const k = selKey();
+    return !!k && "tl" in k && Math.abs(k.time - t) < 1e-6 && g.timelines.some((tl) => timelineKey(tl) === timelineKey(k.tl));
+  };
+  /** Drag a summary key: every key of the group at that time moves together (one undo step). */
+  const dragSummary = (e: PointerEvent, g: Group, t: number) => {
+    e.stopPropagation();
+    setPlaying(false);
+    setTime(t);
+    const first = g.timelines.find((tl) => (tl.keys as { time: number }[]).some((k) => Math.abs(k.time - t) < 1e-6));
+    if (first) setSelKey({ tl: first, time: t });
+    const startX = e.clientX;
+    let newTime = t;
+    const el = e.currentTarget as HTMLElement;
+    const move = (m: PointerEvent) => {
+      newTime = snap(t + (m.clientX - startX) / pps());
+      el.style.left = `${newTime * pps()}px`;
+      setTime(newTime);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      const a = anim();
+      if (!a || Math.abs(newTime - t) < 1e-6) return;
+      transaction("Move keys", () => {
+        for (const tl of g.timelines)
+          if ((tl.keys as { time: number }[]).some((k) => Math.abs(k.time - t) < 1e-6)) apply("moveKey", { animation: a.id, ...keyArgs(tl), time: t, newTime });
+      });
+      if (first) setSelKey({ tl: first, time: newTime });
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
   };
 
   const ticks = () => {
@@ -312,41 +410,103 @@ export function Timeline() {
           <Show when={anim()!.audio?.length}>
             <AudioTrack anim={anim()!} pps={pps()} width={LABEL_W + span() * pps()} labelWidth={LABEL_W} snap={snap} onScrub={scrub} />
           </Show>
-          <For each={anim()!.timelines}>
-            {(tl) => (
-              <div class="track-row" style={{ width: `${LABEL_W + span() * pps()}px` }}>
-                <div class="row-label" title={label(tl)}>
-                  {label(tl)}
-                  <button class="row-del" title="Delete timeline" onClick={() => apply("deleteTimeline", { animation: anim()!.id, ...keyArgs(tl) })}>
-                    ×
-                  </button>
-                </div>
-                <div class="track" onPointerDown={scrub}>
-                  <For each={tl.keys as { time: number; curve: Curve; value: unknown }[]}>
-                    {(k) => {
-                      const sel = () => {
-                        const s = selKey();
-                        return !!s && "tl" in s && s.tl.target === tl.target && s.tl.id === tl.id && s.tl.property === tl.property && Math.abs(s.time - k.time) < 1e-6;
-                      };
-                      return (
-                        <div
-                          class="key"
-                          classList={{ selected: sel(), stepped: k.curve === "stepped", eased: Array.isArray(k.curve) }}
-                          style={{ left: `${k.time * pps()}px` }}
-                          title={`${k.time}s = ${JSON.stringify(k.value)} (${curveName(k.curve)})`}
-                          onPointerDown={(e) => dragKey(e, { tl, time: k.time })}
-                        />
-                      );
-                    }}
-                  </For>
-                </div>
-              </div>
-            )}
+          <For each={groups()}>
+            {(g) => {
+              const open = () => !collapsedGroups().has(g.key);
+              const width = () => `${LABEL_W + span() * pps()}px`;
+              return (
+                <>
+                  <div class="track-row group-row" style={{ width: width() }}>
+                    <div class="row-label group-label" title={g.name}>
+                      <span
+                        class="twisty"
+                        title={open() ? "Collapse" : "Expand"}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleGroup(g.key);
+                        }}
+                      >
+                        {open() ? "▾" : "▸"}
+                      </span>
+                      <span class="group-icon">{g.icon}</span>
+                      <span class="group-name">{g.name}</span>
+                      <span class="muted group-count">{g.timelines.length}</span>
+                    </div>
+                    <div class="track" onPointerDown={scrub}>
+                      <For each={summaryTimes(g)}>
+                        {(t) => (
+                          <div
+                            class="key summary"
+                            classList={{ selected: summarySelected(g, t) }}
+                            style={{ left: `${t * pps()}px` }}
+                            title={`${t}s: every key of ${g.name} at this time. Drag to move them together.`}
+                            onPointerDown={(e) => dragSummary(e, g, t)}
+                          />
+                        )}
+                      </For>
+                    </div>
+                  </div>
+                  <Show when={open()}>
+                    <For each={g.timelines}>
+                      {(tl) => (
+                        <div class="track-row" style={{ width: width() }}>
+                          <div class="row-label prop-label" title={label(tl)}>
+                            <span class="prop-icon" style={{ color: timelineColor(tl) }}>
+                              {propIcon(tl)}
+                            </span>
+                            {propName(tl)}
+                            <button class="row-del" title="Delete timeline" onClick={() => apply("deleteTimeline", { animation: anim()!.id, ...keyArgs(tl) })}>
+                              ×
+                            </button>
+                          </div>
+                          <div class="track" onPointerDown={scrub} style={{ "--key-color": timelineColor(tl) }}>
+                            <For each={holds(tl)}>{(h) => <div class="hold" style={{ left: `${h[0] * pps()}px`, width: `${(h[1] - h[0]) * pps()}px` }} title="Same value: holds" />}</For>
+                            <For each={tl.keys as { time: number; curve: Curve; value: unknown }[]}>
+                              {(k) => {
+                                const sel = () => {
+                                  const s = selKey();
+                                  return !!s && "tl" in s && s.tl.target === tl.target && s.tl.id === tl.id && s.tl.property === tl.property && Math.abs(s.time - k.time) < 1e-6;
+                                };
+                                return (
+                                  <div
+                                    class="key"
+                                    classList={{ selected: sel(), stepped: k.curve === "stepped", eased: Array.isArray(k.curve) }}
+                                    style={{ left: `${k.time * pps()}px` }}
+                                    title={`${k.time}s = ${JSON.stringify(k.value)} (${curveName(k.curve)})`}
+                                    onPointerDown={(e) => dragKey(e, { tl, time: k.time })}
+                                  />
+                                );
+                              }}
+                            </For>
+                          </div>
+                        </div>
+                      )}
+                    </For>
+                  </Show>
+                </>
+              );
+            }}
           </For>
-          <div class="playhead" style={{ left: `${LABEL_W + time() * pps()}px`, height: `${(anim()!.timelines.length + (anim()!.events.length ? 2 : 1) + (anim()!.audio?.length ? 1 : 0)) * 24}px` }} />
+          <div class="playhead" style={{ left: `${LABEL_W + time() * pps()}px`, height: `${(rowCount() + (anim()!.events.length ? 2 : 1) + (anim()!.audio?.length ? 1 : 0)) * 24}px` }} />
         </div>
-        <Show when={showGraph() && (() => { const k = selKey(); return k && "tl" in k ? k : null; })()}>
-          {(k) => <CurveEditor tl={(k() as { tl: TL }).tl} time={k().time} />}
+        <Show when={showGraph()}>
+          <Show
+            when={(() => {
+              const k = selKey();
+              return k && "tl" in k ? k : null;
+            })()}
+            keyed
+            fallback={
+              <div class="curve-editor">
+                <div class="curve-head">
+                  <span>Key curve</span>
+                </div>
+                <div class="muted pad">Click a key in the dopesheet to shape how it eases into the next key. For every key at once, switch to Graph.</div>
+              </div>
+            }
+          >
+            {(k) => <CurveEditor tl={k.tl} time={k.time} />}
+          </Show>
         </Show>
         </Show>
         </div>

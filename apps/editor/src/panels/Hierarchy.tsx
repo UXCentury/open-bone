@@ -1,5 +1,5 @@
 import { type BoneData, slotAttachments } from "@openbone/core";
-import { For, Show, createEffect, createSignal, untrack } from "solid-js";
+import { For, Show, createEffect, createMemo, createRoot, createSignal, untrack } from "solid-js";
 import {
   activeSkin,
   activeSkinId,
@@ -53,11 +53,72 @@ function allParentIds(): string[] {
   ];
 }
 
+// ---- search: show matching bones, slots and attachments with their parents ----
+const [treeQuery, setTreeQuery] = createSignal("");
+const query = () => treeQuery().trim().toLowerCase();
+const matches = (name: string) => name.toLowerCase().includes(query());
+/** Ids shown while searching (bones, slots, and "slotId/attachment" keys), or null when not searching. */
+const searchHits = createRoot(() =>
+  createMemo((): Set<string> | null => {
+    if (!query()) return null;
+    const d = doc();
+    const vis = new Set<string>();
+    const parentOf = new Map(d.skeleton.bones.map((b) => [b.id, b.parent]));
+    const withAncestors = (boneId: string | null | undefined) => {
+      for (let b = boneId; b; b = parentOf.get(b) ?? null) vis.add(b);
+    };
+    for (const b of d.skeleton.bones) if (matches(b.name)) withAncestors(b.id);
+    for (const sl of d.skeleton.slots) {
+      const atts = slotAttachments(d, sl.id, activeSkin()?.id).filter((a) => matches(a.name));
+      if (!matches(sl.name) && !atts.length) continue;
+      vis.add(sl.id);
+      for (const a of atts) vis.add(`${sl.id}/${a.name}`);
+      withAncestors(sl.bone);
+    }
+    return vis;
+  }),
+);
+const shown = (id: string) => {
+  const hits = searchHits();
+  return !hits || hits.has(id);
+};
+/** While searching every matching branch is open, whatever was collapsed. */
+const isOpen = (id: string) => !!query() || !isCollapsed(id);
+
+/** A name with the search match highlighted. */
+function Name(p: { text: string }) {
+  const parts = () => {
+    const q = query();
+    const i = q ? p.text.toLowerCase().indexOf(q) : -1;
+    return i < 0 ? null : [p.text.slice(0, i), p.text.slice(i, i + q.length), p.text.slice(i + q.length)];
+  };
+  return (
+    <span class="tname">
+      <Show when={parts()} fallback={p.text}>
+        {(x) => (
+          <>
+            {x()[0]}
+            <mark class="tree-hit">{x()[1]}</mark>
+            {x()[2]}
+          </>
+        )}
+      </Show>
+    </span>
+  );
+}
+
+/** Keep a selected row visible: scroll it into view when it becomes selected (e.g. picked in the viewport). */
+function scrollWhenSelected(el: HTMLElement, selected: () => boolean) {
+  createEffect(() => {
+    if (selected()) queueMicrotask(() => el.isConnected && el.scrollIntoView({ block: "nearest", inline: "nearest" }));
+  });
+}
+
 function Twisty(p: { id: string; has: boolean; subtree?: () => string[] }) {
   return (
     <span
       class="twisty"
-      classList={{ empty: !p.has }}
+      classList={{ leaf: !p.has }}
       title={p.has ? "Collapse / expand (Alt: the whole branch)" : undefined}
       onClick={(e) => {
         if (!p.has) return;
@@ -66,46 +127,49 @@ function Twisty(p: { id: string; has: boolean; subtree?: () => string[] }) {
         setNodes(e.altKey && p.subtree ? p.subtree() : [p.id], collapse);
       }}
     >
-      {p.has ? (isCollapsed(p.id) ? "▸" : "▾") : ""}
+      {p.has ? (isOpen(p.id) ? "▾" : "▸") : ""}
     </span>
   );
 }
 
 function BoneNode(p: { bone: BoneData }) {
-  const children = () => doc().skeleton.bones.filter((b) => b.parent === p.bone.id);
-  const slots = () => doc().skeleton.slots.filter((s) => s.bone === p.bone.id);
+  const children = () => doc().skeleton.bones.filter((b) => b.parent === p.bone.id && shown(b.id));
+  const slots = () => doc().skeleton.slots.filter((s) => s.bone === p.bone.id && shown(s.id));
   const sel = () => selection();
   const has = () => children().length + slots().length > 0;
+  const boneSelected = () => sel()?.kind === "bone" && sel()!.id === p.bone.id;
   return (
     <div class="tnode">
-      <div class="tree-row" classList={{ selected: sel()?.kind === "bone" && sel()!.id === p.bone.id }} onClick={() => setSelection({ kind: "bone", id: p.bone.id })}>
+      <div class="tree-row" ref={(el) => scrollWhenSelected(el, boneSelected)} classList={{ selected: boneSelected() }} onClick={() => setSelection({ kind: "bone", id: p.bone.id })}>
         <Twisty id={p.bone.id} has={has()} subtree={() => subtreeIds(p.bone.id)} />
-        <span class="icon bone-icon">🦴</span> {p.bone.name}
+        <span class="icon bone-icon">🦴</span> <Name text={p.bone.name} />
       </div>
-      <Show when={has() && !isCollapsed(p.bone.id)}>
+      <Show when={has() && isOpen(p.bone.id)}>
         <div class="tchildren">
           <For each={slots()}>
             {(s) => {
-              const atts = () => slotAttachments(doc(), s.id, activeSkin()?.id);
+              const atts = () => slotAttachments(doc(), s.id, activeSkin()?.id).filter((a) => shown(`${s.id}/${a.name}`) || (!!searchHits() && matches(s.name)));
+              const slotSelected = () => sel()?.kind === "slot" && sel()!.id === s.id && !(sel() as { attachment?: string }).attachment;
               return (
                 <div class="tnode">
-                  <div class="tree-row slot-row" classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id }} onClick={() => setSelection({ kind: "slot", id: s.id })}>
+                  <div class="tree-row slot-row" ref={(el) => scrollWhenSelected(el, slotSelected)} classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id }} onClick={() => setSelection({ kind: "slot", id: s.id })}>
                     <Twisty id={s.id} has={atts().length > 0} />
-                    <span class="icon">▣</span> {s.name}
+                    <span class="icon">▣</span> <Name text={s.name} />
                     <span class="muted"> {s.attachment ? `· ${s.attachment}` : "· hidden"}</span>
                   </div>
-                  <Show when={atts().length > 0 && !isCollapsed(s.id)}>
+                  <Show when={atts().length > 0 && isOpen(s.id)}>
                     <div class="tchildren">
                       <For each={atts()}>
                         {(a) => (
                           <div class="tnode">
                             <div
                               class="tree-row att-row"
+                              ref={(el) => scrollWhenSelected(el, () => sel()?.kind === "slot" && sel()!.id === s.id && (sel() as { attachment?: string }).attachment === a.name)}
                               classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id && (sel() as { attachment?: string }).attachment === a.name }}
                               title={a.skin.id === doc().skeleton.skins[0].id ? "In the default skin" : `In skin “${a.skin.name}”${a.overrides ? " (overrides the default skin)" : ""}`}
                               onClick={() => setSelection({ kind: "slot", id: s.id, attachment: a.name })}
                             >
-                              <span class="icon">{({ boundingBox: "⬚", clipping: "✂", sequence: "🎞", particles: "✺" } as Record<string, string>)[a.attachment.type] ?? "◇"}</span> {a.name}
+                              <span class="icon">{({ boundingBox: "⬚", clipping: "✂", sequence: "🎞", particles: "✺" } as Record<string, string>)[a.attachment.type] ?? "◇"}</span> <Name text={a.name} />
                               <Show when={a.skin.id !== doc().skeleton.skins[0].id}>
                                 <span class="skin-badge">{a.skin.name}</span>
                               </Show>
@@ -127,6 +191,30 @@ function BoneNode(p: { bone: BoneData }) {
 }
 
 /** Open the collapsed ancestors of the selected bone or slot, so selecting in the viewport shows it in the tree. */
+/** "3 matches" / "no match" for the search box. */
+function searchCount(): string {
+  const d = doc();
+  let n = 0;
+  for (const b of d.skeleton.bones) if (matches(b.name)) n++;
+  for (const sl of d.skeleton.slots) {
+    if (matches(sl.name)) n++;
+    n += slotAttachments(d, sl.id, activeSkin()?.id).filter((a) => matches(a.name)).length;
+  }
+  return n ? `${n} match${n === 1 ? "" : "es"}` : "no match";
+}
+/** Enter in the search box: select the first match (bones first, then slots, then attachments). */
+function selectFirstHit() {
+  const d = doc();
+  const b = d.skeleton.bones.find((x) => matches(x.name));
+  if (b) return setSelection({ kind: "bone", id: b.id });
+  const sl = d.skeleton.slots.find((x) => matches(x.name));
+  if (sl) return setSelection({ kind: "slot", id: sl.id });
+  for (const x of d.skeleton.slots) {
+    const a = slotAttachments(d, x.id, activeSkin()?.id).find((y) => matches(y.name));
+    if (a) return setSelection({ kind: "slot", id: x.id, attachment: a.name });
+  }
+}
+
 function useRevealSelection() {
   createEffect(() => {
     const sel = selection();
@@ -266,8 +354,28 @@ export function Hierarchy() {
           </>
         }
       >
+        <div class="tree-search">
+          <input
+            type="search"
+            placeholder="Search bones, slots, attachments"
+            aria-label="Search the skeleton"
+            value={treeQuery()}
+            onInput={(e) => setTreeQuery(e.currentTarget.value)}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Escape") setTreeQuery("");
+              else if (e.key === "Enter") selectFirstHit();
+            }}
+          />
+          <Show when={query()}>
+            <span class="muted small">{searchCount()}</span>
+          </Show>
+        </div>
         <div class="tree">
-          <For each={roots()}>{(b) => <BoneNode bone={b} />}</For>
+          <For each={roots().filter((b) => shown(b.id))}>{(b) => <BoneNode bone={b} />}</For>
+          <Show when={query() && searchCount() === "no match"}>
+            <div class="muted pad">Nothing named “{treeQuery().trim()}”.</div>
+          </Show>
         </div>
       </Section>
       <Show when={doc().skeleton.ik.length + doc().skeleton.transform.length + doc().skeleton.path.length + doc().skeleton.physics.length > 0}>

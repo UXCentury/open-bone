@@ -2,6 +2,8 @@
 
 **Open-source 2D skeletal animation (Spine-style rigging) + Rive-style interactivity + an MCP server so AI agents can build animations for you.**
 
+![The OpenBone editor: the painted Knight example mid-wave in Animate mode, with the skeleton tree, the grouped dopesheet and the Inspector](docs/editor.webp)
+
 ## Features
 
 ### Rigging
@@ -27,7 +29,7 @@
 ### Animation
 - Per-property timelines: bone rotate/translate/scale/shear, slot colour and attachment, IK/transform/path/physics constraint values, mesh and path deform, sequence frame, particle emitting and rate, draw order.
 - Linear, stepped and bezier curves. The Timeline's **Graph view** shows every numeric timeline as value curves over time: drag keys in time and value, shape bezier handles on the curve, pan, zoom, fit, and normalize curves of different units; a per-key ease editor sits beside the dopesheet.
-- **Dopesheet timeline** with auto-key, key dragging, events (with int/float/string payloads and audio references).
+- **Dopesheet timeline** grouped by bone, slot and constraint (collapsible, with summary keys that move a group's keys together), keys coloured per property and shaped by curve type, hold bars where a value stays the same, auto-key, key dragging, events (with int/float/string payloads and audio references).
 - Track mixing and cross-fades at runtime.
 - **Onion skin**: ghost poses before (red) and after (green) the current frame.
 
@@ -45,6 +47,7 @@
 ### Editor
 - **Tools**: select/rotate, translate, scale, create bone, **mesh vertex editing** (select, drag, add, delete, nudge; re-triangulates) and **weight painting** (brush with add/remove, radius and strength, heat-map and per-vertex weight readout).
 - **Setup and Animate modes**, undo/redo for every change.
+- **Skeleton tree** with parent/child guide lines, collapsible bones and slots (Alt-click: a whole branch), **search** (matches shown with their parents; Enter selects the first) and auto-scroll to whatever you select in the viewport.
 - **Viewport aids**: checkerboard (transparent backgrounds supported), origin lines, red/green **move arrows** on the selected bone (axis-locked dragging), grid, rulers, draggable guides (saved per project) and **smart snapping** to the artboard centre/edges/origin, guides, grid, other bone joints and mesh vertices (hold Ctrl/⌘ to bypass).
 - **Dockable workspace**: resize panels, drag panel tabs to any side or group them, collapse sections; the layout is remembered and can be reset.
 - **Play mode** (▶ Play, `P`): run the result in the editor exactly as shipped, with a floating panel to toggle inputs, fire triggers and watch events, state changes and script logs; pick the state machine or animation, skin and speed, fit or 1:1, full window. Stop returns to the exact editing state.
