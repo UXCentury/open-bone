@@ -1,4 +1,6 @@
-# OpenBone
+<p align="center"><img src="brand/logo.svg" alt="OpenBone logo" width="112" height="112" /></p>
+
+<h1 align="center">OpenBone</h1>
 
 **Open-source 2D skeletal animation (Spine-style rigging) + Rive-style interactivity + an MCP server so AI agents can build animations for you.**
 

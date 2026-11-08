@@ -2,7 +2,7 @@ import { ANY_STATE, type Condition, type ConditionOp, type InputData, type Input
 import { For, Match, Show, Switch, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { apply, currentStateMachine, doc, running, setRunning, setStateMachineId, toast } from "../state.ts";
 import { eventLog, smInstance } from "./Viewport.tsx";
-import { askForm, askText, uniqueName } from "../dialogs.tsx";
+import { askForm, askText, confirmDelete, uniqueName } from "../dialogs.tsx";
 import { StateSounds } from "./AudioPanel.tsx";
 import { emitterSlots } from "./ParticlesInspector.tsx";
 import { BindingList } from "./Bindings.tsx";
@@ -320,7 +320,7 @@ export function StateMachinePanel() {
                 <Show
                   when={running()}
                   fallback={
-                    <button class="row-del" title="Delete input" onClick={() => apply("deleteInput", { stateMachine: sm()!.id, input: i.id })}>
+                    <button class="row-del" title="Delete input" onClick={() => void confirmDelete(`input “${i.name}”`, "Conditions and listener actions that use it are removed too.", () => apply("deleteInput", { stateMachine: sm()!.id, input: i.id }))}>
                       ×
                     </button>
                   }
@@ -655,10 +655,12 @@ function StateProps(p: { state: StateData; layer: LayerData; onDeleted: () => vo
         </button>
         <button
           class="danger"
-          onClick={() => {
-            apply("deleteState", args());
-            p.onDeleted();
-          }}
+          onClick={() =>
+            void confirmDelete(`state “${p.state.name}”`, "Transitions to and from it are removed too.", () => {
+              apply("deleteState", args());
+              p.onDeleted();
+            })
+          }
         >
           Delete
         </button>
@@ -755,10 +757,12 @@ function TransitionProps(p: { t: TransitionData; layer: LayerData; onDeleted: ()
       </button>
       <button
         class="danger"
-        onClick={() => {
-          apply("deleteTransition", args());
-          p.onDeleted();
-        }}
+        onClick={() =>
+          void confirmDelete("this transition", null, () => {
+            apply("deleteTransition", args());
+            p.onDeleted();
+          })
+        }
       >
         Delete transition
       </button>
@@ -814,7 +818,7 @@ function ListenerList() {
             <span class="grow">
               <b>{l.event}</b> on {doc().skeleton.slots.find((s) => s.id === l.slot)?.name ?? "artboard"} → {l.actions.map(describe).join(", ")}
             </span>
-            <button class="row-del" onClick={() => apply("deleteListener", { stateMachine: sm().id, listener: l.id })}>
+            <button class="row-del" title="Delete listener" onClick={() => void confirmDelete(`this ${l.event} listener`, null, () => apply("deleteListener", { stateMachine: sm().id, listener: l.id }))}>
               ×
             </button>
           </div>

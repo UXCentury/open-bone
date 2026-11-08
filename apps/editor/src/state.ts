@@ -24,13 +24,20 @@ export const doc = (): OpenBoneDocument => {
 export { rev };
 
 // ---------- toasts ----------
-const [toasts, setToasts] = createSignal<{ id: number; text: string; kind: "error" | "info" }[]>([]);
+/** A button on a toast, e.g. "Open folder" after an export. */
+export interface ToastAction {
+  label: string;
+  run: () => unknown;
+}
+const [toasts, setToasts] = createSignal<{ id: number; text: string; kind: "error" | "info"; action?: ToastAction }[]>([]);
 export { toasts };
 let toastId = 0;
-export function toast(text: string, kind: "error" | "info" = "info") {
+export const dismissToast = (id: number) => setToasts((t) => t.filter((x) => x.id !== id));
+export function toast(text: string, kind: "error" | "info" = "info", action?: ToastAction) {
   const id = ++toastId;
-  setToasts((t) => [...t, { id, text, kind }]);
-  setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === "error" ? 5000 : 2500);
+  setToasts((t) => [...t, { id, text, kind, action }]);
+  // Toasts with a button stay long enough to reach it.
+  setTimeout(() => dismissToast(id), action ? 9000 : kind === "error" ? 5000 : 2500);
 }
 
 /** Apply an op, surfacing errors as toasts. Routed through the live bridge when connected. */
@@ -102,7 +109,19 @@ export const [stateMachineId, setStateMachineId] = createSignal<string | null>(n
 /** When true the viewport runs the selected state machine live. */
 export const [running, setRunning] = createSignal(false);
 export const [baseUrl, setBaseUrl] = createSignal<string>("");
-export const [fileName, setFileName] = createSignal<string>("untitled.obone");
+const [fileName, setFileNameSignal] = createSignal<string>("untitled.obone");
+export { fileName };
+
+/** True when the document changed since it was opened or last saved (opening something else would lose it). */
+const [modified, setModified] = createSignal(false);
+export { modified, setModified };
+store.subscribe((_d, e) => setModified(e.kind !== "load"));
+
+/** Name the open file. Called on open and after every successful save, so it also clears `modified`. */
+export function setFileName(name: string) {
+  setFileNameSignal(name);
+  setModified(false);
+}
 export const [exportOpen, setExportOpen] = createSignal(false);
 
 /** Skin shown in the viewport and receiving new attachments. null = default skin only. */

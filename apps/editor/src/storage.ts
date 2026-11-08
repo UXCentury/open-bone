@@ -1,4 +1,5 @@
 import { type OpenBoneDocument, parseDocument, serialize, textureAssets } from "@openbone/core";
+import { confirmDiscard } from "./destructive.ts";
 import { audioAsDataUrl, registerAudioOverride, resolveAudioUrl } from "./audio.ts";
 import { imageAsDataUrl, registerImageOverride, resolveImageUrl } from "./images.ts";
 import { fileName, loadDocument, setFileName, store, toast } from "./state.ts";
@@ -62,6 +63,25 @@ const warnMissing = (missing: string[]) => {
   if (missing.length) toast(`Saved, but ${missing.length} asset${missing.length > 1 ? "s" : ""} could not be read: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? "…" : ""}`, "error");
 };
 
+/** Show a saved file selected in its folder (Finder, Explorer, the Linux file manager). Desktop only. */
+export async function revealInFolder(path: string) {
+  try {
+    const { revealItemInDir } = await import("@tauri-apps/plugin-opener");
+    await revealItemInDir(path);
+  } catch (e) {
+    toast(`Could not open the folder: ${(e as Error).message ?? e}`, "error");
+  }
+}
+
+/**
+ * "Saved …" toast with an Open folder button when `path` is a real file path (desktop). Browsers only give pages
+ * the file name, never its folder, so on the web the toast says where downloads usually go instead.
+ */
+export function savedToast(text: string, path: string | null) {
+  if (isDesktop() && path && /[\\/]/.test(path)) toast(text, "info", { label: "Open folder", run: () => revealInFolder(path) });
+  else toast(text);
+}
+
 /** True inside the Tauri desktop shell. */
 export const isDesktop = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
@@ -70,6 +90,7 @@ let desktopPath: string | null = null;
 /** ProjectStorage: native dialogs + filesystem on desktop, File System Access API or download on the web. */
 export async function openProject(webFallback: () => void) {
   if (!isDesktop()) return webFallback();
+  if (!(await confirmDiscard("Opening another project"))) return;
   const { open } = await import("@tauri-apps/plugin-dialog");
   const { readTextFile, readFile } = await import("@tauri-apps/plugin-fs");
   const path = await open({ multiple: false, filters: [{ name: "OpenBone", extensions: ["obone", "obonb", "json"] }] });
@@ -113,7 +134,7 @@ export async function saveProject(saveAs = false) {
     warnMissing(await copyAssetsTo(path.replace(/[\\/][^\\/]*$/, ""), doc));
     desktopPath = path;
     setFileName(path.split(/[\\/]/).pop()!);
-    toast(`Saved ${path}`);
+    savedToast(`Saved ${path}`, path);
     return;
   }
   // In the browser the file is all we can write: it carries its images and sounds inside.
@@ -139,6 +160,7 @@ export async function saveProject(saveAs = false) {
   a.download = fileName();
   a.click();
   URL.revokeObjectURL(a.href);
+  setFileName(fileName());
 }
 
 /**
@@ -259,7 +281,7 @@ export async function saveProjectToFolder() {
     desktopPath = `${dir}/${name}`;
     setFileName(name);
     warnMissing(missing);
-    toast(`Saved ${name} and ${files.length} asset files to ${dir}`);
+    savedToast(`Saved ${name} and ${files.length} asset files to ${dir}`, `${dir}/${name}`);
     return;
   }
   const w = window as unknown as { showDirectoryPicker?: (o?: object) => Promise<FileSystemDirectoryHandle> };

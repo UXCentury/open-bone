@@ -1,4 +1,5 @@
 import { parseDocument } from "@openbone/core";
+import { confirmDiscard } from "../destructive.ts";
 import { For, Show } from "solid-js";
 import { bridgeStatus, connectBridge, disconnectBridge, bridgeUndo, bridgeRedo } from "../bridge.ts";
 import { imageSize, readFileAsDataUrl } from "../images.ts";
@@ -80,6 +81,7 @@ export function Toolbar() {
   const open = async (files: FileList | null) => {
     const f = files?.[0];
     if (!f) return;
+    if (!(await confirmDiscard(`Opening “${f.name}”`))) return;
     try {
       loadDocument(parseDocument(new Uint8Array(await f.arrayBuffer())), f.name.replace(/\.obonb$/i, ".obone"));
     } catch (e) {
@@ -90,7 +92,7 @@ export function Toolbar() {
   return (
     <header class="toolbar">
       <div class="brand">
-        <span class="logo">●━</span> OpenBone
+        <img class="logo" src={`${import.meta.env.BASE_URL}logo-mark.svg`} alt="" width="14" height="18" /> OpenBone
       </div>
       <div class="group">
         <button

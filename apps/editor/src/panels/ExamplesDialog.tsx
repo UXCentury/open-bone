@@ -1,6 +1,7 @@
 import { type OpenBoneDocument, serialize } from "@openbone/core";
+import { confirmDiscard } from "../destructive.ts";
 import { bundleExample, exampleUrl, fetchExample } from "../examples.ts";
-import { saveTextFile } from "../storage.ts";
+import { savedToast, saveTextFile } from "../storage.ts";
 import { toast } from "../state.ts";
 import { OpenBoneInstance } from "@openbone/runtime";
 import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
@@ -83,7 +84,8 @@ function Thumb(p: { id: string }) {
 export function ExamplesDialog() {
   let box!: HTMLDivElement;
   const close = () => setExamplesOpen(false);
-  const pick = (id: string) => {
+  const pick = async (id: string) => {
+    if (!(await confirmDiscard(`Opening the “${id}” example`))) return;
     close();
     void openExample(id);
   };
@@ -96,7 +98,7 @@ export function ExamplesDialog() {
     try {
       const doc = await bundleExample(id, (done, total) => setProgress(`${done}/${total}`));
       const saved = await saveTextFile(`${id}.obone`, serialize(doc));
-      if (saved) toast(`Downloaded ${title} (${saved}): open it with ☰ Menu → Open…`);
+      if (saved) savedToast(`Downloaded ${title} (${saved}): open it with ☰ Menu → Open…`, saved);
     } catch (e) {
       toast(`Couldn't download ${title}: ${(e as Error).message}`, "error");
     } finally {

@@ -9,6 +9,7 @@ export * from "./setup.ts";
 export * from "./validate.ts";
 export * from "./summary.ts";
 export * from "./store.ts";
+export * from "./history.ts";
 export * from "./export.ts";
 export * from "./snap.ts";
 export * from "./binary.ts";

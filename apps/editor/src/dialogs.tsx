@@ -50,6 +50,27 @@ export async function askConfirm(o: { title: string; message?: string; confirmLa
   return (await open({ ...o, fields: [] })) !== null;
 }
 
+/**
+ * Confirm a destructive action, then run it. `what` names the thing ("bone “arm”"); `detail` says what else goes
+ * with it. Resolves to whether it ran. Everything is undoable, and the dialog says so.
+ */
+export async function confirmDelete(what: string, detail: string | null, run: () => unknown, verb = "Delete"): Promise<boolean> {
+  const ok = await askConfirm({
+    title: `${verb} ${what}?`,
+    message: `${detail ? `${detail} ` : ""}You can undo this (${undoKeys()}).`,
+    confirmLabel: verb,
+    danger: true,
+  });
+  if (ok) run();
+  return ok;
+}
+
+/** "Ctrl+Z" / "⌘Z", without importing the shortcut registry into this module's load order. */
+const undoKeys = () => (/mac|iphone|ipad/i.test(globalThis.navigator?.platform ?? "") ? "⌘Z" : "Ctrl+Z");
+
+/** Plural helper for confirmation messages: "3 slots", "1 slot". */
+export const count = (n: number, word: string, plural = `${word}s`) => `${n} ${n === 1 ? word : plural}`;
+
 /** Ask for one line of text (trimmed, required by default). Resolves to null when cancelled. */
 export async function askText(o: {
   title: string;

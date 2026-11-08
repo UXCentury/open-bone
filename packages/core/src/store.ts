@@ -9,6 +9,12 @@ export interface ChangeEvent {
   origin?: string;
 }
 
+/** One undo or redo step: the document before (undo) or after (redo) it, and what it did. */
+export interface HistoryEntry {
+  doc: OpenBoneDocument;
+  label: string;
+}
+
 type Listener = (doc: OpenBoneDocument, e: ChangeEvent) => void;
 
 /**
@@ -17,8 +23,9 @@ type Listener = (doc: OpenBoneDocument, e: ChangeEvent) => void;
  */
 export class DocumentStore {
   doc: OpenBoneDocument;
-  private past: { doc: OpenBoneDocument; label: string }[] = [];
-  private future: { doc: OpenBoneDocument; label: string }[] = [];
+  // Snapshots are never mutated once in the history (undo/redo hand out copies), so they can be shared and diffed.
+  private past: HistoryEntry[] = [];
+  private future: HistoryEntry[] = [];
   private listeners = new Set<Listener>();
   private txn: { before: OpenBoneDocument; ops: OpCall[]; label: string } | null = null;
   historyLimit = 200;
@@ -89,6 +96,17 @@ export class DocumentStore {
     this.future = [];
   }
 
+  /** The undo (oldest first) and redo (next redo last) stacks. Treat the snapshots as read-only. */
+  history(): { past: readonly HistoryEntry[]; future: readonly HistoryEntry[] } {
+    return { past: this.past, future: this.future };
+  }
+
+  /** Replace the undo/redo stacks (e.g. restored after a reload; see restoreHistory). Notifies nobody. */
+  setHistory(past: HistoryEntry[], future: HistoryEntry[]) {
+    this.past = past.slice(-this.historyLimit);
+    this.future = future.slice();
+  }
+
   get canUndo() {
     return this.past.length > 0;
   }
@@ -100,7 +118,7 @@ export class DocumentStore {
     const prev = this.past.pop();
     if (!prev) return false;
     this.future.push({ doc: this.doc, label: prev.label });
-    this.doc = prev.doc;
+    this.doc = cloneDocument(prev.doc);
     this.emit({ kind: "undo", ops: [], origin });
     return true;
   }
@@ -109,7 +127,7 @@ export class DocumentStore {
     const next = this.future.pop();
     if (!next) return false;
     this.past.push({ doc: this.doc, label: next.label });
-    this.doc = next.doc;
+    this.doc = cloneDocument(next.doc);
     this.emit({ kind: "redo", ops: [], origin });
     return true;
   }

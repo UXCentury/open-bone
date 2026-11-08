@@ -2,7 +2,7 @@ import { type Curve, EASINGS, type Key, type Timeline as TL, animationDuration }
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import { tip } from "../shortcuts/index.ts";
 import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey, transaction } from "../state.ts";
-import { askText } from "../dialogs.tsx";
+import { askText, confirmDelete } from "../dialogs.tsx";
 import { AudioTrack, addSoundKey } from "./AudioPanel.tsx";
 import { GraphView, timelineColor, timelineKey } from "./GraphView.tsx";
 import { lipSyncDialog } from "../lipsync-ui.ts";
@@ -507,7 +507,7 @@ export function Timeline() {
                               {propIcon(tl)}
                             </span>
                             {propName(tl)}
-                            <button class="row-del" title="Delete timeline" onClick={() => apply("deleteTimeline", { animation: anim()!.id, ...keyArgs(tl) })}>
+                            <button class="row-del" title="Delete timeline" onClick={() => void confirmDelete(`all ${tl.keys.length} keys of ${propName(tl)}`, `The whole “${label(tl)}” timeline is removed from this animation.`, () => apply("deleteTimeline", { animation: anim()!.id, ...keyArgs(tl) }))}>
                               ×
                             </button>
                           </div>

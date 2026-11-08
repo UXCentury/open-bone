@@ -1,0 +1,16 @@
+{
+  "name": "OpenBone Editor",
+  "short_name": "OpenBone",
+  "description": "Open-source 2D skeletal animation with state machines, scripting and an MCP server",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#14161b",
+  "theme_color": "#190826",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

@@ -6,7 +6,7 @@ import { Dock, DragOverlay, Splitter } from "./panels/Workspace.tsx";
 import { ExportDialog } from "./panels/ExportDialog.tsx";
 import { PlayStage } from "./panels/PlayMode.tsx";
 import { ShortcutsDialog } from "./panels/ShortcutsDialog.tsx";
-import { exportOpen, toasts } from "./state.ts";
+import { dismissToast, exportOpen, toasts } from "./state.ts";
 import { DialogHost } from "./dialogs.tsx";
 import { playActive } from "./play.ts";
 import { setupShortcuts, shortcutsOpen } from "./shortcuts/actions.ts";
@@ -64,7 +64,26 @@ export function App() {
         <ShortcutsDialog />
       </Show>
       <div class="toasts">
-        <For each={toasts()}>{(t) => <div class={`toast ${t.kind}`}>{t.text}</div>}</For>
+        <For each={toasts()}>
+          {(t) => (
+            <div class={`toast ${t.kind}`} classList={{ "with-action": !!t.action }}>
+              <span>{t.text}</span>
+              <Show when={t.action}>
+                {(a) => (
+                  <button
+                    class="toast-action"
+                    onClick={() => {
+                      void a().run();
+                      dismissToast(t.id);
+                    }}
+                  >
+                    {a().label}
+                  </button>
+                )}
+              </Show>
+            </div>
+          )}
+        </For>
       </div>
     </div>
   );

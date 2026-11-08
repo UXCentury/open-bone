@@ -1,7 +1,7 @@
 import { createDocument } from "@openbone/core";
+import { confirmDiscard } from "./destructive.ts";
 import { createSignal } from "solid-js";
 import { bridgeStatus } from "./bridge.ts";
-import { askConfirm } from "./dialogs.tsx";
 import { saveProjectToFolder } from "./storage.ts";
 import { toggleViewAid, viewAids } from "./guides.ts";
 import { PANELS, type PanelId, movePanel, resetLayout, showPanel, swapSides, whereIs } from "./layout.ts";
@@ -54,13 +54,7 @@ import { toast, loadDocument, mode, onionSkin, selection, setSelection, showBone
 export const [examplesOpen, setExamplesOpen] = createSignal(false);
 
 export async function newProject() {
-  const ok = await askConfirm({
-    title: "Start a new project?",
-    message: "Unsaved changes to the current project will be lost. Save first if you want to keep them.",
-    confirmLabel: "Discard and start new",
-    danger: true,
-  });
-  if (ok) loadDocument(createDocument("Untitled"), "untitled.obone");
+  if (await confirmDiscard("Starting a new project")) loadDocument(createDocument("Untitled"), "untitled.obone");
 }
 
 const layoutItems = (): MenuItem[] => [

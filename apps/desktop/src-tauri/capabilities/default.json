@@ -1,12 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Editor window: open/save .obone files and read images the user picks",
+  "description": "Editor window: open/save .obone files, read images the user picks, show saved files in their folder",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "dialog:default",
     "fs:default",
+    "opener:allow-reveal-item-in-dir",
     { "identifier": "fs:allow-read-text-file", "allow": [{ "path": "$HOME/**" }] },
     { "identifier": "fs:allow-write-text-file", "allow": [{ "path": "$HOME/**" }] },
     { "identifier": "fs:allow-read-file", "allow": [{ "path": "$HOME/**" }] }

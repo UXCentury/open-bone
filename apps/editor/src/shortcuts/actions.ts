@@ -1,4 +1,5 @@
 import { BONE_PROPERTIES, animationDuration } from "@openbone/core";
+import { deleteBoneAsk, deleteSlotAsk } from "../destructive.ts";
 import { Skeleton, applyAnimation } from "@openbone/runtime";
 import { createSignal } from "solid-js";
 import { ensureAnimation } from "../edit.ts";
@@ -150,8 +151,8 @@ function deleteSelection() {
     return;
   }
   const s = selection();
-  if (s?.kind === "bone") apply("deleteBone", { bone: s.id }) !== undefined && setSelection(null);
-  else if (s?.kind === "slot") apply("deleteSlot", { slot: s.id }) !== undefined && setSelection(null);
+  if (s?.kind === "bone") void deleteBoneAsk(s.id);
+  else if (s?.kind === "slot") void deleteSlotAsk(s.id);
   else return false;
 }
 

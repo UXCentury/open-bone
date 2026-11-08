@@ -1,13 +1,39 @@
 import { For, Show, createMemo, createSignal, onCleanup, onMount } from "solid-js";
 import { askConfirm } from "../dialogs.tsx";
-import { type Conflict, type ShortcutDef, comboFromEvent, fmt, isDesktop, isMac, platform, shortcuts, shortcutsRev } from "../shortcuts/index.ts";
+import { type Conflict, type Platform, type ShortcutDef, comboFromEvent, formatCombo, isDesktop, platform, shortcuts, shortcutsRev } from "../shortcuts/index.ts";
 import { setShortcutsOpen } from "../shortcuts/actions.ts";
 
 const SCOPE_NOTE: Record<ShortcutDef["scope"], string> = { global: "", editor: "", play: "in Play mode" };
 
+const VIEW_KEY = "openbone.shortcutsView";
+/** Which keyboard the reference shows: this computer's by default, remembered per browser. */
+function readView(): Platform {
+  try {
+    const v = localStorage.getItem(VIEW_KEY);
+    if (v === "mac" || v === "other") return v;
+  } catch {
+    /* private mode */
+  }
+  return platform;
+}
+
+/** Mouse-gesture text for a keyboard: "Alt + drag" is "⌥ Option + drag" on a Mac. */
+const fixedFor = (text: string, view: Platform) => (view === "mac" ? text.replace(/\bAlt\b/g, "⌥ Option") : text);
+
 /** Searchable reference of every shortcut, with rebinding (conflict-checked) saved to this browser. */
 export function ShortcutsDialog() {
   const [query, setQuery] = createSignal("");
+  const [view, setViewSignal] = createSignal<Platform>(readView());
+  const setView = (v: Platform) => {
+    setViewSignal(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* private mode: just this session */
+    }
+  };
+  /** A binding in the keys picked above (bindings are portable: Mod is ⌘ on a Mac, Ctrl elsewhere). */
+  const fmt = (combo: string) => formatCombo(combo, view());
   /** Shortcut id waiting for a key press. */
   const [capturing, setCapturing] = createSignal<string | null>(null);
   const [pending, setPending] = createSignal<{ id: string; combo: string; conflicts: Conflict[] } | null>(null);
@@ -17,10 +43,13 @@ export function ShortcutsDialog() {
 
   const close = () => setShortcutsOpen(false);
 
-  const keysText = (d: ShortcutDef) => (d.fixed ? d.fixed : shortcuts.keysOf(d.id).map(fmt).join(" "));
+  // Search matches both keyboards, so "ctrl+s" and "⌘S" find the same shortcut.
+  const keysText = (d: ShortcutDef) =>
+    d.fixed ? `${d.fixed} ${fixedFor(d.fixed, "mac")}` : shortcuts.keysOf(d.id).flatMap((k) => [formatCombo(k, "mac"), formatCombo(k, "other")]).join(" ");
   const groups = createMemo(() => {
     shortcutsRev();
     const q = query().trim().toLowerCase();
+    view();
     return shortcuts
       .groups()
       .map((g) => ({
@@ -102,8 +131,17 @@ export function ShortcutsDialog() {
       <div ref={box} class="modal shortcuts-dialog" role="dialog" aria-modal="true" aria-labelledby="sc-title">
         <header class="modal-head">
           <h2 id="sc-title">Keyboard shortcuts</h2>
+          <div class="seg-choice sc-os" role="group" aria-label="Show keys for">
+            <button classList={{ active: view() === "other" }} aria-pressed={view() === "other"} onClick={() => setView("other")}>
+              Windows / Linux
+            </button>
+            <button classList={{ active: view() === "mac" }} aria-pressed={view() === "mac"} onClick={() => setView("mac")}>
+              macOS
+            </button>
+          </div>
           <span class="muted small">
-            {isMac ? "macOS keys (⌘ Command, ⌥ Option, ⇧ Shift, ⌃ Control)" : "Windows / Linux keys"}
+            {view() === "mac" ? "⌘ Command, ⌥ Option, ⇧ Shift, ⌃ Control" : "Ctrl, Alt, Shift"}
+            {view() !== platform ? ` · this computer uses ${platform === "mac" ? "macOS" : "Windows / Linux"} keys` : ""}
             {isDesktop ? " · desktop app" : ""}
           </span>
           <span class="spacer" />
@@ -142,7 +180,7 @@ export function ShortcutsDialog() {
                       <span class="sc-keys">
                         <Show
                           when={!d.fixed}
-                          fallback={<span class="muted small">{d.fixed}</span>}
+                          fallback={<span class="muted small">{fixedFor(d.fixed ?? "", view())}</span>}
                         >
                           <For each={(shortcutsRev(), shortcuts.keysOf(d.id))}>
                             {(k) => (

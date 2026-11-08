@@ -7,7 +7,8 @@ import { For, Match, Show, Switch, createSignal } from "solid-js";
 import { commitBone, keyBoneProperty, keyConstraint, keySlot } from "../edit.ts";
 import { imageFor } from "../images.ts";
 import { activeSkin, apply, currentAnimation, doc, mode, selection, setSelection, skinArg, store, time, transaction } from "../state.ts";
-import { askConfirm } from "../dialogs.tsx";
+import { askConfirm, confirmDelete } from "../dialogs.tsx";
+import { deleteAttachmentAsk, deleteBoneAsk, deleteConstraintAsk, deleteSlotAsk } from "../destructive.ts";
 import { ColorField, NumberField, Section, SelectField, TextField } from "./fields.tsx";
 import { AudioAssetInspector, BusInspector, SoundInspector } from "./AudioPanel.tsx";
 import { SequenceEditor } from "./SequenceEditor.tsx";
@@ -80,7 +81,7 @@ function BoneInspector(p: { id: string }) {
           >
             + Slot
           </button>
-          <button class="danger" onClick={() => apply("deleteBone", { bone: p.id }) !== undefined && setSelection(null)}>
+          <button class="danger" onClick={() => void deleteBoneAsk(p.id)}>
             Delete
           </button>
         </div>
@@ -191,7 +192,7 @@ function SkinControls(p: { slotId: string; att: Attachment; owner: SkinData }) {
         </button>
       </Show>
       <Show when={overrides()}>
-        <button title="Delete this skin's version and show the default skin's again" onClick={() => apply("deleteAttachment", { slot: p.slotId, attachment: p.att.name, skin: p.owner.id })}>
+        <button title="Delete this skin's version and show the default skin's again" onClick={() => void deleteAttachmentAsk(p.slotId, p.att.name, p.owner.id, "Revert")}>
           Revert to default
         </button>
       </Show>
@@ -447,7 +448,7 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
           <div class="hint">Hit area for state-machine listeners. Edit vertices via MCP/JSON for now.</div>
         </Match>
       </Switch>
-      <button class="danger" onClick={() => apply("deleteAttachment", { slot: p.slotId, attachment: p.att.name, skin: p.owner.id })}>
+      <button class="danger" onClick={() => void deleteAttachmentAsk(p.slotId, p.att.name, p.owner.id)}>
         Delete attachment
       </button>
     </Section>
@@ -495,7 +496,7 @@ function SlotInspector(p: { id: string; attachment?: string }) {
           <span class="muted small">{index() + 1} / {doc().skeleton.slots.length}</span>
         </div>
         <div class="btn-row">
-          <button class="danger" onClick={() => apply("deleteSlot", { slot: p.id }) !== undefined && setSelection(null)}>
+          <button class="danger" onClick={() => void deleteSlotAsk(p.id)}>
             Delete
           </button>
         </div>
@@ -568,7 +569,7 @@ function IkInspector(p: { id: string }) {
         <Show when={c()!.stretch || (c()!.bones.length === 1 && c()!.compress)}>
           <Check label="Uniform" title="Scale both axes when stretching or compressing, so the art keeps its proportions" checked={!!c()!.uniform} onChange={(v) => set({ uniform: v })} />
         </Show>
-        <button class="danger" onClick={() => apply("deleteConstraint", { constraint: p.id }) !== undefined && setSelection(null)}>
+        <button class="danger" onClick={() => void deleteConstraintAsk(p.id, "IK")}>
           Delete
         </button>
       </Section>
@@ -622,7 +623,7 @@ function TransformInspector(p: { id: string }) {
         <CNumber kind="transform" id={p.id} prop="offsetScaleX" label="Offset sX" step={0.01} value={c()!.offsetScaleX} />
         <CNumber kind="transform" id={p.id} prop="offsetScaleY" label="Offset sY" step={0.01} value={c()!.offsetScaleY} />
         <CNumber kind="transform" id={p.id} prop="offsetShear" label="Offset shear" value={c()!.offsetShear} />
-        <button class="danger" onClick={() => apply("deleteConstraint", { constraint: p.id }) !== undefined && setSelection(null)}>
+        <button class="danger" onClick={() => void deleteConstraintAsk(p.id, "transform")}>
           Delete
         </button>
       </Section>
@@ -650,7 +651,7 @@ function PathInspector(p: { id: string }) {
         <CNumber kind="path" id={p.id} prop="mixX" label="Mix X" step={0.01} min={0} max={1} value={c()!.mixX} />
         <CNumber kind="path" id={p.id} prop="mixY" label="Mix Y" step={0.01} min={0} max={1} value={c()!.mixY} />
         <CNumber kind="path" id={p.id} prop="offsetRotation" label="Offset rot" value={c()!.offsetRotation} />
-        <button class="danger" onClick={() => apply("deleteConstraint", { constraint: p.id }) !== undefined && setSelection(null)}>
+        <button class="danger" onClick={() => void deleteConstraintAsk(p.id, "path")}>
           Delete
         </button>
       </Section>
@@ -695,7 +696,7 @@ function SliderInspector(p: { id: string }) {
         <NumberField label="Mix" step={0.01} value={c()!.mix} onCommit={(v) => set({ mix: Math.min(1, Math.max(0, v)) })} />
         <Check label="Loop" title="Wrap past the range instead of stopping at its ends" checked={c()!.loop} onChange={(v) => set({ loop: v })} />
         <Check label="Additive" title="Add the animation's change on top of the pose instead of replacing it" checked={c()!.additive} onChange={(v) => set({ additive: v })} />
-        <button class="danger" onClick={() => apply("deleteSlider", { slider: p.id }) !== undefined && setSelection(null)}>
+        <button class="danger" onClick={() => void confirmDelete(`slider “${c()!.name}”`, "Bindings that drive it stop working.", () => apply("deleteSlider", { slider: p.id }) !== undefined && setSelection(null))}>
           Delete
         </button>
       </Section>
@@ -725,7 +726,7 @@ function PhysicsInspector(p: { id: string }) {
         <CNumber kind="physics" id={p.id} prop="wind" label="Wind" value={c()!.wind} />
         <CNumber kind="physics" id={p.id} prop="mix" label="Mix" step={0.01} min={0} max={1} value={c()!.mix} />
         <CNumber kind="physics" id={p.id} prop="fps" label="Steps/s" min={1} max={480} value={c()!.fps} />
-        <button class="danger" onClick={() => apply("deleteConstraint", { constraint: p.id }) !== undefined && setSelection(null)}>
+        <button class="danger" onClick={() => void deleteConstraintAsk(p.id, "physics")}>
           Delete
         </button>
       </Section>
@@ -745,7 +746,7 @@ function ImageInspector(p: { id: string }) {
           {img()!.name} · {img()!.width}×{img()!.height}
           {doc().atlas?.regions.some((r) => r.image === p.id) ? " · packed in atlas" : ""}
         </div>
-        <button class="danger" onClick={() => apply("deleteImage", { image: p.id }) !== undefined && setSelection(null)}>
+        <button class="danger" onClick={() => void confirmDelete(`image “${img()!.name}”`, "Attachments that use it are removed too.", () => apply("deleteImage", { image: p.id }) !== undefined && setSelection(null))}>
           Delete image
         </button>
       </Section>

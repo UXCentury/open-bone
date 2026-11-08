@@ -1,7 +1,7 @@
 import { type AnimationData, type LayerData, type SoundData, type StateData, animationDuration } from "@openbone/core";
 import { For, Show, createEffect, createSignal } from "solid-js";
 import { audioMuted, audition, importAudio, setAudioMuted } from "../audio.ts";
-import { askConfirm, askForm, askText, uniqueName } from "../dialogs.tsx";
+import { askConfirm, askForm, askText, confirmDelete, uniqueName } from "../dialogs.tsx";
 import { decodedNow, drawWaveform } from "../waveform.ts";
 import { apply, currentStateMachine, doc, selection, setSelection, time } from "../state.ts";
 import { NumberField, Section, SelectField, TextField } from "./fields.tsx";
@@ -223,7 +223,7 @@ export function BusInspector(p: { id: string }) {
           <div class="hint">Sounds: {sounds().filter((s) => s.bus === p.id).map((s) => s.name).join(", ") || "none"}</div>
           <div class="btn-row">
             <button onClick={addBus}>+ Bus</button>
-            <button class="danger" onClick={() => apply("deleteBus", { bus: p.id }) !== undefined && setSelection({ kind: "bus", id: "master" })}>
+            <button class="danger" onClick={() => void confirmDelete(`bus “${b()!.name}”`, "Its sounds play straight into the master instead.", () => apply("deleteBus", { bus: p.id }) !== undefined && setSelection({ kind: "bus", id: "master" }))}>
               Delete
             </button>
           </div>

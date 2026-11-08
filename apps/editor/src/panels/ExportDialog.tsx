@@ -5,7 +5,7 @@ import { type PackOutcome, packForExport } from "../atlas.ts";
 import { ENGINES, type EngineTarget, FLUTTER_NOTES, type SheetExportOptions, exportSpritePack, exportWebViewPack } from "../export-engines.ts";
 import { MEDIA, type MediaFormat, type MediaOptions, exportMedia, frameTimes } from "../export-media.ts";
 import { imageAsDataUrl, resolveImageUrl } from "../images.ts";
-import { isDesktop, saveFile, saveTextFile } from "../storage.ts";
+import { isDesktop, savedToast, saveFile, saveTextFile } from "../storage.ts";
 import { animationId, doc, fileName, setExportOpen, toast } from "../state.ts";
 import { audioAsDataUrl } from "../audio.ts";
 import { exportWebPack, playerSizeKb } from "../export-web.ts";
@@ -583,7 +583,7 @@ export function ExportDialog() {
               ? await saveTextFile(`${base}.json`, data, "json", "OpenBone JSON data")
               : await saveTextFile(`${base}.obone`, data);
         if (savedName) {
-          toast(`Exported ${savedName} (${fmtBytes(data.length)})`);
+          savedToast(`Exported ${savedName} (${fmtBytes(data.length)})`, savedName);
           setExportOpen(false);
         }
         return;
@@ -602,7 +602,7 @@ export function ExportDialog() {
         setProgress("Saving…");
         const savedName = await saveFile(f.name, f.data, { ext: f.ext, description: f.description, mime: f.mime });
         if (savedName) {
-          toast(`Exported ${savedName} (${fmtBytes(f.data.length)})`);
+          savedToast(`Exported ${savedName} (${fmtBytes(f.data.length)})`, savedName);
           if (openAfter() && canOpenAfter()) openResult(f.data, f.mime);
           setExportOpen(false);
         }
@@ -616,7 +616,7 @@ export function ExportDialog() {
         const label = `${formatLabel()} ${sheetMode() ? "sprite sheet" : "WebView"} package (ZIP)`;
         const savedName = await saveFile(`${base}.zip`, data, { ext: "zip", description: label, mime: "application/zip" });
         if (savedName) {
-          toast(`Exported ${savedName} (${fmtBytes(data.length)})`);
+          savedToast(`Exported ${savedName} (${fmtBytes(data.length)})`, savedName);
           setExportOpen(false);
         }
         return;
@@ -625,7 +625,7 @@ export function ExportDialog() {
       setProgress("Saving…");
       const savedName = await saveFile(f.name, f.data, { ext: f.ext, description: f.description, mime: f.mime });
       if (savedName) {
-        toast(`Exported ${savedName} (${fmtBytes(f.data.length)})`);
+        savedToast(`Exported ${savedName} (${fmtBytes(f.data.length)})`, savedName);
         for (const w of f.warnings ?? []) toast(w, "info");
         if (openAfter() && canOpenAfter()) openResult(f.data, f.mime);
         setExportOpen(false);
