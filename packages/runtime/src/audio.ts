@@ -161,3 +161,41 @@ export function playAudioKeys(dir: AudioDirector, anim: AnimationData, prev: num
   for (const { key, index } of audioKeysBetween(anim, prev, next, loop))
     dir.play(key.sound, { volume: key.volume, rate: key.rate, loop: key.loop, owner, tag: `${anim.id}#${index}`, source: `key:${anim.name}` });
 }
+
+/** An audio command and the animation time it happens at. */
+export interface TimedAudioCommand {
+  time: number;
+  command: AudioCommand;
+}
+
+/**
+ * What an animation plays when it runs once from 0 to `duration` (an export's length): its audio keys and the sounds
+ * of its events, each with the time it starts. Looping sounds stop at `duration`. Times are exact key times.
+ */
+export function animationAudioSchedule(doc: OpenBoneDocument, anim: AnimationData, duration: number): TimedAudioCommand[] {
+  const out: TimedAudioCommand[] = [];
+  let at = 0;
+  const dir = new AudioDirector(doc, (command) => out.push({ time: at, command }));
+  const starts: { time: number; play: () => void }[] = [];
+  for (const { key, index } of audioKeysBetween(anim, -1e-9, duration, false))
+    starts.push({
+      time: Math.max(0, key.time),
+      play: () => dir.play(key.sound, { volume: key.volume, rate: key.rate, loop: key.loop, owner: "export", tag: `${anim.id}#${index}`, source: `key:${anim.name}` }),
+    });
+  for (const k of anim.events) {
+    if (k.time < 0 || k.time > duration) continue;
+    const ev = doc.events.find((e) => e.id === k.event);
+    const sound = ev?.audio;
+    if (ev && sound) starts.push({ time: k.time, play: () => dir.play(sound, { volume: ev.volume, owner: "export", source: `event:${ev.name}` }) });
+  }
+  starts.sort((a, b) => a.time - b.time);
+  for (const s of starts) {
+    dir.update(s.time - at);
+    at = s.time;
+    s.play();
+  }
+  dir.update(Math.max(0, duration - at));
+  at = duration;
+  dir.stopOwner("export", 0, false);
+  return out;
+}

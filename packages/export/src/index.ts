@@ -5,6 +5,7 @@ export { encodeGif } from "./gif.ts";
 export { encodePsd } from "./psd.ts";
 export { encodeAviMjpeg } from "./avi.ts";
 export { encodeMovMjpeg } from "./mov.ts";
+export { type PcmAudio, floatToPcm, pcmFrames } from "./pcm.ts";
 export {
   type SheetClipInput,
   type SheetOptions,
