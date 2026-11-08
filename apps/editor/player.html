@@ -28,6 +28,7 @@
           <div class="controls">
             <label>speed <input id="speed" type="range" min="0" max="1" step="0.01" value="0" /></label>
             <button id="jump">Jump</button>
+            <label id="skin-wrap" hidden>skin <select id="skin"></select></label>
           </div>
           <pre id="walker-log"></pre>
         </div>
@@ -45,6 +46,13 @@
       const log = (id, s) => { const el = document.getElementById(id); el.textContent = `${s}\n${el.textContent}`.slice(0, 2000); };
       document.getElementById("speed").addEventListener("input", (e) => walker.setInput("speed", Number(e.target.value)));
       document.getElementById("jump").addEventListener("click", () => walker.fire("jump"));
+      walker.addEventListener("openbone-load", () => {
+        const skins = walker.player.skins;
+        const sel = document.getElementById("skin");
+        sel.replaceChildren(...skins.map((n, i) => new Option(i === 0 ? `${n} (base)` : n, i === 0 ? "" : n)));
+        document.getElementById("skin-wrap").hidden = skins.length < 2;
+      });
+      document.getElementById("skin").addEventListener("change", (e) => walker.setSkin(e.target.value || null));
       walker.addEventListener("openbone-event", (e) => log("walker-log", `event ${e.detail.name} ${e.detail.string}`));
       walker.addEventListener("openbone-state", (e) => log("walker-log", `${e.detail.from} → ${e.detail.to}`));
       const btn = document.getElementById("button-player");

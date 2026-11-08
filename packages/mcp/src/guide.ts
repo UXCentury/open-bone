@@ -29,7 +29,10 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
    Scripts: add_script {code} + attach_script. Script API (global ob): ob.input(n), ob.setInput(n,v), ob.fire(n),
    ob.emit(event,{int,float,string}), ob.bone(n), ob.setBone(n,{rotation,...}) (per-frame override), ob.slot(n,{color,attachment}),
    ob.pointer(), ob.time(), ob.log(...). Hooks: onStart(), onUpdate(dt), onEvent(e), onPointer(p), or named fns for runScript actions.
-8. Check your work: render_frame (returns a PNG; bones are drawn as blue wedges) and simulate_state_machine (text log of
+8. Skins (outfits): the first skin is the default skin, shared by all. add_skin {name}, then either pass skin:"<name>" to
+   add_shape/add_region/... or copy_attachment {slot, attachment, toSkin} and update_attachment {..., skin} to override a
+   default attachment under the same name. rename_skin, duplicate_skin, delete_skin manage them; render_frame {skin} previews one.
+9. Check your work: render_frame (returns a PNG; bones are drawn as blue wedges) and simulate_state_machine (text log of
    state changes/events). render_gif for motion. get_summary for an outline, validate for problems.
 
 Tips: keep bones' length meaningful (used by IK and auto weights). Use update_* tools to fix mistakes, undo to revert.

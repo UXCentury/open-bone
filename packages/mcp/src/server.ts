@@ -220,6 +220,7 @@ export function createServer(opts: ServerOptions = {}) {
         time: z.number().min(0).optional(),
         stateMachine: z.string().optional().describe("State machine name (empty string = first)"),
         steps: z.array(stepSchema).optional(),
+        skin: z.string().optional().describe("Skin (outfit) name to show; default skin only when omitted"),
         scale: z.number().positive().max(4).default(1),
         showBones: z.boolean().default(true),
         showBoundingBoxes: z.boolean().default(true),
@@ -249,6 +250,7 @@ export function createServer(opts: ServerOptions = {}) {
       inputSchema: {
         animation: z.string().optional(),
         stateMachine: z.string().optional(),
+        skin: z.string().optional().describe("Skin (outfit) name to show; default skin only when omitted"),
         steps: z.array(stepSchema).optional().describe("State machine inputs over time (each step's advance is its duration)"),
         duration: z.number().positive().max(20).default(2),
         fps: z.number().int().min(1).max(60).default(20),

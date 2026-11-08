@@ -25,6 +25,7 @@ import {
   transaction,
   setPlaying,
   setExportOpen,
+  skinArg,
 } from "../state.ts";
 import { askConfirm } from "../dialogs.tsx";
 
@@ -56,7 +57,7 @@ export async function importImages(files: FileList | File[]) {
       const img = store.apply("addImage", { name, src, width, height }) as { id: string };
       const bone = selectedBoneId() ?? store.doc.skeleton.bones[0].id;
       const slot = store.apply("addSlot", { bone, name }) as { id: string };
-      store.apply("addRegion", { slot: slot.id, image: img.id });
+      store.apply("addRegion", { slot: slot.id, image: img.id, ...skinArg() });
       setSelection({ kind: "slot", id: slot.id });
     });
   }
@@ -138,7 +139,7 @@ export function Toolbar() {
             transaction("add shape", () => {
               const bone = selectedBoneId() ?? store.doc.skeleton.bones[0].id;
               const slot = store.apply("addSlot", { bone, name: "shape" }) as { id: string };
-              store.apply("addShape", { slot: slot.id, shape: "rect", width: 80, height: 40, radius: 8, fill: "#7c9cff" });
+              store.apply("addShape", { slot: slot.id, shape: "rect", width: 80, height: 40, radius: 8, fill: "#7c9cff", ...skinArg() });
               setSelection({ kind: "slot", id: slot.id });
             })
           }

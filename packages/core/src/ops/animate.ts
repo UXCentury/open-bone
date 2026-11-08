@@ -60,7 +60,8 @@ function resolveTimeline(
       const slot = get.slot(doc, need(a.id, "id (slot)"));
       id = slot.id;
       attachment = need(a.attachment, "attachment");
-      const att = getAttachment(doc, id, attachment);
+      const name = attachment;
+      const att = getAttachment(doc, id, name) ?? doc.skeleton.skins.map((k) => k.attachments[id]?.[name]).find(Boolean);
       if (!att || att.type !== "mesh") throw new Error("Deform keys need a mesh attachment");
       break;
     }

@@ -1,29 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    {
-      "name": "editor",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "--filter",
-        "@openbone/editor",
-        "dev"
-      ],
-      "port": 5180
-    },
-    {
-      "name": "editor-5181",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "--filter",
-        "@openbone/editor",
-        "exec",
-        "vite",
-        "--port",
-        "5181",
-        "--strictPort"
-      ],
-      "port": 5181
-    }
+    { "name": "editor", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@openbone/editor", "dev"], "port": 5180, "autoPort": true },
+    { "name": "editor-5181", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "@openbone/editor", "exec", "vite", "--port", "5181", "--strictPort"], "port": 5181 }
   ]
 }

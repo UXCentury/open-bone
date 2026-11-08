@@ -2,12 +2,13 @@ import type { FiredEvent } from "@openbone/runtime";
 import { Player } from "./player.ts";
 
 /**
- * <openbone-player src="hero.obone" state-machine="ui" animation="idle" fit="contain" renderer="webgl">
+ * <openbone-player src="hero.obone" state-machine="ui" animation="idle" skin="red" fit="contain" renderer="webgl">
  * Events: "openbone-event" (detail = FiredEvent), "openbone-state" (detail = state change), "openbone-load".
- * Methods: setInput(name, value), fire(name), play(), pause(), player (the underlying Player).
+ * Methods: setInput(name, value), fire(name), setSkin(name), play(), pause(), player (the underlying Player).
+ * Changing the `skin` attribute switches the outfit without reloading.
  */
 export class OpenBonePlayerElement extends HTMLElement {
-  static observedAttributes = ["src"];
+  static observedAttributes = ["src", "skin"];
   player: Player | null = null;
   private canvas: HTMLCanvasElement;
 
@@ -26,8 +27,10 @@ export class OpenBonePlayerElement extends HTMLElement {
     this.player?.dispose();
     this.player = null;
   }
-  attributeChangedCallback(_n: string, old: string | null, val: string | null) {
-    if (old !== null && old !== val && this.isConnected) this.init();
+  attributeChangedCallback(n: string, old: string | null, val: string | null) {
+    if (old === val || !this.isConnected) return;
+    if (n === "skin") this.player?.setSkin(val);
+    else if (old !== null) this.init();
   }
 
   private init() {
@@ -39,6 +42,7 @@ export class OpenBonePlayerElement extends HTMLElement {
       src,
       stateMachine: this.getAttribute("state-machine") ?? undefined,
       animation: this.getAttribute("animation") ?? undefined,
+      skin: this.getAttribute("skin") ?? undefined,
       fit: (this.getAttribute("fit") as "contain") ?? "contain",
       renderer: (this.getAttribute("renderer") as "webgl") ?? "webgl",
       autoplay: this.getAttribute("autoplay") !== "false",
@@ -56,6 +60,10 @@ export class OpenBonePlayerElement extends HTMLElement {
   }
   fire(name: string) {
     this.player?.fire(name);
+  }
+  setSkin(name: string | null) {
+    if (name) this.setAttribute("skin", name);
+    else this.removeAttribute("skin");
   }
   play() {
     this.player?.play();
