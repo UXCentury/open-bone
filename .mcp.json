@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "openbone": {
+      "command": "pnpm",
+      "args": ["exec", "tsx", "packages/mcp/src/bin.ts"]
+    }
+  }
+}

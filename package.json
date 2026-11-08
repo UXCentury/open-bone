@@ -1,0 +1,26 @@
+{
+  "name": "openbone",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Open-source 2D skeletal animation with interactive state machines and an MCP server",
+  "license": "MIT",
+  "packageManager": "pnpm@10.34.5",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --filter @openbone/editor dev",
+    "build": "pnpm --filter @openbone/editor build",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/editor/tsconfig.json --noEmit",
+    "mcp": "tsx packages/mcp/src/bin.ts",
+    "cli": "tsx packages/cli/src/bin.ts",
+    "desktop": "pnpm --filter @openbone/desktop tauri dev",
+    "desktop:build": "pnpm --filter @openbone/desktop tauri build",
+    "examples": "tsx examples/build-examples.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.2.4"
+  }
+}

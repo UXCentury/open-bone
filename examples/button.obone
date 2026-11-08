@@ -1,0 +1,733 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "Button",
+  "width": 400,
+  "height": 200,
+  "originX": 200,
+  "originY": 100,
+  "background": "#0f172a",
+  "fps": 30,
+  "images": [],
+  "skeleton": {
+    "bones": [
+      {
+        "id": "bone_zll4d1i",
+        "name": "root",
+        "parent": null,
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_tag1v1j",
+        "name": "btn",
+        "parent": "bone_zll4d1i",
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_7qza01k",
+        "name": "shine",
+        "parent": "bone_tag1v1j",
+        "length": 0,
+        "x": -140,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot_dq0xu1l",
+        "name": "shadow",
+        "bone": "bone_tag1v1j",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_6qp2g1m",
+        "name": "bg",
+        "bone": "bone_tag1v1j",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_hzjvl1n",
+        "name": "shine",
+        "bone": "bone_7qza01k",
+        "color": "#ffffff00",
+        "attachment": "polygon",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_xx7tm1o",
+        "name": "icon",
+        "bone": "bone_tag1v1j",
+        "color": "#ffffff",
+        "attachment": "polygon",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_s3t611p",
+        "name": "hit",
+        "bone": "bone_tag1v1j",
+        "color": "#ffffff",
+        "attachment": null,
+        "blend": "normal"
+      }
+    ],
+    "skins": [
+      {
+        "id": "skin_default",
+        "name": "default",
+        "attachments": {
+          "slot_dq0xu1l": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": -6,
+              "rotation": 0,
+              "width": 220,
+              "height": 74,
+              "radius": 24,
+              "fill": "#00000066"
+            }
+          },
+          "slot_6qp2g1m": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 220,
+              "height": 74,
+              "radius": 24,
+              "fill": "#6366f1"
+            }
+          },
+          "slot_hzjvl1n": {
+            "polygon": {
+              "type": "shape",
+              "name": "polygon",
+              "shape": "polygon",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 50,
+              "height": 50,
+              "radius": 0,
+              "points": [
+                -10,
+                37,
+                20,
+                37,
+                0,
+                -37,
+                -30,
+                -37
+              ],
+              "fill": "#ffffff55"
+            }
+          },
+          "slot_xx7tm1o": {
+            "polygon": {
+              "type": "shape",
+              "name": "polygon",
+              "shape": "polygon",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 50,
+              "height": 50,
+              "radius": 0,
+              "points": [
+                -12,
+                18,
+                20,
+                0,
+                -12,
+                -18
+              ],
+              "fill": "#ffffff"
+            }
+          },
+          "slot_s3t611p": {
+            "hitbox": {
+              "type": "boundingBox",
+              "name": "hitbox",
+              "vertices": [
+                -110,
+                -37,
+                110,
+                -37,
+                110,
+                37,
+                -110,
+                37
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "ik": [],
+    "transform": []
+  },
+  "events": [
+    {
+      "id": "evt_vjfco1t",
+      "name": "clicked",
+      "int": 0,
+      "float": 0,
+      "string": ""
+    }
+  ],
+  "animations": [
+    {
+      "id": "anim_9w8ds1q",
+      "name": "idle",
+      "duration": 1.5,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_tag1v1j",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.75,
+              "value": 1.02,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.5,
+              "value": 1,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_tag1v1j",
+          "property": "scaleY",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.75,
+              "value": 1.02,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.5,
+              "value": 1,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_vo5mh1r",
+      "name": "hover",
+      "duration": 0.6,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_tag1v1j",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": 1.08,
+              "curve": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_tag1v1j",
+          "property": "scaleY",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": 1.08,
+              "curve": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_6qp2g1m",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff",
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": "#c7d2fe",
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_hzjvl1n",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffffff",
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "value": "#ffffffff",
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_7qza01k",
+          "property": "x",
+          "keys": [
+            {
+              "time": 0,
+              "value": -140,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "value": 140,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_6zdkr1s",
+      "name": "press",
+      "duration": 0.25,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_tag1v1j",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1.08,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.08,
+              "value": 0.94,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": 1.08,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_tag1v1j",
+          "property": "scaleY",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1.08,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.08,
+              "value": 0.9,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": 1.08,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_tag1v1j",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.08,
+              "value": -4,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": 0,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "time": 0.08,
+          "event": "evt_vjfco1t"
+        }
+      ]
+    }
+  ],
+  "stateMachines": [
+    {
+      "id": "sm_byqpm1u",
+      "name": "ui",
+      "inputs": [
+        {
+          "id": "in_zcoar1v",
+          "name": "hover",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "id": "in_203lb1w",
+          "name": "press",
+          "type": "trigger",
+          "default": false
+        }
+      ],
+      "layers": [
+        {
+          "id": "sm_byqpm1u_layer1",
+          "name": "Layer 1",
+          "entry": "st_q8q261x",
+          "states": [
+            {
+              "id": "st_q8q261x",
+              "name": "idle",
+              "type": "animation",
+              "animation": "anim_9w8ds1q",
+              "loop": true,
+              "speed": 1,
+              "x": 120,
+              "y": 120
+            },
+            {
+              "id": "st_efqr31y",
+              "name": "hover",
+              "type": "animation",
+              "animation": "anim_vo5mh1r",
+              "loop": false,
+              "speed": 1,
+              "x": 360,
+              "y": 60
+            },
+            {
+              "id": "st_i0yvo1z",
+              "name": "press",
+              "type": "animation",
+              "animation": "anim_6zdkr1s",
+              "loop": false,
+              "speed": 1,
+              "x": 360,
+              "y": 200
+            }
+          ],
+          "transitions": [
+            {
+              "id": "tr_ug1zz20",
+              "from": "st_q8q261x",
+              "to": "st_efqr31y",
+              "conditions": [
+                {
+                  "input": "in_zcoar1v",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.1,
+              "exitTime": null
+            },
+            {
+              "id": "tr_710k421",
+              "from": "st_efqr31y",
+              "to": "st_q8q261x",
+              "conditions": [
+                {
+                  "input": "in_zcoar1v",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "duration": 0.2,
+              "exitTime": null
+            },
+            {
+              "id": "tr_cjafs22",
+              "from": "@any",
+              "to": "st_i0yvo1z",
+              "conditions": [
+                {
+                  "input": "in_203lb1w",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.05,
+              "exitTime": null
+            },
+            {
+              "id": "tr_zfu8u23",
+              "from": "st_i0yvo1z",
+              "to": "st_efqr31y",
+              "conditions": [
+                {
+                  "input": "in_zcoar1v",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.05,
+              "exitTime": 1
+            },
+            {
+              "id": "tr_5x5e224",
+              "from": "st_i0yvo1z",
+              "to": "st_q8q261x",
+              "conditions": [
+                {
+                  "input": "in_zcoar1v",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "duration": 0.1,
+              "exitTime": 1
+            }
+          ]
+        }
+      ],
+      "listeners": [
+        {
+          "id": "lis_45phe25",
+          "name": "enter",
+          "slot": "slot_s3t611p",
+          "event": "enter",
+          "actions": [
+            {
+              "type": "setInput",
+              "input": "in_zcoar1v",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "lis_x5qia26",
+          "name": "exit",
+          "slot": "slot_s3t611p",
+          "event": "exit",
+          "actions": [
+            {
+              "type": "setInput",
+              "input": "in_zcoar1v",
+              "value": false
+            }
+          ]
+        },
+        {
+          "id": "lis_v5ciq27",
+          "name": "down",
+          "slot": "slot_s3t611p",
+          "event": "down",
+          "actions": [
+            {
+              "type": "fireTrigger",
+              "input": "in_203lb1w"
+            }
+          ]
+        }
+      ],
+      "scripts": []
+    }
+  ],
+  "scripts": []
+}

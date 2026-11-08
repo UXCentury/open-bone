@@ -1,0 +1,35 @@
+import fs from "node:fs";
+import path from "node:path";
+import { type Plugin, defineConfig } from "vite";
+import solid from "vite-plugin-solid";
+
+const EXAMPLES = path.resolve(__dirname, "../../examples");
+const MIME: Record<string, string> = { ".obone": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp" };
+
+/** Serve (dev) and copy (build) the repo's example projects at /examples/. */
+function examples(): Plugin {
+  const files = () =>
+    [...fs.readdirSync(EXAMPLES).filter((f) => f.endsWith(".obone")), ...fs.readdirSync(path.join(EXAMPLES, "assets")).map((f) => `assets/${f}`)];
+  return {
+    name: "openbone-examples",
+    configureServer(server) {
+      server.middlewares.use("/examples", (req, res, next) => {
+        const rel = decodeURIComponent((req.url ?? "/").split("?")[0]).replace(/^\/+/, "");
+        const file = path.join(EXAMPLES, rel);
+        if (!file.startsWith(EXAMPLES) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) return next();
+        res.setHeader("content-type", MIME[path.extname(file)] ?? "application/octet-stream");
+        fs.createReadStream(file).pipe(res);
+      });
+    },
+    generateBundle() {
+      for (const f of files()) this.emitFile({ type: "asset", fileName: `examples/${f}`, source: fs.readFileSync(path.join(EXAMPLES, f)) });
+    },
+  };
+}
+
+export default defineConfig({
+  plugins: [solid(), examples()],
+  server: { port: Number(process.env.PORT) || 5180, strictPort: false },
+  optimizeDeps: { exclude: ["quickjs-emscripten"] },
+  build: { target: "es2022", rollupOptions: { input: { editor: path.resolve(__dirname, "index.html"), player: path.resolve(__dirname, "player.html") } } },
+});

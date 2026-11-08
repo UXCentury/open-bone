@@ -1,0 +1,12 @@
+{
+  "name": "@openbone/scripting",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@openbone/core": "workspace:*",
+    "@openbone/runtime": "workspace:*",
+    "quickjs-emscripten": "^0.32.0"
+  }
+}

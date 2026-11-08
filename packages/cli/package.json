@@ -1,0 +1,12 @@
+{
+  "name": "@openbone/cli",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "openbone": "./src/bin.ts" },
+  "dependencies": {
+    "@openbone/core": "workspace:*",
+    "@openbone/mcp": "workspace:*",
+    "@openbone/scripting": "workspace:*"
+  }
+}

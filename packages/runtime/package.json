@@ -1,0 +1,8 @@
+{
+  "name": "@openbone/runtime",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@openbone/core": "workspace:*" }
+}

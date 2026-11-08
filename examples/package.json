@@ -1,0 +1,6 @@
+{
+  "name": "@openbone/examples",
+  "private": true,
+  "type": "module",
+  "dependencies": { "@napi-rs/canvas": "^0.1.80", "@openbone/core": "workspace:*", "@openbone/mcp": "workspace:*" }
+}

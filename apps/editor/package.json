@@ -1,0 +1,27 @@
+{
+  "name": "@openbone/editor",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@openbone/core": "workspace:*",
+    "@openbone/render-canvas": "workspace:*",
+    "@openbone/runtime": "workspace:*",
+    "@openbone/scripting": "workspace:*",
+    "idb-keyval": "^6.2.2",
+    "solid-js": "^1.9.9",
+    "@openbone/player": "workspace:*",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "@tauri-apps/plugin-fs": "^2.4.0"
+  },
+  "devDependencies": {
+    "vite": "^7.1.0",
+    "vite-plugin-solid": "^2.11.8"
+  }
+}

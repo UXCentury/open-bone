@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenBone Player Demo</title>
+    <style>
+      :root { color-scheme: light dark; --bg: #f6f7fb; --fg: #1d2330; --card: #fff; --line: #e1e5ee; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #14161b; --fg: #dde3ee; --card: #1d2028; --line: #2c313c; } }
+      body { margin: 0; font: 14px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+      main { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+      openbone-player { width: 100%; height: 340px; }
+      #button-player { height: 200px; }
+      .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+      pre { font-size: 12px; max-height: 120px; overflow: auto; background: #0002; padding: 6px 8px; border-radius: 6px; margin: 8px 0 0; }
+      code { background: #0001; padding: 1px 4px; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>OpenBone player</h1>
+      <p>Embed with <code>&lt;openbone-player src="walker.obone"&gt;</code>. Click the character to jump; move the pointer and its eyes follow (sandboxed script).</p>
+      <div class="grid">
+        <div class="card">
+          <openbone-player id="walker" src="/examples/walker.obone" state-machine="character"></openbone-player>
+          <div class="controls">
+            <label>speed <input id="speed" type="range" min="0" max="1" step="0.01" value="0" /></label>
+            <button id="jump">Jump</button>
+          </div>
+          <pre id="walker-log"></pre>
+        </div>
+        <div class="card">
+          <openbone-player id="button-player" src="/examples/button.obone" state-machine="ui" background="#0f172a"></openbone-player>
+          <p>Hover and press the button.</p>
+          <pre id="button-log"></pre>
+        </div>
+      </div>
+    </main>
+    <script type="module">
+      import { definePlayerElement } from "@openbone/player";
+      definePlayerElement();
+      const walker = document.getElementById("walker");
+      const log = (id, s) => { const el = document.getElementById(id); el.textContent = `${s}\n${el.textContent}`.slice(0, 2000); };
+      document.getElementById("speed").addEventListener("input", (e) => walker.setInput("speed", Number(e.target.value)));
+      document.getElementById("jump").addEventListener("click", () => walker.fire("jump"));
+      walker.addEventListener("openbone-event", (e) => log("walker-log", `event ${e.detail.name} ${e.detail.string}`));
+      walker.addEventListener("openbone-state", (e) => log("walker-log", `${e.detail.from} → ${e.detail.to}`));
+      const btn = document.getElementById("button-player");
+      btn.addEventListener("openbone-event", (e) => log("button-log", `event ${e.detail.name}`));
+      btn.addEventListener("openbone-state", (e) => log("button-log", `${e.detail.from} → ${e.detail.to}`));
+    </script>
+  </body>
+</html>

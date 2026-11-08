@@ -1,0 +1,8 @@
+{
+  "name": "@openbone/render-webgl",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@openbone/core": "workspace:*", "@openbone/runtime": "workspace:*" }
+}
