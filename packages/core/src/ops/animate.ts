@@ -10,8 +10,8 @@ const curveIn = z
   .transform((c): Curve => (typeof c === "string" && c in EASINGS ? EASINGS[c] : (c as Curve)));
 
 const target = z
-  .enum(["bone", "slot", "ik", "transform", "path", "physics", "deform", "drawOrder"])
-  .describe("What is animated: bone property, slot color/attachment, constraint (ik/transform/path/physics) values, mesh/path deform, draw order");
+  .enum(["bone", "slot", "ik", "transform", "path", "physics", "deform", "sequence", "drawOrder"])
+  .describe("What is animated: bone property, slot color/attachment, constraint (ik/transform/path/physics) values, mesh/path deform, sequence frame, draw order");
 
 const keyValue = z.union([z.number(), z.string(), z.null(), z.array(z.number()), z.array(z.string())]);
 
@@ -23,6 +23,7 @@ const PROPS: Record<string, string[]> = {
   path: CONSTRAINT_PROPERTIES.path,
   physics: CONSTRAINT_PROPERTIES.physics,
   deform: ["offsets"],
+  sequence: ["frame"],
   drawOrder: ["order"],
 };
 
@@ -59,13 +60,22 @@ function resolveTimeline(
       if (!att || (att.type !== "mesh" && att.type !== "path")) throw new Error("Deform keys need a mesh or path attachment");
       break;
     }
+    case "sequence": {
+      const slot = get.slot(doc, need(a.id, "id (slot)"));
+      id = slot.id;
+      attachment = need(a.attachment, "attachment");
+      const name = attachment;
+      const att = getAttachment(doc, id, name) ?? doc.skeleton.skins.map((k) => k.attachments[id]?.[name]).find(Boolean);
+      if (!att || att.type !== "sequence") throw new Error("Sequence frame keys need a sequence attachment");
+      break;
+    }
   }
   let tl = anim.timelines.find(
     (t) =>
       t.target === a.target &&
       t.id === id &&
       t.property === property &&
-      (t.target !== "deform" || t.attachment === attachment),
+      ((t.target !== "deform" && t.target !== "sequence") || t.attachment === attachment),
   );
   if (!tl && create) {
     tl = { target: a.target, id, property, keys: [], ...(attachment ? { attachment } : {}) } as Timeline;
@@ -81,7 +91,7 @@ function need<T>(v: T | undefined, what: string): T {
 
 function checkValue(tl: Timeline, value: unknown) {
   const ok =
-    tl.target === "bone" || tl.target === "ik" || tl.target === "transform" || tl.target === "path" || tl.target === "physics"
+    tl.target === "bone" || tl.target === "sequence" || tl.target === "ik" || tl.target === "transform" || tl.target === "path" || tl.target === "physics"
       ? typeof value === "number"
       : tl.target === "slot" && tl.property === "color"
         ? typeof value === "string" && hex.safeParse(value).success
@@ -150,7 +160,7 @@ defineOp({
   name: "setKeys",
   group: "animation",
   description:
-    "Set one or more keyframes on a timeline (absolute values). Examples: bone rotation {target:'bone', id:'arm', property:'rotation', keys:[{time:0,value:0},{time:0.5,value:45,curve:'easeInOut'}]}; path constraint {target:'path', id:'tail-path', property:'position', keys:[...]}; slot color value '#ff0000'; slot attachment value 'eyes-closed' or null; deform value = flat offsets per vertex; drawOrder value = slot ids/names back-to-front.",
+    "Set one or more keyframes on a timeline (absolute values). Examples: bone rotation {target:'bone', id:'arm', property:'rotation', keys:[{time:0,value:0},{time:0.5,value:45,curve:'easeInOut'}]}; path constraint {target:'path', id:'tail-path', property:'position', keys:[...]}; slot color value '#ff0000'; slot attachment value 'eyes-closed' or null; deform value = flat offsets per vertex; sequence {target:'sequence', id:slot, attachment, property:'frame'} value = frame counter (use curve 'stepped' or linear to count through frames); drawOrder value = slot ids/names back-to-front.",
   schema: z.object({
     animation: ref("Animation"),
     target,
@@ -163,7 +173,7 @@ defineOp({
           .map(([k, v]) => `${k}: ${v.join("|")}`)
           .join("; ")}`,
       ),
-    attachment: z.string().optional().describe("Mesh attachment name (deform only)"),
+    attachment: z.string().optional().describe("Mesh/path attachment name (deform) or sequence attachment name (sequence)"),
     keys: z.array(z.object({ time: z.number().min(0), value: keyValue, curve: curveIn })).min(1),
   }),
   apply(doc, a) {

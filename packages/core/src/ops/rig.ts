@@ -6,6 +6,7 @@ import { apply as applyM, invert, worldRotation } from "../math.ts";
 import { setupWorld } from "../setup.ts";
 import type { Attachment, BoneData, OpenBoneDocument, SkinData, VertexWeight } from "../types.ts";
 import { defineOp, hex, optId, ref } from "./registry.ts";
+import { checkSequenceProps } from "./sequence-props.ts";
 
 const inherit = z.enum(["normal", "onlyTranslation", "noRotation", "noScale"]);
 const blend = z.enum(["normal", "additive", "multiply", "screen"]);
@@ -106,7 +107,7 @@ defineOp({
     dropConstraintTimelines(doc);
     for (const anim of doc.animations)
       anim.timelines = anim.timelines.filter(
-        (t) => !(t.target === "bone" && ids.has(t.id)) && !((t.target === "slot" || t.target === "deform") && slotIds.has(t.id)),
+        (t) => !(t.target === "bone" && ids.has(t.id)) && !((t.target === "slot" || t.target === "deform" || t.target === "sequence") && slotIds.has(t.id)),
       );
     for (const sm of doc.stateMachines) for (const l of sm.listeners) if (l.slot && slotIds.has(l.slot)) l.slot = null;
     return { deletedBones: ids.size, deletedSlots: slotIds.size };
@@ -185,7 +186,7 @@ defineOp({
     doc.skeleton.path = doc.skeleton.path.filter((c) => c.target !== s.id);
     dropConstraintTimelines(doc);
     for (const anim of doc.animations)
-      anim.timelines = anim.timelines.filter((t) => !((t.target === "slot" || t.target === "deform") && t.id === s.id));
+      anim.timelines = anim.timelines.filter((t) => !((t.target === "slot" || t.target === "deform" || t.target === "sequence") && t.id === s.id));
     return {};
   },
 });
@@ -282,7 +283,7 @@ defineOp({
 
 // ---------------- Attachments ----------------
 
-function putAttachment(doc: OpenBoneDocument, slotRef: string, skinRef: string | undefined, att: Attachment, activate: boolean) {
+export function putAttachment(doc: OpenBoneDocument, slotRef: string, skinRef: string | undefined, att: Attachment, activate: boolean) {
   const slot = get.slot(doc, slotRef);
   const skin: SkinData = skinRef ? get.skin(doc, skinRef) : defaultSkin(doc);
   (skin.attachments[slot.id] ??= {})[att.name] = att;
@@ -290,7 +291,7 @@ function putAttachment(doc: OpenBoneDocument, slotRef: string, skinRef: string |
   return { slot: slot.id, name: att.name, skin: skin.id };
 }
 
-const attTarget = {
+export const attTarget = {
   slot: ref("Slot"),
   name: z.string().optional().describe("Attachment name (defaults to the image/shape name)"),
   skin: ref("Skin").optional().describe("Defaults to the default skin"),
@@ -526,6 +527,7 @@ defineOp({
       if (slot.attachment === att.name) slot.attachment = props.name;
     }
     if (att.type === "mesh") return updateMesh(doc, slot.bone, att, props);
+    if (att.type === "sequence") checkSequenceProps(doc, props);
     if (att.type === "clipping") {
       if ("vertices" in props) checkClipPolygon(props.vertices);
       if ("end" in props) props.end = props.end == null ? null : get.slot(doc, String(props.end)).id;
