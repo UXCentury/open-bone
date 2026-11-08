@@ -43,8 +43,10 @@ describe("lip sync", () => {
   });
 
   it("a rounded vowel (energy low, weak mids) is round; hiss is small", () => {
-    const keys = lipSync(signal([[0.3, silent], [0.5, vowel(0.8, 320, 700)], [0.3, silent], [0.4, () => 0.25 * noise() * (Math.random() > 0 ? 1 : 1)], [0.3, silent]]), SR);
+    // Rounded vowel among ordinary ones (round is judged against the speaker's usual vowels).
+    const keys = lipSync(signal([[0.3, silent], [0.5, vowel(0.8, 320, 700)], [0.3, silent], [0.4, () => 0.25 * noise()], [0.3, silent], [0.5, vowel(0.8, 700, 1150)], [0.2, silent], [0.5, vowel(0.8, 600, 1800)], [0.3, silent]]), SR);
     expect(shapeAt(keys, 0.55)).toBe("round");
+    expect(shapeAt(keys, 2.05)).not.toBe("round");
     // White noise: mostly high frequencies at modest loudness.
     expect(shapeAt(keys, 1.3)).toBe("small");
   });

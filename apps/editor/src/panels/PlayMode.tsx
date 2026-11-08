@@ -1,4 +1,4 @@
-import type { InputData } from "@openbone/core";
+import type { ImageAsset, InputData } from "@openbone/core";
 import { Player } from "@openbone/player";
 import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { resolveImageUrl } from "../images.ts";
@@ -21,7 +21,8 @@ import {
   stopPlay,
 } from "../play.ts";
 import { tip } from "../shortcuts/index.ts";
-import { doc, store } from "../state.ts";
+import { baseUrl, doc, store } from "../state.ts";
+import { audio, resolveAudioUrl } from "../audio.ts";
 
 type Value = boolean | number | string;
 interface LogLine {
@@ -99,6 +100,13 @@ export function PlayStage() {
       ...(s ? { stateMachine: s.id } : a ? { animation: a.name } : {}),
       ...(skin ? { skin } : {}),
       fit: playFit(),
+      // Resolve relative image/audio paths like the editor does (examples live under /examples/, desktop files are
+      // read from disk), and share the editor's audio context: the Play click already unlocked it.
+      baseUrl: baseUrl(),
+      resolveImageUrl: (src) => resolveImageUrl({ src } as ImageAsset),
+      resolveAudioUrl,
+      // Started right after the Play click: still a user activation, so the shared context can start now.
+      ...(audio.activate() ? { audioContext: audio.activate()! } : {}),
       onEvent: (e) => push("event", `⚡ ${e.name}${e.string ? ` "${e.string}"` : ""}${e.int ? ` int ${e.int}` : ""}${e.float ? ` float ${e.float}` : ""}`),
       onStateChange: (e) => {
         push("state", `→ [${e.layer}] ${e.from ?? "∅"} → ${e.to}`);

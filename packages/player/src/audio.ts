@@ -66,6 +66,13 @@ export class WebAudioBackend {
     this.opts.baseUrl = url;
   }
 
+  /** Create (if needed) and resume the context now. Call it from a user gesture (a click) so the browser allows sound. */
+  activate(): AudioContext | null {
+    const ctx = this.context();
+    if (ctx && ctx.state !== "running") void ctx.resume();
+    return ctx;
+  }
+
   private context(): AudioContext | null {
     if (this.ctx) return this.ctx;
     const Ctor = globalThis.AudioContext ?? (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;

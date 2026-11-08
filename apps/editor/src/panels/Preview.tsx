@@ -1,18 +1,25 @@
-import { type OpenBoneDocument, textureAssets } from "@openbone/core";
+import { type ImageAsset, type OpenBoneDocument, textureAssets } from "@openbone/core";
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { OpenBoneInstance } from "@openbone/runtime";
 import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
+import { WebAudioBackend } from "@openbone/player";
+import { audio as editorAudio, resolveAudioUrl } from "../audio.ts";
 import { imageFor } from "../images.ts";
 import { animationId, doc } from "../state.ts";
 import { viewportApi } from "./Viewport.tsx";
 
 /** Fit the artboard into a w × h canvas: scale and offset (css px). */
-function fitArtboard(d: OpenBoneDocument, w: number, h: number, pad = 8) {
+export function fitArtboard(d: OpenBoneDocument, w: number, h: number, pad = 8) {
   const z = Math.max(0.01, Math.min((w - pad * 2) / d.width, (h - pad * 2) / d.height));
   return { z, ox: (w - d.width * z) / 2, oy: (h - d.height * z) / 2 };
 }
 
-function renderInstance(canvas: HTMLCanvasElement, d: OpenBoneDocument, draw: (r: CanvasRenderer, v: { x: number; y: number; zoom: number }) => void) {
+export function renderInstance(
+  canvas: HTMLCanvasElement,
+  d: OpenBoneDocument,
+  draw: (r: CanvasRenderer, v: { x: number; y: number; zoom: number }) => void,
+  image: (asset: ImageAsset) => HTMLImageElement | null = imageFor,
+) {
   const dpr = window.devicePixelRatio || 1;
   const w = canvas.clientWidth;
   const h = canvas.clientHeight;
@@ -30,7 +37,7 @@ function renderInstance(canvas: HTMLCanvasElement, d: OpenBoneDocument, draw: (r
   ctx.fillRect(f.ox * dpr, f.oy * dpr, d.width * f.z * dpr, d.height * f.z * dpr);
   const resolve = (id: string) => {
     const a = textureAssets(d).find((i) => i.id === id);
-    return a ? imageFor(a) : null;
+    return a ? image(a) : null;
   };
   const r = new CanvasRenderer(ctx, resolve);
   draw(r, { x: f.ox * dpr, y: f.oy * dpr, zoom: f.z * dpr });
@@ -46,11 +53,30 @@ export function PreviewPanel() {
   const [source, setSource] = createSignal("current");
   const [playing, setPlaying] = createSignal(true);
   const [speed, setSpeed] = createSignal(1);
+  const [sound, setSound] = createSignal(true);
   let inst: OpenBoneInstance | null = null;
+  // The preview's own voices (separate from the viewport's), on the editor's audio context once it is unlocked.
+  let sfx: WebAudioBackend | null = null;
+  const audioFor = () => {
+    if (!sfx || (editorAudio.ctx && sfx.ctx !== editorAudio.ctx)) {
+      sfx?.dispose();
+      sfx = new WebAudioBackend(doc(), { resolveUrl: resolveAudioUrl, ...(editorAudio.ctx ? { context: editorAudio.ctx } : {}) });
+      sfx.unlock(window);
+    }
+    return sfx;
+  };
+  onCleanup(() => sfx?.dispose());
 
   const build = () => {
     const d = doc();
+    sfx?.stopAll(0.05);
     inst = new OpenBoneInstance(d);
+    inst.on("audio", (c) => {
+      if (!sound() || !d.audio?.assets.length) return;
+      const a = audioFor();
+      a.setDocument(d);
+      a.handle(c);
+    });
     const src = source();
     if (src.startsWith("sm:")) inst.useStateMachine(d.stateMachines.find((m) => m.id === src.slice(3))?.name);
     else {
@@ -98,7 +124,23 @@ export function PreviewPanel() {
           <For each={doc().animations}>{(a) => <option value={`anim:${a.id}`} selected={source() === `anim:${a.id}`}>▶ {a.name}</option>}</For>
           <For each={doc().stateMachines}>{(m) => <option value={`sm:${m.id}`} selected={source() === `sm:${m.id}`}>◈ {m.name}</option>}</For>
         </select>
-        <button title={playing() ? "Pause" : "Play"} onClick={() => setPlaying(!playing())}>
+        <button
+          title={sound() ? "Sound on: click to mute the preview" : "Sound off: click to hear the preview"}
+          onClick={() => {
+            const on = !sound();
+            setSound(on);
+            if (!on) sfx?.stopAll(0.05);
+          }}
+        >
+          {sound() ? "🔊" : "🔇"}
+        </button>
+        <button
+          title={playing() ? "Pause" : "Play"}
+          onClick={() => {
+            if (playing()) sfx?.stopAll(0.05);
+            setPlaying(!playing());
+          }}
+        >
           {playing() ? "⏸" : "▶"}
         </button>
         <button title="Restart" onClick={build}>

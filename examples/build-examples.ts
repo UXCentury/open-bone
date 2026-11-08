@@ -848,6 +848,58 @@ function robot() {
   return s.doc;
 }
 
+/** Fox: lip sync with a real voice. Art and voice generated with ElevenLabs (see assets/eleven/LICENSE.md); mouth keys from lipSync. */
+function fox() {
+  const s = new DocumentStore(createDocument("Fox"));
+  const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
+  A("setDocument", { width: 560, height: 620, originX: 280, originY: 600 });
+  const S = 0.9;
+  A("addImage", { name: "fox-head", src: "assets/eleven/fox-head.png", width: 497, height: 532 });
+  for (const n of ["rest", "closed", "small", "open", "wide", "round"]) A("addImage", { name: `fox-mouth-${n}`, src: `assets/eleven/fox-mouth-${n}.png`, width: 185, height: 98 });
+  // The bone sits at the neck so tilts pivot there; the image centre is 240 px above it.
+  A("addBone", { name: "fox", y: 30, length: 0 });
+  A("addBone", { name: "head", parent: "fox", y: 0, rotation: 90, length: 300 });
+  A("addBone", { name: "face", parent: "head", x: 240, rotation: -90, length: 0 });
+  A("addSlot", { bone: "face", name: "head" });
+  A("addRegion", { slot: "head", image: "fox-head", width: 497 * S, height: 532 * S });
+  A("addBoundingBox", { slot: "head", name: "head-hit", width: 420 * S, height: 520 * S });
+  // Mouth on the muzzle: 106 px below the image centre in the art.
+  A("addBone", { name: "mouth", parent: "face", x: 0.5 * S, y: -106 * S, length: 0 });
+  A("addSlot", { bone: "mouth", name: "mouth" });
+  for (const n of ["rest", "closed", "small", "open", "wide", "round"])
+    A("addRegion", { slot: "mouth", name: `mouth-${n}`, image: `fox-mouth-${n}`, width: 185 * 0.92 * S, height: 98 * 0.92 * S, activate: n === "rest" });
+
+  const voice = readWav(path.join(here, "assets/eleven/fox-voice.wav"));
+  const length = voice.samples.length / voice.rate;
+  A("addAudio", { name: "pip-voice", src: "assets/eleven/fox-voice.wav", duration: Math.round(length * 1000) / 1000, bus: "sfx" });
+
+  const K = (anim: string, target: string, id: string, property: string, keys: [number, number][], curve = "easeInOut") =>
+    A("setKeys", { animation: anim, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });
+  A("createAnimation", { name: "idle", duration: 3 });
+  K("idle", "bone", "head", "rotation", [[0, 90], [1.5, 91.5], [3, 90]]);
+  K("idle", "bone", "fox", "y", [[0, 30], [1.5, 26], [3, 30]]);
+  // talk: the voice, lip-synced mouth, and a livelier head.
+  const len = Math.round(length * 30) / 30;
+  A("createAnimation", { name: "talk", duration: len });
+  const keys = lipSync(voice.samples, voice.rate, { fps: 30 });
+  A("setKeys", { animation: "talk", target: "slot", id: "mouth", property: "attachment", keys: keys.map((k) => ({ time: k.time, value: `mouth-${k.shape}`, curve: "stepped" })) });
+  A("addAudioKey", { animation: "talk", sound: "pip-voice", time: 0 });
+  const sway: [number, number][] = [];
+  for (let t = 0, i = 0; t <= len + 1e-6; t += 0.7, i++) sway.push([Math.min(t, len), 90 + (i === 0 || t >= len ? 0 : i % 2 ? 4 : -3)]);
+  K("talk", "bone", "head", "rotation", sway);
+  const bob: [number, number][] = [];
+  for (let t = 0, i = 0; t <= len + 1e-6; t += 0.35, i++) bob.push([Math.min(t, len), i % 2 ? 36 : 30]);
+  K("talk", "bone", "fox", "y", bob);
+
+  A("createStateMachine", { name: "fox" });
+  A("addInput", { stateMachine: "fox", name: "talk", type: "trigger" });
+  A("addState", { stateMachine: "fox", animation: "idle", x: 120, y: 120 });
+  A("addState", { stateMachine: "fox", animation: "talk", loop: false, onComplete: "idle", x: 380, y: 120 });
+  A("addTransition", { stateMachine: "fox", from: "idle", to: "talk", conditions: [{ input: "talk" }], duration: 0.15 });
+  A("addListener", { stateMachine: "fox", slot: "head", event: "click", actions: [{ type: "fireTrigger", input: "talk" }] });
+  return s.doc;
+}
+
 // Build only when run as a script (tests import the example builders).
 const runAsScript = process.argv[1] === fileURLToPath(import.meta.url);
 if (runAsScript) {
@@ -855,7 +907,7 @@ if (runAsScript) {
   for (let i = 0; i < SMOKE_FRAMES; i++) writeFileSync(path.join(here, `assets/${frameName("smoke", i)}.png`), makeSmoke(i));
 }
 if (runAsScript)
-for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()], ["campfire.obone", campfire()], ["rocket.obone", rocket()], ["crash.obone", crash()], ["knight.obone", knight()], ["robot.obone", robot()]] as const) {
+for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()], ["campfire.obone", campfire()], ["rocket.obone", rocket()], ["crash.obone", crash()], ["knight.obone", knight()], ["robot.obone", robot()], ["fox.obone", fox()]] as const) {
   const issues = validate(doc);
   if (issues.some((i) => i.level === "error")) throw new Error(`${file}: ${JSON.stringify(issues)}`);
   writeFileSync(path.join(here, file), serialize(doc));

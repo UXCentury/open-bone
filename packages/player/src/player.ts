@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, parseDocument, textureAssets } from "@openbone/core";
+import { type AudioAsset, type OpenBoneDocument, parseDocument, textureAssets } from "@openbone/core";
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { WebGLRenderer } from "@openbone/render-webgl";
 import { type FiredEvent, OpenBoneInstance, type ScriptHost, type StateMachineInstance } from "@openbone/runtime";
@@ -22,6 +22,12 @@ export interface PlayerOptions {
   background?: string | null;
   /** Play the document's sounds (default true). "muted" loads them but starts muted. Audio unlocks on the first click or key press. */
   audio?: boolean | "muted";
+  /** Share an existing AudioContext (e.g. one already unlocked by a click), instead of creating one. */
+  audioContext?: AudioContext;
+  /** Map an audio asset to the URL to load (overrides baseUrl), e.g. for files read from disk. */
+  resolveAudioUrl?: (asset: AudioAsset) => string;
+  /** Map an image src to the URL to load (overrides baseUrl). */
+  resolveImageUrl?: (src: string) => string;
   onEvent?: (e: FiredEvent) => void;
   onStateChange?: (e: { layer: string; from: string | null; to: string }) => void;
   onLoad?: (p: Player) => void;
@@ -91,7 +97,7 @@ export class Player {
               resolve();
             };
             el.onerror = () => resolve();
-            el.src = /^(data:|https?:|blob:|\/)/.test(img.src) ? img.src : base + img.src;
+            el.src = o.resolveImageUrl ? o.resolveImageUrl(img.src) : /^(data:|https?:|blob:|\/)/.test(img.src) ? img.src : base + img.src;
           }),
       ),
     );
@@ -108,7 +114,7 @@ export class Player {
     }
     this.instance = new OpenBoneInstance(this.doc, { scriptHost });
     if (o.audio !== false && this.doc.audio?.assets.length && typeof AudioContext !== "undefined") {
-      this.audio = new WebAudioBackend(this.doc, { baseUrl: base });
+      this.audio = new WebAudioBackend(this.doc, { baseUrl: base, context: o.audioContext, resolveUrl: o.resolveAudioUrl });
       this.audio.setMuted(o.audio === "muted");
       this.audio.unlock(o.canvas.ownerDocument?.defaultView ?? window);
       void this.audio.preload();

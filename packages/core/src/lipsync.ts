@@ -87,6 +87,17 @@ export function lipSync(samples: Float32Array, sampleRate: number, opts: LipSync
   const silence = opts.silence ?? 0.08;
   if (peak < 1e-4) return [{ time: 0, shape: "rest" }];
 
+  // "Round" is relative to the speaker: a voice whose vowels all sit low would otherwise read as o/u throughout.
+  // A frame is round when its low-band share is clearly above this voice's typical (median) voiced share.
+  const voicedShares: number[] = [];
+  for (let f = 0; f < frames; f++) {
+    const total = low[f] + mid[f] + high[f] + 1e-12;
+    if (level(f) >= silence && high[f] / total <= 0.55) voicedShares.push(low[f] / (low[f] + mid[f] + 1e-12));
+  }
+  voicedShares.sort((x, y) => x - y);
+  const median = voicedShares.length ? voicedShares[Math.floor(voicedShares.length / 2)] : 0.5;
+  const roundAbove = Math.max(0.85, median + 0.6 * (1 - median));
+
   const shapes: MouthShape[] = new Array(frames);
   for (let f = 0; f < frames; f++) {
     const lv = level(f);
@@ -99,7 +110,7 @@ export function lipSync(samples: Float32Array, sampleRate: number, opts: LipSync
     const lowShare = low[f] / (low[f] + mid[f] + 1e-12);
     // Hissing consonants keep the teeth close however loud they are.
     if (hiss > 0.55) shapes[f] = "small";
-    else if (lowShare > 0.85 && lv > 0.2 && hiss < 0.2) shapes[f] = "round";
+    else if (lowShare > roundAbove && lv > 0.2 && hiss < 0.2) shapes[f] = "round";
     else if (lv < 0.3) shapes[f] = "small";
     else if (lv < 0.65) shapes[f] = "open";
     else shapes[f] = "wide";
