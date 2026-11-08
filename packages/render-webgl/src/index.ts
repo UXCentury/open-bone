@@ -1,4 +1,4 @@
-import type { ClipRegion, DrawItem, Skeleton } from "@openbone/runtime";
+import { type ClipRegion, type DrawItem, PARTICLE_DOT_SIZE, PARTICLE_DOT_TEXTURE, type Skeleton, particleDotAlpha } from "@openbone/runtime";
 
 const VS = `#version 300 es
 in vec2 aPos; in vec2 aUv; in vec4 aColor;
@@ -67,6 +67,7 @@ export class WebGLRenderer {
   private texture(id: string): WebGLTexture | null {
     let t = this.textures.get(id);
     if (t) return t;
+    if (id === PARTICLE_DOT_TEXTURE) return this.dotTexture();
     const src = this.images(id);
     if (!src) return null;
     const gl = this.gl;
@@ -79,6 +80,28 @@ export class WebGLRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     this.textures.set(id, t);
+    return t;
+  }
+
+  /** The built-in soft round particle sprite (premultiplied white). */
+  private dotTexture(): WebGLTexture {
+    const gl = this.gl;
+    const n = PARTICLE_DOT_SIZE;
+    const px = new Uint8Array(n * n * 4);
+    for (let y = 0; y < n; y++)
+      for (let x = 0; x < n; x++) {
+        const r = Math.hypot((x + 0.5) / n - 0.5, (y + 0.5) / n - 0.5) * 2;
+        px.fill(Math.round(particleDotAlpha(r) * 255), (y * n + x) * 4, (y * n + x) * 4 + 4);
+      }
+    const t = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, n, n, 0, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.textures.set(PARTICLE_DOT_TEXTURE, t);
     return t;
   }
 
@@ -170,16 +193,24 @@ export class WebGLRenderer {
     if (this.nv + n > this.verts.length / 8 || this.ni + it.indices.length > this.idx.length) this.flush();
     const base = this.nv;
     const [r, g, b, a] = it.color;
+    const cols = it.colors;
     for (let i = 0; i < n; i++) {
       const o = (this.nv + i) * 8;
       this.verts[o] = it.vertices[i * 2];
       this.verts[o + 1] = it.vertices[i * 2 + 1];
       this.verts[o + 2] = it.uvs[i * 2] ?? 0;
       this.verts[o + 3] = it.uvs[i * 2 + 1] ?? 0;
-      this.verts[o + 4] = r;
-      this.verts[o + 5] = g;
-      this.verts[o + 6] = b;
-      this.verts[o + 7] = a;
+      if (cols) {
+        this.verts[o + 4] = cols[i * 4];
+        this.verts[o + 5] = cols[i * 4 + 1];
+        this.verts[o + 6] = cols[i * 4 + 2];
+        this.verts[o + 7] = cols[i * 4 + 3];
+      } else {
+        this.verts[o + 4] = r;
+        this.verts[o + 5] = g;
+        this.verts[o + 6] = b;
+        this.verts[o + 7] = a;
+      }
     }
     for (let i = 0; i < it.indices.length; i++) this.idx[this.ni + i] = base + it.indices[i];
     this.nv += n;

@@ -1,0 +1,954 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "Rocket",
+  "width": 600,
+  "height": 700,
+  "originX": 300,
+  "originY": 620,
+  "background": "#101828",
+  "fps": 30,
+  "images": [],
+  "skeleton": {
+    "bones": [
+      {
+        "id": "bone_lmin93l",
+        "name": "root",
+        "parent": null,
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_80wlt3m",
+        "name": "rocket",
+        "parent": "bone_lmin93l",
+        "length": 0,
+        "x": 0,
+        "y": 40,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal",
+        "color": "#ff9f43"
+      },
+      {
+        "id": "bone_hzjch3n",
+        "name": "nozzle",
+        "parent": "bone_80wlt3m",
+        "length": 0,
+        "x": 0,
+        "y": 6,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_x0ovo3o",
+        "name": "pad",
+        "parent": "bone_lmin93l",
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot_y1tsi3p",
+        "name": "ground",
+        "bone": "bone_x0ovo3o",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_0r32e3q",
+        "name": "smoke",
+        "bone": "bone_x0ovo3o",
+        "color": "#ffffff",
+        "attachment": "smoke",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_i07be3r",
+        "name": "exhaust",
+        "bone": "bone_hzjch3n",
+        "color": "#ffffff",
+        "attachment": "exhaust",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_fjv1y3s",
+        "name": "sparks",
+        "bone": "bone_hzjch3n",
+        "color": "#ffffff",
+        "attachment": "sparks",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_gxkdc3t",
+        "name": "fins",
+        "bone": "bone_80wlt3m",
+        "color": "#ffffff",
+        "attachment": "polygon",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_phcpu3u",
+        "name": "body",
+        "bone": "bone_80wlt3m",
+        "color": "#ffffff",
+        "attachment": "rect",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_b10803v",
+        "name": "nose",
+        "bone": "bone_80wlt3m",
+        "color": "#ffffff",
+        "attachment": "polygon",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_fyvz83w",
+        "name": "window",
+        "bone": "bone_80wlt3m",
+        "color": "#ffffff",
+        "attachment": "ellipse",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_pjmwr3x",
+        "name": "hit",
+        "bone": "bone_80wlt3m",
+        "color": "#ffffff",
+        "attachment": null,
+        "blend": "normal"
+      }
+    ],
+    "skins": [
+      {
+        "id": "skin_default",
+        "name": "default",
+        "attachments": {
+          "slot_y1tsi3p": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": -40,
+              "rotation": 0,
+              "width": 600,
+              "height": 80,
+              "radius": 0,
+              "fill": "#1f2937"
+            }
+          },
+          "slot_0r32e3q": {
+            "smoke": {
+              "type": "particles",
+              "name": "smoke",
+              "emitting": false,
+              "rate": 30,
+              "bursts": [],
+              "maxParticles": 200,
+              "duration": 1,
+              "loop": true,
+              "prewarm": false,
+              "shape": "box",
+              "x": 0,
+              "y": 0,
+              "rotation": 90,
+              "angle": 60,
+              "radius": 10,
+              "width": 180,
+              "height": 6,
+              "space": "world",
+              "lifetime": [
+                1.6,
+                2.6
+              ],
+              "speed": [
+                40,
+                90
+              ],
+              "gravity": -20,
+              "drag": 0.8,
+              "startSize": [
+                16,
+                22
+              ],
+              "endSize": [
+                60,
+                80
+              ],
+              "startRotation": [
+                0,
+                360
+              ],
+              "endRotation": [
+                0,
+                0
+              ],
+              "angularVelocity": [
+                -40,
+                40
+              ],
+              "colors": [
+                {
+                  "t": 0,
+                  "color": "#9a9ea880"
+                },
+                {
+                  "t": 0.4,
+                  "color": "#80848c60"
+                },
+                {
+                  "t": 1,
+                  "color": "#6a6e7600"
+                }
+              ],
+              "blend": "normal",
+              "look": "circle",
+              "stretch": 0.05,
+              "seed": 3
+            }
+          },
+          "slot_i07be3r": {
+            "exhaust": {
+              "type": "particles",
+              "name": "exhaust",
+              "emitting": false,
+              "rate": 90,
+              "bursts": [],
+              "maxParticles": 200,
+              "duration": 1,
+              "loop": true,
+              "prewarm": true,
+              "shape": "cone",
+              "x": 0,
+              "y": 0,
+              "rotation": -90,
+              "angle": 14,
+              "radius": 6,
+              "width": 40,
+              "height": 40,
+              "space": "world",
+              "lifetime": [
+                0.3,
+                0.55
+              ],
+              "speed": [
+                220,
+                300
+              ],
+              "gravity": 0,
+              "drag": 1.2,
+              "startSize": [
+                14,
+                18
+              ],
+              "endSize": [
+                26,
+                34
+              ],
+              "startRotation": [
+                0,
+                0
+              ],
+              "endRotation": [
+                0,
+                0
+              ],
+              "angularVelocity": [
+                0,
+                0
+              ],
+              "colors": [
+                {
+                  "t": 0,
+                  "color": "#ffffffff"
+                },
+                {
+                  "t": 0.15,
+                  "color": "#ffd25aff"
+                },
+                {
+                  "t": 0.5,
+                  "color": "#ff6a1ca0"
+                },
+                {
+                  "t": 1,
+                  "color": "#50505000"
+                }
+              ],
+              "blend": "additive",
+              "look": "circle",
+              "stretch": 0.05,
+              "seed": 11
+            }
+          },
+          "slot_fjv1y3s": {
+            "sparks": {
+              "type": "particles",
+              "name": "sparks",
+              "emitting": false,
+              "rate": 0,
+              "bursts": [
+                {
+                  "time": 0,
+                  "count": 14
+                }
+              ],
+              "maxParticles": 200,
+              "duration": 0.35,
+              "loop": true,
+              "prewarm": false,
+              "shape": "point",
+              "x": 0,
+              "y": 0,
+              "rotation": -90,
+              "angle": 120,
+              "radius": 10,
+              "width": 40,
+              "height": 40,
+              "space": "world",
+              "lifetime": [
+                0.35,
+                0.7
+              ],
+              "speed": [
+                180,
+                360
+              ],
+              "gravity": 300,
+              "drag": 1,
+              "startSize": [
+                3,
+                4
+              ],
+              "endSize": [
+                1,
+                2
+              ],
+              "startRotation": [
+                0,
+                0
+              ],
+              "endRotation": [
+                0,
+                0
+              ],
+              "angularVelocity": [
+                0,
+                0
+              ],
+              "colors": [
+                {
+                  "t": 0,
+                  "color": "#ffffd0ff"
+                },
+                {
+                  "t": 0.5,
+                  "color": "#ffb030ff"
+                },
+                {
+                  "t": 1,
+                  "color": "#ff400000"
+                }
+              ],
+              "blend": "additive",
+              "look": "spark",
+              "stretch": 0.04,
+              "seed": 5
+            }
+          },
+          "slot_gxkdc3t": {
+            "polygon": {
+              "type": "shape",
+              "name": "polygon",
+              "shape": "polygon",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 50,
+              "height": 50,
+              "radius": 0,
+              "points": [
+                -56,
+                0,
+                -26,
+                50,
+                -26,
+                10,
+                26,
+                10,
+                26,
+                50,
+                56,
+                0,
+                30,
+                20,
+                -30,
+                20
+              ],
+              "fill": "#e11d48"
+            }
+          },
+          "slot_phcpu3u": {
+            "rect": {
+              "type": "shape",
+              "name": "rect",
+              "shape": "rect",
+              "x": 0,
+              "y": 90,
+              "rotation": 0,
+              "width": 64,
+              "height": 170,
+              "radius": 30,
+              "fill": "#e5e7eb",
+              "stroke": "#94a3b8",
+              "strokeWidth": 3
+            }
+          },
+          "slot_b10803v": {
+            "polygon": {
+              "type": "shape",
+              "name": "polygon",
+              "shape": "polygon",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 50,
+              "height": 50,
+              "radius": 0,
+              "points": [
+                -31,
+                150,
+                31,
+                150,
+                0,
+                215
+              ],
+              "fill": "#e11d48"
+            }
+          },
+          "slot_fyvz83w": {
+            "ellipse": {
+              "type": "shape",
+              "name": "ellipse",
+              "shape": "ellipse",
+              "x": 0,
+              "y": 110,
+              "rotation": 0,
+              "width": 30,
+              "height": 30,
+              "radius": 0,
+              "fill": "#38bdf8",
+              "stroke": "#475569",
+              "strokeWidth": 4
+            }
+          },
+          "slot_pjmwr3x": {
+            "hitbox": {
+              "type": "boundingBox",
+              "name": "hitbox",
+              "vertices": [
+                -60,
+                -15,
+                60,
+                -15,
+                60,
+                215,
+                -60,
+                215
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "ik": [],
+    "transform": [],
+    "path": [],
+    "physics": []
+  },
+  "events": [],
+  "animations": [
+    {
+      "id": "anim_esyzz3y",
+      "name": "launch",
+      "duration": 3,
+      "timelines": [
+        {
+          "target": "particles",
+          "id": "slot_i07be3r",
+          "property": "emitting",
+          "keys": [
+            {
+              "time": 0,
+              "value": false,
+              "curve": "stepped"
+            },
+            {
+              "time": 0.5,
+              "value": true,
+              "curve": "stepped"
+            }
+          ]
+        },
+        {
+          "target": "particles",
+          "id": "slot_i07be3r",
+          "property": "rate",
+          "keys": [
+            {
+              "time": 0.5,
+              "value": 40,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.2,
+              "value": 110,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "particles",
+          "id": "slot_fjv1y3s",
+          "property": "emitting",
+          "keys": [
+            {
+              "time": 0,
+              "value": false,
+              "curve": "stepped"
+            },
+            {
+              "time": 0.45,
+              "value": true,
+              "curve": "stepped"
+            },
+            {
+              "time": 1.4,
+              "value": false,
+              "curve": "stepped"
+            }
+          ]
+        },
+        {
+          "target": "particles",
+          "id": "slot_0r32e3q",
+          "property": "emitting",
+          "keys": [
+            {
+              "time": 0,
+              "value": false,
+              "curve": "stepped"
+            },
+            {
+              "time": 0.5,
+              "value": true,
+              "curve": "stepped"
+            },
+            {
+              "time": 1.8,
+              "value": false,
+              "curve": "stepped"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_80wlt3m",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 40,
+              "curve": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 0.5,
+              "value": 40,
+              "curve": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 3,
+              "value": 760,
+              "curve": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_80wlt3m",
+          "property": "x",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "value": 0,
+              "curve": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            },
+            {
+              "time": 3,
+              "value": 60,
+              "curve": [
+                0.42,
+                0,
+                1,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_80wlt3m",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": 0,
+              "curve": "linear"
+            },
+            {
+              "time": 0.55,
+              "value": 2,
+              "curve": "linear"
+            },
+            {
+              "time": 0.6,
+              "value": -2,
+              "curve": "linear"
+            },
+            {
+              "time": 0.65,
+              "value": 0,
+              "curve": "linear"
+            },
+            {
+              "time": 3,
+              "value": -8,
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_x9q8l3z",
+      "name": "hover",
+      "duration": 2,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_80wlt3m",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 220,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1,
+              "value": 250,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 2,
+              "value": 220,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_80wlt3m",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": -4,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1,
+              "value": 4,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 2,
+              "value": -4,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "particles",
+          "id": "slot_i07be3r",
+          "property": "rate",
+          "keys": [
+            {
+              "time": 0,
+              "value": 70,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1,
+              "value": 100,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 2,
+              "value": 70,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_zhjgp40",
+      "name": "parked",
+      "duration": 1,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_80wlt3m",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 40,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        }
+      ],
+      "events": []
+    }
+  ],
+  "stateMachines": [
+    {
+      "id": "sm_afxss41",
+      "name": "engine",
+      "inputs": [
+        {
+          "id": "in_q87fs42",
+          "name": "thrust",
+          "type": "bool",
+          "default": false
+        }
+      ],
+      "layers": [
+        {
+          "id": "sm_afxss41_layer1",
+          "name": "Layer 1",
+          "entry": "st_iwnf043",
+          "states": [
+            {
+              "id": "st_iwnf043",
+              "name": "parked",
+              "type": "animation",
+              "animation": "anim_zhjgp40",
+              "loop": true,
+              "speed": 1,
+              "x": 120,
+              "y": 120,
+              "emitters": [
+                {
+                  "slot": "slot_i07be3r",
+                  "emitting": false
+                }
+              ]
+            },
+            {
+              "id": "st_dttc544",
+              "name": "hover",
+              "type": "animation",
+              "animation": "anim_x9q8l3z",
+              "loop": true,
+              "speed": 1,
+              "x": 360,
+              "y": 120,
+              "emitters": [
+                {
+                  "slot": "slot_i07be3r",
+                  "emitting": true
+                }
+              ]
+            }
+          ],
+          "transitions": [
+            {
+              "id": "tr_zeo2145",
+              "from": "st_iwnf043",
+              "to": "st_dttc544",
+              "conditions": [
+                {
+                  "input": "in_q87fs42",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.6,
+              "exitTime": null
+            },
+            {
+              "id": "tr_2muzy46",
+              "from": "st_dttc544",
+              "to": "st_iwnf043",
+              "conditions": [
+                {
+                  "input": "in_q87fs42",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "duration": 0.8,
+              "exitTime": null
+            }
+          ]
+        }
+      ],
+      "listeners": [
+        {
+          "id": "lis_j78dg47",
+          "name": "down",
+          "slot": "slot_pjmwr3x",
+          "event": "down",
+          "actions": [
+            {
+              "type": "toggleInput",
+              "input": "in_q87fs42"
+            },
+            {
+              "type": "emitParticles",
+              "slot": "slot_fjv1y3s",
+              "count": 24
+            }
+          ]
+        }
+      ],
+      "scripts": []
+    }
+  ],
+  "scripts": []
+}

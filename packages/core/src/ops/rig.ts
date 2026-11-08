@@ -185,7 +185,11 @@ defineOp({
     doc.skeleton.path = doc.skeleton.path.filter((c) => c.target !== s.id);
     dropConstraintTimelines(doc);
     for (const anim of doc.animations)
-      anim.timelines = anim.timelines.filter((t) => !((t.target === "slot" || t.target === "deform") && t.id === s.id));
+      anim.timelines = anim.timelines.filter((t) => !((t.target === "slot" || t.target === "deform" || t.target === "particles") && t.id === s.id));
+    for (const sm of doc.stateMachines) {
+      for (const li of sm.listeners) li.actions = li.actions.filter((x) => !("slot" in x) || x.slot !== s.id);
+      for (const l of sm.layers) for (const st of l.states) if (st.emitters) st.emitters = st.emitters.filter((e) => e.slot !== s.id);
+    }
     return {};
   },
 });

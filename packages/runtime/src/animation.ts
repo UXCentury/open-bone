@@ -109,6 +109,20 @@ export function applyAnimation(sk: Skeleton, anim: AnimationData, time: number, 
         values[prop] = lerp(values[prop] ?? 0, sampleNumber(tl.keys, time), alpha);
         break;
       }
+      case "particles": {
+        const slot = sk.slotById_(tl.id);
+        if (!slot) break;
+        const cur = sk.particleValues.get(tl.id) ?? {};
+        if (tl.property === "emitting") {
+          if (alpha >= 0.5) cur.emitting = sampleStep(tl.keys, time);
+        } else {
+          const att = sk.getAttachment(slot);
+          const base = cur.rate ?? (att?.type === "particles" ? att.rate : 0);
+          cur.rate = lerp(base, sampleNumber(tl.keys, time), alpha);
+        }
+        sk.particleValues.set(tl.id, cur);
+        break;
+      }
       case "deform": {
         const slot = sk.slotById_(tl.id);
         if (!slot) break;
@@ -166,4 +180,19 @@ export function eventsBetween(
     }
   }
   return out;
+}
+
+/**
+ * Pose `sk` with `anim` (or the setup pose when null) at `time`, with particles brought to that time
+ * deterministically (replayed from 0 when seeking backwards). Editor scrubbing and image/video export use this,
+ * so a frame at time t always shows the same particles.
+ */
+export function seekAnimation(sk: Skeleton, anim: AnimationData | null, time: number) {
+  const pose = (t: number) => {
+    sk.setToSetupPose();
+    if (anim) applyAnimation(sk, anim, t);
+    sk.updateWorldTransform();
+  };
+  sk.seekParticles(time, pose);
+  pose(time);
 }

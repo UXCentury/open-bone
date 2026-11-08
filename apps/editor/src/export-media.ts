@@ -1,7 +1,7 @@
 import { type OpenBoneDocument, animationDuration, textureAssets } from "@openbone/core";
 import { type Frame, createZip, encodeApng, encodeAviMjpeg, encodeGif, encodeMovMjpeg, encodePng, encodePsd } from "@openbone/export";
 import { CanvasRenderer } from "@openbone/render-canvas";
-import { Skeleton, applyAnimation } from "@openbone/runtime";
+import { Skeleton, seekAnimation } from "@openbone/runtime";
 import { resolveImageUrl } from "./images.ts";
 
 /** Image and video exports: render an animation offscreen, then encode the frames. */
@@ -80,11 +80,8 @@ export async function renderFrames(doc: OpenBoneDocument, o: MediaOptions, forma
   if (o.skin) sk.setSkin(o.skin);
   const anim = o.animation ? doc.animations.find((a) => a.id === o.animation) ?? null : null;
   const times = frameTimes(doc, o, format);
-  const pose = (t: number) => {
-    sk.setToSetupPose();
-    if (anim) applyAnimation(sk, anim, t);
-    sk.updateWorldTransform();
-  };
+  // Particles are replayed from time 0, so each frame matches what the timeline shows at that time.
+  const pose = (t: number) => seekAnimation(sk, anim, t);
   // Area in artboard pixels (y-down).
   let ax = 0;
   let ay = 0;

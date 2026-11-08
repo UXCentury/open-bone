@@ -317,7 +317,66 @@ function tail() {
   return s.doc;
 }
 
-for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()]] as const) {
+// ---------- rocket (particles) ----------
+function rocket() {
+  const s = new DocumentStore(createDocument("Rocket", { background: "#101828" }));
+  const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
+  A("setDocument", { width: 600, height: 700, originX: 300, originY: 620 });
+  A("addBone", { name: "rocket", y: 40, length: 0, color: "#ff9f43" });
+  A("addBone", { name: "nozzle", parent: "rocket", y: 6, length: 0 });
+  A("addBone", { name: "pad", length: 0 });
+  // Back to front: ground, smoke, exhaust, sparks, then the rocket over its own flame.
+  A("addSlot", { bone: "pad", name: "ground" });
+  A("addShape", { slot: "ground", shape: "rect", y: -40, width: 600, height: 80, fill: "#1f2937" });
+  A("addSlot", { bone: "pad", name: "smoke" });
+  A("addParticles", { slot: "smoke", name: "smoke", preset: "smoke", emitting: false, prewarm: false, shape: "box", width: 180, height: 6, rate: 30, angle: 60, speed: [40, 90], seed: 3 });
+  A("addSlot", { bone: "nozzle", name: "exhaust" });
+  A("addParticles", { slot: "exhaust", name: "exhaust", preset: "exhaust", emitting: false, seed: 11 });
+  A("addSlot", { bone: "nozzle", name: "sparks" });
+  A("addParticles", { slot: "sparks", name: "sparks", preset: "sparks", emitting: false, rotation: -90, angle: 120, loop: true, duration: 0.35, bursts: [{ time: 0, count: 14 }], gravity: 300, seed: 5 });
+  A("addSlot", { bone: "rocket", name: "fins" });
+  A("addShape", { slot: "fins", shape: "polygon", points: [-56, 0, -26, 50, -26, 10, 26, 10, 26, 50, 56, 0, 30, 20, -30, 20], fill: "#e11d48" });
+  A("addSlot", { bone: "rocket", name: "body" });
+  A("addShape", { slot: "body", shape: "rect", y: 90, width: 64, height: 170, radius: 30, fill: "#e5e7eb", stroke: "#94a3b8", strokeWidth: 3 });
+  A("addSlot", { bone: "rocket", name: "nose" });
+  A("addShape", { slot: "nose", shape: "polygon", points: [-31, 150, 31, 150, 0, 215], fill: "#e11d48" });
+  A("addSlot", { bone: "rocket", name: "window" });
+  A("addShape", { slot: "window", shape: "ellipse", y: 110, width: 30, height: 30, fill: "#38bdf8", stroke: "#475569", strokeWidth: 4 });
+  A("addSlot", { bone: "rocket", name: "hit" });
+  A("addBoundingBox", { slot: "hit", y: 100, width: 120, height: 230 });
+
+  const K = (anim: string, target: string, id: string, property: string, keys: [number, number | boolean][], curve = "easeInOut") =>
+    A("setKeys", { animation: anim, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve: typeof value === "boolean" ? "stepped" : curve })) });
+  // ---- launch: sits, ignites (sparks + smoke), then climbs out of frame with a world-space exhaust trail ----
+  A("createAnimation", { name: "launch", duration: 3 });
+  K("launch", "particles", "exhaust", "emitting", [[0, false], [0.5, true]]);
+  K("launch", "particles", "exhaust", "rate", [[0.5, 40], [1.2, 110]]);
+  K("launch", "particles", "sparks", "emitting", [[0, false], [0.45, true], [1.4, false]]);
+  K("launch", "particles", "smoke", "emitting", [[0, false], [0.5, true], [1.8, false]]);
+  K("launch", "bone", "rocket", "y", [[0, 40], [0.5, 40], [3, 760]], "easeIn");
+  K("launch", "bone", "rocket", "x", [[0, 0], [0.6, 0], [3, 60]], "easeIn");
+  K("launch", "bone", "rocket", "rotation", [[0, 0], [0.5, 0], [0.55, 2], [0.6, -2], [0.65, 0], [3, -8]], "linear");
+  // ---- hover: engine on, gentle bob and sway (loops) ----
+  A("createAnimation", { name: "hover", duration: 2 });
+  K("hover", "bone", "rocket", "y", [[0, 220], [1, 250], [2, 220]]);
+  K("hover", "bone", "rocket", "rotation", [[0, -4], [1, 4], [2, -4]]);
+  K("hover", "particles", "exhaust", "rate", [[0, 70], [1, 100], [2, 70]]);
+  A("createAnimation", { name: "parked", duration: 1 });
+  K("parked", "bone", "rocket", "y", [[0, 40]]);
+  // ---- state machine: click the rocket to toggle the engine; each click also throws sparks ----
+  A("createStateMachine", { name: "engine" });
+  A("addInput", { stateMachine: "engine", name: "thrust", type: "bool" });
+  A("addState", { stateMachine: "engine", name: "parked", animation: "parked", x: 120, y: 120 });
+  A("addState", { stateMachine: "engine", name: "hover", animation: "hover", x: 360, y: 120 });
+  A("setStateEmitter", { stateMachine: "engine", state: "parked", slot: "exhaust", emitting: false });
+  A("setStateEmitter", { stateMachine: "engine", state: "hover", slot: "exhaust", emitting: true });
+  A("addTransition", { stateMachine: "engine", from: "parked", to: "hover", conditions: [{ input: "thrust", value: true }], duration: 0.6 });
+  A("addTransition", { stateMachine: "engine", from: "hover", to: "parked", conditions: [{ input: "thrust", value: false }], duration: 0.8 });
+  A("addListener", { stateMachine: "engine", slot: "hit", event: "down", actions: [{ type: "toggleInput", input: "thrust" }, { type: "emitParticles", slot: "sparks", count: 24 }] });
+  return s.doc;
+}
+
+for (const [file, doc] of [["walker.obone", walker()], ["button.obone", button()], ["tail.obone", tail()], ["rocket.obone", rocket()]] as const) {
   const issues = validate(doc);
   if (issues.some((i) => i.level === "error")) throw new Error(`${file}: ${JSON.stringify(issues)}`);
   writeFileSync(path.join(here, file), serialize(doc));

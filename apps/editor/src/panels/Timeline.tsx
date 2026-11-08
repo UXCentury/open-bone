@@ -11,6 +11,7 @@ function label(t: TL): string {
   const d = doc();
   if (t.target === "bone") return `${d.skeleton.bones.find((b) => b.id === t.id)?.name ?? t.id} · ${t.property}`;
   if (t.target === "slot") return `${d.skeleton.slots.find((s) => s.id === t.id)?.name ?? t.id} · ${t.property}`;
+  if (t.target === "particles") return `✺ ${d.skeleton.slots.find((s) => s.id === t.id)?.name ?? t.id} · ${t.property}`;
   if (t.target === "deform") return `${d.skeleton.slots.find((s) => s.id === t.id)?.name ?? t.id} · deform ${t.attachment}`;
   if (t.target === "ik" || t.target === "transform" || t.target === "path" || t.target === "physics") {
     const prefix = { ik: "IK", transform: "TC", path: "Path", physics: "Phys" }[t.target];
@@ -317,7 +318,8 @@ function CurveEditor(props: { tl: TL; time: number }) {
   const index = () => keys().findIndex((k) => Math.abs(k.time - props.time) < 1e-6);
   const key = () => keys()[index()];
   const next = () => keys()[index() + 1];
-  const discrete = () => props.tl.target === "drawOrder" || (props.tl.target === "slot" && props.tl.property === "attachment");
+  const discrete = () =>
+    props.tl.target === "drawOrder" || (props.tl.target === "slot" && props.tl.property === "attachment") || (props.tl.target === "particles" && props.tl.property === "emitting");
   const handles = (): [number, number, number, number] => {
     const d = draft();
     if (d) return d;

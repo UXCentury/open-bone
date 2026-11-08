@@ -68,6 +68,8 @@ export class StateMachineInstance extends Emitter<SMEvents> {
   private scripts: ScriptHandle[] = [];
   private boneOverrides = new Map<string, BoneOverride>();
   private slotOverrides = new Map<string, { color?: string; attachment?: string | null }>();
+  /** Emitter on/off set by listeners and states (slot id → emitting), re-applied every frame. */
+  private emitterOverrides = new Map<string, boolean>();
   private pendingEvents: FiredEvent[] = [];
   private elapsed = 0;
   private started = false;
@@ -188,8 +190,22 @@ export class StateMachineInstance extends Emitter<SMEvents> {
           if (handle) this.safeCall(handle, a.fn);
           break;
         }
+        case "setEmitter":
+          this.setEmitter(a.slot, a.emitting);
+          break;
+        case "emitParticles":
+          this.skeleton.emitParticles(a.slot, a.count);
+          break;
       }
     }
+  }
+
+  /** Switch a slot's particle emitter; switching it on restarts its cycle so bursts replay. */
+  setEmitter(slotRef: string, emitting: boolean) {
+    const slot = this.skeleton.findSlot(slotRef);
+    if (!slot) return;
+    this.emitterOverrides.set(slot.data.id, emitting);
+    if (emitting) this.skeleton.restartEmitter(slot.data.id);
   }
 
   // ---------------- Scripts ----------------
@@ -287,6 +303,7 @@ export class StateMachineInstance extends Emitter<SMEvents> {
       l.mixTime = 0;
       l.mixDuration = mix;
       l.exited = false;
+      for (const e of state.emitters ?? []) this.setEmitter(e.slot, e.emitting);
       for (const id of state.scripts ?? []) {
         const s = this.doc.scripts.find((x) => x.id === id);
         if (!s || !this.opts.scriptHost) continue;
@@ -453,6 +470,7 @@ export class StateMachineInstance extends Emitter<SMEvents> {
       if (o.color) s.color = parseHex(o.color);
       if (o.attachment !== undefined) s.attachmentName = o.attachment;
     }
+    for (const [id, emitting] of this.emitterOverrides) sk.particleValues.set(id, { ...sk.particleValues.get(id), emitting });
     sk.update(dt);
     sk.updateWorldTransform();
 

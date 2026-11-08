@@ -48,6 +48,10 @@ export function validate(d: OpenBoneDocument): Issue[] {
       for (const a of Object.values(atts)) {
         if ((a.type === "region" || a.type === "mesh") && !imageIds.has(a.image))
           err(`skins.${skin.name}.${a.name}`, `image ${a.image} missing`);
+        if (a.type === "particles") {
+          if (a.look === "image" && (!a.image || !imageIds.has(a.image))) err(`particles ${a.name}`, `image ${a.image ?? "(none)"} missing`);
+          if (!a.colors?.length) err(`particles ${a.name}`, "needs at least one colour stop");
+        }
         if (a.type === "clipping") {
           if (a.vertices.length < 6 || a.vertices.length % 2) err(`clipping ${a.name}`, "needs at least 3 points");
           if (a.end && !slotIds.has(a.end)) err(`clipping ${a.name}`, `end slot ${a.end} missing`);

@@ -38,10 +38,15 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
    Scripts: add_script {code} + attach_script. Script API (global ob): ob.input(n), ob.setInput(n,v), ob.fire(n),
    ob.emit(event,{int,float,string}), ob.bone(n), ob.setBone(n,{rotation,...}) (per-frame override), ob.slot(n,{color,attachment}),
    ob.pointer(), ob.time(), ob.log(...). Hooks: onStart(), onUpdate(dt), onEvent(e), onPointer(p), or named fns for runScript actions.
-8. Skins (outfits): the first skin is the default skin, shared by all. add_skin {name}, then either pass skin:"<name>" to
+8. Particles: add_particles {slot, preset:"fire"|"smoke"|"sparks"|"confetti"|"exhaust"|"coins", ...overrides} emits from the
+   slot bone (rotation = emission direction in the bone's frame, e.g. -90 for exhaust under an upright rocket bone; space
+   "world" leaves trails). update_particles changes settings. Key it with set_keys {target:"particles", id:slot,
+   property:"emitting" (true/false) | "rate"}. State machines: set_state_emitter {state, slot, emitting} and listener actions
+   {type:"setEmitter", slot, emitting} / {type:"emitParticles", slot, count}. Seeded and deterministic; check with render_gif.
+9. Skins (outfits): the first skin is the default skin, shared by all. add_skin {name}, then either pass skin:"<name>" to
    add_shape/add_region/... or copy_attachment {slot, attachment, toSkin} and update_attachment {..., skin} to override a
    default attachment under the same name. rename_skin, duplicate_skin, delete_skin manage them; render_frame {skin} previews one.
-9. Check your work: render_frame (returns a PNG; bones are drawn as blue wedges) and simulate_state_machine (text log of
+10. Check your work: render_frame (returns a PNG; bones are drawn as blue wedges) and simulate_state_machine (text log of
    state changes/events). render_gif for motion. get_summary for an outline, validate for problems.
 
 Tips: keep bones' length meaningful (used by IK and auto weights). Use update_* tools to fix mistakes, undo to revert.

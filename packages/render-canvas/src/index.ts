@@ -1,5 +1,5 @@
 import { type AtlasData, type OpenBoneDocument, apply, buildSpline, splinePolyline } from "@openbone/core";
-import type { ClipRegion, DrawItem, Skeleton } from "@openbone/runtime";
+import { type ClipRegion, type DrawItem, type Skeleton, particleDotAlpha } from "@openbone/runtime";
 
 /** Minimal 2D context surface (browser CanvasRenderingContext2D or @napi-rs/canvas SKRSContext2D). */
 export type Ctx2D = CanvasRenderingContext2D;
@@ -25,6 +25,9 @@ export interface CanvasRenderOptions {
 
 const css = (c: number[]) =>
   `rgba(${Math.round(c[0] * 255)},${Math.round(c[1] * 255)},${Math.round(c[2] * 255)},${c[3]})`;
+
+/** Gradient stops approximating the WebGL particle sprite falloff. */
+const DOT_STOPS = [0, 0.35, 0.5, 0.65, 0.8, 0.9, 1];
 
 const BLEND: Record<string, GlobalCompositeOperation> = {
   normal: "source-over",
@@ -92,6 +95,7 @@ export class CanvasRenderer {
   private drawItem(it: DrawItem, wireframe: boolean, zoom: number) {
     const { ctx } = this;
     ctx.globalCompositeOperation = BLEND[it.blend] ?? "source-over";
+    if (it.particles) return this.drawParticles(it);
     const v = it.vertices;
     const idx = it.indices;
     if (!it.image) {
@@ -192,6 +196,53 @@ export class CanvasRenderer {
       }
       ctx.stroke();
     }
+  }
+
+  /**
+   * Particle batch: each quad (TL, TR, BR, BL) maps the unit square, so a soft dot, a solid square or the image
+   * is drawn into it with the quad's colour. Images are tinted by alpha only.
+   */
+  private drawParticles(it: DrawItem) {
+    const { ctx } = this;
+    const v = it.vertices;
+    const cols = it.colors;
+    const look = it.particles!.look;
+    const tex = look === "image" ? (it.texture ?? it.image) : null;
+    const img = tex ? (this.images(tex.id) as CanvasImageSource | null) : null;
+    if (look === "image" && !img) return;
+    const tr = it.textureRect;
+    for (let q = 0; q < it.particles!.count; q++) {
+      const o = q * 8;
+      const c = q * 16;
+      const r = cols ? cols[c] : it.color[0];
+      const g = cols ? cols[c + 1] : it.color[1];
+      const b = cols ? cols[c + 2] : it.color[2];
+      const a = cols ? cols[c + 3] : it.color[3];
+      if (a <= 0) continue;
+      ctx.save();
+      // Unit square → quad: origin TL, u axis TL→TR, v axis TL→BL.
+      ctx.transform(v[o + 2] - v[o], v[o + 3] - v[o + 1], v[o + 6] - v[o], v[o + 7] - v[o + 1], v[o], v[o + 1]);
+      if (look === "image") {
+        ctx.globalAlpha = a;
+        if (tr) ctx.drawImage(img!, tr.x, tr.y, tr.width, tr.height, 0, 0, 1, 1);
+        else ctx.drawImage(img!, 0, 0, 1, 1);
+      } else if (look === "square") {
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = css([r, g, b, a]);
+        ctx.fillRect(0, 0, 1, 1);
+      } else {
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = this.dotGradient(r, g, b, a);
+        ctx.fillRect(0, 0, 1, 1);
+      }
+      ctx.restore();
+    }
+  }
+
+  private dotGradient(r: number, g: number, b: number, a: number): CanvasGradient {
+    const grad = this.ctx.createRadialGradient(0.5, 0.5, 0, 0.5, 0.5, 0.5);
+    for (const s of DOT_STOPS) grad.addColorStop(s, css([r, g, b, a * particleDotAlpha(s)]));
+    return grad;
   }
 
   drawBoundingBoxes(sk: Skeleton, zoom: number) {

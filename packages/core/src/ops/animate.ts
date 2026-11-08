@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { get, getAttachment, newId } from "../document.ts";
 import type { AnimationData, Curve, Key, OpenBoneDocument, Timeline } from "../types.ts";
-import { BONE_PROPERTIES, CONSTRAINT_PROPERTIES } from "../types.ts";
+import { BONE_PROPERTIES, CONSTRAINT_PROPERTIES, PARTICLE_PROPERTIES } from "../types.ts";
 import { EASINGS, curve as curveSchema, defineOp, hex, optId, ref } from "./registry.ts";
 
 const curveIn = z
@@ -10,10 +10,10 @@ const curveIn = z
   .transform((c): Curve => (typeof c === "string" && c in EASINGS ? EASINGS[c] : (c as Curve)));
 
 const target = z
-  .enum(["bone", "slot", "ik", "transform", "path", "physics", "deform", "drawOrder"])
-  .describe("What is animated: bone property, slot color/attachment, constraint (ik/transform/path/physics) values, mesh/path deform, draw order");
+  .enum(["bone", "slot", "ik", "transform", "path", "physics", "particles", "deform", "drawOrder"])
+  .describe("What is animated: bone property, slot color/attachment, constraint (ik/transform/path/physics) values, particle emitter (id = slot; emitting true/false, rate), mesh/path deform, draw order");
 
-const keyValue = z.union([z.number(), z.string(), z.null(), z.array(z.number()), z.array(z.string())]);
+const keyValue = z.union([z.boolean(), z.number(), z.string(), z.null(), z.array(z.number()), z.array(z.string())]);
 
 const PROPS: Record<string, string[]> = {
   bone: BONE_PROPERTIES,
@@ -22,6 +22,7 @@ const PROPS: Record<string, string[]> = {
   transform: CONSTRAINT_PROPERTIES.transform,
   path: CONSTRAINT_PROPERTIES.path,
   physics: CONSTRAINT_PROPERTIES.physics,
+  particles: PARTICLE_PROPERTIES,
   deform: ["offsets"],
   drawOrder: ["order"],
 };
@@ -42,6 +43,7 @@ function resolveTimeline(
       id = get.bone(doc, need(a.id, "id (bone)")).id;
       break;
     case "slot":
+    case "particles":
       id = get.slot(doc, need(a.id, "id (slot)")).id;
       break;
     case "ik":
@@ -81,7 +83,11 @@ function need<T>(v: T | undefined, what: string): T {
 
 function checkValue(tl: Timeline, value: unknown) {
   const ok =
-    tl.target === "bone" || tl.target === "ik" || tl.target === "transform" || tl.target === "path" || tl.target === "physics"
+    tl.target === "particles"
+      ? tl.property === "emitting"
+        ? typeof value === "boolean"
+        : typeof value === "number"
+      : tl.target === "bone" || tl.target === "ik" || tl.target === "transform" || tl.target === "path" || tl.target === "physics"
       ? typeof value === "number"
       : tl.target === "slot" && tl.property === "color"
         ? typeof value === "string" && hex.safeParse(value).success
@@ -150,7 +156,7 @@ defineOp({
   name: "setKeys",
   group: "animation",
   description:
-    "Set one or more keyframes on a timeline (absolute values). Examples: bone rotation {target:'bone', id:'arm', property:'rotation', keys:[{time:0,value:0},{time:0.5,value:45,curve:'easeInOut'}]}; path constraint {target:'path', id:'tail-path', property:'position', keys:[...]}; slot color value '#ff0000'; slot attachment value 'eyes-closed' or null; deform value = flat offsets per vertex; drawOrder value = slot ids/names back-to-front.",
+    "Set one or more keyframes on a timeline (absolute values). Examples: bone rotation {target:'bone', id:'arm', property:'rotation', keys:[{time:0,value:0},{time:0.5,value:45,curve:'easeInOut'}]}; path constraint {target:'path', id:'tail-path', property:'position', keys:[...]}; slot color value '#ff0000'; particle emitter {target:'particles', id:'exhaust', property:'emitting', keys:[{time:0,value:true},{time:1,value:false}]} or property 'rate' (numbers); slot attachment value 'eyes-closed' or null; deform value = flat offsets per vertex; drawOrder value = slot ids/names back-to-front.",
   schema: z.object({
     animation: ref("Animation"),
     target,

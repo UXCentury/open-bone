@@ -111,6 +111,7 @@ export function Toolbar() {
           <option value="walker">Walker (IK, mesh, blend, script)</option>
           <option value="button">Interactive button</option>
           <option value="tail">Tail (path constraint, physics)</option>
+          <option value="rocket">Rocket (particles)</option>
         </select>
         <input ref={fileInput} type="file" accept=".obone,.obonb,.json,application/json,application/octet-stream" hidden onChange={(e) => open(e.currentTarget.files)} />
       </div>

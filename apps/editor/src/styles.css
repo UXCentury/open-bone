@@ -83,6 +83,14 @@ input.tiny { width: 52px; }
 .key-btn.keyed { color: var(--warn); }
 .btn-row { display: flex; gap: 4px; flex-wrap: wrap; }
 .hint { color: var(--muted); font-size: 11px; background: #171a20; border-radius: 4px; padding: 5px 7px; }
+/* particles inspector */
+.range-field { display: flex; gap: 4px; align-items: center; }
+.range-field > .field { flex: 1; min-width: 0; }
+.range-field > .field + .field > span:first-child { width: auto; }
+.range-field input[type="number"] { width: 100%; min-width: 0; }
+.range-field .row-del { visibility: visible; }
+.gradient-strip { height: 14px; border-radius: 3px; border: 1px solid var(--line); }
+.add-select { max-width: 110px; }
 .image-preview img { max-width: 100%; background: repeating-conic-gradient(#333 0 25%, #222 0 50%) 0 0/16px 16px; }
 /* timeline */
 .timeline { display: flex; flex-direction: column; height: 100%; outline: none; }
