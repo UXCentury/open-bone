@@ -1,6 +1,6 @@
 import { DocumentStore, createDocument } from "@openbone/core";
 import { describe, expect, it } from "vitest";
-import { type AudioCommand, AudioDirector, OpenBoneInstance, audioKeysBetween } from "../src/index.ts";
+import { type AudioCommand, AudioDirector, OpenBoneInstance, animationAudioSchedule, audioKeysBetween } from "../src/index.ts";
 
 function doc() {
   const s = new DocumentStore(createDocument("snd"));
@@ -151,5 +151,24 @@ describe("runtime audio", () => {
     expect(audioKeysBetween(anim, -1e-6, 0, true)).toHaveLength(1);
     expect(audioKeysBetween(anim, 0, 2.5, true)).toHaveLength(2);
     expect(audioKeysBetween(anim, 0, 2.5, false)).toHaveLength(0);
+  });
+
+  it("animationAudioSchedule: keys (including one at 0) and event sounds at their times; loops stop at the end", () => {
+    const s = doc();
+    s.apply("addAudioKey", { animation: "walk", sound: "hum", time: 0 });
+    s.apply("addAudioKey", { animation: "walk", sound: "click", time: 0.25, volume: 0.5 });
+    s.apply("addEventKey", { animation: "walk", event: "step", time: 0.75 });
+    s.apply("setEventSound", { event: "step", sound: "click" });
+    const walk = s.doc.animations.find((a) => a.name === "walk")!;
+    const sched = animationAudioSchedule(s.doc, walk, 1);
+    const sound = (id: string) => s.doc.audio!.sounds.find((x) => x.id === id)!.name;
+    expect(sched.map((e) => `${e.time} ${e.command.type === "play" ? `play ${sound(e.command.sound)}` : e.command.type}`)).toEqual([
+      "0 play hum",
+      "0.25 play click",
+      "0.75 play click",
+      "1 stop",
+    ]);
+    expect(sched[1].command).toMatchObject({ volume: 0.5, loop: false });
+    expect(sched[3].command).toMatchObject({ type: "stop", id: sched[0].command.id, fade: 0.25 });
   });
 });

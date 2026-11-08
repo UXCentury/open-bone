@@ -11,15 +11,16 @@
   },
   "dependencies": {
     "@openbone/core": "workspace:*",
+    "@openbone/export": "workspace:*",
+    "@openbone/player": "workspace:*",
     "@openbone/render-canvas": "workspace:*",
     "@openbone/runtime": "workspace:*",
     "@openbone/scripting": "workspace:*",
-    "idb-keyval": "^6.2.2",
-    "solid-js": "^1.9.9",
-    "@openbone/player": "workspace:*",
     "@tauri-apps/plugin-dialog": "^2.4.0",
     "@tauri-apps/plugin-fs": "^2.4.0",
-    "@openbone/export": "workspace:*"
+    "idb-keyval": "^6.2.2",
+    "mp4-muxer": "5.2.2",
+    "solid-js": "^1.9.9"
   },
   "devDependencies": {
     "vite": "^7.1.0",

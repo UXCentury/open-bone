@@ -2,11 +2,13 @@ import { type OpenBoneDocument, animationDuration, textureAssets } from "@openbo
 import { type Frame, createZip, encodeApng, encodeAviMjpeg, encodeGif, encodeMovMjpeg, encodePng, encodePsd } from "@openbone/export";
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { Skeleton, seekAnimation } from "@openbone/runtime";
+import { mixAnimationAudio } from "./export-audio.ts";
+import { encodeMp4 } from "./export-mp4.ts";
 import { resolveImageUrl } from "./images.ts";
 
 /** Image and video exports: render an animation offscreen, then encode the frames. */
 
-export type MediaFormat = "png" | "jpeg" | "gif" | "apng" | "psd" | "avi" | "mov";
+export type MediaFormat = "png" | "jpeg" | "gif" | "apng" | "psd" | "avi" | "mov" | "mp4";
 
 export interface MediaOptions {
   /** Animation id, or null for the setup pose (one frame). */
@@ -27,6 +29,8 @@ export interface MediaOptions {
   quality: number;
   /** GIF/APNG: 0 = loop forever, 1 = play once. */
   loops: number;
+  /** Video: include the animation's sound (audio keys and event sounds). Default true. */
+  audio?: boolean;
 }
 
 export const MEDIA: Record<MediaFormat, { label: string; ext: string; mime: string; animated: boolean; alpha: boolean; video?: boolean }> = {
@@ -37,6 +41,7 @@ export const MEDIA: Record<MediaFormat, { label: string; ext: string; mime: stri
   psd: { label: "PSD", ext: "psd", mime: "image/vnd.adobe.photoshop", animated: false, alpha: true },
   avi: { label: "AVI", ext: "avi", mime: "video/x-msvideo", animated: true, alpha: false, video: true },
   mov: { label: "MOV", ext: "mov", mime: "video/quicktime", animated: true, alpha: false, video: true },
+  mp4: { label: "MP4", ext: "mp4", mime: "video/mp4", animated: true, alpha: false, video: true },
 };
 
 /** Frame times for an export: every 1/fps over the animation (a loop's end frame equals its first, so it is skipped). */
@@ -156,6 +161,8 @@ export interface MediaFile {
   mime: string;
   ext: string;
   description: string;
+  /** Things the user should know about the result (e.g. the sound codec used). */
+  warnings?: string[];
 }
 
 /** Render and encode. Sequences of PNG/JPEG frames become a ZIP. */
@@ -185,14 +192,24 @@ export async function exportMedia(doc: OpenBoneDocument, o: MediaOptions, format
     case "psd":
       return file(encodePsd(frames.map((f, i) => ({ name: frames.length > 1 ? `frame ${pad(i)}` : baseName, frame: f }))));
     case "avi":
-    case "mov": {
+    case "mov":
+    case "mp4": {
+      // Sound: what the animation plays over the video's length (frames / fps).
+      const anim = o.animation ? doc.animations.find((a) => a.id === o.animation) : null;
+      onProgress?.("Mixing sound", 0);
+      const mix = anim && o.audio !== false ? await mixAnimationAudio(doc, anim, frames.length / o.fps) : null;
+      if (format === "mp4") {
+        const r = await encodeMp4(frames, { width, height, fps: o.fps, quality: o.quality, audio: mix }, (p) => onProgress?.("Encoding", p));
+        const sound = r.audioCodec ? `, ${r.audioCodec === "aac" ? "AAC" : "Opus"} sound` : "";
+        return { ...file(r.data, "mp4", info.mime, `MP4 (H.264${sound})`), warnings: r.warnings };
+      }
       const jpegs: Uint8Array[] = [];
       for (let i = 0; i < frames.length; i++) {
         jpegs.push(await jpegOf(frames[i], canvas, o.quality));
         onProgress?.("Encoding", (i + 1) / frames.length);
       }
       const enc = format === "avi" ? encodeAviMjpeg : encodeMovMjpeg;
-      return file(enc(jpegs, { width, height, fps: o.fps }));
+      return file(enc(jpegs, { width, height, fps: o.fps, audio: mix?.pcm ?? null }), info.ext, info.mime, mix ? `${info.label} with sound` : info.label);
     }
   }
 }

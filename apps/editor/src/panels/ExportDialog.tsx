@@ -40,8 +40,9 @@ const GROUPS: { title: string; items: { id: Format; label: string; hint: string 
   {
     title: "Video",
     items: [
-      { id: "avi", label: "AVI", hint: "Motion-JPEG video" },
-      { id: "mov", label: "MOV", hint: "QuickTime, Motion-JPEG" },
+      { id: "avi", label: "AVI", hint: "Motion-JPEG, uncompressed sound" },
+      { id: "mp4", label: "MP4", hint: "H.264 with sound, plays everywhere" },
+      { id: "mov", label: "MOV", hint: "QuickTime, Motion-JPEG, uncompressed sound" },
     ],
   },
   {
@@ -199,6 +200,7 @@ export function ExportDialog() {
   const [mTime, setMTime] = createSignal(0);
   const [quality, setQuality] = createSignal(sm.quality ?? 0.9);
   const [loops, setLoops] = createSignal(sm.loops ?? 0);
+  const [withSound, setWithSound] = createSignal(sm.audio ?? true);
   // ---- engine options ----
   const se = saved.engine ?? {};
   const [eAnims, setEAnims] = createSignal(byNames(source.animations, se.clips));
@@ -274,6 +276,7 @@ export function ExportDialog() {
     time: mTime(),
     quality: quality(),
     loops: loops(),
+    audio: withSound(),
   });
 
   // ---- data export pipeline ----
@@ -315,6 +318,13 @@ export function ExportDialog() {
   });
   const frameCount = createMemo(() => (media() ? frameTimes(source, mediaOptions(), format() as MediaFormat).length : 0));
   const mediaAnim = () => source.animations.find((a) => a.id === mAnim()) ?? null;
+  /** Sounds the picked animation plays (audio keys and event keys with a sound). */
+  const soundCount = () => {
+    const anim = mediaAnim();
+    if (!anim) return 0;
+    const withAudio = new Set(source.events.filter((e) => e.audio).map((e) => e.id));
+    return (anim.audio?.length ?? 0) + anim.events.filter((k) => withAudio.has(k.event)).length;
+  };
 
   const presets = {
     everything: () => {
@@ -436,6 +446,7 @@ export function ExportDialog() {
       sequence: sequence(),
       quality: quality(),
       loops: loops(),
+      audio: withSound(),
     },
     picks: { animations: namesOf(source.animations, anims()), stateMachines: namesOf(source.stateMachines, sms()), scripts: namesOf(source.scripts, scripts()), skins: namesOf(extraSkins, skins()) },
     openAfter: openAfter(),
@@ -491,6 +502,7 @@ export function ExportDialog() {
     if (m.sequence !== undefined) setSequence(m.sequence);
     if (m.quality !== undefined) setQuality(m.quality);
     if (m.loops !== undefined) setLoops(m.loops);
+    if (m.audio !== undefined) setWithSound(m.audio);
     if (s.picks) {
       setAnims(byNames(source.animations, s.picks.animations));
       setSms(byNames(source.stateMachines, s.picks.stateMachines));
@@ -614,6 +626,7 @@ export function ExportDialog() {
       const savedName = await saveFile(f.name, f.data, { ext: f.ext, description: f.description, mime: f.mime });
       if (savedName) {
         toast(`Exported ${savedName} (${fmtBytes(f.data.length)})`);
+        for (const w of f.warnings ?? []) toast(w, "info");
         if (openAfter() && canOpenAfter()) openResult(f.data, f.mime);
         setExportOpen(false);
       }
@@ -895,7 +908,17 @@ export function ExportDialog() {
                       </Row>
                     </Show>
                     <Show when={info().video}>
-                      <div class="muted small">Motion-JPEG video: plays in VLC, QuickTime and Windows players, and imports into video editors.</div>
+                      <label class="check" title="The animation's audio keys and event sounds, mixed with the project's bus and master volumes">
+                        <input type="checkbox" checked={withSound()} onChange={(e) => setWithSound(e.currentTarget.checked)} /> Include sound
+                        <Show when={withSound() && !soundCount()}>
+                          <span class="muted small">(this animation plays no sound)</span>
+                        </Show>
+                      </label>
+                      <div class="muted small">
+                        {format() === "mp4"
+                          ? "H.264 video with AAC sound (Opus where the browser has no AAC encoder): plays in browsers, phones, QuickTime, VLC and video editors."
+                          : "Motion-JPEG video with uncompressed sound: plays in VLC, QuickTime and Windows players, and imports into video editors."}
+                      </div>
                     </Show>
                   </fieldset>
                 </>

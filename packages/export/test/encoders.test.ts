@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { describe, expect, it } from "vitest";
-import { type Frame, crc32, createZip, encodeApng, encodeAviMjpeg, encodeGif, encodeMovMjpeg, encodePng, encodePsd } from "../src/index.ts";
+import { type Frame, crc32, createZip, encodeApng, encodeAviMjpeg, encodeGif, encodeMovMjpeg, encodePng, encodePsd, floatToPcm } from "../src/index.ts";
 
 const W = 64;
 const H = 48;
@@ -123,6 +123,33 @@ describe("AVI / MOV (Motion-JPEG)", () => {
     expect(String.fromCharCode(...b.subarray(4, 8))).toBe("ftyp");
     if (hasFfprobe) expect(probe(b, "mov")).toMatchObject({ codec_name: "mjpeg", width: W, height: H, nb_read_frames: "5", r_frame_rate: "30/1" });
   });
+});
+
+describe("AVI / MOV sound track", () => {
+  const jpegs = frames(5, true).map(jpeg);
+  // 5 frames at 25 fps = 0.2 s of stereo 48 kHz: a 440 Hz tone left, 660 Hz right.
+  const rate = 48000;
+  const n = rate / 5;
+  const tone = (hz: number) => Float32Array.from({ length: n }, (_, i) => 0.5 * Math.sin((2 * Math.PI * hz * i) / rate));
+  const audio = floatToPcm([tone(440), tone(660)], rate);
+  /** Decode the first audio stream back to interleaved 16-bit samples. */
+  const decode = (bytes: Uint8Array, ext: string) => {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "ob-")), `t.${ext}`);
+    fs.writeFileSync(file, bytes);
+    const meta = JSON.parse(execFileSync("ffprobe", ["-v", "error", "-select_streams", "a:0", "-show_entries", "stream=codec_name,channels,sample_rate", "-of", "json", file]).toString()).streams[0];
+    const raw = execFileSync("ffmpeg", ["-v", "error", "-i", file, "-map", "0:a:0", "-f", "s16le", "-"], { maxBuffer: 1 << 26 });
+    return { meta, samples: new Int16Array(raw.buffer, raw.byteOffset, raw.length / 2) };
+  };
+  for (const [ext, enc] of [["avi", encodeAviMjpeg], ["mov", encodeMovMjpeg]] as const)
+    it.skipIf(!hasFfprobe)(`${ext.toUpperCase()} carries the PCM samples unchanged next to the video`, () => {
+      const b = enc(jpegs, { width: W, height: H, fps: 25, audio });
+      expect(probe(b, ext)).toMatchObject({ codec_name: "mjpeg", nb_read_frames: "5" });
+      const { meta, samples } = decode(b, ext);
+      expect(meta).toMatchObject({ codec_name: "pcm_s16le", channels: 2, sample_rate: "48000" });
+      expect(samples.length).toBe(audio.samples.length);
+      expect(Array.from(samples.subarray(0, 4000))).toEqual(Array.from(audio.samples.subarray(0, 4000)));
+      expect(Array.from(samples.subarray(-4000))).toEqual(Array.from(audio.samples.subarray(-4000)));
+    });
 });
 
 describe("ZIP", () => {
