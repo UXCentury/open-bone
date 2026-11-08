@@ -56,6 +56,10 @@ export function validate(d: OpenBoneDocument): Issue[] {
           if (a.input && !d.stateMachines.some((sm) => sm.inputs.some((x) => x.id === a.input)))
             warn(`sequence ${a.name}`, `input ${a.input} missing`);
         }
+        if (a.type === "particles") {
+          if (a.look === "image" && (!a.image || !imageIds.has(a.image))) err(`particles ${a.name}`, `image ${a.image ?? "(none)"} missing`);
+          if (!a.colors?.length) err(`particles ${a.name}`, "needs at least one colour stop");
+        }
         if (a.type === "clipping") {
           if (a.vertices.length < 6 || a.vertices.length % 2) err(`clipping ${a.name}`, "needs at least 3 points");
           if (a.end && !slotIds.has(a.end)) err(`clipping ${a.name}`, `end slot ${a.end} missing`);

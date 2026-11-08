@@ -234,7 +234,92 @@ export interface SequenceAttachment extends AttachmentBase {
   input?: Id | null;
 }
 
+// ---------- Particles ----------
+
+/** Where new particles appear, in attachment space (centred on x, y, rotated by `rotation`). */
+export type EmitterShape = "point" | "circle" | "box" | "cone";
+/** What each particle looks like: a built-in soft shape, or an image (packed or loose). */
+export type ParticleLook = "circle" | "square" | "spark" | "image";
+/** world: particles stay where they were born when the bone moves; local: they move with the bone. */
+export type ParticleSpace = "world" | "local";
+
+/** A [min, max] range; each particle picks a seeded random value inside it. */
+export type Range = [number, number];
+
+export interface ParticleBurst {
+  /** Seconds into the emitter cycle. */
+  time: number;
+  count: number;
+}
+
+/** One stop of the colour-over-life gradient (`t` 0..1 of a particle's life; colour may carry alpha). */
+export interface ColorStop {
+  t: number;
+  color: Hex;
+}
+
+/**
+ * Particle emitter shown by a slot. Emits from the slot bone's world transform; simulated at a fixed step
+ * with a seeded random generator, so the same seed and time always give the same particles.
+ */
+export interface ParticlesAttachment extends AttachmentBase {
+  type: "particles";
+  // Emission
+  /** Setup value of the keyable on/off switch. */
+  emitting: boolean;
+  /** Particles per second (keyable). */
+  rate: number;
+  bursts: ParticleBurst[];
+  maxParticles: number;
+  /** Emitter cycle length in seconds (bursts repeat every cycle when looping). */
+  duration: number;
+  /** Repeat the cycle; when false emission stops after `duration`. */
+  loop: boolean;
+  /** Start as if the emitter had already run one cycle. */
+  prewarm: boolean;
+  // Shape
+  shape: EmitterShape;
+  x: number;
+  y: number;
+  /** Emission direction in degrees (0 = along the bone, 90 = bone's +y). */
+  rotation: number;
+  /** Spread in degrees around the direction (point, box, cone). Circles emit outwards. */
+  angle: number;
+  /** Circle radius / cone mouth half-width. */
+  radius: number;
+  /** Box size. */
+  width: number;
+  height: number;
+  space: ParticleSpace;
+  // Particles
+  lifetime: Range;
+  speed: Range;
+  /** Downward acceleration (skeleton units / s²); negative floats up. */
+  gravity: number;
+  /** Velocity decay per second. */
+  drag: number;
+  startSize: Range;
+  endSize: Range;
+  /** Degrees; rotation goes from start to end over the life, plus angularVelocity × age. */
+  startRotation: Range;
+  endRotation: Range;
+  /** Degrees per second. */
+  angularVelocity: Range;
+  /** Colour (with alpha) over each particle's life; at least one stop. */
+  colors: ColorStop[];
+  blend: BlendMode;
+  // Look
+  look: ParticleLook;
+  /** Image id (look = "image"); packed images are drawn from their atlas page. */
+  image?: Id;
+  /** Spark streak length in seconds of velocity (look = "spark"). */
+  stretch: number;
+  /** Random seed (integer). */
+  seed: number;
+}
+
 export type Attachment =
+  | ParticlesAttachment
   | ClippingAttachment
   | SequenceAttachment
   | RegionAttachment
@@ -374,6 +459,9 @@ export type TransformProperty = "mix" | "mixRotate" | "mixTranslate" | "mixScale
 export type PathProperty = "position" | "spacing" | "mixRotate" | "mixX" | "mixY";
 export type PhysicsProperty = "mix" | "inertia" | "strength" | "damping" | "mass" | "gravity" | "wind";
 export type ConstraintTarget = "ik" | "transform" | "path" | "physics";
+/** Keyable emitter values (timeline id = slot id; acts on the particles attachment the slot shows). */
+export type ParticleProperty = "emitting" | "rate";
+export const PARTICLE_PROPERTIES: ParticleProperty[] = ["emitting", "rate"];
 
 /** Keyable numeric fields of each constraint kind. */
 export const CONSTRAINT_PROPERTIES: {
@@ -405,6 +493,8 @@ export type Timeline =
   | { target: "physics"; id: Id; property: PhysicsProperty; keys: Key<number>[] }
   /** Frame counter of a sequence attachment (replaces time x fps; the mode still applies). id = slot id. */
   | { target: "sequence"; id: Id; attachment: string; property: "frame"; keys: Key<number>[] }
+  | { target: "particles"; id: Id; property: "emitting"; keys: Key<boolean>[] }
+  | { target: "particles"; id: Id; property: "rate"; keys: Key<number>[] }
   /** Offsets added to mesh or path vertices (flat x,y per vertex). id = slot id. */
   | { target: "deform"; id: Id; attachment: string; property: "offsets"; keys: Key<number[]>[] }
   | { target: "drawOrder"; id: "skeleton"; property: "order"; keys: Key<Id[]>[] };
@@ -545,6 +635,8 @@ export interface StateData {
   scripts?: Id[];
   /** Sounds played or stopped on enter/exit. */
   sounds?: StateSound[];
+  /** Particle emitters switched on/off when this state is entered. */
+  emitters?: StateEmitter[];
 }
 
 /** Special `from` value: transition can fire from any state of the layer. */
@@ -579,7 +671,17 @@ export type ListenerAction =
   | { type: "runScript"; script: Id; fn: string }
   | { type: "playSound"; sound: Id; volume?: number }
   /** Stops every playing instance of the sound (fade seconds; default the sound's fadeOut). */
-  | { type: "stopSound"; sound: Id; fade?: number };
+  | { type: "stopSound"; sound: Id; fade?: number }
+  /** Turn a slot's particle emitter on (restarting its cycle, so bursts replay) or off. */
+  | { type: "setEmitter"; slot: Id; emitting: boolean }
+  /** Spawn `count` particles from a slot's emitter right away. */
+  | { type: "emitParticles"; slot: Id; count: number };
+
+/** Emitter switch applied when a state is entered. */
+export interface StateEmitter {
+  slot: Id;
+  emitting: boolean;
+}
 
 export interface ListenerData {
   id: Id;

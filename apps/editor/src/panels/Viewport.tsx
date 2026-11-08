@@ -162,9 +162,9 @@ export function Viewport() {
   function pose(sk: Skeleton, dt: number) {
     const sm = smInstance();
     if (running() && sm) {
+      sk.particleClock = "realtime";
       sm.advance(dt);
     } else {
-      sk.setToSetupPose();
       const anim = currentAnimation();
       if (mode() === "animate" && anim) {
         if (playing()) {
@@ -177,10 +177,22 @@ export function Viewport() {
           previewWasPlaying = false;
           stopPreviewAudio();
         }
+        // Particles replay from time 0, so scrubbing shows exactly what an export renders at this time.
+        sk.seekParticles(time(), (t) => {
+          sk.setToSetupPose();
+          applyAnimation(sk, anim, t);
+          sk.updateWorldTransform();
+        });
+        sk.setToSetupPose();
         applyAnimation(sk, anim, time());
-      } else if (previewWasPlaying) {
-        previewWasPlaying = false;
-        stopPreviewAudio();
+      } else {
+        if (previewWasPlaying) {
+          previewWasPlaying = false;
+          stopPreviewAudio();
+        }
+        // Setup mode: emitters run live.
+        sk.particleClock = "realtime";
+        sk.setToSetupPose();
       }
       if (drag?.kind === "bone") Object.assign(drag.bone, drag.cur);
       sk.update(dt);

@@ -19,6 +19,7 @@ import type {
   TransformConstraintData,
 } from "./types.ts";
 import { FORMAT_VERSION } from "./types.ts";
+import { defaultParticleSettings } from "./particles.ts";
 
 let counter = 0;
 /** Short unique id with a type prefix, e.g. "bone_k3x9a1". */
@@ -261,5 +262,12 @@ export function normalizeDocument(d: OpenBoneDocument): OpenBoneDocument {
     c.local ??= false;
     c.relative ??= false;
   }
+  for (const skin of sk.skins)
+    for (const atts of Object.values(skin.attachments))
+      for (const a of Object.values(atts)) {
+        if (a.type !== "particles") continue;
+        const rec = a as unknown as Record<string, unknown>;
+        for (const [k, v] of Object.entries(defaultParticleSettings())) if (rec[k] === undefined && k !== "image") rec[k] = v;
+      }
   return d;
 }

@@ -4,6 +4,7 @@ import { apply, currentStateMachine, doc, running, setRunning, setStateMachineId
 import { eventLog, smInstance } from "./Viewport.tsx";
 import { askForm, askText, uniqueName } from "../dialogs.tsx";
 import { StateSounds } from "./AudioPanel.tsx";
+import { emitterSlots } from "./ParticlesInspector.tsx";
 
 const W = 130;
 const H = 40;
@@ -409,6 +410,30 @@ function StateProps(p: { state: StateData; layer: LayerData; onDeleted: () => vo
       <Show when={p.state.type !== "exit"}>
         <StateSounds state={p.state} layer={p.layer} />
       </Show>
+      <Show when={p.state.type !== "exit" && emitterSlots().length}>
+        <div class="col-title">Particle emitters on enter</div>
+        <For each={emitterSlots()}>
+          {(slot) => {
+            const cur = () => p.state.emitters?.find((e) => e.slot === slot.id);
+            return (
+              <label class="field">
+                <span>{slot.name}</span>
+                <select
+                  value={cur() ? (cur()!.emitting ? "on" : "off") : ""}
+                  onChange={(e) => {
+                    const v = e.currentTarget.value;
+                    apply("setStateEmitter", { ...args(), slot: slot.id, emitting: v === "" ? null : v === "on" });
+                  }}
+                >
+                  <option value="" selected={!cur()}>unchanged</option>
+                  <option value="on" selected={cur()?.emitting === true}>start</option>
+                  <option value="off" selected={cur()?.emitting === false}>stop</option>
+                </select>
+              </label>
+            );
+          }}
+        </For>
+      </Show>
       <div class="btn-row">
         <button disabled={p.layer.entry === p.state.id} onClick={() => apply("updateState", { ...args(), entry: true })}>
           Set as entry
@@ -519,11 +544,14 @@ function ListenerList() {
   const [event, setEvent] = createSignal("click");
   const [action, setAction] = createSignal("fireTrigger");
   const [target, setTarget] = createSignal("");
-  const describe = (a: { type: string; input?: string; event?: string; value?: unknown; script?: string; sound?: string }) => {
-    const sname = () => doc().audio?.sounds.find((s) => s.id === a.sound)?.name;
-    if (a.type === "playSound") return `play ♪ ${sname()}`;
-    if (a.type === "stopSound") return `stop ♪ ${sname()}`;
+  const describe = (a: { type: string; input?: string; event?: string; value?: unknown; script?: string; sound?: string; slot?: string; emitting?: boolean; count?: number }) => {
+    const soundName = () => doc().audio?.sounds.find((s) => s.id === a.sound)?.name;
+    if (a.type === "playSound") return `play ♪ ${soundName()}`;
+    if (a.type === "stopSound") return `stop ♪ ${soundName()}`;
     const iname = sm().inputs.find((i) => i.id === a.input)?.name;
+    const sname = doc().skeleton.slots.find((s) => s.id === a.slot)?.name;
+    if (a.type === "setEmitter") return `${a.emitting ? "start" : "stop"} ${sname} particles`;
+    if (a.type === "emitParticles") return `burst ${a.count} ${sname}`;
     if (a.type === "setInput") return `${iname} = ${a.value}`;
     if (a.type === "toggleInput") return `toggle ${iname}`;
     if (a.type === "fireTrigger") return `fire ${iname}`;
@@ -537,7 +565,11 @@ function ListenerList() {
     const act =
       action() === "playSound" || action() === "stopSound"
         ? { type: action(), sound: t }
-        : action() === "reportEvent"
+        : action() === "startEmitter" || action() === "stopEmitter"
+          ? { type: "setEmitter", slot: t, emitting: action() === "startEmitter" }
+          : action() === "emitParticles"
+            ? { type: "emitParticles", slot: t, count: 20 }
+            : action() === "reportEvent"
         ? { type: "reportEvent", event: t }
         : action() === "runScript"
           ? { type: "runScript", script: t, fn: "onAction" }
@@ -576,6 +608,11 @@ function ListenerList() {
           <option value="runScript">run script</option>
           <option value="playSound">play sound</option>
           <option value="stopSound">stop sound</option>
+          <Show when={emitterSlots().length}>
+            <option value="startEmitter">start particles</option>
+            <option value="stopEmitter">stop particles</option>
+            <option value="emitParticles">burst 20 particles</option>
+          </Show>
         </select>
         <select value={target()} onChange={(e) => setTarget(e.currentTarget.value)}>
           <option value="" selected={!(target())}>…</option>
@@ -588,6 +625,9 @@ function ListenerList() {
             </Match>
             <Match when={action() === "playSound" || action() === "stopSound"}>
               <For each={doc().audio?.sounds ?? []}>{(x) => <option value={x.id} selected={x.id === (target())}>{x.name}</option>}</For>
+            </Match>
+            <Match when={action() === "startEmitter" || action() === "stopEmitter" || action() === "emitParticles"}>
+              <For each={emitterSlots()}>{(x) => <option value={x.id} selected={x.id === (target())}>{x.name}</option>}</For>
             </Match>
             <Match when={true}>
               <For each={sm().inputs}>{(x) => <option value={x.id} selected={x.id === (target())}>{x.name}</option>}</For>

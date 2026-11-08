@@ -11,6 +11,8 @@ import {
   type ImageAsset,
   type LocalTransform,
   type OpenBoneDocument,
+  type ParticleLook,
+  type ParticlesAttachment,
   type PathConstraintData,
   type PhysicsConstraintData,
   type RGBA,
@@ -42,6 +44,7 @@ import {
   worldScaleX,
   worldScaleY,
 } from "@openbone/core";
+import { type EmitterValues, MAX_PARTICLE_STEPS, PARTICLE_STEP, ParticleEmitter, hashString } from "./particles.ts";
 
 export class Bone {
   parent: Bone | null = null;
@@ -161,7 +164,21 @@ export interface DrawItem {
   stroke?: { color: RGBA; width: number; outline: Float32Array };
   /** Clipping mask this item is drawn inside (shared object for consecutive items under the same mask). */
   clip?: ClipRegion;
+  /** Per-vertex RGBA (4 floats per vertex, slot tint included); when set it replaces `color`. */
+  colors?: Float32Array;
+  /**
+   * Set on particle batches: `count` quads (4 vertices each: TL, TR, BR, BL). `look` circle/spark sample a soft
+   * round sprite (texture id PARTICLE_DOT_TEXTURE), square a solid quad, image the item's texture.
+   */
+  particles?: { look: ParticleLook; count: number };
 }
+
+/** Texture id of the built-in soft round particle sprite; renderers generate it (see `particleDotAlpha`). */
+export const PARTICLE_DOT_TEXTURE = "@openbone/particle-dot";
+export const PARTICLE_DOT_SIZE = 64;
+
+/** Alpha of the soft round particle sprite at distance `r` from its centre (0 = centre, 1 = edge). */
+export const particleDotAlpha = (r: number) => (r >= 1 ? 0 : r <= 0.35 ? 1 : 1 - (r - 0.35) / 0.65) ** 1.6;
 
 /** A clipping mask in world space: outline polygon plus its triangulation (for stencil-based renderers). */
 export interface ClipRegion {
@@ -264,6 +281,21 @@ export class Skeleton {
   /** Time passed to update() and not yet consumed by the physics solver. */
   private pendingDt = 0;
   private setupCache: Map<Id, Affine> | null = null;
+  /**
+   * How particles advance. "realtime": by the time passed to update() (players, state machines).
+   * "seek": only through seekParticles(), which replays from time 0 so any time gives the same particles
+   * (editor timeline, image/video export).
+   */
+  particleClock: "realtime" | "seek" = "realtime";
+  /** Keyable emitter values by slot id (reset in setToSetupPose; timelines and state machines write them). */
+  particleValues = new Map<Id, EmitterValues>();
+  private emitters = new Map<Id, ParticleEmitter>();
+  private particlePending = 0;
+  /** Time since the last particle step, drawn as extrapolated motion. */
+  private particleFrac = 0;
+  /** Steps simulated since the last particle reset (seek mode). */
+  private particleSteps = 0;
+  private pendingBursts = new Map<Id, number>();
 
   constructor(public doc: OpenBoneDocument) {
     for (const bd of doc.skeleton.bones) {
@@ -326,6 +358,7 @@ export class Skeleton {
     this.drawOrder = this.slots.slice();
     this.animationTime = null;
     this.constraintValues.clear();
+    this.particleValues.clear();
     const sk = this.doc.skeleton;
     for (const kind of ["ik", "transform", "path", "physics"] as const)
       for (const c of sk[kind] ?? []) this.constraintValues.set(c.id, setupValues(kind, c));
@@ -342,7 +375,96 @@ export class Skeleton {
     if (dt > 0) {
       this.pendingDt += dt;
       this.clock += dt;
+      this.particlePending += dt;
     }
+  }
+
+  // ---------------- Particles ----------------
+
+  /** Forget every particle; emitters restart (and prewarm) on their next step. */
+  resetParticles() {
+    this.emitters.clear();
+    this.pendingBursts.clear();
+    this.particlePending = 0;
+    this.particleFrac = 0;
+    this.particleSteps = 0;
+  }
+
+  /** Simulated particle time (seek mode: steps × PARTICLE_STEP plus the drawn fraction). */
+  get particleTime() {
+    return this.particleSteps * PARTICLE_STEP + this.particleFrac;
+  }
+
+  /**
+   * Deterministically bring particles to time `t`. `pose(time)` must pose the skeleton at that time
+   * (setToSetupPose, apply animations, updateWorldTransform); it is called once per simulation step that is
+   * still missing. Seeking backwards replays from 0. Pose the skeleton at `t` yourself afterwards to draw.
+   */
+  seekParticles(t: number, pose: (time: number) => void) {
+    this.particleClock = "seek";
+    this.particlePending = 0;
+    const target = Math.max(0, Math.floor(t / PARTICLE_STEP + 1e-6));
+    if (target < this.particleSteps) this.resetParticles();
+    while (this.particleSteps < target) {
+      pose(this.particleSteps * PARTICLE_STEP);
+      this.stepParticles(PARTICLE_STEP);
+      this.particleSteps++;
+    }
+    this.particleFrac = Math.max(0, Math.min(PARTICLE_STEP, t - target * PARTICLE_STEP));
+  }
+
+  /** Turn a slot's emitter on/off from outside the timeline (kept until the next setToSetupPose). */
+  setEmitting(slotRef: string, emitting: boolean) {
+    const slot = this.findSlot(slotRef);
+    if (slot) this.particleValues.set(slot.data.id, { ...this.particleValues.get(slot.data.id), emitting });
+  }
+
+  /** Restart a slot's emitter cycle (its bursts fire again). */
+  restartEmitter(slotRef: string) {
+    const slot = this.findSlot(slotRef);
+    if (slot) this.emitters.get(slot.data.id)?.restart();
+  }
+
+  /** Spawn `count` particles from a slot's emitter on the next step. */
+  emitParticles(slotRef: string, count: number) {
+    const slot = this.findSlot(slotRef);
+    if (slot && count > 0) this.pendingBursts.set(slot.data.id, (this.pendingBursts.get(slot.data.id) ?? 0) + count);
+  }
+
+  /** The emitter simulating a slot's current particles attachment (null when it shows something else). */
+  emitter(slotRef: string): ParticleEmitter | null {
+    const slot = this.findSlot(slotRef);
+    const em = slot ? this.emitters.get(slot.data.id) : undefined;
+    return em && slot && em.data === this.getAttachment(slot) ? em : null;
+  }
+
+  private stepParticles(h: number) {
+    for (const slot of this.slots) {
+      const att = this.getAttachment(slot);
+      const id = slot.data.id;
+      if (!att || att.type !== "particles") {
+        this.emitters.delete(id);
+        continue;
+      }
+      let em = this.emitters.get(id);
+      if (!em || em.data !== att) {
+        em = new ParticleEmitter(att, hashString(slot.data.name));
+        this.emitters.set(id, em);
+      }
+      const burst = this.pendingBursts.get(id);
+      if (burst) em.pending += burst;
+      em.step(h, slot.bone.world, this.particleValues.get(id));
+    }
+    this.pendingBursts.clear();
+  }
+
+  private advanceParticles(dt: number) {
+    const acc = this.particleFrac + dt;
+    const n = Math.floor(acc / PARTICLE_STEP + 1e-6);
+    const steps = Math.min(n, MAX_PARTICLE_STEPS);
+    for (let i = 0; i < steps; i++) this.stepParticles(PARTICLE_STEP);
+    this.particleSteps += steps;
+    this.particleFrac = Math.max(0, Math.min(PARTICLE_STEP, acc - n * PARTICLE_STEP));
   }
 
   /** Forget physics motion: the next frame starts at rest on the animated pose. */
@@ -369,6 +491,9 @@ export class Skeleton {
     const dt = this.pendingDt;
     this.pendingDt = 0;
     for (const c of sk.physics ?? []) this.applyPhysics(c, this.values("physics", c), dt);
+    const pdt = this.particlePending;
+    this.particlePending = 0;
+    if (this.particleClock === "realtime" && pdt > 0) this.advanceParticles(pdt);
   }
 
   // ---------------- IK ----------------
@@ -875,6 +1000,9 @@ export class Skeleton {
       } else if (att.type === "sequence") {
         const item = this.sequenceItem(slot, att, this.sequenceFrame(slot, att));
         if (item) items.push(item);
+      } else if (att.type === "particles") {
+        const item = this.particleItem(slot, att);
+        if (item) items.push(item);
       } else if (att.type === "shape") {
         const outline = this.attachmentWorldVertices(slot, att);
         const key = `${att.shape}|${att.width}|${att.height}|${att.radius}|${att.points?.join(",")}`;
@@ -910,6 +1038,46 @@ export class Skeleton {
   }
 
   private clipCache = new WeakMap<object, { key: string; indices: Uint16Array }>();
+
+  private particleItem(slot: Slot, att: ParticlesAttachment): DrawItem | null {
+    const em = this.emitters.get(slot.data.id);
+    if (!em || em.data !== att || !em.alive) return null;
+    const geo = em.geometry(this.particleFrac, slot.bone.world, slot.color);
+    if (!geo.count) return null;
+    let texture: TextureRef | null = null;
+    let image: ImageAsset | null = null;
+    let uvs = geo.uvs;
+    let textureRect: DrawItem["textureRect"];
+    if (att.look === "image") {
+      image = (att.image && this.images.get(att.image)) || null;
+      const packed = att.image ? this.packed.get(att.image) : undefined;
+      if (packed) {
+        texture = packed.page;
+        textureRect = packed.rect;
+        uvs = remapUvs(geo.uvs, packed.map);
+      } else texture = image;
+      if (!texture) return null;
+    } else if (att.look === "square") {
+      if (this.white) {
+        texture = this.white.page;
+        uvs = fill2(geo.uvs.length, this.white.u, this.white.v);
+      }
+    } else texture = { id: PARTICLE_DOT_TEXTURE, width: PARTICLE_DOT_SIZE, height: PARTICLE_DOT_SIZE };
+    return {
+      slot,
+      attachment: att,
+      image,
+      texture,
+      ...(textureRect ? { textureRect } : {}),
+      vertices: geo.vertices,
+      uvs,
+      indices: geo.indices,
+      color: slot.color,
+      colors: geo.colors,
+      blend: att.blend,
+      particles: { look: att.look, count: geo.count },
+    };
+  }
 
   /** World polygon of the slot's bounding box: the active attachment if it is one, else the first bbox on the slot. */
   hitPolygon(slot: Slot): Float32Array | null {

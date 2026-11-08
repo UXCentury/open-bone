@@ -270,6 +270,8 @@ const actionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("runScript"), script: ref("Script"), fn: z.string().default("onAction") }),
   z.object({ type: z.literal("playSound"), sound: ref("Sound"), volume: z.number().min(0).optional() }),
   z.object({ type: z.literal("stopSound"), sound: ref("Sound"), fade: z.number().min(0).optional().describe("Fade-out seconds (default: the sound's fadeOut)") }),
+  z.object({ type: z.literal("setEmitter"), slot: ref("Slot with a particles attachment"), emitting: z.boolean() }),
+  z.object({ type: z.literal("emitParticles"), slot: ref("Slot with a particles attachment"), count: z.number().int().min(1).max(10000) }),
 ]);
 
 function soundId(doc: OpenBoneDocument, r: string): string {
@@ -300,6 +302,10 @@ function resolveAction(doc: OpenBoneDocument, sm: StateMachineData, x: z.infer<t
       return { type: "playSound", sound: soundId(doc, x.sound), ...(x.volume !== undefined ? { volume: x.volume } : {}) };
     case "stopSound":
       return { type: "stopSound", sound: soundId(doc, x.sound), ...(x.fade !== undefined ? { fade: x.fade } : {}) };
+    case "setEmitter":
+      return { type: "setEmitter", slot: get.slot(doc, x.slot).id, emitting: x.emitting };
+    case "emitParticles":
+      return { type: "emitParticles", slot: get.slot(doc, x.slot).id, count: x.count };
   }
 }
 
@@ -307,7 +313,7 @@ defineOp({
   name: "addListener",
   group: "interactivity",
   description:
-    "React to pointer input on a slot's bounding box (or the whole artboard when slot is null): down, up, click, enter, exit, move → actions (setInput, toggleInput, fireTrigger, reportEvent, runScript, playSound, stopSound).",
+    "React to pointer input on a slot's bounding box (or the whole artboard when slot is null): down, up, click, enter, exit, move → actions (setInput, toggleInput, fireTrigger, reportEvent, runScript, playSound, stopSound, setEmitter {slot, emitting} to start/stop a particle emitter, emitParticles {slot, count} for a one-off burst).",
   schema: z.object({
     stateMachine: smRef,
     id: optId,

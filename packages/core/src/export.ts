@@ -97,7 +97,7 @@ export function exportDocument(source: OpenBoneDocument, opts: ExportOptions = {
     for (const skin of d.skeleton.skins)
       for (const atts of Object.values(skin.attachments))
         for (const a of Object.values(atts)) {
-          if (a.type === "region" || a.type === "mesh") usedImages.add(a.image);
+          if (a.type === "region" || a.type === "mesh" || (a.type === "particles" && a.image)) usedImages.add(a.image!);
           else if (a.type === "sequence") for (const f of a.frames) usedImages.add(f.image);
         }
     d.images = d.images.filter((i) => usedImages.has(i.id));

@@ -6,3 +6,4 @@ export * from "./scripting.ts";
 export * from "./instance.ts";
 export * from "./emitter.ts";
 export * from "./audio.ts";
+export * from "./particles.ts";

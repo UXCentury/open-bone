@@ -58,7 +58,7 @@ function BoneNode(p: { bone: BoneData; depth: number }) {
                     title={a.skin.id === doc().skeleton.skins[0].id ? "In the default skin" : `In skin “${a.skin.name}”${a.overrides ? " (overrides the default skin)" : ""}`}
                     onClick={() => setSelection({ kind: "slot", id: s.id, attachment: a.name })}
                   >
-                    <span class="icon">{({ boundingBox: "⬚", clipping: "✂", sequence: "🎞" } as Record<string, string>)[a.attachment.type] ?? "◇"}</span> {a.name}
+                    <span class="icon">{({ boundingBox: "⬚", clipping: "✂", sequence: "🎞", particles: "✺" } as Record<string, string>)[a.attachment.type] ?? "◇"}</span> {a.name}
                     <Show when={a.skin.id !== doc().skeleton.skins[0].id}>
                       <span class="skin-badge">{a.skin.name}</span>
                     </Show>

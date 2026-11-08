@@ -7,6 +7,7 @@ import { askConfirm } from "../dialogs.tsx";
 import { ColorField, NumberField, Section, SelectField, TextField } from "./fields.tsx";
 import { AudioAssetInspector, BusInspector, SoundInspector } from "./AudioPanel.tsx";
 import { SequenceEditor } from "./SequenceEditor.tsx";
+import { PRESET_NAMES, ParticlesEditor } from "./ParticlesInspector.tsx";
 
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-4;
 
@@ -389,6 +390,9 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
         <Match when={p.att.type === "sequence" && p.att}>
           {(_a) => <SequenceEditor slotId={p.slotId} att={p.att as SequenceAttachment} owner={p.owner} />}
         </Match>
+        <Match when={p.att.type === "particles" && p.att}>
+          {(_a) => <ParticlesEditor slotId={p.slotId} att={p.att as Extract<Attachment, { type: "particles" }>} owner={p.owner} />}
+        </Match>
         <Match when={p.att.type === "boundingBox"}>
           <div class="hint">Hit area for state-machine listeners. Edit vertices via MCP/JSON for now.</div>
         </Match>
@@ -456,6 +460,19 @@ function SlotInspector(p: { id: string; attachment?: string }) {
           <button title="Bezier path for path constraints" onClick={() => apply("addPath", { slot: p.id, name: `path${atts().length + 1}`, anchors: [0, 0, 80, 40, 160, 0], ...skinArg() })}>
             + Path
           </button>
+          <select
+            class="add-select"
+            title="Add a particle emitter (emits from this slot's bone)"
+            value=""
+            onChange={(e) => {
+              const preset = e.currentTarget.value;
+              e.currentTarget.value = "";
+              if (preset) apply("addParticles", { slot: p.id, preset, ...skinArg() });
+            }}
+          >
+            <option value="">+ Particles…</option>
+            <For each={PRESET_NAMES}>{(n) => <option value={n}>{n}</option>}</For>
+          </select>
         </div>
         <Show when={activeSkin()}>
           <div class="hint">New attachments go into skin “{activeSkin()!.name}”.</div>
