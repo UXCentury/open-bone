@@ -10,136 +10,143 @@
   "fps": 30,
   "images": [
     {
-      "id": "img_o8bwa3s",
+      "id": "img_2ca1q42",
       "name": "smoke_0001",
       "src": "assets/smoke_0001.png",
       "width": 48,
       "height": 48
     },
     {
-      "id": "img_r8nbh3t",
+      "id": "img_ujnh043",
       "name": "smoke_0002",
       "src": "assets/smoke_0002.png",
       "width": 48,
       "height": 48
     },
     {
-      "id": "img_4wnf93u",
+      "id": "img_x9q4k44",
       "name": "smoke_0003",
       "src": "assets/smoke_0003.png",
       "width": 48,
       "height": 48
     },
     {
-      "id": "img_rnfra3v",
+      "id": "img_iyhrr45",
       "name": "smoke_0004",
       "src": "assets/smoke_0004.png",
       "width": 48,
       "height": 48
     },
     {
-      "id": "img_383623w",
+      "id": "img_xi8wb46",
       "name": "smoke_0005",
       "src": "assets/smoke_0005.png",
       "width": 48,
       "height": 48
     },
     {
-      "id": "img_uno393x",
+      "id": "img_rffyb47",
       "name": "smoke_0006",
       "src": "assets/smoke_0006.png",
       "width": 48,
       "height": 48
     },
     {
-      "id": "img_n176c3y",
+      "id": "img_swzfe48",
       "name": "flame_0001",
       "src": "assets/flame_0001.png",
       "width": 64,
       "height": 96
     },
     {
-      "id": "img_5bd4e3z",
+      "id": "img_pb4jk49",
       "name": "flame_0002",
       "src": "assets/flame_0002.png",
       "width": 64,
       "height": 96
     },
     {
-      "id": "img_6sgww40",
+      "id": "img_uu6434a",
       "name": "flame_0003",
       "src": "assets/flame_0003.png",
       "width": 64,
       "height": 96
     },
     {
-      "id": "img_j6oep41",
+      "id": "img_tsmt84b",
       "name": "flame_0004",
       "src": "assets/flame_0004.png",
       "width": 64,
       "height": 96
     },
     {
-      "id": "img_94pt342",
+      "id": "img_6rd8d4c",
       "name": "flame_0005",
       "src": "assets/flame_0005.png",
       "width": 64,
       "height": 96
     },
     {
-      "id": "img_9axih43",
+      "id": "img_5e0sd4d",
       "name": "flame_0006",
       "src": "assets/flame_0006.png",
       "width": 64,
       "height": 96
     },
     {
-      "id": "img_82ggt44",
+      "id": "img_roo484e",
       "name": "flame_0007",
       "src": "assets/flame_0007.png",
       "width": 64,
       "height": 96
     },
     {
-      "id": "img_yc3rc45",
+      "id": "img_g0q2x4f",
       "name": "flame_0008",
       "src": "assets/flame_0008.png",
       "width": 64,
       "height": 96
     },
     {
-      "id": "img_nju4646",
+      "id": "img_glvno4g",
       "name": "flame_0009",
       "src": "assets/flame_0009.png",
       "width": 64,
       "height": 96
     },
     {
-      "id": "img_acrr347",
+      "id": "img_rb0hu4h",
       "name": "flame_0010",
       "src": "assets/flame_0010.png",
       "width": 64,
       "height": 96
     },
     {
-      "id": "img_n1idk48",
+      "id": "img_we2lq4i",
       "name": "flame_0011",
       "src": "assets/flame_0011.png",
       "width": 64,
       "height": 96
     },
     {
-      "id": "img_aovpi49",
+      "id": "img_koo5u4j",
       "name": "flame_0012",
       "src": "assets/flame_0012.png",
       "width": 64,
       "height": 96
+    },
+    {
+      "id": "img_7rtwp4m",
+      "name": "campfire-logs",
+      "src": "assets/eleven/campfire-logs.png",
+      "width": 460,
+      "height": 306
     }
   ],
   "skeleton": {
     "bones": [
       {
-        "id": "bone_k7rer3l",
+        "id": "bone_vjng83x",
         "name": "root",
         "parent": null,
         "length": 0,
@@ -153,12 +160,12 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_q4fix3m",
+        "id": "bone_cg8wq3y",
         "name": "fire",
-        "parent": "bone_k7rer3l",
+        "parent": "bone_vjng83x",
         "length": 0,
         "x": 0,
-        "y": 10,
+        "y": 30,
         "rotation": 0,
         "scaleX": 1,
         "scaleY": 1,
@@ -167,12 +174,12 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_e613l3n",
+        "id": "bone_uynm73z",
         "name": "smoke",
-        "parent": "bone_q4fix3m",
+        "parent": "bone_cg8wq3y",
         "length": 0,
         "x": 0,
-        "y": 150,
+        "y": 270,
         "rotation": 0,
         "scaleX": 1,
         "scaleY": 1,
@@ -183,52 +190,44 @@
     ],
     "slots": [
       {
-        "id": "slot_66k9i3o",
+        "id": "slot_gl3os40",
         "name": "glow",
-        "bone": "bone_k7rer3l",
+        "bone": "bone_vjng83x",
         "color": "#ffffff",
         "attachment": "ellipse",
         "blend": "normal"
       },
       {
-        "id": "slot_jdbjn3p",
-        "name": "log1",
-        "bone": "bone_k7rer3l",
-        "color": "#ffffff",
-        "attachment": "rect",
-        "blend": "normal"
-      },
-      {
-        "id": "slot_f1gbt3q",
-        "name": "log2",
-        "bone": "bone_k7rer3l",
-        "color": "#ffffff",
-        "attachment": "rect",
-        "blend": "normal"
-      },
-      {
-        "id": "slot_5am6d3r",
+        "id": "slot_tllyj41",
         "name": "smoke",
-        "bone": "bone_e613l3n",
+        "bone": "bone_uynm73z",
         "color": "#ffffff",
         "attachment": "smoke",
         "blend": "normal"
       },
       {
-        "id": "slot_oqwwi4a",
+        "id": "slot_w9pk04k",
         "name": "flame",
-        "bone": "bone_q4fix3m",
+        "bone": "bone_cg8wq3y",
         "color": "#ffffff",
         "attachment": "flame",
         "blend": "additive"
       },
       {
-        "id": "slot_ktmz94b",
+        "id": "slot_lf19m4l",
         "name": "flame-small",
-        "bone": "bone_q4fix3m",
+        "bone": "bone_cg8wq3y",
         "color": "#ffffff",
         "attachment": "flame",
         "blend": "additive"
+      },
+      {
+        "id": "slot_pcrft4n",
+        "name": "logs",
+        "bone": "bone_vjng83x",
+        "color": "#ffffff",
+        "attachment": "campfire-logs",
+        "blend": "normal"
       }
     ],
     "skins": [
@@ -236,74 +235,42 @@
         "id": "skin_default",
         "name": "default",
         "attachments": {
-          "slot_66k9i3o": {
+          "slot_gl3os40": {
             "ellipse": {
               "type": "shape",
               "name": "ellipse",
               "shape": "ellipse",
               "x": 0,
-              "y": 40,
+              "y": 90,
               "rotation": 0,
-              "width": 260,
-              "height": 170,
+              "width": 380,
+              "height": 260,
               "radius": 0,
-              "fill": "#ff8a0033"
+              "fill": "#ff8a000d"
             }
           },
-          "slot_jdbjn3p": {
-            "rect": {
-              "type": "shape",
-              "name": "rect",
-              "shape": "rect",
-              "x": 0,
-              "y": 4,
-              "rotation": 18,
-              "width": 150,
-              "height": 22,
-              "radius": 11,
-              "fill": "#6b4226",
-              "stroke": "#3e2615",
-              "strokeWidth": 2
-            }
-          },
-          "slot_f1gbt3q": {
-            "rect": {
-              "type": "shape",
-              "name": "rect",
-              "shape": "rect",
-              "x": 0,
-              "y": 4,
-              "rotation": -18,
-              "width": 150,
-              "height": 22,
-              "radius": 11,
-              "fill": "#6b4226",
-              "stroke": "#3e2615",
-              "strokeWidth": 2
-            }
-          },
-          "slot_5am6d3r": {
+          "slot_tllyj41": {
             "smoke": {
               "type": "sequence",
               "name": "smoke",
               "frames": [
                 {
-                  "image": "img_o8bwa3s"
+                  "image": "img_2ca1q42"
                 },
                 {
-                  "image": "img_r8nbh3t"
+                  "image": "img_ujnh043"
                 },
                 {
-                  "image": "img_4wnf93u"
+                  "image": "img_x9q4k44"
                 },
                 {
-                  "image": "img_rnfra3v"
+                  "image": "img_iyhrr45"
                 },
                 {
-                  "image": "img_383623w"
+                  "image": "img_xi8wb46"
                 },
                 {
-                  "image": "img_uno393x"
+                  "image": "img_rffyb47"
                 }
               ],
               "x": 0,
@@ -319,114 +286,129 @@
               "offset": 0
             }
           },
-          "slot_oqwwi4a": {
+          "slot_w9pk04k": {
             "flame": {
               "type": "sequence",
               "name": "flame",
               "frames": [
                 {
-                  "image": "img_n176c3y"
+                  "image": "img_swzfe48"
                 },
                 {
-                  "image": "img_5bd4e3z"
+                  "image": "img_pb4jk49"
                 },
                 {
-                  "image": "img_6sgww40"
+                  "image": "img_uu6434a"
                 },
                 {
-                  "image": "img_j6oep41"
+                  "image": "img_tsmt84b"
                 },
                 {
-                  "image": "img_94pt342"
+                  "image": "img_6rd8d4c"
                 },
                 {
-                  "image": "img_9axih43"
+                  "image": "img_5e0sd4d"
                 },
                 {
-                  "image": "img_82ggt44"
+                  "image": "img_roo484e"
                 },
                 {
-                  "image": "img_yc3rc45"
+                  "image": "img_g0q2x4f"
                 },
                 {
-                  "image": "img_nju4646"
+                  "image": "img_glvno4g"
                 },
                 {
-                  "image": "img_acrr347"
+                  "image": "img_rb0hu4h"
                 },
                 {
-                  "image": "img_n1idk48"
+                  "image": "img_we2lq4i"
                 },
                 {
-                  "image": "img_aovpi49"
+                  "image": "img_koo5u4j"
                 }
               ],
               "x": 0,
-              "y": 70,
+              "y": 140,
               "rotation": 0,
               "scaleX": 1,
               "scaleY": 1,
-              "width": 96,
-              "height": 144,
+              "width": 150,
+              "height": 225,
               "color": "#ffffff",
               "fps": 15,
               "mode": "loop",
               "offset": 0
             }
           },
-          "slot_ktmz94b": {
+          "slot_lf19m4l": {
             "flame": {
               "type": "sequence",
               "name": "flame",
               "frames": [
                 {
-                  "image": "img_n176c3y"
+                  "image": "img_swzfe48"
                 },
                 {
-                  "image": "img_5bd4e3z"
+                  "image": "img_pb4jk49"
                 },
                 {
-                  "image": "img_6sgww40"
+                  "image": "img_uu6434a"
                 },
                 {
-                  "image": "img_j6oep41"
+                  "image": "img_tsmt84b"
                 },
                 {
-                  "image": "img_94pt342"
+                  "image": "img_6rd8d4c"
                 },
                 {
-                  "image": "img_9axih43"
+                  "image": "img_5e0sd4d"
                 },
                 {
-                  "image": "img_82ggt44"
+                  "image": "img_roo484e"
                 },
                 {
-                  "image": "img_yc3rc45"
+                  "image": "img_g0q2x4f"
                 },
                 {
-                  "image": "img_nju4646"
+                  "image": "img_glvno4g"
                 },
                 {
-                  "image": "img_acrr347"
+                  "image": "img_rb0hu4h"
                 },
                 {
-                  "image": "img_n1idk48"
+                  "image": "img_we2lq4i"
                 },
                 {
-                  "image": "img_aovpi49"
+                  "image": "img_koo5u4j"
                 }
               ],
-              "x": 34,
-              "y": 40,
+              "x": 46,
+              "y": 92,
               "rotation": 0,
               "scaleX": 1,
               "scaleY": 1,
-              "width": 56,
-              "height": 84,
+              "width": 86,
+              "height": 130,
               "color": "#ffffff",
               "fps": 15,
               "mode": "loop",
               "offset": 6
+            }
+          },
+          "slot_pcrft4n": {
+            "campfire-logs": {
+              "type": "region",
+              "name": "campfire-logs",
+              "image": "img_7rtwp4m",
+              "x": 0,
+              "y": 30,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 270,
+              "height": 180,
+              "color": "#ffffff"
             }
           }
         }
@@ -440,13 +422,13 @@
   "events": [],
   "animations": [
     {
-      "id": "anim_7ujtf4c",
+      "id": "anim_vho0l4o",
       "name": "burn",
       "duration": 1.6,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_q4fix3m",
+          "id": "bone_cg8wq3y",
           "property": "scaleY",
           "keys": [
             {
@@ -478,7 +460,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_66k9i3o",
+          "id": "slot_gl3os40",
           "property": "color",
           "keys": [
             {
@@ -502,6 +484,87 @@
       "events": []
     }
   ],
-  "stateMachines": [],
-  "scripts": []
+  "stateMachines": [
+    {
+      "id": "sm_rdk9c4r",
+      "name": "fire",
+      "inputs": [],
+      "bindings": [],
+      "layers": [
+        {
+          "id": "sm_rdk9c4r_layer1",
+          "name": "Layer 1",
+          "entry": "st_n3nuu4s",
+          "states": [
+            {
+              "id": "st_n3nuu4s",
+              "name": "burn",
+              "type": "animation",
+              "animation": "anim_vho0l4o",
+              "loop": true,
+              "speed": 1,
+              "x": 120,
+              "y": 120,
+              "sounds": [
+                {
+                  "sound": "snd_meqxe4q",
+                  "on": "enter",
+                  "action": "play"
+                }
+              ]
+            }
+          ],
+          "transitions": []
+        }
+      ],
+      "listeners": [],
+      "scripts": []
+    }
+  ],
+  "scripts": [],
+  "audio": {
+    "master": 1,
+    "muted": false,
+    "assets": [
+      {
+        "id": "aud_yug3s4p",
+        "name": "crackle",
+        "src": "assets/eleven/campfire-loop.wav",
+        "duration": 6
+      }
+    ],
+    "buses": [
+      {
+        "id": "bus_sfx",
+        "name": "sfx",
+        "volume": 1,
+        "muted": false
+      },
+      {
+        "id": "bus_music",
+        "name": "music",
+        "volume": 1,
+        "muted": false
+      },
+      {
+        "id": "bus_ui",
+        "name": "ui",
+        "volume": 1,
+        "muted": false
+      }
+    ],
+    "sounds": [
+      {
+        "id": "snd_meqxe4q",
+        "name": "crackle",
+        "asset": "aud_yug3s4p",
+        "bus": "bus_sfx",
+        "volume": 0.8,
+        "rate": 1,
+        "loop": true,
+        "fadeIn": 0.5,
+        "fadeOut": 0.2
+      }
+    ]
+  }
 }

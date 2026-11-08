@@ -10,7 +10,7 @@
   "fps": 30,
   "images": [
     {
-      "id": "img_hedkd0j",
+      "id": "img_9e6640j",
       "name": "cape",
       "src": "assets/cape.png",
       "width": 120,
@@ -20,7 +20,7 @@
   "skeleton": {
     "bones": [
       {
-        "id": "bone_9ttug01",
+        "id": "bone_nwd6501",
         "name": "root",
         "parent": null,
         "length": 0,
@@ -34,9 +34,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_sjak702",
+        "id": "bone_lsnez02",
         "name": "hip",
-        "parent": "bone_9ttug01",
+        "parent": "bone_nwd6501",
         "length": 20,
         "x": 0,
         "y": 165,
@@ -49,9 +49,9 @@
         "color": "#ff9f43"
       },
       {
-        "id": "bone_b61v803",
+        "id": "bone_vj4k703",
         "name": "torso",
-        "parent": "bone_sjak702",
+        "parent": "bone_lsnez02",
         "length": 110,
         "x": 0,
         "y": 0,
@@ -63,9 +63,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_zfb1u04",
+        "id": "bone_u4dol04",
         "name": "head",
-        "parent": "bone_b61v803",
+        "parent": "bone_vj4k703",
         "length": 60,
         "x": 118,
         "y": 0,
@@ -77,9 +77,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_az9nr05",
+        "id": "bone_ad2tn05",
         "name": "pupils",
-        "parent": "bone_zfb1u04",
+        "parent": "bone_u4dol04",
         "length": 0,
         "x": 32,
         "y": 0,
@@ -91,9 +91,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_w8fow06",
+        "id": "bone_uvy7m06",
         "name": "back-arm",
-        "parent": "bone_b61v803",
+        "parent": "bone_vj4k703",
         "length": 60,
         "x": 100,
         "y": 0,
@@ -105,9 +105,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_xol4q07",
+        "id": "bone_bvp0q07",
         "name": "back-forearm",
-        "parent": "bone_w8fow06",
+        "parent": "bone_uvy7m06",
         "length": 55,
         "x": 60,
         "y": 0,
@@ -119,9 +119,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_62j5208",
+        "id": "bone_30iqj08",
         "name": "back-thigh",
-        "parent": "bone_sjak702",
+        "parent": "bone_lsnez02",
         "length": 82,
         "x": 0,
         "y": -6,
@@ -133,9 +133,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_tfqtv09",
+        "id": "bone_g0yfz09",
         "name": "back-shin",
-        "parent": "bone_62j5208",
+        "parent": "bone_30iqj08",
         "length": 80,
         "x": 82,
         "y": 0,
@@ -147,9 +147,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_hjrlr0a",
+        "id": "bone_csv2p0a",
         "name": "back-foot-target",
-        "parent": "bone_9ttug01",
+        "parent": "bone_nwd6501",
         "length": 0,
         "x": -10,
         "y": 4,
@@ -161,9 +161,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_4fyn50b",
+        "id": "bone_v11yt0b",
         "name": "front-arm",
-        "parent": "bone_b61v803",
+        "parent": "bone_vj4k703",
         "length": 60,
         "x": 100,
         "y": 0,
@@ -175,9 +175,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_9pgb10c",
+        "id": "bone_lxr300c",
         "name": "front-forearm",
-        "parent": "bone_4fyn50b",
+        "parent": "bone_v11yt0b",
         "length": 55,
         "x": 60,
         "y": 0,
@@ -189,9 +189,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_jbxe80d",
+        "id": "bone_yct880d",
         "name": "front-thigh",
-        "parent": "bone_sjak702",
+        "parent": "bone_lsnez02",
         "length": 82,
         "x": 0,
         "y": 6,
@@ -203,9 +203,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_nto7d0e",
+        "id": "bone_mxtgh0e",
         "name": "front-shin",
-        "parent": "bone_jbxe80d",
+        "parent": "bone_yct880d",
         "length": 80,
         "x": 82,
         "y": 0,
@@ -217,9 +217,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_ujndd0f",
+        "id": "bone_d96tx0f",
         "name": "front-foot-target",
-        "parent": "bone_9ttug01",
+        "parent": "bone_nwd6501",
         "length": 0,
         "x": 10,
         "y": 4,
@@ -231,9 +231,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_43bd70g",
+        "id": "bone_r9fh80g",
         "name": "cape1",
-        "parent": "bone_b61v803",
+        "parent": "bone_vj4k703",
         "length": 40,
         "x": 105,
         "y": -8,
@@ -245,9 +245,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_udr2s0h",
+        "id": "bone_dsaam0h",
         "name": "cape2",
-        "parent": "bone_43bd70g",
+        "parent": "bone_r9fh80g",
         "length": 40,
         "x": 40,
         "y": 0,
@@ -259,9 +259,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_b9zkc0i",
+        "id": "bone_6l4ei0i",
         "name": "cape3",
-        "parent": "bone_udr2s0h",
+        "parent": "bone_dsaam0h",
         "length": 40,
         "x": 40,
         "y": 0,
@@ -275,145 +275,145 @@
     ],
     "slots": [
       {
-        "id": "slot_chhwb0k",
+        "id": "slot_jtuit0k",
         "name": "cape",
-        "bone": "bone_43bd70g",
+        "bone": "bone_r9fh80g",
         "color": "#ffffff",
         "attachment": "cape",
         "blend": "normal"
       },
       {
-        "id": "slot_0771q0l",
+        "id": "slot_11bvx0l",
         "name": "back-arm",
-        "bone": "bone_w8fow06",
+        "bone": "bone_uvy7m06",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_nycvi0m",
+        "id": "slot_hw5550m",
         "name": "back-forearm",
-        "bone": "bone_xol4q07",
+        "bone": "bone_bvp0q07",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_5zbmu0n",
+        "id": "slot_bcg820n",
         "name": "back-thigh",
-        "bone": "bone_62j5208",
+        "bone": "bone_30iqj08",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_olom20o",
+        "id": "slot_grm460o",
         "name": "back-shin",
-        "bone": "bone_tfqtv09",
+        "bone": "bone_g0yfz09",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_991nr0p",
+        "id": "slot_04gr50p",
         "name": "back-shoe",
-        "bone": "bone_tfqtv09",
+        "bone": "bone_g0yfz09",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_ma5j70q",
+        "id": "slot_lpizk0q",
         "name": "body",
-        "bone": "bone_b61v803",
+        "bone": "bone_vj4k703",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_eyzad0r",
+        "id": "slot_hljwg0r",
         "name": "front-thigh",
-        "bone": "bone_jbxe80d",
+        "bone": "bone_yct880d",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_8mooa0s",
+        "id": "slot_1cmx20s",
         "name": "front-shin",
-        "bone": "bone_nto7d0e",
+        "bone": "bone_mxtgh0e",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_32qfi0t",
+        "id": "slot_8a1bp0t",
         "name": "front-shoe",
-        "bone": "bone_nto7d0e",
+        "bone": "bone_mxtgh0e",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_ogu790u",
+        "id": "slot_4rt4r0u",
         "name": "face",
-        "bone": "bone_zfb1u04",
+        "bone": "bone_u4dol04",
         "color": "#ffffff",
         "attachment": "ellipse",
         "blend": "normal"
       },
       {
-        "id": "slot_zrxe10v",
+        "id": "slot_ssgj60v",
         "name": "eye-l",
-        "bone": "bone_zfb1u04",
+        "bone": "bone_u4dol04",
         "color": "#ffffff",
         "attachment": "ellipse",
         "blend": "normal"
       },
       {
-        "id": "slot_tb7a40w",
+        "id": "slot_seyq40w",
         "name": "eye-l-pupil",
-        "bone": "bone_az9nr05",
+        "bone": "bone_ad2tn05",
         "color": "#ffffff",
         "attachment": "ellipse",
         "blend": "normal"
       },
       {
-        "id": "slot_vr3mn0x",
+        "id": "slot_n3htj0x",
         "name": "eye-r",
-        "bone": "bone_zfb1u04",
+        "bone": "bone_u4dol04",
         "color": "#ffffff",
         "attachment": "ellipse",
         "blend": "normal"
       },
       {
-        "id": "slot_b0ce80y",
+        "id": "slot_roj3l0y",
         "name": "eye-r-pupil",
-        "bone": "bone_az9nr05",
+        "bone": "bone_ad2tn05",
         "color": "#ffffff",
         "attachment": "ellipse",
         "blend": "normal"
       },
       {
-        "id": "slot_yop3x0z",
+        "id": "slot_3ee0s0z",
         "name": "hair",
-        "bone": "bone_zfb1u04",
+        "bone": "bone_u4dol04",
         "color": "#ffffff",
         "attachment": "polygon",
         "blend": "normal"
       },
       {
-        "id": "slot_xtqlu10",
+        "id": "slot_hqzm510",
         "name": "front-arm",
-        "bone": "bone_4fyn50b",
+        "bone": "bone_v11yt0b",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
       },
       {
-        "id": "slot_415kl11",
+        "id": "slot_in2ga11",
         "name": "front-forearm",
-        "bone": "bone_9pgb10c",
+        "bone": "bone_lxr300c",
         "color": "#ffffff",
         "attachment": "rect",
         "blend": "normal"
@@ -424,11 +424,11 @@
         "id": "skin_default",
         "name": "default",
         "attachments": {
-          "slot_chhwb0k": {
+          "slot_jtuit0k": {
             "cape": {
               "type": "mesh",
               "name": "cape",
-              "image": "img_hedkd0j",
+              "image": "img_9e6640j",
               "vertices": [
                 0,
                 30,
@@ -596,13 +596,13 @@
               "weights": [
                 [
                   {
-                    "bone": "bone_43bd70g",
+                    "bone": "bone_r9fh80g",
                     "x": 0,
                     "y": 30,
                     "weight": 0.7302077484559236
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": -40,
                     "y": 30,
                     "weight": 0.2697922515440765
@@ -610,13 +610,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_43bd70g",
+                    "bone": "bone_r9fh80g",
                     "x": 20,
                     "y": 30.00000000000001,
                     "weight": 0.5882800820109575
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": -20,
                     "y": 30.00000000000001,
                     "weight": 0.4117199179890425
@@ -624,13 +624,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_43bd70g",
+                    "bone": "bone_r9fh80g",
                     "x": 40,
                     "y": 30,
                     "weight": 0.5
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 0,
                     "y": 30,
                     "weight": 0.5
@@ -638,13 +638,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 20,
                     "y": 30,
                     "weight": 0.5882800820109576
                   },
                   {
-                    "bone": "bone_b9zkc0i",
+                    "bone": "bone_6l4ei0i",
                     "x": -19.99999999999997,
                     "y": 30,
                     "weight": 0.41171991798904245
@@ -652,13 +652,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 40,
                     "y": 30.000000000000007,
                     "weight": 0.5
                   },
                   {
-                    "bone": "bone_b9zkc0i",
+                    "bone": "bone_6l4ei0i",
                     "x": 2.842170943040401e-14,
                     "y": 30.000000000000007,
                     "weight": 0.5
@@ -666,13 +666,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_b9zkc0i",
+                    "bone": "bone_6l4ei0i",
                     "x": 20.000000000000057,
                     "y": 30.000000000000007,
                     "weight": 0.588280082010958
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 60.00000000000003,
                     "y": 30.000000000000007,
                     "weight": 0.411719917989042
@@ -680,13 +680,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_b9zkc0i",
+                    "bone": "bone_6l4ei0i",
                     "x": 40.00000000000003,
                     "y": 30,
                     "weight": 0.7302077484559238
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 80,
                     "y": 30,
                     "weight": 0.2697922515440762
@@ -694,13 +694,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_b9zkc0i",
+                    "bone": "bone_6l4ei0i",
                     "x": 40.00000000000006,
                     "y": 1.7763568394002505e-15,
                     "weight": 0.9994054696789536
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 80.00000000000003,
                     "y": 0,
                     "weight": 0.0005945303210464066
@@ -708,13 +708,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_b9zkc0i",
+                    "bone": "bone_6l4ei0i",
                     "x": 40.00000000000003,
                     "y": -30,
                     "weight": 0.7302077484559238
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 80,
                     "y": -30.000000000000004,
                     "weight": 0.26979225154407627
@@ -722,13 +722,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_b9zkc0i",
+                    "bone": "bone_6l4ei0i",
                     "x": 20.000000000000057,
                     "y": -30,
                     "weight": 0.588280082010958
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 60.00000000000003,
                     "y": -30.000000000000004,
                     "weight": 0.41171991798904195
@@ -736,13 +736,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 40,
                     "y": -30.000000000000004,
                     "weight": 0.5
                   },
                   {
-                    "bone": "bone_b9zkc0i",
+                    "bone": "bone_6l4ei0i",
                     "x": 2.842170943040401e-14,
                     "y": -30,
                     "weight": 0.5
@@ -750,13 +750,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 20,
                     "y": -30.000000000000004,
                     "weight": 0.5882800820109576
                   },
                   {
-                    "bone": "bone_b9zkc0i",
+                    "bone": "bone_6l4ei0i",
                     "x": -19.99999999999997,
                     "y": -30,
                     "weight": 0.41171991798904245
@@ -764,13 +764,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_43bd70g",
+                    "bone": "bone_r9fh80g",
                     "x": 40,
                     "y": -30.000000000000004,
                     "weight": 0.5
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 0,
                     "y": -30.000000000000004,
                     "weight": 0.5
@@ -778,13 +778,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_43bd70g",
+                    "bone": "bone_r9fh80g",
                     "x": 20,
                     "y": -29.999999999999996,
                     "weight": 0.5882800820109576
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": -20,
                     "y": -29.999999999999996,
                     "weight": 0.4117199179890424
@@ -792,13 +792,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_43bd70g",
+                    "bone": "bone_r9fh80g",
                     "x": 0,
                     "y": -30.000000000000004,
                     "weight": 0.7302077484559236
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": -40,
                     "y": -30.000000000000004,
                     "weight": 0.2697922515440765
@@ -806,13 +806,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_43bd70g",
+                    "bone": "bone_r9fh80g",
                     "x": 0,
                     "y": 0,
                     "weight": 0.9994054696789537
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": -40,
                     "y": 0,
                     "weight": 0.0005945303210463736
@@ -820,13 +820,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_43bd70g",
+                    "bone": "bone_r9fh80g",
                     "x": 20,
                     "y": 0,
                     "weight": 0.9977375565610861
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": -20,
                     "y": 0,
                     "weight": 0.002262443438914035
@@ -834,13 +834,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_43bd70g",
+                    "bone": "bone_r9fh80g",
                     "x": 40,
                     "y": 0,
                     "weight": 0.5
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 0,
                     "y": 0,
                     "weight": 0.5
@@ -848,13 +848,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 20,
                     "y": 0,
                     "weight": 0.9977375565610861
                   },
                   {
-                    "bone": "bone_b9zkc0i",
+                    "bone": "bone_6l4ei0i",
                     "x": -19.99999999999997,
                     "y": 1.7763568394002505e-15,
                     "weight": 0.0022624434389140334
@@ -862,13 +862,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 39.99999999999997,
                     "y": -1.7763568394002505e-15,
                     "weight": 0.5
                   },
                   {
-                    "bone": "bone_b9zkc0i",
+                    "bone": "bone_6l4ei0i",
                     "x": 0,
                     "y": 0,
                     "weight": 0.5
@@ -876,13 +876,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_b9zkc0i",
+                    "bone": "bone_6l4ei0i",
                     "x": 20.000000000000057,
                     "y": 3.552713678800501e-15,
                     "weight": 0.997737556561086
                   },
                   {
-                    "bone": "bone_udr2s0h",
+                    "bone": "bone_dsaam0h",
                     "x": 60.00000000000003,
                     "y": 1.7763568394002505e-15,
                     "weight": 0.0022624434389140347
@@ -891,7 +891,7 @@
               ]
             }
           },
-          "slot_0771q0l": {
+          "slot_11bvx0l": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -905,7 +905,7 @@
               "fill": "#3b5b8f"
             }
           },
-          "slot_nycvi0m": {
+          "slot_hw5550m": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -919,7 +919,7 @@
               "fill": "#e0a77b"
             }
           },
-          "slot_5zbmu0n": {
+          "slot_bcg820n": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -933,7 +933,7 @@
               "fill": "#2c3e66"
             }
           },
-          "slot_olom20o": {
+          "slot_grm460o": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -947,7 +947,7 @@
               "fill": "#2c3e66"
             }
           },
-          "slot_991nr0p": {
+          "slot_04gr50p": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -961,7 +961,7 @@
               "fill": "#1f2937"
             }
           },
-          "slot_ma5j70q": {
+          "slot_lpizk0q": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -989,7 +989,7 @@
               ]
             }
           },
-          "slot_eyzad0r": {
+          "slot_hljwg0r": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -1003,7 +1003,7 @@
               "fill": "#34497a"
             }
           },
-          "slot_8mooa0s": {
+          "slot_1cmx20s": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -1017,7 +1017,7 @@
               "fill": "#34497a"
             }
           },
-          "slot_32qfi0t": {
+          "slot_8a1bp0t": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -1031,7 +1031,7 @@
               "fill": "#111827"
             }
           },
-          "slot_ogu790u": {
+          "slot_4rt4r0u": {
             "ellipse": {
               "type": "shape",
               "name": "ellipse",
@@ -1047,7 +1047,7 @@
               "strokeWidth": 2
             }
           },
-          "slot_zrxe10v": {
+          "slot_ssgj60v": {
             "ellipse": {
               "type": "shape",
               "name": "ellipse",
@@ -1061,7 +1061,7 @@
               "fill": "#ffffff"
             }
           },
-          "slot_tb7a40w": {
+          "slot_seyq40w": {
             "ellipse": {
               "type": "shape",
               "name": "ellipse",
@@ -1075,7 +1075,7 @@
               "fill": "#1f2937"
             }
           },
-          "slot_vr3mn0x": {
+          "slot_n3htj0x": {
             "ellipse": {
               "type": "shape",
               "name": "ellipse",
@@ -1089,7 +1089,7 @@
               "fill": "#ffffff"
             }
           },
-          "slot_b0ce80y": {
+          "slot_roj3l0y": {
             "ellipse": {
               "type": "shape",
               "name": "ellipse",
@@ -1103,7 +1103,7 @@
               "fill": "#1f2937"
             }
           },
-          "slot_yop3x0z": {
+          "slot_3ee0s0z": {
             "polygon": {
               "type": "shape",
               "name": "polygon",
@@ -1133,7 +1133,7 @@
               "fill": "#5b3a29"
             }
           },
-          "slot_xtqlu10": {
+          "slot_hqzm510": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -1147,7 +1147,7 @@
               "fill": "#5b8bd6"
             }
           },
-          "slot_415kl11": {
+          "slot_in2ga11": {
             "rect": {
               "type": "shape",
               "name": "rect",
@@ -1166,13 +1166,13 @@
     ],
     "ik": [
       {
-        "id": "ik_kps3m12",
+        "id": "ik_qjez712",
         "name": "back-leg",
         "bones": [
-          "bone_62j5208",
-          "bone_tfqtv09"
+          "bone_30iqj08",
+          "bone_g0yfz09"
         ],
-        "target": "bone_hjrlr0a",
+        "target": "bone_csv2p0a",
         "mix": 1,
         "bendPositive": false,
         "softness": 0,
@@ -1180,13 +1180,13 @@
         "compress": false
       },
       {
-        "id": "ik_gyirt13",
+        "id": "ik_3fbqw13",
         "name": "front-leg",
         "bones": [
-          "bone_jbxe80d",
-          "bone_nto7d0e"
+          "bone_yct880d",
+          "bone_mxtgh0e"
         ],
-        "target": "bone_ujndd0f",
+        "target": "bone_d96tx0f",
         "mix": 1,
         "bendPositive": false,
         "softness": 0,
@@ -1200,29 +1200,31 @@
   },
   "events": [
     {
-      "id": "evt_sj4x416",
+      "id": "evt_natds16",
       "name": "footstep",
       "int": 0,
       "float": 0,
-      "string": ""
+      "string": "",
+      "audio": "snd_pjf591j"
     },
     {
-      "id": "evt_whdl818",
+      "id": "evt_7f1ad18",
       "name": "land",
       "int": 0,
       "float": 0,
-      "string": ""
+      "string": "",
+      "audio": "snd_c0a6b1n"
     }
   ],
   "animations": [
     {
-      "id": "anim_3tdyt14",
+      "id": "anim_gdp8514",
       "name": "idle",
       "duration": 2,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_sjak702",
+          "id": "bone_lsnez02",
           "property": "y",
           "keys": [
             {
@@ -1259,7 +1261,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_b61v803",
+          "id": "bone_vj4k703",
           "property": "rotation",
           "keys": [
             {
@@ -1296,7 +1298,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_zfb1u04",
+          "id": "bone_u4dol04",
           "property": "rotation",
           "keys": [
             {
@@ -1333,7 +1335,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_4fyn50b",
+          "id": "bone_v11yt0b",
           "property": "rotation",
           "keys": [
             {
@@ -1370,7 +1372,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_w8fow06",
+          "id": "bone_uvy7m06",
           "property": "rotation",
           "keys": [
             {
@@ -1407,7 +1409,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_43bd70g",
+          "id": "bone_r9fh80g",
           "property": "rotation",
           "keys": [
             {
@@ -1444,7 +1446,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_udr2s0h",
+          "id": "bone_dsaam0h",
           "property": "rotation",
           "keys": [
             {
@@ -1481,7 +1483,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_zrxe10v",
+          "id": "slot_ssgj60v",
           "property": "color",
           "keys": [
             {
@@ -1503,7 +1505,7 @@
         },
         {
           "target": "slot",
-          "id": "slot_vr3mn0x",
+          "id": "slot_n3htj0x",
           "property": "color",
           "keys": [
             {
@@ -1527,13 +1529,13 @@
       "events": []
     },
     {
-      "id": "anim_b1bf015",
+      "id": "anim_pgtv415",
       "name": "walk",
       "duration": 1,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_sjak702",
+          "id": "bone_lsnez02",
           "property": "y",
           "keys": [
             {
@@ -1590,7 +1592,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_b61v803",
+          "id": "bone_vj4k703",
           "property": "rotation",
           "keys": [
             {
@@ -1617,7 +1619,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_ujndd0f",
+          "id": "bone_d96tx0f",
           "property": "x",
           "keys": [
             {
@@ -1649,7 +1651,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_ujndd0f",
+          "id": "bone_d96tx0f",
           "property": "y",
           "keys": [
             {
@@ -1681,7 +1683,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_4fyn50b",
+          "id": "bone_v11yt0b",
           "property": "rotation",
           "keys": [
             {
@@ -1718,7 +1720,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_hjrlr0a",
+          "id": "bone_csv2p0a",
           "property": "x",
           "keys": [
             {
@@ -1750,7 +1752,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_hjrlr0a",
+          "id": "bone_csv2p0a",
           "property": "y",
           "keys": [
             {
@@ -1782,7 +1784,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_w8fow06",
+          "id": "bone_uvy7m06",
           "property": "rotation",
           "keys": [
             {
@@ -1819,7 +1821,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_43bd70g",
+          "id": "bone_r9fh80g",
           "property": "rotation",
           "keys": [
             {
@@ -1856,7 +1858,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_udr2s0h",
+          "id": "bone_dsaam0h",
           "property": "rotation",
           "keys": [
             {
@@ -1893,7 +1895,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_b9zkc0i",
+          "id": "bone_6l4ei0i",
           "property": "rotation",
           "keys": [
             {
@@ -1932,24 +1934,24 @@
       "events": [
         {
           "time": 0,
-          "event": "evt_sj4x416",
+          "event": "evt_natds16",
           "string": "front"
         },
         {
           "time": 0.5,
-          "event": "evt_sj4x416",
+          "event": "evt_natds16",
           "string": "back"
         }
       ]
     },
     {
-      "id": "anim_pyl0517",
+      "id": "anim_pd9mo17",
       "name": "jump",
       "duration": 0.8,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_sjak702",
+          "id": "bone_lsnez02",
           "property": "y",
           "keys": [
             {
@@ -2006,7 +2008,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_4fyn50b",
+          "id": "bone_v11yt0b",
           "property": "rotation",
           "keys": [
             {
@@ -2043,7 +2045,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_w8fow06",
+          "id": "bone_uvy7m06",
           "property": "rotation",
           "keys": [
             {
@@ -2080,7 +2082,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_43bd70g",
+          "id": "bone_r9fh80g",
           "property": "rotation",
           "keys": [
             {
@@ -2119,24 +2121,30 @@
       "events": [
         {
           "time": 0.7,
-          "event": "evt_whdl818"
+          "event": "evt_7f1ad18"
+        }
+      ],
+      "audio": [
+        {
+          "time": 0.1,
+          "sound": "snd_7f75q1l"
         }
       ]
     }
   ],
   "stateMachines": [
     {
-      "id": "sm_f1wfy19",
+      "id": "sm_smm6c19",
       "name": "character",
       "inputs": [
         {
-          "id": "in_ckvbx1a",
+          "id": "in_79w161a",
           "name": "speed",
           "type": "number",
           "default": 0
         },
         {
-          "id": "in_7qbnf1b",
+          "id": "in_4gl8p1b",
           "name": "jump",
           "type": "trigger",
           "default": false
@@ -2145,24 +2153,24 @@
       "bindings": [],
       "layers": [
         {
-          "id": "sm_f1wfy19_layer1",
+          "id": "sm_smm6c19_layer1",
           "name": "Layer 1",
-          "entry": "st_kt1ub1c",
+          "entry": "st_4no6p1c",
           "states": [
             {
-              "id": "st_kt1ub1c",
+              "id": "st_4no6p1c",
               "name": "locomotion",
               "type": "blend1d",
               "loop": true,
               "speed": 1,
-              "blendInput": "in_ckvbx1a",
+              "blendInput": "in_79w161a",
               "blend": [
                 {
-                  "animation": "anim_3tdyt14",
+                  "animation": "anim_gdp8514",
                   "value": 0
                 },
                 {
-                  "animation": "anim_b1bf015",
+                  "animation": "anim_pgtv415",
                   "value": 1
                 }
               ],
@@ -2170,10 +2178,10 @@
               "y": 120
             },
             {
-              "id": "st_y3tfe1d",
+              "id": "st_zm6hj1d",
               "name": "jump",
               "type": "animation",
-              "animation": "anim_pyl0517",
+              "animation": "anim_pd9mo17",
               "loop": false,
               "speed": 1,
               "x": 420,
@@ -2182,12 +2190,12 @@
           ],
           "transitions": [
             {
-              "id": "tr_e0r001e",
+              "id": "tr_t1z3y1e",
               "from": "@any",
-              "to": "st_y3tfe1d",
+              "to": "st_zm6hj1d",
               "conditions": [
                 {
-                  "input": "in_7qbnf1b",
+                  "input": "in_4gl8p1b",
                   "op": "==",
                   "value": true
                 }
@@ -2196,9 +2204,9 @@
               "exitTime": null
             },
             {
-              "id": "tr_haz2e1f",
-              "from": "st_y3tfe1d",
-              "to": "st_kt1ub1c",
+              "id": "tr_lylkz1f",
+              "from": "st_zm6hj1d",
+              "to": "st_4no6p1c",
               "conditions": [],
               "duration": 0.2,
               "exitTime": null
@@ -2208,28 +2216,107 @@
       ],
       "listeners": [
         {
-          "id": "lis_csphh1g",
+          "id": "lis_jwowd1g",
           "name": "click",
-          "slot": "slot_ma5j70q",
+          "slot": "slot_lpizk0q",
           "event": "click",
           "actions": [
             {
               "type": "fireTrigger",
-              "input": "in_7qbnf1b"
+              "input": "in_4gl8p1b"
             }
           ]
         }
       ],
       "scripts": [
-        "scr_7ao661h"
+        "scr_s21y61h"
       ]
     }
   ],
   "scripts": [
     {
-      "id": "scr_7ao661h",
+      "id": "scr_s21y61h",
       "name": "eyes-follow-pointer",
       "code": "// Pupils look toward the pointer.\nfunction onUpdate(dt) {\n  const p = ob.pointer();\n  const h = ob.bone(\"head\");\n  if (!h) return;\n  const dx = p.x - h.worldX, dy = p.y - h.worldY;\n  const len = Math.hypot(dx, dy) || 1;\n  const k = Math.min(4, len / 25);\n  // head's local frame is rotated +90° from world\n  ob.setBone(\"pupils\", { x: 32 + (dy / len) * k, y: -(dx / len) * k });\n}\nfunction onEvent(e) { if (e.name === \"land\") ob.log(\"landed!\"); }"
     }
-  ]
+  ],
+  "audio": {
+    "master": 1,
+    "muted": false,
+    "assets": [
+      {
+        "id": "aud_wbzhy1i",
+        "name": "step",
+        "src": "assets/eleven/walker-step.wav",
+        "duration": 0.311
+      },
+      {
+        "id": "aud_ck17c1k",
+        "name": "jump",
+        "src": "assets/eleven/walker-jump.wav",
+        "duration": 0.6
+      },
+      {
+        "id": "aud_bn3q91m",
+        "name": "land",
+        "src": "assets/eleven/walker-land.wav",
+        "duration": 0.364
+      }
+    ],
+    "buses": [
+      {
+        "id": "bus_sfx",
+        "name": "sfx",
+        "volume": 1,
+        "muted": false
+      },
+      {
+        "id": "bus_music",
+        "name": "music",
+        "volume": 1,
+        "muted": false
+      },
+      {
+        "id": "bus_ui",
+        "name": "ui",
+        "volume": 1,
+        "muted": false
+      }
+    ],
+    "sounds": [
+      {
+        "id": "snd_pjf591j",
+        "name": "step",
+        "asset": "aud_wbzhy1i",
+        "bus": "bus_sfx",
+        "volume": 0.55,
+        "rate": 1,
+        "loop": false,
+        "fadeIn": 0,
+        "fadeOut": 0
+      },
+      {
+        "id": "snd_7f75q1l",
+        "name": "jump",
+        "asset": "aud_ck17c1k",
+        "bus": "bus_sfx",
+        "volume": 0.7,
+        "rate": 1,
+        "loop": false,
+        "fadeIn": 0,
+        "fadeOut": 0
+      },
+      {
+        "id": "snd_c0a6b1n",
+        "name": "land",
+        "asset": "aud_bn3q91m",
+        "bus": "bus_sfx",
+        "volume": 0.8,
+        "rate": 1,
+        "loop": false,
+        "fadeIn": 0,
+        "fadeOut": 0
+      }
+    ]
+  }
 }

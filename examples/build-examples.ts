@@ -170,61 +170,34 @@ function onUpdate(dt) {
 function onEvent(e) { if (e.name === "land") ob.log("landed!"); }`,
   });
   A("attachScript", { stateMachine: "character", script: "eyes-follow-pointer" });
+  // Sounds: a step on each footstep event, a swish on take-off and a thud on the land event.
+  sfx(A, "step", "walker-step", { volume: 0.55 });
+  sfx(A, "jump", "walker-jump", { volume: 0.7 });
+  sfx(A, "land", "walker-land", { volume: 0.8 });
+  A("setEventSound", { event: "footstep", sound: "step" });
+  A("setEventSound", { event: "land", sound: "land" });
+  A("addAudioKey", { animation: "jump", sound: "jump", time: 0.1 });
   return s.doc;
 }
 
-// ---------- sounds (synthesized, so the examples carry no third-party audio) ----------
-/** 8-bit mono WAV as a data: URI. */
-function wav(samples: Float32Array, rate: number): string {
-  const n = samples.length;
-  const buf = Buffer.alloc(44 + n);
-  buf.write("RIFF", 0);
-  buf.writeUInt32LE(36 + n, 4);
-  buf.write("WAVEfmt ", 8);
-  buf.writeUInt32LE(16, 16);
-  buf.writeUInt16LE(1, 20); // PCM
-  buf.writeUInt16LE(1, 22); // mono
-  buf.writeUInt32LE(rate, 24);
-  buf.writeUInt32LE(rate, 28);
-  buf.writeUInt16LE(1, 32);
-  buf.writeUInt16LE(8, 34);
-  buf.write("data", 36);
-  buf.writeUInt32LE(n, 40);
-  for (let i = 0; i < n; i++) buf[44 + i] = Math.round(128 + 127 * Math.max(-1, Math.min(1, samples[i])));
-  return `data:audio/wav;base64,${buf.toString("base64")}`;
+// ---------- sounds (generated with ElevenLabs, see assets/eleven/LICENSE.md) ----------
+type Op = (op: string, args: Record<string, unknown>) => unknown;
+/** Add a sound from assets/eleven/<file>.wav (its length read from the file), with optional sound settings. */
+function sfx(A: Op, name: string, file: string, o: { loop?: boolean; bus?: string; volume?: number; fadeIn?: number; fadeOut?: number } = {}) {
+  const w = readWav(path.join(here, `assets/eleven/${file}.wav`));
+  A("addAudio", { name, src: `assets/eleven/${file}.wav`, duration: Math.round((w.samples.length / w.rate) * 1000) / 1000, loop: o.loop ?? false, ...(o.bus ? { bus: o.bus } : {}) });
+  const { volume, fadeIn, fadeOut } = o;
+  if (volume !== undefined || fadeIn !== undefined || fadeOut !== undefined)
+    A("updateSound", { sound: name, ...(volume !== undefined ? { volume } : {}), ...(fadeIn !== undefined ? { fadeIn } : {}), ...(fadeOut !== undefined ? { fadeOut } : {}) });
 }
 
-/** A short UI click: a pitched-down blip with a fast decay. */
-function clickSound() {
-  const rate = 22050;
-  const out = new Float32Array(Math.round(rate * 0.06));
-  let phase = 0;
-  for (let i = 0; i < out.length; i++) {
-    const t = i / rate;
-    phase += (2 * Math.PI * (1400 - 9000 * t)) / rate;
-    out[i] = Math.sin(phase) * Math.exp(-t * 70) * 0.8;
-  }
-  return { src: wav(out, rate), duration: out.length / rate };
-}
-
-/** A soft hover hum that loops seamlessly (whole cycles of every partial in 0.5 s). */
-function humSound() {
-  const rate = 11025;
-  const out = new Float32Array(Math.round(rate * 0.5));
-  for (let i = 0; i < out.length; i++) {
-    const t = i / rate;
-    out[i] = 0.35 * Math.sin(2 * Math.PI * 220 * t) + 0.15 * Math.sin(2 * Math.PI * 330 * t) + 0.08 * Math.sin(2 * Math.PI * 4 * t) * Math.sin(2 * Math.PI * 440 * t);
-  }
-  return { src: wav(out, rate), duration: out.length / rate };
-}
-
-/** Button audio: a click on the press event, and a hum that loops while hovered (stops on exit). */
-export function addButtonAudio(A: (op: string, args: Record<string, unknown>) => unknown) {
-  A("addAudio", { name: "click", ...clickSound(), bus: "ui" });
-  A("addAudio", { name: "hover-hum", ...humSound(), bus: "ui", loop: true });
-  A("updateSound", { sound: "hover-hum", volume: 0.35, fadeIn: 0.15, fadeOut: 0.25 });
+/** Button audio: a click on the press event and a soft shimmer when the pointer enters. */
+export function addButtonAudio(A: Op) {
+  sfx(A, "click", "button-click", { bus: "ui", volume: 0.8 });
+  sfx(A, "hover", "button-hover", { bus: "ui", volume: 0.45 });
   A("setEventSound", { event: "clicked", sound: "click" });
-  A("setStateSound", { stateMachine: "ui", state: "hover", sound: "hover-hum" });
+  // On the pointer entering (not on the hover state, which is re-entered after every press).
+  A("addListener", { stateMachine: "ui", name: "hover sound", slot: "hit", event: "enter", actions: [{ type: "playSound", sound: "hover" }] });
 }
 
 // ---------- button ----------
@@ -367,6 +340,8 @@ function tail() {
   K("curl", "bone", "ctrl3", "y", [[0, 0], [1, -170], [2, 0]]);
   K("curl", "path", "tail-path", "spacing", [[0, 0], [1, -6], [2, 0]]);
   K("curl", "bone", "body", "y", [[0, 120], [0.5, 150], [1, 120], [2, 120]]);
+  sfx(A, "chirp", "tail-chirp", { volume: 0.7 });
+  A("addAudioKey", { animation: "curl", sound: "chirp", time: 0.35 });
   return s.doc;
 }
 
@@ -422,27 +397,33 @@ function campfire() {
       A("addImage", { name, src: `assets/${name}.png`, width: w, height: h });
       return name;
     });
-  A("addBone", { name: "fire", y: 10, length: 0 });
-  A("addBone", { name: "smoke", parent: "fire", y: 150, length: 0 });
-  // Glow behind everything, then logs, then the flame on top.
+  A("addBone", { name: "fire", y: 30, length: 0 });
+  A("addBone", { name: "smoke", parent: "fire", y: 270, length: 0 });
+  // Glow behind everything, then smoke and flames, then the logs in front of the flames' base.
   A("addSlot", { bone: "root", name: "glow" });
-  A("addShape", { slot: "glow", shape: "ellipse", y: 40, width: 260, height: 170, fill: "#ff8a0033" });
-  for (const [name, rot] of [["log1", 18], ["log2", -18]] as const) {
-    A("addSlot", { bone: "root", name });
-    A("addShape", { slot: name, shape: "rect", y: 4, rotation: rot, width: 150, height: 22, radius: 11, fill: "#6b4226", stroke: "#3e2615", strokeWidth: 2 });
-  }
+  A("addShape", { slot: "glow", shape: "ellipse", y: 90, width: 380, height: 260, fill: "#ff8a000d" });
   A("addSlot", { bone: "smoke", name: "smoke" });
   A("addSequence", { slot: "smoke", name: "smoke", frames: frames("smoke", SMOKE_FRAMES, 48, 48), fps: 8, mode: "pingPong", scaleX: 2, scaleY: 2 });
   const flame = frames("flame", FLAME_FRAMES, 64, 96);
   A("addSlot", { bone: "fire", name: "flame", blend: "additive" });
-  A("addSequence", { slot: "flame", name: "flame", frames: flame, y: 70, width: 96, height: 144, fps: 15, mode: "loop" });
+  A("addSequence", { slot: "flame", name: "flame", frames: flame, y: 140, width: 150, height: 225, fps: 15, mode: "loop" });
   // A second, smaller flame starts half a loop later so the two never match.
   A("addSlot", { bone: "fire", name: "flame-small", blend: "additive" });
-  A("addSequence", { slot: "flame-small", name: "flame", frames: flame, x: 34, y: 40, width: 56, height: 84, fps: 15, offset: 6 });
+  A("addSequence", { slot: "flame-small", name: "flame", frames: flame, x: 46, y: 92, width: 86, height: 130, fps: 15, offset: 6 });
+  // Painted logs and stone ring (see assets/eleven/LICENSE.md); drawn over the flames' base so
+  // the fire rises out of the pile.
+  A("addImage", { name: "campfire-logs", src: "assets/eleven/campfire-logs.png", width: 460, height: 306 });
+  A("addSlot", { bone: "root", name: "logs" });
+  A("addRegion", { slot: "logs", image: "campfire-logs", y: 30, width: 270, height: 180 });
   // Breathing: the fire bone scales a little; the glow pulses.
   A("createAnimation", { name: "burn", duration: 1.6 });
   A("setKeys", { animation: "burn", target: "bone", id: "fire", property: "scaleY", keys: [{ time: 0, value: 1, curve: "easeInOut" }, { time: 0.8, value: 1.08, curve: "easeInOut" }, { time: 1.6, value: 1 }] });
   A("setKeys", { animation: "burn", target: "slot", id: "glow", property: "color", keys: [{ time: 0, value: "#ffffff" }, { time: 0.8, value: "#ffffffaa" }, { time: 1.6, value: "#ffffff" }] });
+  // The crackle loops for as long as the fire burns (a looping sound on a state plays until the state exits).
+  sfx(A, "crackle", "campfire-loop", { loop: true, volume: 0.8, fadeIn: 0.5 });
+  A("createStateMachine", { name: "fire" });
+  A("addState", { stateMachine: "fire", animation: "burn", x: 120, y: 120 });
+  A("setStateSound", { stateMachine: "fire", state: "burn", sound: "crackle" });
   return s.doc;
 }
 
@@ -498,6 +479,12 @@ function rocket() {
   A("addTransition", { stateMachine: "engine", from: "parked", to: "hover", conditions: [{ input: "thrust", value: true }], duration: 0.6 });
   A("addTransition", { stateMachine: "engine", from: "hover", to: "parked", conditions: [{ input: "thrust", value: false }], duration: 0.8 });
   A("addListener", { stateMachine: "engine", slot: "hit", event: "down", actions: [{ type: "toggleInput", input: "thrust" }, { type: "emitParticles", slot: "sparks", count: 24 }] });
+  // Sounds: ignition when the engine starts, then a steady roar that fades out when it stops.
+  sfx(A, "ignite", "rocket-ignite", { volume: 0.6 });
+  sfx(A, "engine", "rocket-engine-loop", { loop: true, volume: 0.3, fadeIn: 0.8, fadeOut: 0.6 });
+  A("setStateSound", { stateMachine: "engine", state: "hover", sound: "ignite" });
+  A("setStateSound", { stateMachine: "engine", state: "hover", sound: "engine" });
+  A("addAudioKey", { animation: "launch", sound: "ignite", time: 0.35 });
   return s.doc;
 }
 
@@ -617,7 +604,16 @@ function crash() {
   A("addBinding", { stateMachine: "game", input: "multiplier", target: "bone", object: "climb", property: "x", inMin: 1, inMax: 10, outMin: 0, outMax: 520 });
   A("addBinding", { stateMachine: "game", input: "multiplier", target: "bone", object: "climb", property: "y", inMin: 1, inMax: 10, outMin: 0, outMax: 300 });
   A("addBinding", { stateMachine: "game", input: "multiplier", target: "slot", object: "sky", property: "color", inMin: 1, inMax: 10, outMin: "#7f8cc8", outMax: "#ffd9ef" });
-  A("addListener", { stateMachine: "game", name: "start button", slot: "button-label", event: "click", actions: [{ type: "fireTrigger", input: "start" }] });
+  sfx(A, "click", "button-click", { bus: "ui", volume: 0.8 });
+  sfx(A, "liftoff", "crash-liftoff", { volume: 0.7 });
+  sfx(A, "engine", "rocket-engine-loop", { loop: true, volume: 0.22, fadeIn: 0.3, fadeOut: 0.15 });
+  sfx(A, "explosion", "crash-explosion", { volume: 0.75 });
+  sfx(A, "cashout", "crash-cashout", { volume: 0.8 });
+  A("setStateSound", { stateMachine: "game", state: "flyout", sound: "liftoff" });
+  A("setStateSound", { stateMachine: "game", state: "flying", sound: "engine" });
+  A("setStateSound", { stateMachine: "game", state: "crash", sound: "explosion" });
+  A("setStateSound", { stateMachine: "game", state: "cashout", sound: "cashout" });
+  A("addListener", { stateMachine: "game", name: "start button", slot: "button-label", event: "click", actions: [{ type: "fireTrigger", input: "start" }, { type: "playSound", sound: "click" }] });
   // Back to idle after a crash or cash-out: reset the round so the rocket returns to the pad and the HUD to 1.00x.
   A("setStateInput", { stateMachine: "game", state: "idle", input: "multiplier", value: 1 });
   A("setStateInput", { stateMachine: "game", state: "idle", input: "status", value: "Press START" });
@@ -753,6 +749,12 @@ function knight() {
   A("addTransition", { stateMachine: "knight", from: "march", to: "idle", conditions: [{ input: "march", value: false }], duration: 0.25 });
   A("addTransition", { stateMachine: "knight", from: "@any", to: "wave", conditions: [{ input: "wave" }], duration: 0.2 });
   A("addListener", { stateMachine: "knight", slot: "torso", event: "click", actions: [{ type: "fireTrigger", input: "wave" }] });
+  // Sounds: an armoured step as each foot comes down, and a greeting as the arm goes up.
+  sfx(A, "step", "knight-step", { volume: 0.6 });
+  sfx(A, "hail", "knight-hail");
+  A("addAudioKey", { animation: "march", sound: "step", time: 0.44 });
+  A("addAudioKey", { animation: "march", sound: "step", time: 0.89 });
+  A("addAudioKey", { animation: "wave", sound: "hail", time: 0.25 });
   return s.doc;
 }
 
@@ -788,39 +790,46 @@ function robot() {
   const s = new DocumentStore(createDocument("Robot"));
   const A = (op: string, args: Record<string, unknown>) => s.apply(op, args);
   A("setDocument", { width: 500, height: 560, originX: 250, originY: 520 });
+  // Painted torso and head (see assets/eleven/LICENSE.md), both drawn at 0.7 of the art's size. The head's screen is
+  // blank in the art: the eyes, mouth shapes and the chest light's glow are vector shapes drawn on top.
+  const S = 0.7;
+  A("addImage", { name: "robot-torso", src: "assets/eleven/robot-torso.png", width: 440, height: 269 });
+  A("addImage", { name: "robot-head", src: "assets/eleven/robot-head.png", width: 420, height: 233 });
   A("addBone", { name: "body", y: 40, length: 0 });
-  // The neck points up from the top of the torso; the head turns back upright so its shapes use x right, y up.
-  A("addBone", { name: "neck", parent: "body", y: 140, rotation: 90, length: 30 });
-  A("addBone", { name: "head", parent: "neck", x: 30, rotation: -90, length: 0 });
-  A("addBone", { name: "antenna", parent: "head", y: 150, rotation: 90, length: 60 });
-  A("addBone", { name: "mouth", parent: "head", y: 40, length: 0 });
+  // The neck points up out of the torso's neck stub; the head turns back upright so its parts use x right, y up.
+  A("addBone", { name: "neck", parent: "body", y: 178, rotation: 90, length: 20 });
+  A("addBone", { name: "head", parent: "neck", x: 12, rotation: -90, length: 0 });
+  A("addBone", { name: "antenna", parent: "head", y: 146, rotation: 90, length: 50 });
+  A("addBone", { name: "mouth", parent: "head", y: 54, length: 0 });
   const shape = (slot: string, bone: string, args: Record<string, unknown>) => {
     A("addSlot", { bone, name: slot });
     A("addShape", { slot, ...args });
   };
-  shape("torso", "body", { shape: "rect", x: 0, y: 60, width: 220, height: 170, radius: 28, fill: "#5b6b8c", stroke: "#2c3550", strokeWidth: 4 });
-  shape("panel", "body", { shape: "rect", x: 0, y: 70, width: 120, height: 70, radius: 10, fill: "#3a4566" });
-  shape("light", "body", { shape: "ellipse", x: -30, y: 70, width: 22, height: 22, fill: "#3ddc84" });
-  shape("neck", "neck", { shape: "rect", x: 15, y: 0, width: 30, height: 40, radius: 6, fill: "#46536f" });
-  shape("antenna-stick", "antenna", { shape: "rect", x: 30, y: 0, width: 60, height: 6, radius: 3, fill: "#2c3550" });
-  shape("antenna-ball", "antenna", { shape: "ellipse", x: 62, y: 0, width: 22, height: 22, fill: "#ff5d5d" });
-  shape("head", "head", { shape: "rect", x: 0, y: 75, width: 240, height: 170, radius: 36, fill: "#7d8db0", stroke: "#2c3550", strokeWidth: 4 });
-  shape("face", "head", { shape: "rect", x: 0, y: 75, width: 200, height: 125, radius: 26, fill: "#1b2133" });
-  for (const [name, x] of [["eye-l", -48], ["eye-r", 48]] as const) shape(name, "head", { shape: "ellipse", x, y: 105, width: 38, height: 38, fill: "#8ad4ff" });
+  // Antenna behind the head, so its base tucks under the head's top edge.
+  shape("antenna-stick", "antenna", { shape: "rect", x: 22, y: 0, width: 50, height: 7, radius: 3, fill: "#5c6f8f", stroke: "#1e2638", strokeWidth: 2 });
+  shape("antenna-ball", "antenna", { shape: "ellipse", x: 50, y: 0, width: 22, height: 22, fill: "#ff5d5d", stroke: "#1e2638", strokeWidth: 2 });
+  A("addSlot", { bone: "body", name: "torso" });
+  A("addRegion", { slot: "torso", image: "robot-torso", y: 94, width: 440 * S, height: 269 * S });
+  // Chest light: an additive glow over the painted green lamp, pulsed by the animations.
+  A("addSlot", { bone: "body", name: "light", blend: "additive" });
+  A("addShape", { slot: "light", shape: "ellipse", x: -43, y: 110, width: 22, height: 22, fill: "#5dff9e99" });
+  A("addSlot", { bone: "head", name: "head" });
+  A("addRegion", { slot: "head", image: "robot-head", y: 74, width: 420 * S, height: 233 * S });
+  for (const [name, x] of [["eye-l", -46], ["eye-r", 46]] as const) shape(name, "head", { shape: "ellipse", x, y: 94, width: 34, height: 34, fill: "#8ad4ff" });
   // Mouth shapes, one attachment each (named so the editor's Lip sync dialog guesses them).
   A("addSlot", { bone: "mouth", name: "mouth" });
   const mouth = (name: string, args: Record<string, unknown>) => A("addShape", { slot: "mouth", name, activate: name === "mouth-rest", fill: "#8ad4ff", ...args });
-  mouth("mouth-rest", { shape: "rect", width: 70, height: 6, radius: 3 });
-  mouth("mouth-closed", { shape: "rect", width: 56, height: 10, radius: 5 });
-  mouth("mouth-small", { shape: "ellipse", width: 40, height: 16 });
-  mouth("mouth-open", { shape: "ellipse", width: 58, height: 30 });
-  mouth("mouth-wide", { shape: "rect", width: 86, height: 40, radius: 18 });
-  mouth("mouth-round", { shape: "ellipse", width: 30, height: 30 });
-  A("addBoundingBox", { slot: "head", name: "head-hit", y: 75, width: 240, height: 170 });
+  mouth("mouth-rest", { shape: "rect", width: 64, height: 6, radius: 3 });
+  mouth("mouth-closed", { shape: "rect", width: 52, height: 10, radius: 5 });
+  mouth("mouth-small", { shape: "ellipse", width: 38, height: 15 });
+  mouth("mouth-open", { shape: "ellipse", width: 54, height: 28 });
+  mouth("mouth-wide", { shape: "rect", width: 80, height: 34, radius: 16 });
+  mouth("mouth-round", { shape: "ellipse", width: 28, height: 28 });
+  A("addBoundingBox", { slot: "head", name: "head-hit", y: 74, width: 420 * S, height: 233 * S });
 
-  const voice = readWav(path.join(here, "assets/robot-voice.wav"));
+  const voice = readWav(path.join(here, "assets/eleven/robot-voice.wav"));
   const length = voice.samples.length / voice.rate;
-  A("addAudio", { name: "robot-voice", src: "assets/robot-voice.wav", duration: Math.round(length * 1000) / 1000, bus: "sfx" });
+  A("addAudio", { name: "robot-voice", src: "assets/eleven/robot-voice.wav", duration: Math.round(length * 1000) / 1000, bus: "sfx" });
 
   const K = (anim: string, target: string, id: string, property: string, keys: [number, number | string][], curve = "easeInOut") =>
     A("setKeys", { animation: anim, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });

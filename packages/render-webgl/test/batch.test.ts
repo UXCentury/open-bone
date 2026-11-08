@@ -71,10 +71,11 @@ describe("WebGL batching with an atlas", () => {
   it("campfire example: sequence frames batch from the atlas page", () => {
     const loose = drawCalls(example("campfire.obone"));
     const atlas = drawCalls(packed(example("campfire.obone")));
-    // Each frame image is its own texture loose; packed, only blend changes (additive flames) split batches.
+    // Each frame image is its own texture loose; packed, only blend changes split batches: glow and smoke (normal),
+    // the additive flames, then the logs drawn over the flames' base (normal).
     expect(atlas.textures).toBe(1);
     expect(atlas.calls).toBeLessThan(loose.calls);
-    expect(atlas.calls).toBe(2);
+    expect(atlas.calls).toBe(3);
   });
 
   it("tail example: no images, nothing changes", () => {
