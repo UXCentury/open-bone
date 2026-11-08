@@ -102,6 +102,9 @@ importers:
 
   packages/export:
     dependencies:
+      '@openbone/core':
+        specifier: workspace:*
+        version: link:../core
       gifenc:
         specifier: ^1.0.3
         version: 1.0.3
@@ -161,6 +164,13 @@ importers:
       '@openbone/scripting':
         specifier: workspace:*
         version: link:../scripting
+      quickjs-emscripten:
+        specifier: ^0.32.0
+        version: 0.32.0
+    devDependencies:
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
 
   packages/render-canvas:
     dependencies:

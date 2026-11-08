@@ -4,12 +4,21 @@
   "license": "MIT",
   "type": "module",
   "description": "Drop-in <openbone-player> web component and JS API for OpenBone animations",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "dependencies": {
     "@openbone/core": "workspace:*",
     "@openbone/render-canvas": "workspace:*",
     "@openbone/render-webgl": "workspace:*",
     "@openbone/runtime": "workspace:*",
-    "@openbone/scripting": "workspace:*"
+    "@openbone/scripting": "workspace:*",
+    "quickjs-emscripten": "^0.32.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  },
+  "scripts": {
+    "build:bundle": "tsx src/bundle/build.ts"
   }
 }

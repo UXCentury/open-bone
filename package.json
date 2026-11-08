@@ -15,7 +15,8 @@
     "cli": "tsx packages/cli/src/bin.ts",
     "desktop": "pnpm --filter @openbone/desktop tauri dev",
     "desktop:build": "pnpm --filter @openbone/desktop tauri build",
-    "examples": "tsx examples/build-examples.ts"
+    "examples": "tsx examples/build-examples.ts",
+    "build:player-bundle": "tsx packages/player/src/bundle/build.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

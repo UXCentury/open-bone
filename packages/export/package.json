@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
-  "description": "Image and video encoders for OpenBone exports: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), plus ZIP",
+  "description": "Image and video encoders for OpenBone exports: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP, plus sprite sheets and engine packs (Unity, Godot, Flutter, generic)",
   "exports": {
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@openbone/core": "workspace:*",
     "gifenc": "^1.0.3"
   },
   "devDependencies": {
