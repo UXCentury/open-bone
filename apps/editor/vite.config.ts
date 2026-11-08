@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { type Plugin, defineConfig } from "vite";
 import solid from "vite-plugin-solid";
-import { buildPlayerBundle } from "../../packages/player/src/bundle/build.ts";
+import { type WebBundleFormat, buildPlayerBundle, buildWebBundle } from "../../packages/player/src/bundle/build.ts";
 
 const EXAMPLES = path.resolve(__dirname, "../../examples");
 const MIME: Record<string, string> = { ".obone": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".webp": "image/webp" };
@@ -57,8 +57,42 @@ function playerBundle(): Plugin {
   };
 }
 
+/**
+ * `virtual:openbone-web-player/<iife|esm>/<min|full>/<qjs|noqjs>`: the web player library for the Web export, one
+ * module per variant, each built with esbuild only when an export first asks for it (dev) or at build time.
+ */
+function webPlayerBundle(): Plugin {
+  const prefix = "virtual:openbone-web-player/";
+  const cache = new Map<string, Promise<string>>();
+  return {
+    name: "openbone-web-player",
+    resolveId: (s) => (s.startsWith(prefix) ? `\0${s}` : undefined),
+    async load(id) {
+      if (!id.startsWith(`\0${prefix}`)) return;
+      const [format, min, qjs] = id.slice(prefix.length + 1).split("/");
+      let code = cache.get(id);
+      if (!code) {
+        code = buildWebBundle({ format: format as WebBundleFormat, minify: min === "min", scripts: qjs === "qjs" });
+        cache.set(id, code);
+      }
+      return `export default ${JSON.stringify(await code)};`;
+    },
+    configureServer(server) {
+      const packages = path.resolve(__dirname, "../../packages");
+      server.watcher.on("change", (file) => {
+        if (!file.startsWith(packages) || !cache.size) return;
+        for (const id of cache.keys()) {
+          const mod = server.moduleGraph.getModuleById(id);
+          if (mod) server.moduleGraph.invalidateModule(mod);
+        }
+        cache.clear();
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [solid(), examples(), playerBundle()],
+  plugins: [solid(), examples(), playerBundle(), webPlayerBundle()],
   server: { port: Number(process.env.PORT) || 5180, strictPort: false },
   optimizeDeps: { exclude: ["quickjs-emscripten"] },
   build: { target: "es2022", rollupOptions: { input: { editor: path.resolve(__dirname, "index.html"), player: path.resolve(__dirname, "player.html") } } },

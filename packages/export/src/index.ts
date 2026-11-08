@@ -43,3 +43,4 @@ export {
   toBase64,
 } from "./webview.ts";
 export { type ZipEntry, readZip } from "./unzip.ts";
+export { type WebPackOptions, type WebPlayerFormat, playerFileName, webIndexHtml, webReadme, webPackFiles, webPackZip } from "./web.ts";

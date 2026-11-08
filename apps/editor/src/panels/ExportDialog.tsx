@@ -8,6 +8,7 @@ import { imageAsDataUrl, resolveImageUrl } from "../images.ts";
 import { isDesktop, saveFile, saveTextFile } from "../storage.ts";
 import { animationId, doc, fileName, setExportOpen, toast } from "../state.ts";
 import { audioAsDataUrl } from "../audio.ts";
+import { exportWebPack, playerSizeKb } from "../export-web.ts";
 
 type Named = { id: string; name: string };
 type DataFormat = "project" | "json" | "binary";
@@ -42,6 +43,10 @@ const GROUPS: { title: string; items: { id: Format; label: string; hint: string 
       { id: "avi", label: "AVI", hint: "Motion-JPEG video" },
       { id: "mov", label: "MOV", hint: "QuickTime, Motion-JPEG" },
     ],
+  },
+  {
+    title: "Web",
+    items: [{ id: "web", label: "Website", hint: "ZIP: <openbone-player> library + animation + demo page, or one self-contained HTML file" }],
   },
   {
     title: "Engines",
@@ -132,6 +137,7 @@ interface SavedSettings {
     transparent?: boolean;
     androidPackage?: string;
   };
+  web?: { format?: "iife" | "esm"; minify?: boolean; scripts?: boolean; singleFile?: boolean; demo?: boolean };
 }
 const readSaved = (): SavedSettings => {
   try {
@@ -203,6 +209,13 @@ export function ExportDialog() {
   const [wvBinary, setWvBinary] = createSignal(se.binary ?? true);
   const [wvTransparent, setWvTransparent] = createSignal(se.transparent ?? true);
   const [androidPackage, setAndroidPackage] = createSignal(se.androidPackage ?? "com.openbone");
+  // ---- web options ----
+  const sw = saved.web ?? {};
+  const [webFmt, setWebFmt] = createSignal<"iife" | "esm">(sw.format ?? "iife");
+  const [webMin, setWebMin] = createSignal(sw.minify ?? true);
+  const [webScripts, setWebScripts] = createSignal(sw.scripts ?? source.scripts.length > 0);
+  const [webSingle, setWebSingle] = createSignal(sw.singleFile ?? false);
+  const [webDemo, setWebDemo] = createSignal(sw.demo ?? true);
   /** The engine being exported, if any. */
   const engine = () => (isEngine(format()) ? (format() as EngineFormat) : null);
   const sheetMode = () => !!engine() && (ENGINES[engine()!].sheet && (engine() !== "flutter" || flutterMode() === "sheet"));
@@ -435,6 +448,7 @@ export function ExportDialog() {
       transparent: wvTransparent(),
       androidPackage: androidPackage(),
     },
+    web: { format: webFmt(), minify: webMin(), scripts: webScripts(), singleFile: webSingle(), demo: webDemo() },
   });
   const remember = () => {
     try {
@@ -491,6 +505,14 @@ export function ExportDialog() {
       if (e.transparent !== undefined) setWvTransparent(e.transparent);
       if (e.androidPackage) setAndroidPackage(e.androidPackage);
     }
+    const w = s.web;
+    if (w) {
+      if (w.format) setWebFmt(w.format);
+      if (w.minify !== undefined) setWebMin(w.minify);
+      if (w.scripts !== undefined) setWebScripts(w.scripts);
+      if (w.singleFile !== undefined) setWebSingle(w.singleFile);
+      if (w.demo !== undefined) setWebDemo(w.demo);
+    }
   };
   let settingsInput!: HTMLInputElement;
   const saveSettings = async () => {
@@ -515,7 +537,9 @@ export function ExportDialog() {
     window.open(url, "_blank", "noopener");
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
-  const canOpenAfter = () => !isDesktop() && (format() === "png" || format() === "jpeg" || format() === "gif" || format() === "apng") && !(sequence() && frameCount() > 1);
+  const canOpenAfter = () =>
+    !isDesktop() &&
+    (((format() === "png" || format() === "jpeg" || format() === "gif" || format() === "apng") && !(sequence() && frameCount() > 1)) || (format() === "web" && webSingle()));
 
   const doExport = async () => {
     if (issues().length) return toast("Fix the problems listed before exporting", "error");
@@ -544,6 +568,24 @@ export function ExportDialog() {
       }
       const onProgress = (stage: string, p: number) => setProgress(`${stage}… ${Math.round(p * 100)}%`);
       const e = engine();
+      if (e === "web") {
+        const title = fileName().replace(/\.obone$/i, "") || base;
+        const f = await exportWebPack(
+          source,
+          { format: webFmt(), minify: webMin(), scripts: webScripts(), singleFile: webSingle(), demoControls: webDemo(), stateMachine: wvSm(), pack: wvPack(), binary: wvBinary(), background: wvTransparent() ? null : bgColor() },
+          base,
+          title,
+          onProgress,
+        );
+        setProgress("Saving…");
+        const savedName = await saveFile(f.name, f.data, { ext: f.ext, description: f.description, mime: f.mime });
+        if (savedName) {
+          toast(`Exported ${savedName} (${fmtBytes(f.data.length)})`);
+          if (openAfter() && canOpenAfter()) openResult(f.data, f.mime);
+          setExportOpen(false);
+        }
+        return;
+      }
       if (e) {
         const data = sheetMode()
           ? (await exportSpritePack(e === "unity" || e === "godot" || e === "flutter" ? e : "generic", source, sheetOptions(), base, onProgress)).data
@@ -588,6 +630,7 @@ export function ExportDialog() {
   const outExt = () => {
     const f = format();
     if (isData(f)) return DATA_EXT[f];
+    if (f === "web") return webSingle() ? "html" : "zip";
     if (isEngine(f)) return "zip";
     const m = MEDIA[f];
     return !m.animated && f !== "psd" && sequence() && frameCount() > 1 ? "zip" : m.ext;
@@ -952,7 +995,7 @@ export function ExportDialog() {
                       </label>
                       <label class="check">
                         <input type="checkbox" checked={wvTransparent()} onChange={(ev) => setWvTransparent(ev.currentTarget.checked)} /> Transparent background
-                        <span class="muted small">(the app's view shows through)</span>
+                        <span class="muted small">{e() === "web" ? "(the page shows through)" : "(the app's view shows through)"}</span>
                       </label>
                       <Show when={!wvTransparent()}>
                         <Row label="Background">
@@ -965,8 +1008,52 @@ export function ExportDialog() {
                           <input type="text" spellcheck={false} value={androidPackage()} onInput={(ev) => setAndroidPackage(ev.currentTarget.value)} />
                         </Row>
                       </Show>
-                      <div class="muted small">Includes the OpenBone web player (≈ 0.8 MB, works offline) and a README with integration steps.</div>
+                      <Show when={e() !== "web"}>
+                        <div class="muted small">Includes the OpenBone web player (≈ 0.8 MB, works offline) and a README with integration steps.</div>
+                      </Show>
                     </fieldset>
+                    <Show when={e() === "web"}>
+                      <fieldset class="export-group">
+                        <legend>Player</legend>
+                        <div class="seg-choice" role="radiogroup" aria-label="Player build">
+                          <button role="radio" aria-checked={webMin()} classList={{ active: webMin() }} onClick={() => setWebMin(true)} title="Smallest download, for production">
+                            Minified
+                          </button>
+                          <button role="radio" aria-checked={!webMin()} classList={{ active: !webMin() }} onClick={() => setWebMin(false)} title="Readable code, for debugging or reading">
+                            Not minified
+                          </button>
+                        </div>
+                        <div class="seg-choice" role="radiogroup" aria-label="Player format">
+                          <button role="radio" aria-checked={webFmt() === "iife"} classList={{ active: webFmt() === "iife" }} onClick={() => setWebFmt("iife")} title="<script src>: defines <openbone-player> and window.OpenBone">
+                            Classic script
+                          </button>
+                          <button role="radio" aria-checked={webFmt() === "esm"} classList={{ active: webFmt() === "esm" }} onClick={() => setWebFmt("esm")} title="<script type=module> or import { Player } from …">
+                            ES module
+                          </button>
+                        </div>
+                        <label class="check" title="QuickJS sandbox that runs the document's scripts">
+                          <input type="checkbox" checked={webScripts()} onChange={(ev) => setWebScripts(ev.currentTarget.checked)} /> Include script sandbox
+                          <span class="muted small">{source.scripts.length ? `(this file has ${plural(source.scripts.length, "script")}; +0.7 MB)` : "(no scripts in this file; +0.7 MB)"}</span>
+                        </label>
+                        <Show when={source.scripts.length && !webScripts()}>
+                          <div class="muted small">⚠ Without the sandbox this file's scripts are skipped; everything else plays.</div>
+                        </Show>
+                        <div class="muted small">
+                          Player ≈ {playerSizeKb(webMin(), webScripts())} KB · {webFmt() === "esm" ? "openbone-player" + (webMin() ? ".min" : "") + ".mjs" : "openbone-player" + (webMin() ? ".min" : "") + ".js"}
+                        </div>
+                      </fieldset>
+                      <fieldset class="export-group">
+                        <legend>Page</legend>
+                        <label class="check" title="One .html file with the player and the animation inside: opens by double-click, no server needed">
+                          <input type="checkbox" checked={webSingle()} onChange={(ev) => setWebSingle(ev.currentTarget.checked)} /> Single HTML file
+                          <span class="muted small">(no server needed)</span>
+                        </label>
+                        <label class="check" title="Buttons and fields for the state machine's inputs, plus an event log">
+                          <input type="checkbox" checked={webDemo()} onChange={(ev) => setWebDemo(ev.currentTarget.checked)} /> Demo controls for inputs
+                        </label>
+                        <div class="muted small">{webSingle() ? "Saves one .html page." : "Saves a ZIP: index.html, the player, the animation file and a README with embed snippets."}</div>
+                      </fieldset>
+                    </Show>
                   </Show>
                 </>
               )}
@@ -1030,7 +1117,7 @@ export function ExportDialog() {
                             <span>{plural(source.animations.length, "animation")}</span>
                             <span>{plural(source.stateMachines.length, "state machine")}</span>
                             <span>{plural(source.scripts.length, "script")}</span>
-                            <span>ZIP</span>
+                            <span>{format() === "web" ? `${webSingle() ? "HTML" : "ZIP"} · player ≈ ${playerSizeKb(webMin(), webScripts())} KB` : "ZIP"}</span>
                           </>
                         }
                       >

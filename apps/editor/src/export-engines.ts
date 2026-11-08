@@ -10,7 +10,7 @@ import { imageAsDataUrl } from "./images.ts";
  * interactive WebView packages (Flutter, Android, iOS) that embed the web player.
  */
 
-export type EngineTarget = "unity" | "godot" | "flutter" | "generic" | "android" | "ios";
+export type EngineTarget = "unity" | "godot" | "flutter" | "generic" | "android" | "ios" | "web";
 export type WebViewTarget = "flutter" | "android" | "ios";
 
 export const ENGINES: Record<EngineTarget, { label: string; sheet: boolean; webview: boolean; note: string }> = {
@@ -19,6 +19,7 @@ export const ENGINES: Record<EngineTarget, { label: string; sheet: boolean; webv
   flutter: { label: "Flutter", sheet: true, webview: true, note: "" },
   generic: { label: "Sprite sheet", sheet: true, webview: false, note: "Sprite sheet PNG + TexturePacker JSON (hash and array) + Phaser multi-atlas, for PixiJS, Phaser, Cocos and others." },
   android: { label: "Android", sheet: false, webview: true, note: "Kotlin OpenBoneView (WebView) + the web player and your animation as assets. State machines, inputs, scripts and touch keep working." },
+  web: { label: "Website", sheet: false, webview: false, note: "The <openbone-player> web component (classic script or ES module, minified or readable) + your animation + a demo page and README with embed snippets. Or one self-contained HTML file. State machines, inputs, scripts, audio and pointer interaction keep working." },
   ios: { label: "iOS", sheet: false, webview: true, note: "Swift OpenBoneView (WKWebView) with a SwiftUI wrapper + the web player and your animation. State machines, inputs, scripts and touch keep working." },
 };
 export const FLUTTER_NOTES = {

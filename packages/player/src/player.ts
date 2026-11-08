@@ -27,6 +27,16 @@ export interface PlayerOptions {
   onLoad?: (p: Player) => void;
 }
 
+let scriptHostFactory: (() => Promise<ScriptHost | null>) | null = null;
+
+/**
+ * Replace how players create the sandbox for documents with scripts (default: load `@openbone/scripting`).
+ * Bundles use it to supply an inlined QuickJS build, or `() => Promise.resolve(null)` to run without scripts.
+ */
+export function setScriptHostFactory(factory: (() => Promise<ScriptHost | null>) | null) {
+  scriptHostFactory = factory;
+}
+
 /** Plays an OpenBone document on a canvas, with pointer input routed to its state machine. */
 export class Player {
   instance!: OpenBoneInstance;
@@ -88,8 +98,13 @@ export class Player {
     let scriptHost: ScriptHost | undefined;
     if (typeof o.scripts === "object") scriptHost = o.scripts;
     else if (o.scripts !== "none" && this.doc.scripts.length) {
-      const { createQuickJsHost } = await import("@openbone/scripting");
-      scriptHost = await createQuickJsHost();
+      if (scriptHostFactory) {
+        scriptHost = (await scriptHostFactory()) ?? undefined;
+        if (!scriptHost) console.warn("OpenBone: this player build has no script sandbox; the document's scripts will not run.");
+      } else {
+        const { createQuickJsHost } = await import("@openbone/scripting");
+        scriptHost = await createQuickJsHost();
+      }
     }
     this.instance = new OpenBoneInstance(this.doc, { scriptHost });
     if (o.audio !== false && this.doc.audio?.assets.length && typeof AudioContext !== "undefined") {

@@ -56,6 +56,66 @@ export async function buildPlayerBundle(opts: { minify?: boolean } = {}): Promis
   return result.outputFiles[0].text;
 }
 
+export type WebBundleFormat = "iife" | "esm";
+
+export interface WebBundleOptions {
+  /** "iife": classic `<script src>` exposing `window.OpenBone`; "esm": an ES module with named exports. */
+  format?: WebBundleFormat;
+  minify?: boolean;
+  /** Inline the QuickJS sandbox so document scripts run (adds ~0.5 MB). */
+  scripts?: boolean;
+}
+
+function packageVersion(): string {
+  try {
+    return JSON.parse(fs.readFileSync(path.resolve(here, "../../package.json"), "utf8")).version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+/**
+ * Build the web player library (`<openbone-player>` + `OpenBone.Player`) for websites: classic script or ES module,
+ * minified or readable, with or without the script sandbox. Returns the source.
+ */
+export async function buildWebBundle(opts: WebBundleOptions = {}): Promise<string> {
+  const format = opts.format ?? "iife";
+  const scripts = opts.scripts ?? true;
+  const minify = opts.minify ?? true;
+  const result = await build({
+    entryPoints: [path.join(here, "web.ts")],
+    bundle: true,
+    write: false,
+    format,
+    ...(format === "iife" ? { globalName: "OpenBone" } : {}),
+    platform: "browser",
+    target: "es2020",
+    minify,
+    legalComments: "none",
+    define: {
+      "import.meta.url": JSON.stringify("file:///openbone-player.js"),
+      __OPENBONE_VERSION__: JSON.stringify(packageVersion()),
+    },
+    logLevel: "silent",
+    banner: {
+      js: `/*! OpenBone web player ${packageVersion()} (MIT)${scripts ? ". Includes quickjs-emscripten (MIT)" : ""}. https://github.com/UXCentury/open-bone */`,
+    },
+    plugins: [
+      {
+        name: "openbone-web",
+        setup(b) {
+          b.onResolve({ filter: /^@openbone\/core$/ }, () => ({ path: path.join(here, "core-lite.ts") }));
+          b.onResolve({ filter: /^openbone:script-sandbox$/ }, () => ({ path: path.join(here, scripts ? "sandbox-quickjs.ts" : "sandbox-none.ts") }));
+          if (!scripts) b.onResolve({ filter: /^@openbone\/scripting$/ }, () => ({ path: path.join(here, "scripting-stub.ts") }));
+          b.onResolve({ filter: /^openbone:quickjs-wasm$/ }, () => ({ path: quickJsWasmPath(), namespace: "openbone-wasm" }));
+          b.onLoad({ filter: /.*/, namespace: "openbone-wasm" }, () => ({ contents: fs.readFileSync(quickJsWasmPath()), loader: "binary" }));
+        },
+      },
+    ],
+  });
+  return result.outputFiles[0].text;
+}
+
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const out = path.resolve(here, "../../dist/openbone-player.js");

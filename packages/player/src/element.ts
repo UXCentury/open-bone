@@ -47,7 +47,7 @@ export class OpenBonePlayerElement extends HTMLElement {
       fit: (this.getAttribute("fit") as "contain") ?? "contain",
       renderer: (this.getAttribute("renderer") as "webgl") ?? "webgl",
       autoplay: this.getAttribute("autoplay") !== "false",
-      background: this.hasAttribute("background") ? this.getAttribute("background") : undefined,
+      background: this.background(),
       scripts: this.getAttribute("scripts") === "none" ? "none" : "quickjs",
       audio: this.getAttribute("audio") === "off" ? false : this.hasAttribute("muted") ? "muted" : true,
       onEvent: (e: FiredEvent) => this.dispatchEvent(new CustomEvent("openbone-event", { detail: e, bubbles: true, composed: true })),
@@ -55,6 +55,13 @@ export class OpenBonePlayerElement extends HTMLElement {
       onLoad: () => this.dispatchEvent(new CustomEvent("openbone-load", { bubbles: true, composed: true })),
     });
     this.player.ready.catch((e) => console.error(e));
+  }
+
+  /** `background` attribute: a colour, "transparent"/"none" for no background, absent for the file's own. */
+  private background(): string | null | undefined {
+    if (!this.hasAttribute("background")) return undefined;
+    const v = this.getAttribute("background")?.trim() ?? "";
+    return v === "" || v === "transparent" || v === "none" ? null : v;
   }
 
   setInput(name: string, value: boolean | number | string) {
