@@ -13,7 +13,8 @@ void main(){ vec4 t = texture(uTex, vUv); o = vec4(t.rgb * vColor.rgb, t.a) * vC
 type TexSource = TexImageSource;
 
 /**
- * Batched WebGL2 renderer: one draw call per texture/blend change.
+ * Batched WebGL2 renderer: one draw call per texture/blend change. Textures are resolved by id: image ids for
+ * loose images, atlas page ids for packed ones (packed images and shapes share their page, so they batch).
  * Vertex layout: x, y, u, v, r, g, b, a (premultiplied alpha output).
  */
 export class WebGLRenderer {
@@ -31,6 +32,8 @@ export class WebGLRenderer {
   private curTex: WebGLTexture | null = null;
   private curBlend = "";
   private curClip: ClipRegion | undefined;
+  /** Draw calls issued by the last render() (clip-mask stencil writes included). */
+  drawCalls = 0;
 
   constructor(
     public canvas: HTMLCanvasElement | OffscreenCanvas,
@@ -113,6 +116,7 @@ export class WebGLRenderer {
     this.curTex = null;
     this.curBlend = "";
     this.curClip = undefined;
+    this.drawCalls = 0;
     gl.disable(gl.STENCIL_TEST);
     for (const it of sk.drawList()) this.push(it);
     this.flush();
@@ -156,7 +160,7 @@ export class WebGLRenderer {
 
   private push(it: DrawItem) {
     if (it.clip !== this.curClip) this.setClip(it.clip);
-    const tex = it.image ? (this.texture(it.image.id) ?? this.white) : this.white;
+    const tex = it.texture ? (this.texture(it.texture.id) ?? this.white) : this.white;
     if (tex !== this.curTex || it.blend !== this.curBlend) {
       this.flush();
       this.curTex = tex;
@@ -200,6 +204,7 @@ export class WebGLRenderer {
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.idx.subarray(0, this.ni), gl.DYNAMIC_DRAW);
     gl.drawElements(gl.TRIANGLES, this.ni, gl.UNSIGNED_SHORT, 0);
+    this.drawCalls++;
     this.nv = 0;
     this.ni = 0;
   }

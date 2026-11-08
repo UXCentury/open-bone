@@ -1,6 +1,7 @@
 import { type ExportOptions, type ExportResult, exportDocument, serialize, validate } from "@openbone/core";
 import { Player } from "@openbone/player";
 import { For, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
+import { type PackOutcome, packForExport } from "../atlas.ts";
 import { imageAsDataUrl, resolveImageUrl } from "../images.ts";
 import { saveTextFile } from "../storage.ts";
 import { doc, fileName, setExportOpen, toast } from "../state.ts";
@@ -63,6 +64,13 @@ export function ExportDialog() {
   const needsEmbed = source.images.some((i) => !i.src.startsWith("data:"));
   const [embed, setEmbed] = createSignal(needsEmbed);
   const [compact, setCompact] = createSignal(false);
+  // Texture atlas: pack every exported image into a few page textures (fewer GPU draw calls, no loose files).
+  const [pack, setPack] = createSignal(false);
+  const [padding, setPadding] = createSignal(2);
+  const [maxSize, setMaxSize] = createSignal(2048);
+  const [pot, setPot] = createSignal(true);
+  const [packed, setPacked] = createSignal<PackOutcome | null>(null);
+  const [packError, setPackError] = createSignal("");
   const [name, setName] = createSignal(fileName().replace(/\.obone$/i, "") + "-export");
   const [busy, setBusy] = createSignal(false);
 
@@ -74,9 +82,25 @@ export function ExportDialog() {
     pruneUnused: prune(),
   });
   const result = createMemo<ExportResult>(() => exportDocument(source, options()));
-  const issues = createMemo(() => validate(result().doc).filter((i) => i.level === "error"));
+  const packSettings = () => ({ padding: padding(), maxSize: maxSize(), powerOfTwo: pot() });
+  let packSeq = 0;
+  createEffect(
+    on([result, pack, padding, maxSize, pot], () => {
+      const seq = ++packSeq;
+      setPacked(null);
+      setPackError("");
+      if (!pack()) return;
+      packForExport(result().doc, packSettings()).then(
+        (r) => seq === packSeq && setPacked(r),
+        (e) => seq === packSeq && setPackError((e as Error).message),
+      );
+    }),
+  );
+  /** The document that will be written: packed when the atlas option is on and ready. */
+  const outDoc = () => (pack() && packed() ? packed()!.doc : result().doc);
+  const issues = createMemo(() => validate(outDoc()).filter((i) => i.level === "error"));
   // File size before embedding images that are still external files.
-  const size = createMemo(() => (compact() ? JSON.stringify(result().doc) : serialize(result().doc)).length);
+  const size = createMemo(() => (compact() ? JSON.stringify(outDoc()) : serialize(outDoc())).length);
 
   const presets = {
     everything: () => {
@@ -126,9 +150,10 @@ export function ExportDialog() {
 
   const rebuild = () => {
     disposePlayer();
-    const d = structuredClone(result().doc);
+    const d = structuredClone(outDoc());
     // Preview loads images from where the editor has them; the exported file keeps its own srcs.
-    for (const img of d.images) img.src = resolveImageUrl(img);
+    for (const img of d.images) if (img.src) img.src = resolveImageUrl(img);
+    for (const page of d.atlas?.pages ?? []) page.src = resolveImageUrl(page);
     const t = currentTarget();
     // A fresh canvas per preview, so pointer listeners from earlier previews can't leak in.
     const canvas = document.createElement("canvas");
@@ -148,7 +173,7 @@ export function ExportDialog() {
   onMount(() => {
     rebuild();
     createEffect(
-      on([result, currentTarget, stage], () => {
+      on([outDoc, currentTarget, stage], () => {
         clearTimeout(timer);
         timer = window.setTimeout(rebuild, 150);
       }, { defer: true }),
@@ -164,8 +189,8 @@ export function ExportDialog() {
     if (issues().length) return toast("Fix the problems listed before exporting", "error");
     setBusy(true);
     try {
-      const d = structuredClone(result().doc);
-      if (embed()) for (const img of d.images) img.src = await imageAsDataUrl(img);
+      const d = pack() ? (packed() ?? (await packForExport(result().doc, packSettings()))).doc : structuredClone(result().doc);
+      if (embed() && !pack()) for (const img of d.images) img.src = await imageAsDataUrl(img);
       const text = compact() ? JSON.stringify(d) : serialize(d);
       const saved = await saveTextFile(`${name().trim() || "export"}.obone`, text);
       if (saved) {
@@ -229,13 +254,45 @@ export function ExportDialog() {
                 <input type="text" value={name()} onInput={(e) => setName(e.currentTarget.value)} />
                 <span class="muted">.obone</span>
               </label>
-              <label class="check">
-                <input type="checkbox" checked={embed()} onChange={(e) => setEmbed(e.currentTarget.checked)} /> Embed images in the file
+              <label class="check" title={pack() ? "Atlas pages are always embedded" : undefined}>
+                <input type="checkbox" checked={embed() || pack()} disabled={pack()} onChange={(e) => setEmbed(e.currentTarget.checked)} /> Embed images in the file
                 <span class="muted small">{needsEmbed ? "(recommended: one self-contained file)" : "(already embedded)"}</span>
               </label>
               <label class="check">
                 <input type="checkbox" checked={prune()} onChange={(e) => setPrune(e.currentTarget.checked)} /> Leave out unused images and events
               </label>
+              <label class="check" title="Draw every image from a few shared textures: faster WebGL playback (fewer draw calls), one image per page instead of loose files">
+                <input type="checkbox" checked={pack()} disabled={!result().doc.images.length} onChange={(e) => setPack(e.currentTarget.checked)} /> Pack images into a texture atlas
+                <span class="muted small">{result().doc.images.length ? "(fewer draw calls)" : "(no images to pack)"}</span>
+              </label>
+              <Show when={pack()}>
+                <div class="export-atlas">
+                  <label class="field">
+                    <span>Padding</span>
+                    <input type="number" min="0" max="16" value={padding()} onChange={(e) => setPadding(Math.max(0, Math.min(16, Math.round(+e.currentTarget.value) || 0)))} />
+                    <span class="muted">px</span>
+                  </label>
+                  <label class="field">
+                    <span>Max page</span>
+                    <select value={String(maxSize())} onChange={(e) => setMaxSize(+e.currentTarget.value)}>
+                      <For each={[512, 1024, 2048, 4096]}>{(n) => <option value={n} selected={n === maxSize()}>{n}×{n}</option>}</For>
+                    </select>
+                  </label>
+                  <label class="check">
+                    <input type="checkbox" checked={pot()} onChange={(e) => setPot(e.currentTarget.checked)} /> Power-of-two page sizes
+                  </label>
+                  <div class="muted small">
+                    <Show when={packError()} fallback={packed() ? `${plural(result().doc.images.length, "image")} → ${plural(packed()!.pages.length, "page")}: ${packed()!.pages.map((p) => `${p.width}×${p.height}`).join(", ")}` : "Packing…"}>
+                      <span class="error">⛔ {packError()}</span>
+                    </Show>
+                  </div>
+                  <Show when={packed()?.pages.length}>
+                    <div class="atlas-pages">
+                      <For each={packed()!.pages}>{(p) => <img src={p.src} alt={`Atlas page ${p.width}×${p.height}`} title={`${p.width}×${p.height}`} />}</For>
+                    </div>
+                  </Show>
+                </div>
+              </Show>
               <label class="check">
                 <input type="checkbox" checked={compact()} onChange={(e) => setCompact(e.currentTarget.checked)} /> Compact JSON (smaller, not human-readable)
               </label>
@@ -278,7 +335,7 @@ export function ExportDialog() {
               <span>{plural(s().events, "event")}</span>
               <span>
                 ≈ {fmtBytes(size())}
-                {embed() && needsEmbed && result().doc.images.length ? " + embedded images" : ""}
+                {!pack() && embed() && needsEmbed && result().doc.images.length ? " + embedded images" : ""}
               </span>
             </div>
             <Show when={issues().length}>
@@ -301,7 +358,7 @@ export function ExportDialog() {
           <button onClick={close} disabled={busy()}>
             Cancel
           </button>
-          <button class="primary" onClick={doExport} disabled={busy() || issues().length > 0}>
+          <button class="primary" onClick={doExport} disabled={busy() || issues().length > 0 || (pack() && !!packError())}>
             {busy() ? "Exporting…" : "Export .obone"}
           </button>
         </footer>

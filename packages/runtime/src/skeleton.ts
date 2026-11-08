@@ -1,6 +1,8 @@
 import {
   type Affine,
   type Attachment,
+  type AtlasPage,
+  type UvMap,
   type BoneData,
   type Id,
   type ImageAsset,
@@ -11,12 +13,15 @@ import {
   DEG,
   RAD,
   apply,
+  atlasUvMap,
   boneWorld,
   defaultSkin,
   identity,
   invert,
+  isTrimmed,
   parseHex,
   pointInPolygon,
+  remapUvs,
   shapeOutline,
   triangulate,
   worldRotation,
@@ -104,12 +109,27 @@ export class Slot {
   }
 }
 
+/** The texture a draw item samples: an image asset or an atlas page (both resolved by id). */
+export interface TextureRef {
+  id: Id;
+  width: number;
+  height: number;
+}
+
 export interface DrawItem {
   slot: Slot;
   attachment: Attachment;
-  /** null = solid colour fill. */
+  /** The image asset drawn; null = solid colour fill. */
   image: ImageAsset | null;
+  /**
+   * Texture to bind: the image itself, or its atlas page when packed. Solid shapes in a packed document point at
+   * the page's white block (uvs inside it), so renderers can batch them with images; otherwise null.
+   */
+  texture: TextureRef | null;
+  /** For packed images: the image's rect inside `texture` (page pixels, y-down). Nothing outside it belongs to the image. */
+  textureRect?: { x: number; y: number; width: number; height: number };
   vertices: Float32Array; // world x,y pairs
+  /** In `texture` space (0..1, v down). */
   uvs: Float32Array;
   indices: Uint16Array;
   color: RGBA;
@@ -141,6 +161,12 @@ export class Skeleton {
   private boneById = new Map<Id, Bone>();
   private slotById = new Map<Id, Slot>();
   private images = new Map<Id, ImageAsset>();
+  /** Packed images: their page, uv map and (for trimmed regions) the trimmed rect in 0..1 image space. */
+  private packed = new Map<
+    Id,
+    { page: AtlasPage; rect: NonNullable<DrawItem["textureRect"]>; map: UvMap; regionUvs: Float32Array; trim: [number, number, number, number] | null }
+  >();
+  private white: { page: AtlasPage; u: number; v: number } | null = null;
 
   constructor(public doc: OpenBoneDocument) {
     for (const bd of doc.skeleton.bones) {
@@ -160,6 +186,21 @@ export class Skeleton {
       this.slotById.set(sd.id, s);
     }
     for (const img of doc.images) this.images.set(img.id, img);
+    const pages = new Map(doc.atlas?.pages.map((p) => [p.id, p]));
+    for (const r of doc.atlas?.regions ?? []) {
+      const page = pages.get(r.page);
+      if (!page || !this.images.has(r.image)) continue;
+      const map = atlasUvMap(r, page);
+      const trim: [number, number, number, number] | null = isTrimmed(r)
+        ? [r.offsetX / r.originalWidth, r.offsetY / r.originalHeight, (r.offsetX + r.width) / r.originalWidth, (r.offsetY + r.height) / r.originalHeight]
+        : null;
+      const quad = trim ? new Float32Array([trim[0], trim[1], trim[2], trim[1], trim[2], trim[3], trim[0], trim[3]]) : REGION_UVS;
+      const rect = { x: r.x, y: r.y, width: r.width, height: r.height };
+      this.packed.set(r.image, { page, rect, map, regionUvs: remapUvs(quad, map), trim });
+    }
+    const w = doc.atlas?.white;
+    const wp = w && pages.get(w.page);
+    if (w && wp) this.white = { page: wp, u: (w.x + w.width / 2) / wp.width, v: (w.y + w.height / 2) / wp.height };
     this.setToSetupPose();
     this.updateWorldTransform();
   }
@@ -390,10 +431,27 @@ export class Skeleton {
         const ac = parseHex(att.color);
         const color = mulColor(slot.color, ac);
         if (color[3] <= 0) break draw;
-        const vertices = this.attachmentWorldVertices(slot, att);
-        const uvs = att.type === "region" ? REGION_UVS : new Float32Array(att.uvs);
+        let vertices = this.attachmentWorldVertices(slot, att);
+        const packed = this.packed.get(att.image);
+        let uvs: Float32Array;
+        if (att.type === "region") {
+          uvs = packed ? packed.regionUvs : REGION_UVS;
+          if (packed?.trim) vertices = trimQuad(vertices, packed.trim);
+        } else uvs = packed ? remapUvs(att.uvs, packed.map) : new Float32Array(att.uvs);
         const indices = att.type === "region" ? REGION_INDICES : new Uint16Array(att.triangles);
-        items.push({ slot, attachment: att, image, vertices, uvs, indices, color, blend: slot.data.blend });
+        const texture = packed ? packed.page : image;
+        items.push({
+          slot,
+          attachment: att,
+          image,
+          texture,
+          ...(packed ? { textureRect: packed.rect } : {}),
+          vertices,
+          uvs,
+          indices,
+          color,
+          blend: slot.data.blend,
+        });
       } else if (att.type === "shape") {
         const outline = this.attachmentWorldVertices(slot, att);
         const key = `${att.shape}|${att.width}|${att.height}|${att.radius}|${att.points?.join(",")}`;
@@ -407,8 +465,9 @@ export class Skeleton {
           slot,
           attachment: att,
           image: null,
+          texture: this.white?.page ?? null,
           vertices: outline,
-          uvs: new Float32Array(outline.length),
+          uvs: this.white ? fill2(outline.length, this.white.u, this.white.v) : new Float32Array(outline.length),
           indices: cached.indices,
           color,
           blend: slot.data.blend,
@@ -475,6 +534,26 @@ export class Skeleton {
 
 const REGION_UVS = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
 const REGION_INDICES = new Uint16Array([0, 1, 2, 0, 2, 3]);
+
+const fill2 = (n: number, a: number, b: number) => {
+  const out = new Float32Array(n);
+  for (let i = 0; i < n; i += 2) {
+    out[i] = a;
+    out[i + 1] = b;
+  }
+  return out;
+};
+
+/**
+ * Shrink a region quad (TL, TR, BR, BL, i.e. uv (0,0) (1,0) (1,1) (0,1)) to the trimmed part [u0, v0, u1, v1]
+ * of its image, so no transparent margin is drawn and nothing outside the packed rect is sampled.
+ */
+function trimQuad(q: Float32Array, [u0, v0, u1, v1]: [number, number, number, number]): Float32Array {
+  const ux = q[2] - q[0], uy = q[3] - q[1]; // TL -> TR
+  const vx = q[6] - q[0], vy = q[7] - q[1]; // TL -> BL
+  const at = (u: number, v: number) => [q[0] + ux * u + vx * v, q[1] + uy * u + vy * v];
+  return new Float32Array([...at(u0, v0), ...at(u1, v0), ...at(u1, v1), ...at(u0, v1)]);
+}
 
 const mulColor = (a: RGBA, b: RGBA): RGBA => [a[0] * b[0], a[1] * b[1], a[2] * b[2], a[3] * b[3]];
 

@@ -1,4 +1,4 @@
-import { type BoneData, RAD, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint } from "@openbone/core";
+import { type BoneData, RAD, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint, textureAssets } from "@openbone/core";
 import { type Guide, clearGuides, guides, newGuideId, removeGuide, setViewAid, toggleViewAid, upsertGuide, viewAids } from "../guides.ts";
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { type Bone, type ScriptHost, Skeleton, StateMachineInstance, applyAnimation, trustedFunctionHost } from "@openbone/runtime";
@@ -197,7 +197,8 @@ export function Viewport() {
     ctx.strokeRect(view.x, view.y, d.width * view.zoom, d.height * view.zoom);
     if (viewAids().grid) drawGrid(ctx, w, h);
     const resolveImage = (id: string) => {
-      const a = d.images.find((i) => i.id === id);
+      // Packed images are drawn from their atlas page (resolved by page id).
+      const a = textureAssets(d).find((i) => i.id === id);
       return a ? imageFor(a) : null;
     };
     const r = new CanvasRenderer(ctx, resolveImage);

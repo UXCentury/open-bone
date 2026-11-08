@@ -333,3 +333,11 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
 .viewport.with-rulers .viewport-hint { top: 26px; left: 28px; }
 .viewport.with-rulers .mesh-panel { top: 52px; left: 28px; }
 .viewport.with-rulers .view-bar { top: 24px; }
+.export-atlas { display: flex; flex-direction: column; gap: 5px; padding: 4px 0 4px 20px; }
+.export-atlas .field input[type="number"] { width: 56px; }
+.export-atlas .error { color: #ffd0d0; }
+.atlas-pages { display: flex; gap: 6px; flex-wrap: wrap; }
+.atlas-pages img {
+  max-width: 96px; max-height: 96px; border: 1px solid var(--line); border-radius: 4px;
+  background: repeating-conic-gradient(#2a2e36 0% 25%, #1f2229 0% 50%) 0 0 / 12px 12px;
+}

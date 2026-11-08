@@ -1,6 +1,6 @@
 import { type Image, createCanvas, loadImage } from "@napi-rs/canvas";
-import type { OpenBoneDocument } from "@openbone/core";
-import { CanvasRenderer, type Ctx2D } from "@openbone/render-canvas";
+import { type AtlasData, type AtlasLayoutOptions, type OpenBoneDocument, atlasRegion, layoutAtlas, textureAssets } from "@openbone/core";
+import { CanvasRenderer, type Ctx2D, drawAtlasPage } from "@openbone/render-canvas";
 import { OpenBoneInstance, type ScriptHost } from "@openbone/runtime";
 // @ts-expect-error gifenc ships without types (CommonJS)
 import gifenc from "gifenc";
@@ -36,9 +36,10 @@ export interface RenderRequest extends PoseRequest {
   background?: string | null;
 }
 
-async function loadImages(session: ProjectSession, doc: OpenBoneDocument) {
+async function loadImages(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument) {
   const map = new Map<string, Image>();
-  for (const img of doc.images) {
+  // Atlas pages and loose images, keyed by id (the renderers ask for page ids when images are packed).
+  for (const img of textureAssets(doc)) {
     try {
       map.set(img.id, await loadImage(await session.readImageSrc(img.src)));
     } catch {
@@ -161,4 +162,36 @@ export async function renderGif(
   }
   gif.finish();
   return Buffer.from(gif.bytes());
+}
+
+/**
+ * Lay out every image of `doc` on atlas pages and compose the page PNGs (as data: URIs). Images that already
+ * live only in an atlas are cut back out of their page. The result is ready for the `setAtlas` op.
+ */
+export async function packAtlas(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument, opts: AtlasLayoutOptions = {}): Promise<AtlasData> {
+  const loaded = await loadImages(session, doc);
+  const sources = new Map<string, unknown>();
+  for (const img of doc.images) {
+    if (img.src) {
+      const el = loaded.get(img.id);
+      if (!el) throw new Error(`Could not load image "${img.name}" (${img.src.slice(0, 60)})`);
+      sources.set(img.id, el);
+      continue;
+    }
+    const hit = atlasRegion(doc, img.id);
+    const page = hit && loaded.get(hit.page.id);
+    if (!hit || !page) throw new Error(`Image "${img.name}" has no pixels`);
+    const { region: r } = hit;
+    const c = createCanvas(r.originalWidth, r.originalHeight);
+    c.getContext("2d").drawImage(page, r.x, r.y, r.width, r.height, r.offsetX, r.offsetY, r.width, r.height);
+    sources.set(img.id, c);
+  }
+  const atlas = layoutAtlas(doc.images, opts);
+  for (const page of atlas.pages) {
+    const c = createCanvas(page.width, page.height);
+    const missing = drawAtlasPage(c.getContext("2d") as unknown as Ctx2D, atlas, page.id, (id) => sources.get(id) as CanvasImageSource);
+    if (missing.length) throw new Error(`Missing image pixels: ${missing.join(", ")}`);
+    page.src = `data:image/png;base64,${c.toBuffer("image/png").toString("base64")}`;
+  }
+  return atlas;
 }

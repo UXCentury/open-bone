@@ -23,6 +23,20 @@ export function validate(d: OpenBoneDocument): Issue[] {
   if (!sk.bones.length) err("bones", "skeleton needs at least one bone");
   const slotIds = new Set(sk.slots.map((s) => s.id));
   const imageIds = new Set(d.images.map((i) => i.id));
+  if (d.atlas) {
+    const pages = new Map(d.atlas.pages.map((p) => [p.id, p]));
+    const packed = new Set<string>();
+    d.atlas.regions.forEach((r, i) => {
+      const p = pages.get(r.page);
+      if (!imageIds.has(r.image)) err(`atlas.regions[${i}]`, `image ${r.image} missing`);
+      if (packed.has(r.image)) err(`atlas.regions[${i}]`, `image ${r.image} has two regions`);
+      packed.add(r.image);
+      if (!p) err(`atlas.regions[${i}]`, `page ${r.page} missing`);
+      else if (r.x < 0 || r.y < 0 || r.x + r.width > p.width || r.y + r.height > p.height) err(`atlas.regions[${i}]`, "rect outside its page");
+    });
+    if (d.atlas.white && !pages.has(d.atlas.white.page)) err("atlas.white", `page ${d.atlas.white.page} missing`);
+    d.images.forEach((img, i) => !img.src && !packed.has(img.id) && err(`images[${i}]`, `"${img.name}" has no src and no atlas region`));
+  } else d.images.forEach((img, i) => !img.src && err(`images[${i}]`, `"${img.name}" has no src`));
   sk.slots.forEach((s, i) => {
     if (!boneIds.has(s.bone)) err(`slots[${i}]`, `bone ${s.bone} missing`);
     if (s.attachment && !getAttachment(d, s.id, s.attachment)) warn(`slots[${i}]`, `attachment "${s.attachment}" not in default skin`);

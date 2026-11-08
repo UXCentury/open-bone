@@ -89,6 +89,15 @@ export function exportDocument(source: OpenBoneDocument, opts: ExportOptions = {
       for (const atts of Object.values(skin.attachments))
         for (const a of Object.values(atts)) if (a.type === "region" || a.type === "mesh") usedImages.add(a.image);
     d.images = d.images.filter((i) => usedImages.has(i.id));
+    if (d.atlas) {
+      // Keep only pages that still hold a used image (the white block alone is not worth a page).
+      // The atlas object is shared with the source document, so build a new one.
+      const regions = d.atlas.regions.filter((r) => usedImages.has(r.image));
+      const pages = new Set(regions.map((r) => r.page));
+      const { white, ...rest } = d.atlas;
+      d.atlas = { ...rest, regions, pages: d.atlas.pages.filter((p) => pages.has(p.id)), ...(white && pages.has(white.page) ? { white } : {}) };
+      if (!d.atlas.pages.length) delete d.atlas;
+    }
     const usedEvents = new Set<Id>();
     for (const a of d.animations) for (const k of a.events) usedEvents.add(k.event);
     for (const sm of d.stateMachines) for (const li of sm.listeners) for (const a of li.actions) if (a.type === "reportEvent") usedEvents.add(a.event);

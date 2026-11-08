@@ -286,6 +286,7 @@ function ImageInspector(p: { id: string }) {
         </div>
         <div class="hint">
           {img()!.name} · {img()!.width}×{img()!.height}
+          {doc().atlas?.regions.some((r) => r.image === p.id) ? " · packed in atlas" : ""}
         </div>
         <button class="danger" onClick={() => apply("deleteImage", { image: p.id }) !== undefined && setSelection(null)}>
           Delete image

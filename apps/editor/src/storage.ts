@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, deserialize } from "@openbone/core";
+import { type OpenBoneDocument, deserialize, textureAssets } from "@openbone/core";
 import { registerImageOverride } from "./images.ts";
 import { exportJson, fileName, loadDocument, setFileName, toast } from "./state.ts";
 
@@ -18,7 +18,7 @@ export async function openProject(webFallback: () => void) {
     const doc: OpenBoneDocument = deserialize(await readTextFile(path));
     const dir = path.replace(/[\\/][^\\/]*$/, "");
     // Relative image paths are read from disk and shown via in-memory data URLs (the file keeps its paths).
-    for (const img of doc.images) {
+    for (const img of textureAssets(doc)) {
       if (/^(data:|https?:)/.test(img.src)) continue;
       const bytes = await readFile(`${dir}/${img.src}`).catch(() => null);
       if (bytes) registerImageOverride(img.src, URL.createObjectURL(new Blob([bytes])));

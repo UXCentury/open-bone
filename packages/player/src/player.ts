@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, deserialize } from "@openbone/core";
+import { type OpenBoneDocument, deserialize, textureAssets } from "@openbone/core";
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { WebGLRenderer } from "@openbone/render-webgl";
 import { type FiredEvent, OpenBoneInstance, type ScriptHost, type StateMachineInstance } from "@openbone/runtime";
@@ -54,7 +54,7 @@ export class Player {
       if (!o.baseUrl) base = new URL(".", new URL(o.src, location.href)).href;
     } else this.doc = o.src;
     await Promise.all(
-      this.doc.images.map(
+      textureAssets(this.doc).map(
         (img) =>
           new Promise<void>((resolve) => {
             const el = new Image();
