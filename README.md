@@ -7,6 +7,7 @@
 - **Make it interactive**: state machines with layers, bool/number/trigger inputs, 1D blend states, any-state transitions, exit times, cross-fades, pointer listeners on hit boxes, reported events, and **sandboxed scripts** (QuickJS) with an `ob` API.
 - **Edit anywhere**: SolidJS web editor, Tauri desktop app, CLI, and a **Model Context Protocol server** (68 tools) with a live bridge: watch an agent rig and animate in the editor in real time.
 - **Ship it**: renderer-agnostic TypeScript runtime, WebGL2 + Canvas2D renderers, and an `<openbone-player>` web component.
+- **Export**: JSON (`.obone`) or compact binary (`.obonb`) with content selection, nonessential-data stripping, animation clean-up and atlas packing; images as PNG/JPEG (single frame or ZIP sequence), animated GIF and APNG, layered PSD; video as AVI or MOV (Motion-JPEG). Export settings can be saved and loaded.
 
 Everything in this repository is **MIT** and built only on permissively licensed open-source dependencies.
 

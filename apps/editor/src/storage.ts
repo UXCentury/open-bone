@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, deserialize, textureAssets } from "@openbone/core";
+import { type OpenBoneDocument, parseDocument, textureAssets } from "@openbone/core";
 import { registerImageOverride } from "./images.ts";
 import { exportJson, fileName, loadDocument, setFileName, toast } from "./state.ts";
 
@@ -12,10 +12,10 @@ export async function openProject(webFallback: () => void) {
   if (!isDesktop()) return webFallback();
   const { open } = await import("@tauri-apps/plugin-dialog");
   const { readTextFile, readFile } = await import("@tauri-apps/plugin-fs");
-  const path = await open({ multiple: false, filters: [{ name: "OpenBone", extensions: ["obone"] }] });
+  const path = await open({ multiple: false, filters: [{ name: "OpenBone", extensions: ["obone", "obonb", "json"] }] });
   if (typeof path !== "string") return;
   try {
-    const doc: OpenBoneDocument = deserialize(await readTextFile(path));
+    const doc: OpenBoneDocument = parseDocument(await readFile(path));
     const dir = path.replace(/[\\/][^\\/]*$/, "");
     // Relative image paths are read from disk and shown via in-memory data URLs (the file keeps its paths).
     for (const img of textureAssets(doc)) {
@@ -23,8 +23,10 @@ export async function openProject(webFallback: () => void) {
       const bytes = await readFile(`${dir}/${img.src}`).catch(() => null);
       if (bytes) registerImageOverride(img.src, URL.createObjectURL(new Blob([bytes])));
     }
-    desktopPath = path;
-    loadDocument(doc, path.split(/[\\/]/).pop()!, "");
+    // Save writes JSON, so a binary file opened here is saved as a new .obone next to it.
+    const binary = /\.obonb$/i.test(path);
+    desktopPath = binary ? null : path;
+    loadDocument(doc, path.split(/[\\/]/).pop()!.replace(/\.obonb$/i, ".obone"), "");
   } catch (e) {
     toast((e as Error).message, "error");
   }
@@ -68,24 +70,26 @@ export async function saveProject(saveAs = false) {
 }
 
 /**
- * Save a text file somewhere the user picks (native dialog on desktop, file picker or download on the web)
+ * Save a file somewhere the user picks (native dialog on desktop, file picker or download on the web)
  * without changing the open project's file. Returns the saved name, or null if cancelled.
  */
-export async function saveTextFile(suggestedName: string, text: string, ext = "obone", description = "OpenBone"): Promise<string | null> {
+export async function saveFile(suggestedName: string, data: string | Uint8Array, opts: { ext: string; description: string; mime: string }): Promise<string | null> {
+  const { ext, description, mime } = opts;
   if (isDesktop()) {
     const { save } = await import("@tauri-apps/plugin-dialog");
-    const { writeTextFile } = await import("@tauri-apps/plugin-fs");
+    const { writeTextFile, writeFile } = await import("@tauri-apps/plugin-fs");
     const path = await save({ defaultPath: suggestedName, filters: [{ name: description, extensions: [ext] }] });
     if (!path) return null;
-    await writeTextFile(path, text);
+    if (typeof data === "string") await writeTextFile(path, data);
+    else await writeFile(path, data);
     return path;
   }
   const w = window as unknown as { showSaveFilePicker?: (o: object) => Promise<FileSystemFileHandle> };
   if (w.showSaveFilePicker) {
     try {
-      const h = await w.showSaveFilePicker({ suggestedName, types: [{ description, accept: { "application/json": [`.${ext}`] } }] });
+      const h = await w.showSaveFilePicker({ suggestedName, types: [{ description, accept: { [mime]: [`.${ext}`] } }] });
       const s = await h.createWritable();
-      await s.write(text);
+      await s.write(data as FileSystemWriteChunkType);
       await s.close();
       return h.name;
     } catch (e) {
@@ -93,9 +97,13 @@ export async function saveTextFile(suggestedName: string, text: string, ext = "o
     }
   }
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  a.href = URL.createObjectURL(new Blob([data as BlobPart], { type: mime }));
   a.download = suggestedName;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   return suggestedName;
 }
+
+/** Text convenience wrapper for {@link saveFile} (defaults to an .obone document). */
+export const saveTextFile = (suggestedName: string, text: string, ext = "obone", description = "OpenBone") =>
+  saveFile(suggestedName, text, { ext, description, mime: "application/json" });

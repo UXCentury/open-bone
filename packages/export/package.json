@@ -1,0 +1,16 @@
+{
+  "name": "@openbone/export",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "Image and video encoders for OpenBone exports: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), plus ZIP",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "gifenc": "^1.0.3"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^0.1.80"
+  }
+}

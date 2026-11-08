@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, deserialize, textureAssets } from "@openbone/core";
+import { type OpenBoneDocument, parseDocument, textureAssets } from "@openbone/core";
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { WebGLRenderer } from "@openbone/render-webgl";
 import { type FiredEvent, OpenBoneInstance, type ScriptHost, type StateMachineInstance } from "@openbone/runtime";
@@ -52,8 +52,16 @@ export class Player {
     if (typeof o.src === "string") {
       const res = await fetch(o.src);
       if (!res.ok) throw new Error(`OpenBone: failed to load ${o.src} (${res.status})`);
-      this.doc = deserialize(await res.text());
-      if (!o.baseUrl) base = new URL(".", new URL(o.src, location.href)).href;
+      // .obone (JSON) or .obonb (binary), detected from the bytes.
+      this.doc = parseDocument(new Uint8Array(await res.arrayBuffer()));
+      if (!o.baseUrl) {
+        // blob:/data: URLs have no folder to resolve relative image paths against.
+        try {
+          base = new URL(".", new URL(o.src, location.href)).href;
+        } catch {
+          base = "";
+        }
+      }
     } else this.doc = o.src;
     await Promise.all(
       textureAssets(this.doc).map(

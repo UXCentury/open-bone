@@ -1,4 +1,4 @@
-import { createDocument, deserialize } from "@openbone/core";
+import { createDocument, parseDocument } from "@openbone/core";
 import { For, Show } from "solid-js";
 import { bridgeStatus, connectBridge, disconnectBridge, bridgeUndo, bridgeRedo } from "../bridge.ts";
 import { imageSize, readFileAsDataUrl } from "../images.ts";
@@ -71,7 +71,7 @@ export function Toolbar() {
     const f = files?.[0];
     if (!f) return;
     try {
-      loadDocument(deserialize(await f.text()), f.name);
+      loadDocument(parseDocument(new Uint8Array(await f.arrayBuffer())), f.name.replace(/\.obonb$/i, ".obone"));
     } catch (e) {
       toast((e as Error).message, "error");
     }
@@ -111,7 +111,7 @@ export function Toolbar() {
           <option value="walker">Walker (IK, mesh, blend, script)</option>
           <option value="button">Interactive button</option>
         </select>
-        <input ref={fileInput} type="file" accept=".obone,application/json" hidden onChange={(e) => open(e.currentTarget.files)} />
+        <input ref={fileInput} type="file" accept=".obone,.obonb,.json,application/json,application/octet-stream" hidden onChange={(e) => open(e.currentTarget.files)} />
       </div>
       <div class="group">
         <button title="Undo (Ctrl+Z)" onClick={undo}>↶</button>

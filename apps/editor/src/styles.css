@@ -237,7 +237,7 @@ button.link { background: none; border: none; color: var(--accent-2); padding: 0
 button.link:disabled { color: var(--muted); }
 .small { font-size: 11px; }
 .export-dialog { width: min(1040px, 100%); height: min(720px, 100%); }
-.export-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(260px, 340px) 1fr; }
+.export-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 112px minmax(260px, 340px) 1fr; }
 .export-options { overflow-y: auto; overflow-x: hidden; min-width: 0; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; border-right: 1px solid var(--line); }
 .export-group { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px 8px; margin: 0; display: flex; flex-direction: column; gap: 5px; }
 .export-group legend { display: flex; align-items: center; gap: 6px; width: 100%; padding: 0 4px; font-weight: 600; }
@@ -254,8 +254,10 @@ button.link:disabled { color: var(--muted); }
 .export-issues.error { color: #ffd0d0; border: 1px solid var(--danger); }
 .export-issues summary { cursor: pointer; }
 @media (max-width: 760px) {
-  .export-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(240px, 1fr); overflow: auto; }
+  .export-body { grid-template-columns: 1fr; grid-template-rows: auto auto minmax(240px, 1fr); overflow: auto; }
   .export-options { border-right: none; border-bottom: 1px solid var(--line); }
+  .export-formats { flex-direction: row; flex-wrap: wrap; border-right: none; border-bottom: 1px solid var(--line); }
+  .format-group { flex-direction: row; flex-wrap: wrap; align-items: center; }
 }
 .export-group .check { align-items: flex-start; flex-wrap: wrap; }
 .export-group .check input { margin-top: 2px; }
@@ -347,3 +349,32 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
   max-width: 96px; max-height: 96px; border: 1px solid var(--line); border-radius: 4px;
   background: repeating-conic-gradient(#2a2e36 0% 25%, #1f2229 0% 50%) 0 0 / 12px 12px;
 }
+/* export: format sidebar */
+.export-formats { display: flex; flex-direction: column; gap: 12px; padding: 12px 8px; border-right: 1px solid var(--line); background: #1a1d24; overflow-y: auto; }
+.format-group { display: flex; flex-direction: column; gap: 2px; }
+.format-title { color: var(--accent-2); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; padding: 0 6px 4px; }
+.format-item { display: flex; align-items: center; gap: 8px; text-align: left; background: transparent; border-color: transparent; padding: 5px 8px; border-radius: 6px; color: var(--text); }
+.format-item::before { content: ""; width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid #5a6273; flex-shrink: 0; }
+.format-item.active { background: #5b8cff22; border-color: #5b8cff66; }
+.format-item.active::before { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 0 3px, transparent 3.5px); }
+.export-heading { margin: 0; font-size: 13px; color: var(--accent-2); font-weight: 600; }
+.seg-choice { display: flex; }
+.seg-choice button { flex: 1; border-radius: 0; padding: 4px 8px; }
+.seg-choice button:first-child { border-radius: 5px 0 0 5px; }
+.seg-choice button:last-child { border-radius: 0 5px 5px 0; }
+.seg-choice button.active { background: #5b8cff2e; border-color: var(--accent); color: var(--text); }
+.export-group .field input[type="number"] { width: 72px; }
+.export-group .field input[type="range"] { flex: 1; min-width: 0; }
+.export-dialog .modal-foot { flex-wrap: wrap; }
+/* export: name field with the extension inside, quick pick row */
+.input-suffix {
+  flex: 1; min-width: 0; display: flex; align-items: stretch; background: #14161b; border: 1px solid var(--line); border-radius: 4px; overflow: hidden;
+}
+.input-suffix:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px #5b8cff33; }
+.export-group .input-suffix input[type="text"], .input-suffix input[type="text"] { flex: 1; min-width: 0; width: auto; border: none; border-radius: 0; background: transparent; padding: 4px 6px; outline: none; }
+.input-suffix .suffix { flex-shrink: 0; display: flex; align-items: center; padding: 0 8px; color: var(--muted); background: #1c1f26; border-left: 1px solid var(--line); font-family: ui-monospace, monospace; font-size: 11px; }
+.quick-pick { display: flex; flex-direction: column; gap: 4px; }
+.quick-pick .seg-choice button { white-space: nowrap; padding: 4px 6px; }
+.export-options .field > span:first-child { width: 72px; }
+/* Fieldsets default to min-width: min-content and would push past the column. */
+.export-group { min-width: 0; }

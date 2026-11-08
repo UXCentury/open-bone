@@ -10,9 +10,15 @@ export interface ExportOptions {
   skins?: Id[];
   /** Drop images and events that nothing in the export uses. Default true. */
   pruneUnused?: boolean;
+  /** Keep editor-only data (bone colours, state machine node positions). Default true. */
+  nonessential?: boolean;
+  /** Remove keys that change nothing and timelines that only repeat the setup pose. Default false. */
+  cleanUpAnimations?: boolean;
 }
 
 export interface ExportStats {
+  /** Keys removed by animation clean-up (whole removed timelines count all their keys). */
+  removedKeys: number;
   bones: number;
   slots: number;
   skins: number;
@@ -104,10 +110,17 @@ export function exportDocument(source: OpenBoneDocument, opts: ExportOptions = {
     d.events = d.events.filter((e) => usedEvents.has(e.id));
   }
 
+  const removedKeys = opts.cleanUpAnimations ? cleanUpAnimations(d) : 0;
+  if (opts.nonessential === false) {
+    for (const b of d.skeleton.bones) delete b.color;
+    for (const sm of d.stateMachines) for (const l of sm.layers) for (const st of l.states) st.x = st.y = 0;
+  }
+
   return {
     doc: d,
     warnings,
     stats: {
+      removedKeys,
       bones: d.skeleton.bones.length,
       slots: d.skeleton.slots.length,
       skins: d.skeleton.skins.length,
@@ -118,4 +131,58 @@ export function exportDocument(source: OpenBoneDocument, opts: ExportOptions = {
       scripts: d.scripts.length,
     },
   };
+}
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
+/**
+ * Drop keys whose neighbours hold the same value (the segment is constant either way, whatever the curves),
+ * then timelines whose every key equals the setup pose. Mutates `d`; returns how many keys were removed.
+ */
+export function cleanUpAnimations(d: OpenBoneDocument): number {
+  let removed = 0;
+  const bones = new Map(d.skeleton.bones.map((b) => [b.id, b]));
+  const slots = new Map(d.skeleton.slots.map((s) => [s.id, s]));
+  const ik = new Map(d.skeleton.ik.map((c) => [c.id, c]));
+  const setupValue = (tl: OpenBoneDocument["animations"][number]["timelines"][number]): { known: boolean; value?: unknown } => {
+    switch (tl.target) {
+      case "bone": {
+        const b = bones.get(tl.id);
+        return b ? { known: true, value: b[tl.property] } : { known: false };
+      }
+      case "slot": {
+        const s = slots.get(tl.id);
+        if (!s) return { known: false };
+        return { known: true, value: tl.property === "color" ? s.color : s.attachment };
+      }
+      case "ik": {
+        const c = ik.get(tl.id);
+        return c ? { known: true, value: c.mix } : { known: false };
+      }
+      case "drawOrder":
+        return { known: true, value: d.skeleton.slots.map((s) => s.id) };
+      default:
+        return { known: false };
+    }
+  };
+  for (const anim of d.animations) {
+    anim.timelines = anim.timelines.filter((tl) => {
+      const keys = tl.keys as { time: number; value: unknown }[];
+      const kept = keys.filter((k, i) => !(i > 0 && i < keys.length - 1 && same(keys[i - 1].value, k.value) && same(keys[i + 1].value, k.value)));
+      removed += keys.length - kept.length;
+      (tl as { keys: unknown[] }).keys = kept;
+      const allSame = kept.every((k) => same(k.value, kept[0].value));
+      let atSetup = false;
+      if (allSame && kept.length) {
+        if (tl.target === "deform") atSetup = (kept[0].value as number[]).every((v) => v === 0);
+        else {
+          const s = setupValue(tl);
+          atSetup = s.known && same(s.value, kept[0].value);
+        }
+      }
+      if (atSetup) removed += kept.length;
+      return !atSetup;
+    });
+  }
+  return removed;
 }

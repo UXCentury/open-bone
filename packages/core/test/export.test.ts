@@ -71,3 +71,36 @@ describe("exportDocument", () => {
     expect(r.doc.events).toHaveLength(2);
   });
 });
+
+describe("export options", () => {
+  it("animation clean up drops redundant keys and setup-pose timelines", async () => {
+    const { DocumentStore, createDocument, exportDocument } = await import("../src/index.ts");
+    const s = new DocumentStore(createDocument("c"));
+    s.apply("addBone", { name: "arm", rotation: 10 });
+    s.apply("createAnimation", { name: "a" });
+    const k = (property: string, keys: [number, number][]) =>
+      s.apply("setKeys", { animation: "a", target: "bone", id: "arm", property, keys: keys.map(([time, value]) => ({ time, value })) });
+    k("rotation", [[0, 0], [0.5, 30], [1, 30], [1.5, 30], [2, 0]]); // the key at 1 is redundant
+    k("x", [[0, 0], [1, 0]]); // equals setup x = 0 → whole timeline removed
+    k("scaleX", [[0, 2], [1, 2]]); // constant but not setup → kept
+    const r = exportDocument(s.doc, { cleanUpAnimations: true });
+    const tls = r.doc.animations[0].timelines;
+    expect(tls.map((t) => t.property).sort()).toEqual(["rotation", "scaleX"]);
+    expect(tls.find((t) => t.property === "rotation")!.keys.map((x) => x.time)).toEqual([0, 0.5, 1.5, 2]);
+    expect(r.stats.removedKeys).toBe(3);
+    // Off by default.
+    expect(exportDocument(s.doc).doc.animations[0].timelines).toHaveLength(3);
+  });
+
+  it("nonessential data can be left out", async () => {
+    const { DocumentStore, createDocument, exportDocument } = await import("../src/index.ts");
+    const s = new DocumentStore(createDocument("n"));
+    s.apply("addBone", { name: "arm", color: "#ff0000" });
+    s.apply("createStateMachine", { name: "ui" });
+    s.apply("addState", { stateMachine: "ui", name: "idle", x: 300, y: 120 });
+    const lean = exportDocument(s.doc, { nonessential: false }).doc;
+    expect(lean.skeleton.bones[1].color).toBeUndefined();
+    expect(lean.stateMachines[0].layers[0].states[0]).toMatchObject({ x: 0, y: 0 });
+    expect(exportDocument(s.doc).doc.skeleton.bones[1].color).toBe("#ff0000");
+  });
+});
