@@ -1,0 +1,32 @@
+{
+  "name": "@openbone/three",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "OpenBone runtime for Three.js: an Object3D with one material per atlas page",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --format=esm --platform=browser --packages=external --sourcemap --outfile=dist/index.js"
+  },
+  "dependencies": {
+    "@openbone/core": "workspace:*",
+    "@openbone/engine-kit": "workspace:*",
+    "@openbone/runtime": "workspace:*"
+  },
+  "peerDependencies": {
+    "three": ">=0.160.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "three": "^0.187.0",
+    "@types/three": "^0.187.0",
+    "@openbone/render-webgl": "workspace:*"
+  }
+}

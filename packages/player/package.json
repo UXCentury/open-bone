@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Drop-in <openbone-player> web component and JS API for OpenBone animations",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./audio": "./src/audio.ts"
   },
   "dependencies": {
     "@openbone/core": "workspace:*",

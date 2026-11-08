@@ -1,0 +1,28 @@
+{
+  "name": "@openbone/engine-kit",
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "Shared loading, playback and draw batching for the OpenBone game-engine runtimes",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "esbuild src/index.ts --bundle --format=esm --platform=browser --packages=external --sourcemap --outfile=dist/index.js"
+  },
+  "dependencies": {
+    "@openbone/core": "workspace:*",
+    "@openbone/player": "workspace:*",
+    "@openbone/runtime": "workspace:*",
+    "@openbone/scripting": "workspace:*"
+  },
+  "devDependencies": {
+    "@openbone/render-webgl": "workspace:*",
+    "esbuild": "^0.28.2"
+  }
+}
