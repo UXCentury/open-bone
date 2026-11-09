@@ -49,7 +49,7 @@ Skeleton units map to local units, y up, origin at the skeleton origin; `hero.ar
 
 ## How it draws
 
-Batches are `@openbone/render-webgl`'s (one per atlas page or texture and blend mode). Each is a `Mesh` with dynamic buffers (no per-frame allocations) and a `ShaderMaterial` shared by every batch with the same texture and blend mode, using the reference renderer's shader and blend functions (premultiplied alpha). Draw order is `renderOrder` inside the group. Clipping masks write a stencil reference that the clipped meshes test. Text attachments become canvas textures; particles use the built-in soft sprite.
+Batches are `@openbone/render-webgl`'s (one per atlas page or texture and blend mode). Each is a `Mesh` with dynamic buffers (no per-frame allocations) and a `ShaderMaterial` shared by every batch with the same texture and blend mode, using the reference renderer's shader and blend functions (premultiplied alpha). Batches with a two-colour tint (a slot `dark` colour) use the material's `DARK` variant and an `obDark` attribute; the others never declare or upload it. Draw order is `renderOrder` inside the group. Clipping masks write a stencil reference that the clipped meshes test. Text attachments become canvas textures; particles use the built-in soft sprite.
 
 ## Demo
 

@@ -11,6 +11,8 @@ import {
   loadDocument,
   loadTextures,
   particleDotPixels,
+  tintMatrix,
+  tintRuns,
 } from "@openbone/engine-kit";
 import { type ClipRegion, type OpenBoneInstance, PARTICLE_DOT_SIZE, PARTICLE_DOT_TEXTURE, type Skeleton, type TextContext, type TextDraw, drawTextBox } from "@openbone/runtime";
 import type { BlendMode, Canvas, CanvasKit, Font, Image, Paint, Shader, Surface, Typeface } from "canvaskit-wasm";
@@ -83,6 +85,8 @@ export class CanvasKitRenderer {
   ) {
     this.paint = new ck.Paint();
     this.paint.setAntiAlias(true);
+    // Untextured geometry without vertex colours (two-colour tint runs) draws in the paint colour.
+    this.paint.setColor(ck.WHITE);
     this.blend = { normal: ck.BlendMode.SrcOver, additive: ck.BlendMode.Plus, multiply: ck.BlendMode.Multiply, screen: ck.BlendMode.Screen };
   }
 
@@ -165,22 +169,48 @@ export class CanvasKitRenderer {
     canvas.restore();
   }
 
+  /**
+   * One batch. With a two-colour tint, runs of items that share a light and dark colour each draw as their own
+   * call through a colour-matrix filter (Skia has no second vertex colour); plain items in it keep their vertex
+   * colours. Batches without a dark colour are a single drawVertices, as before.
+   */
   private drawBatch(canvas: Canvas, b: Batch, img: Image | null) {
+    if (!b.dark) return this.drawGeometry(canvas, b.vertices, b.uvs, b.colors, b.indices, img, null);
+    for (const r of tintRuns(b)) this.drawGeometry(canvas, r.vertices, r.uvs, r.colors, r.indices, img, r.tint);
+  }
+
+  private drawGeometry(
+    canvas: Canvas,
+    vertices: Float32Array,
+    uvs: Float32Array,
+    colors: Float32Array,
+    indices: Uint16Array,
+    img: Image | null,
+    tint: { light: readonly number[]; dark: readonly number[] } | null,
+  ) {
     const ck = this.ck;
     let texs: Float32Array | null = null;
     if (img) {
       const w = img.width();
       const h = img.height();
-      texs = new Float32Array(b.uvs.length);
+      texs = new Float32Array(uvs.length);
       for (let i = 0; i < texs.length; i += 2) {
-        texs[i] = b.uvs[i] * w;
-        texs[i + 1] = b.uvs[i + 1] * h;
+        texs[i] = uvs[i] * w;
+        texs[i + 1] = uvs[i + 1] * h;
       }
     }
-    const verts = ck.MakeVertices(ck.VertexMode.Triangles, b.vertices, texs, b.colors, Array.from(b.indices), true);
+    // A tinted run has no vertex colours: the filter maps the image's (straight) colour, rgb = dark + (light -
+    // dark) × rgb, alpha × light alpha, which is render-webgl's two-colour shader.
+    const verts = ck.MakeVertices(ck.VertexMode.Triangles, vertices, texs, tint ? null : colors, Array.from(indices), true);
+    const filter = tint ? ck.ColorFilter.MakeMatrix(tintMatrix(tint.light, tint.dark)) : null;
     this.paint.setShader(img ? this.shader(img) : null);
+    this.paint.setColorFilter(filter);
     // Modulate: image × vertex colour (straight colours, Skia premultiplies them), like render-webgl's shader.
     canvas.drawVertices(verts, ck.BlendMode.Modulate, this.paint);
+    if (filter) {
+      this.paint.setColorFilter(null);
+      filter.delete();
+    }
     verts.delete();
     this.drawCalls++;
   }

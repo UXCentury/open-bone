@@ -3,7 +3,8 @@ import path from "node:path";
 import { OpenBoneInstance } from "@openbone/runtime";
 import CanvasKitInit from "canvaskit-wasm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { GEOMETRY_CASES, type RefDraw, example, examplesDir, flatten, installFakeOffscreenCanvas, packed, posed, webglReference } from "../../engine-kit/test/reference.ts";
+import { buildBatches, tintRuns } from "@openbone/engine-kit";
+import { DARK_TINT_EXPECTED, GEOMETRY_CASES, type RefDraw, blackWhitePixels, caseDoc, darkTintDoc, example, examplesDir, flatten, installFakeOffscreenCanvas, posed, webglReference } from "../../engine-kit/test/reference.ts";
 import { CanvasKitRenderer, loadOpenBone } from "../src/index.ts";
 
 let restore = () => {};
@@ -19,7 +20,9 @@ function fakeCanvasKit() {
     Paint: class {
       blend: unknown;
       shader: unknown;
+      filter: { m: number[] } | null = null;
       setAntiAlias() {}
+      setColorFilter(f: { m: number[] } | null) { this.filter = f; }
       setBlendMode(b: unknown) { this.blend = b; }
       setShader(s: unknown) { this.shader = s; }
       setColor() {}
@@ -53,9 +56,11 @@ function fakeCanvasKit() {
     PaintStyle: enumOf("Fill", "Stroke"),
     StrokeJoin: enumOf("Round"),
     parseColorString: (s: string) => s,
+    WHITE: [1, 1, 1, 1],
+    ColorFilter: { MakeMatrix: (m: number[]) => ({ m, delete() {} }) },
     MakeVertices: (_m: unknown, pos: Float32Array, texs: Float32Array | null, colors: Float32Array, idx: number[]) => ({ pos, texs, colors, idx, delete() {} }),
   };
-  let current: { pos: Float32Array; texs: Float32Array | null; colors: Float32Array; idx: number[] } | null = null;
+  let current: { pos: Float32Array; texs: Float32Array | null; colors: Float32Array | null; idx: number[] } | null = null;
   let tex = { w: 1, h: 1 };
   const canvas = {
     save() {},
@@ -71,15 +76,18 @@ function fakeCanvasKit() {
       const p = lastPoly;
       draws.push({ stencil: true, verts: [p], blend: null, shader: null });
     },
-    drawVertices(v: typeof current, _mode: unknown, paint: { blend: unknown; shader: { w: number; h: number } | null }) {
+    drawVertices(v: typeof current, _mode: unknown, paint: { blend: unknown; shader: { w: number; h: number } | null; filter: { m: number[] } | null }) {
       current = v!;
       tex = paint.shader ?? { w: 1, h: 1 };
+      // Two-colour runs: no vertex colours, the tint matrix holds light (scale + offset) and dark (offset).
+      const m = paint.filter?.m;
+      const tint = m ? [m[0] + m[4], m[6] + m[9], m[12] + m[14], m[18], m[4], m[9], m[14]] : null;
       const verts = current.idx.map((i) => [
         current!.pos[i * 2],
         current!.pos[i * 2 + 1],
         current!.texs ? current!.texs[i * 2] / tex.w : NaN,
         current!.texs ? current!.texs[i * 2 + 1] / tex.h : NaN,
-        ...current!.colors.slice(i * 4, i * 4 + 4),
+        ...(tint ?? [...current!.colors!.slice(i * 4, i * 4 + 4), 0, 0, 0]),
       ]);
       draws.push({ stencil: false, verts, blend: paint.blend, shader: paint.shader });
     },
@@ -91,14 +99,16 @@ const fakeImage = (w: number, h: number) => ({ width: () => w, height: () => h, 
 describe("CanvasKit geometry matches render-webgl", () => {
   for (const c of GEOMETRY_CASES)
     it(c.name, () => {
-      const doc = c.atlas ? packed(example(c.file)) : example(c.file);
+      const doc = caseDoc(c);
       const inst = posed(doc, 0.6, 12, c.setup);
       const sizes = new Map([...(doc.atlas?.pages ?? []), ...doc.images].map((t) => [t.id, fakeImage(t.width, t.height)]));
       const { ck, canvas, draws } = fakeCanvasKit();
       const r = new CanvasKitRenderer(ck as never, (id) => sizes.get(id) as never);
       r.render(canvas as never, inst.skeleton);
       const ref = webglReference(inst.skeleton);
-      expect(draws.map((d) => d.stencil)).toEqual(ref.map((d) => d.stencil));
+      // Same clip / draw sequence (dark batches are split into runs, so only their clip count is compared).
+      if (c.doc) expect(draws.filter((d) => d.stencil).length).toBe(ref.filter((d) => d.stencil).length);
+      else expect(draws.map((d) => d.stencil)).toEqual(ref.map((d) => d.stencil));
       // Clip paths are polygons (not triangulated): compare the solid draws, with white (untextured) uvs ignored.
       const solid = (d: RefDraw[]) => d.filter((x) => !x.stencil);
       const got = flatten(solid(draws));
@@ -111,7 +121,10 @@ describe("CanvasKit geometry matches render-webgl", () => {
         if (!Number.isNaN(g[3])) expect(Math.abs(g[3] - w[3]) + Math.abs(g[4] - w[4])).toBeLessThan(2e-3);
         expect(g.slice(5)).toEqual(w.slice(5));
       }
-      expect(r.drawCalls).toBe(solid(ref).length);
+      // Dark batches draw one call per run of equal tint.
+      const runs = buildBatches(inst.drawList()).reduce((n, b) => n + (b.dark ? tintRuns(b).length : 1), 0);
+      expect(r.drawCalls).toBe(runs);
+      if (!c.doc) expect(r.drawCalls).toBe(solid(ref).length);
     });
 
   it("maps blend modes to Skia's", () => {
@@ -170,6 +183,33 @@ describe("CanvasKit (real Skia, Node)", () => {
     expect(colours.size).toBeGreaterThan(500);
     expect(r.drawCalls).toBe(20);
     r.dispose();
+    surface.delete();
+  }, 20000);
+
+  it("draws the two-colour tint: black → dark colour, white → light colour", async () => {
+    const ck = await CanvasKitInit();
+    const doc = darkTintDoc();
+    const img = ck.MakeImage(
+      { width: 20, height: 10, alphaType: ck.AlphaType.Unpremul, colorType: ck.ColorType.RGBA_8888, colorSpace: ck.ColorSpace.SRGB },
+      blackWhitePixels(),
+      20 * 4,
+    )!;
+    const surface = ck.MakeSurface(doc.width, doc.height)!;
+    const canvas = surface.getCanvas();
+    canvas.clear(ck.TRANSPARENT);
+    const r = new CanvasKitRenderer(ck, () => img);
+    r.render(canvas, posed(doc, 0, 0));
+    const px = canvas.readPixels(0, 0, { width: doc.width, height: doc.height, colorType: ck.ColorType.RGBA_8888, alphaType: ck.AlphaType.Unpremul, colorSpace: ck.ColorSpace.SRGB })!;
+    for (const { x, y, rgb } of DARK_TINT_EXPECTED) {
+      const o = (y * doc.width + x) * 4;
+      const got = Array.from(px.slice(o, o + 4));
+      for (let k = 0; k < 3; k++) expect(Math.abs(got[k] - rgb[k]), `pixel ${x},${y}: ${got}`).toBeLessThanOrEqual(2);
+      expect(got[3]).toBe(255);
+    }
+    // tinted, plain, blue: three runs.
+    expect(r.drawCalls).toBe(3);
+    r.dispose();
+    img.delete();
     surface.delete();
   }, 20000);
 });

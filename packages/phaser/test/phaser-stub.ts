@@ -47,8 +47,41 @@ const Components = {
 export const Loader = { File, FILE_PROCESSING: 3 };
 export const GameObjects = { GameObject, Components, GetCalcMatrix: () => ({ calc: { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 } }) };
 export const BlendModes = { NORMAL: 0, ADD: 1, MULTIPLY: 2, SCREEN: 3 };
+/**
+ * MultiPipeline's vertex storage: Float32 / Uint32 views on one buffer, with as many components per vertex as the
+ * attributes take (4-byte types: one per element; bytes: one per attribute), like WebGLShader.createAttributes.
+ */
+class MultiPipeline {
+  vertexCount = 0;
+  currentBatch = { start: 0, count: 0 };
+  currentShader: { vertexComponentCount: number };
+  vertexViewF32: Float32Array;
+  vertexViewU32: Uint32Array;
+  constructor(public config: { attributes: { size?: number; type?: { size: number } }[] }) {
+    const n = config.attributes.reduce((k, a) => k + ((a.type?.size ?? 4) === 4 ? (a.size ?? 1) : 1), 0);
+    this.currentShader = { vertexComponentCount: n };
+    const buf = new ArrayBuffer(n * 4 * 65536);
+    this.vertexViewF32 = new Float32Array(buf);
+    this.vertexViewU32 = new Uint32Array(buf);
+  }
+  flush() {
+    this.vertexCount = 0;
+  }
+  setTexture2D() {
+    return 0;
+  }
+  shouldFlush() {
+    return false;
+  }
+}
+
 export const Renderer = {
-  WebGL: { Utils: { getTintAppendFloatAlpha: (rgb: number, a: number) => ((((a * 255) | 0) & 0xff) << 24 | rgb) >>> 0 } },
+  WebGL: {
+    Utils: { getTintAppendFloatAlpha: (rgb: number, a: number) => ((((a * 255) | 0) & 0xff) << 24 | rgb) >>> 0 },
+    Pipelines: { MultiPipeline },
+    UNSIGNED_BYTE: { enum: 0x1401, size: 1 },
+    FLOAT: { enum: 0x1406, size: 4 },
+  },
   Canvas: { SetTransform: () => true },
 };
 export const Plugins = { ScenePlugin: class {} };

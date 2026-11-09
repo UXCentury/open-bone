@@ -92,25 +92,74 @@ void main() {
   finalColor = texture(uTexture, vUV) * vColor;
 }`;
 
+// Two-colour tint (batches with a dark colour): rgb = dark + (light - dark) × texture rgb, on premultiplied texels.
+// The container's tint colours the dark colour too; its alpha fades both.
+const DARK_VERTEX = `
+in vec2 aPosition;
+in vec2 aUV;
+in vec4 aColor;
+in vec3 aDark;
+out vec2 vUV;
+out vec4 vColor;
+out vec3 vDark;
+uniform mat3 uProjectionMatrix;
+uniform mat3 uWorldTransformMatrix;
+uniform vec4 uWorldColorAlpha;
+uniform vec2 uResolution;
+uniform mat3 uTransformMatrix;
+uniform vec4 uColor;
+uniform float uRound;
+void main() {
+  mat3 mvp = uProjectionMatrix * uWorldTransformMatrix * uTransformMatrix;
+  gl_Position = vec4((mvp * vec3(aPosition, 1.0)).xy, 0.0, 1.0);
+  vUV = aUV;
+  vec4 tint = uColor * uWorldColorAlpha;
+  vColor = vec4(aColor.rgb * aColor.a, aColor.a) * tint;
+  vDark = aDark * (tint.a > 0.0 ? tint.rgb / tint.a : vec3(1.0));
+}`;
+
+const DARK_FRAGMENT = `
+in vec2 vUV;
+in vec4 vColor;
+in vec3 vDark;
+uniform sampler2D uTexture;
+out vec4 finalColor;
+void main() {
+  vec4 t = texture(uTexture, vUV);
+  finalColor = vec4(vDark * (t.a - t.rgb) * vColor.a + t.rgb * vColor.rgb, t.a * vColor.a);
+}`;
+
 /** render-webgl blend modes as Pixi's (premultiplied) blend modes: identical GL blend functions. */
 export const PIXI_BLEND = { normal: "normal", additive: "add", multiply: "multiply", screen: "screen" } as const;
 
 let program: GlProgram | null = null;
 const glProgram = () => (program ??= GlProgram.from({ vertex: VERTEX, fragment: FRAGMENT, name: "openbone-mesh" }));
+let darkProgram: GlProgram | null = null;
+const glDarkProgram = () => (darkProgram ??= GlProgram.from({ vertex: DARK_VERTEX, fragment: DARK_FRAGMENT, name: "openbone-mesh-dark" }));
 
-/** One batch drawn as a Pixi Mesh with OpenBone's vertex-coloured shader. */
-class BatchMesh extends Mesh<Geometry, Shader> {
+/**
+ * One batch drawn as a Pixi Mesh with OpenBone's vertex-coloured shader. Batches with a dark colour switch to the
+ * two-colour shader and fill the `aDark` attribute; the others never upload it.
+ */
+export class BatchMesh extends Mesh<Geometry, Shader> {
+  private plainShader: Shader;
+  private darkShader: Shader | null = null;
+  /** True while this mesh draws a two-colour (dark) tint batch. */
+  twoColor = false;
+
   constructor() {
     const geometry = new Geometry({
       attributes: {
         aPosition: { buffer: new Float32Array(8), format: "float32x2" },
         aUV: { buffer: new Float32Array(8), format: "float32x2" },
         aColor: { buffer: new Float32Array(16), format: "float32x4" },
+        aDark: { buffer: new Float32Array(12), format: "float32x3" },
       },
       indexBuffer: new Uint16Array(6),
     });
     const shader = new Shader({ glProgram: glProgram(), resources: { uTexture: Texture.WHITE.source } });
     super({ geometry, shader, texture: Texture.WHITE });
+    this.plainShader = shader;
   }
 
   set(b: Batch, texture: Texture) {
@@ -119,9 +168,16 @@ class BatchMesh extends Mesh<Geometry, Shader> {
     g.attributes.aUV.buffer.data = b.uvs;
     g.attributes.aColor.buffer.data = b.colors;
     g.indexBuffer.data = b.indices;
-    if (this.texture !== texture) {
+    this.twoColor = !!b.dark;
+    if (b.dark) {
+      g.attributes.aDark.buffer.data = b.dark;
+      this.darkShader ??= new Shader({ glProgram: glDarkProgram(), resources: { uTexture: texture.source } });
+    }
+    const shader = b.dark ? this.darkShader! : this.plainShader;
+    if (this.shader !== shader) this.shader = shader;
+    if (this.texture !== texture || shader.resources.uTexture !== texture.source) {
       this.texture = texture;
-      this.shader!.resources.uTexture = texture.source;
+      shader.resources.uTexture = texture.source;
     }
     this.blendMode = PIXI_BLEND[b.blend] ?? "normal";
   }

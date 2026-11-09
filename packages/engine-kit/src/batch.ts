@@ -19,8 +19,14 @@ export interface Batch {
   vertices: Float32Array;
   /** Texture coordinates (0..1, v down). */
   uvs: Float32Array;
-  /** Straight (not premultiplied) RGBA per vertex. */
+  /** Straight (not premultiplied) RGBA per vertex: the light colour of the two-colour tint. */
   colors: Float32Array;
+  /**
+   * Two-colour tint: dark RGB per vertex (what the image's black becomes), set only when an item in the batch has a
+   * dark colour (others in it get 0, 0, 0 = plain multiply tint). Unset = draw the usual way, no extra attribute.
+   * Shade as render-webgl does: rgb = dark + (light - dark) * texture rgb, alpha = texture alpha × light alpha.
+   */
+  dark?: Float32Array;
   indices: Uint16Array;
   /** The draw items in this batch, in order. */
   items: DrawItem[];
@@ -55,10 +61,18 @@ export function textQuad(t: TextDraw, pad = textPad(t)): Float32Array {
 /** Cache key of a text item's texture (per slot and attachment). */
 export const textId = (it: DrawItem) => `${it.slot.data.id}/${it.attachment.name}`;
 
+/** An item's dark colour (rgb), or null when it has none (unset or black: the same as a plain tint). */
+export function darkOf(it: Pick<DrawItem, "dark">): readonly [number, number, number] | null {
+  const d = it.dark;
+  return d && (d[0] > 0 || d[1] > 0 || d[2] > 0) ? [d[0], d[1], d[2]] : null;
+}
+
 class Builder {
   verts: number[] = [];
   uvs: number[] = [];
   cols: number[] = [];
+  /** Dark rgb per vertex, filled in only once an item with a dark colour arrives (zeros before it). */
+  dark: number[] | null = null;
   idx: number[] = [];
   items: DrawItem[] = [];
   constructor(
@@ -81,6 +95,9 @@ class Builder {
       if (cols) this.cols.push(cols[i * 4], cols[i * 4 + 1], cols[i * 4 + 2], cols[i * 4 + 3]);
       else this.cols.push(r, g, b, a);
     }
+    const d = darkOf(it);
+    if (d && !this.dark) this.dark = new Array(base * 3).fill(0);
+    if (this.dark) for (let i = 0; i < n; i++) d ? this.dark.push(d[0], d[1], d[2]) : this.dark.push(0, 0, 0);
     for (let i = 0; i < it.indices.length; i++) this.idx.push(base + it.indices[i]);
     this.items.push(it);
   }
@@ -94,6 +111,7 @@ class Builder {
       vertices: new Float32Array(this.verts),
       uvs: new Float32Array(this.uvs),
       colors: new Float32Array(this.cols),
+      ...(this.dark ? { dark: new Float32Array(this.dark) } : {}),
       indices: new Uint16Array(this.idx),
       items: this.items,
     };
@@ -154,3 +172,85 @@ export function forEachTriangleVertex(b: Pick<Batch, "indices">, vert: (i: numbe
 
 /** Premultiply a straight RGBA colour (what most engines' tint uniforms and vertex colours expect). */
 export const premultiply = (r: number, g: number, b: number, a: number): [number, number, number, number] => [r * a, g * a, b * a, a];
+
+/** A run of a batch's items: either plain (no dark colour) or with one flat two-colour tint (see tintRuns). */
+export interface TintRun {
+  /** Vertex x,y pairs, texture coordinates and indices of the run (indices start at 0). */
+  vertices: Float32Array;
+  uvs: Float32Array;
+  indices: Uint16Array;
+  /**
+   * Null for a plain run: draw it the usual way with `colors`. Otherwise the run's flat tint: every item has this
+   * straight light colour (RGBA) and dark colour (RGB).
+   */
+  tint: { light: readonly [number, number, number, number]; dark: readonly [number, number, number] } | null;
+  /** Straight RGBA per vertex (the batch's colours for these vertices). */
+  colors: Float32Array;
+  items: DrawItem[];
+}
+
+/**
+ * Split a batch into runs for engines that cannot pass a second colour per vertex (CanvasKit draws each tinted
+ * run with a colour-matrix filter): consecutive items without a dark colour stay together as one plain run, items
+ * with one are grouped while their light and dark colours are equal. Draw order is unchanged. Items that colour
+ * each vertex themselves (particles, which have no dark colour) are always plain.
+ */
+export function tintRuns(b: Batch): TintRun[] {
+  type Tint = TintRun["tint"];
+  const out: TintRun[] = [];
+  const same = (x: Tint, y: Tint) =>
+    x === y || (!!x && !!y && x.light.every((v, i) => v === y.light[i]) && x.dark.every((v, i) => v === y.dark[i]));
+  let open = false;
+  let tint: Tint = null;
+  let first = 0; // first item, vertex and index of the open run
+  let v0 = 0;
+  let i0 = 0;
+  let v = 0;
+  let ix = 0;
+  const close = (end: number) => {
+    if (!open) return;
+    const indices = new Uint16Array(ix - i0);
+    for (let k = 0; k < indices.length; k++) indices[k] = b.indices[i0 + k] - v0;
+    out.push({
+      vertices: b.vertices.slice(v0 * 2, v * 2),
+      uvs: b.uvs.slice(v0 * 2, v * 2),
+      indices,
+      tint,
+      colors: b.colors.slice(v0 * 4, v * 4),
+      items: b.items.slice(first, end),
+    });
+  };
+  b.items.forEach((it, k) => {
+    const d = it.colors ? null : darkOf(it);
+    const next: Tint = d ? { light: [it.color[0], it.color[1], it.color[2], it.color[3]], dark: d } : null;
+    if (!open || !same(tint, next)) {
+      close(k);
+      open = true;
+      tint = next;
+      first = k;
+      v0 = v;
+      i0 = ix;
+    }
+    // A text batch holds one item drawn as its quad (not the item's own geometry).
+    v += b.text ? b.vertices.length / 2 : it.vertices.length / 2;
+    ix += b.text ? b.indices.length : it.indices.length;
+  });
+  close(b.items.length);
+  return out;
+}
+
+/**
+ * The two-colour tint as a 4×5 colour matrix on straight (unpremultiplied) colours, row-major with the offsets in
+ * 0..1 (Skia's ColorFilter.MakeMatrix): rgb = dark + (light - dark) × rgb, alpha = light alpha × alpha.
+ */
+export function tintMatrix(light: readonly number[], dark: readonly number[]): number[] {
+  const [r, g, b, a] = light;
+  const [dr, dg, db] = dark;
+  // prettier-ignore
+  return [
+    r - dr, 0, 0, 0, dr,
+    0, g - dg, 0, 0, dg,
+    0, 0, b - db, 0, db,
+    0, 0, 0, a, 0,
+  ];
+}

@@ -43,7 +43,7 @@ The object advances itself on `Ticker.shared` (pass `autoUpdate: false` and call
 
 ## How it draws
 
-Each frame the pose is grouped into the same batches as `@openbone/render-webgl` (one per texture or atlas page and blend mode), and each batch is one `Mesh` with a small vertex-coloured shader, so meshes, weights, tints, per-vertex particle colours and sprite sequences look exactly as in the editor. Clipping masks become stencil masks (`Graphics`), blend modes map to Pixi's `normal`/`add`/`multiply`/`screen`, text attachments are rasterised to canvas textures, and particles use the built-in soft sprite. Pack an atlas when exporting for the fewest draw calls (`hero.drawCalls`).
+Each frame the pose is grouped into the same batches as `@openbone/render-webgl` (one per texture or atlas page and blend mode), and each batch is one `Mesh` with a small vertex-coloured shader, so meshes, weights, tints, per-vertex particle colours and sprite sequences look exactly as in the editor. Batches with a two-colour tint (a slot `dark` colour) switch to a second shader with a per-vertex dark colour; the others never upload it. Clipping masks become stencil masks (`Graphics`), blend modes map to Pixi's `normal`/`add`/`multiply`/`screen`, text attachments are rasterised to canvas textures, and particles use the built-in soft sprite. Pack an atlas when exporting for the fewest draw calls (`hero.drawCalls`).
 
 The shader is GLSL, so use the WebGL renderer (`preference: "webgl"`, Pixi's default).
 

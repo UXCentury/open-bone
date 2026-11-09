@@ -102,6 +102,111 @@ function blendModes(renderer: Phaser.Renderer.WebGL.WebGLRenderer): Record<strin
   return { normal: Phaser.BlendModes.NORMAL, additive: r.__openboneAdd, multiply: Phaser.BlendModes.MULTIPLY, screen: Phaser.BlendModes.SCREEN };
 }
 
+/** Pipeline key of the two-colour tint pipeline (registered on the renderer the first time a dark batch is drawn). */
+export const DARK_PIPELINE = "OpenBoneTwoColorPipeline";
+
+const DARK_VERT = `
+#define SHADER_NAME OPENBONE_TWO_COLOR_VS
+precision mediump float;
+uniform mat4 uProjectionMatrix;
+uniform vec2 uResolution;
+attribute vec2 inPosition;
+attribute vec2 inTexCoord;
+attribute float inTexId;
+attribute float inTintEffect;
+attribute vec4 inTint;
+attribute vec4 inDark;
+varying vec2 outTexCoord;
+varying float outTexId;
+varying float outTintEffect;
+varying vec4 outTint;
+varying vec4 outDark;
+void main() {
+  gl_Position = uProjectionMatrix * vec4(inPosition, 1.0, 1.0);
+  outTexCoord = inTexCoord;
+  outTexId = inTexId;
+  outTint = inTint;
+  outTintEffect = inTintEffect;
+  outDark = inDark;
+}`;
+
+// Same texture selection as Phaser's MultiPipeline (%count% / %forloop%), then render-webgl's two-colour tint on the
+// premultiplied texel: rgb = dark × (a - rgb) + light × rgb, all × light alpha. Colours are packed like Phaser's
+// tint (0xRRGGBB little-endian), hence .bgr.
+const DARK_FRAG = `
+#define SHADER_NAME OPENBONE_TWO_COLOR_FS
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform sampler2D uMainSampler[%count%];
+varying vec2 outTexCoord;
+varying float outTexId;
+varying float outTintEffect;
+varying vec4 outTint;
+varying vec4 outDark;
+void main() {
+  vec4 texture;
+  %forloop%
+  float a = outTint.a;
+  gl_FragColor = vec4((outDark.bgr * (texture.a - texture.rgb) + outTint.bgr * texture.rgb) * a, texture.a * a);
+}`;
+
+/** Phaser's MultiPipeline with a second packed colour per vertex (the dark colour). */
+export interface TwoColorPipeline extends Phaser.Renderer.WebGL.Pipelines.MultiPipeline {
+  /** Like batchVert (tint effect 0), plus the dark colour packed as 0xRRGGBB. */
+  batchDarkVert(x: number, y: number, u: number, v: number, unit: number, tint: number, dark: number): void;
+}
+
+let TwoColorPipelineClass: (new (game: Phaser.Game) => TwoColorPipeline) | null = null;
+
+/** The pipeline class, defined on first use (so importing this module does not need Phaser's WebGL renderer). */
+function twoColorPipelineClass() {
+  const WebGL = Phaser.Renderer.WebGL;
+  return (TwoColorPipelineClass ??= class extends WebGL.Pipelines.MultiPipeline implements TwoColorPipeline {
+    constructor(game: Phaser.Game) {
+      super({
+        game,
+        name: DARK_PIPELINE,
+        vertShader: DARK_VERT,
+        fragShader: DARK_FRAG,
+        attributes: [
+          { name: "inPosition", size: 2 },
+          { name: "inTexCoord", size: 2 },
+          { name: "inTexId" },
+          { name: "inTintEffect" },
+          { name: "inTint", size: 4, type: WebGL.UNSIGNED_BYTE, normalized: true },
+          { name: "inDark", size: 4, type: WebGL.UNSIGNED_BYTE, normalized: true },
+        ],
+      } as Phaser.Types.Renderer.WebGL.WebGLPipelineConfig);
+    }
+    batchDarkVert(x: number, y: number, u: number, v: number, unit: number, tint: number, dark: number) {
+      const f32 = this.vertexViewF32;
+      const u32 = this.vertexViewU32;
+      let o = this.vertexCount * this.currentShader.vertexComponentCount - 1;
+      f32[++o] = x;
+      f32[++o] = y;
+      f32[++o] = u;
+      f32[++o] = v;
+      f32[++o] = unit;
+      f32[++o] = 0;
+      u32[++o] = tint;
+      u32[++o] = dark;
+      this.vertexCount++;
+      const batch = this.currentBatch!; // set by setTexture2D before any vertex
+      batch.count = this.vertexCount - batch.start;
+    }
+  });
+}
+
+/** The renderer's two-colour pipeline, added the first time it is needed. */
+export function twoColorPipeline(renderer: Phaser.Renderer.WebGL.WebGLRenderer): TwoColorPipeline {
+  const pm = renderer.pipelines;
+  if (pm.has(DARK_PIPELINE)) return pm.get(DARK_PIPELINE) as TwoColorPipeline;
+  return pm.add(DARK_PIPELINE, new (twoColorPipelineClass())(renderer.game)) as TwoColorPipeline;
+}
+
 /** Phaser's component mixins (runtime objects; the typings only describe them as interfaces). */
 const Components = Phaser.GameObjects.Components as unknown as Record<string, Record<string, unknown>>;
 
@@ -303,7 +408,8 @@ export class OpenBoneGameObject extends Phaser.GameObjects.GameObject {
 
   renderWebGL(renderer: Phaser.Renderer.WebGL.WebGLRenderer, src: OpenBoneGameObject, camera: Phaser.Cameras.Scene2D.Camera, parentMatrix?: Phaser.GameObjects.Components.TransformMatrix) {
     camera.addToRenderList(src);
-    const pipeline = renderer.pipelines.set(src.pipeline, src) as Phaser.Renderer.WebGL.Pipelines.MultiPipeline;
+    const plain = renderer.pipelines.set(src.pipeline, src) as Phaser.Renderer.WebGL.Pipelines.MultiPipeline;
+    let pipeline = plain;
     const calc = Phaser.GameObjects.GetCalcMatrix(src, camera, parentMatrix).calc;
     const gl = renderer.gl;
     const modes = blendModes(renderer);
@@ -318,20 +424,25 @@ export class OpenBoneGameObject extends Phaser.GameObjects.GameObject {
     }
     pipeline.flush();
     renderer.pipelines.preBatch(src);
+    // Dark batches go through the two-colour pipeline; switching flushes the other one.
+    const use = (p: Phaser.Renderer.WebGL.Pipelines.MultiPipeline) => {
+      if (p !== pipeline) pipeline = renderer.pipelines.set(p, src) as Phaser.Renderer.WebGL.Pipelines.MultiPipeline;
+    };
     let clip: ClipRegion | undefined;
-    const vert = (x: number, y: number, u: number, v: number, unit: number, r: number, g: number, b: number, a: number) => {
+    const pos = (x: number, y: number): [number, number] => {
       // Skeleton (y up) -> local (y down) -> camera.
-      let tx = x * calc.a - y * calc.c + calc.e;
-      let ty = x * calc.b - y * calc.d + calc.f;
-      if (round) {
-        tx = Math.round(tx);
-        ty = Math.round(ty);
-      }
-      const rgb = (Math.round(clamp01(r) * 255) << 16) | (Math.round(clamp01(g) * 255) << 8) | Math.round(clamp01(b) * 255);
-      pipeline.batchVert(tx, ty, u, v, unit, 0, Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(rgb, clamp01(a * alpha)));
+      const tx = x * calc.a - y * calc.c + calc.e;
+      const ty = x * calc.b - y * calc.d + calc.f;
+      return round ? [Math.round(tx), Math.round(ty)] : [tx, ty];
+    };
+    const tint = (r: number, g: number, b: number, a: number) => Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(packRgb(r, g, b), clamp01(a * alpha));
+    const vert = (x: number, y: number, u: number, v: number, unit: number, r: number, g: number, b: number, a: number) => {
+      const [tx, ty] = pos(x, y);
+      pipeline.batchVert(tx, ty, u, v, unit, 0, tint(r, g, b, a));
     };
     for (const b of batches) {
       if (b.clip !== clip) {
+        use(plain);
         pipeline.flush();
         clip = b.clip;
         if (clip) {
@@ -351,6 +462,9 @@ export class OpenBoneGameObject extends Phaser.GameObjects.GameObject {
           gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
         } else gl.disable(gl.STENCIL_TEST);
       }
+      const dark = b.dark;
+      const two = dark ? twoColorPipeline(renderer) : null;
+      use(two ?? plain);
       renderer.setBlendMode(modes[b.blend] ?? Phaser.BlendModes.NORMAL);
       const tex = src.glTexture(b, renderer, ppu);
       let unit = pipeline.setTexture2D(tex);
@@ -362,10 +476,15 @@ export class OpenBoneGameObject extends Phaser.GameObjects.GameObject {
         }
         for (let j = 0; j < 3; j++) {
           const i = indices[k + j];
-          vert(p[i * 2], p[i * 2 + 1], uvs[i * 2], uvs[i * 2 + 1], unit, c[i * 4], c[i * 4 + 1], c[i * 4 + 2], c[i * 4 + 3]);
+          if (two) {
+            const [tx, ty] = pos(p[i * 2], p[i * 2 + 1]);
+            const t = tint(c[i * 4], c[i * 4 + 1], c[i * 4 + 2], c[i * 4 + 3]);
+            two.batchDarkVert(tx, ty, uvs[i * 2], uvs[i * 2 + 1], unit, t, (0xff000000 | packRgb(dark![i * 3], dark![i * 3 + 1], dark![i * 3 + 2])) >>> 0);
+          } else vert(p[i * 2], p[i * 2 + 1], uvs[i * 2], uvs[i * 2 + 1], unit, c[i * 4], c[i * 4 + 1], c[i * 4 + 2], c[i * 4 + 3]);
         }
       }
     }
+    use(plain);
     pipeline.flush();
     if (clip) gl.disable(gl.STENCIL_TEST);
     renderer.setBlendMode(Phaser.BlendModes.NORMAL);
@@ -429,6 +548,8 @@ mixin(OpenBoneGameObject, [
 ]);
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
+/** Straight 0..1 rgb as Phaser's 0xRRGGBB. */
+const packRgb = (r: number, g: number, b: number) => (Math.round(clamp01(r) * 255) << 16) | (Math.round(clamp01(g) * 255) << 8) | Math.round(clamp01(b) * 255);
 
 /**
  * Scene plugin. Registers `this.load.openbone(key, url, config?)` and `this.add.openbone(x, y, key, options?)`.

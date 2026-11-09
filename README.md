@@ -10,7 +10,7 @@
 
 ### Rigging
 - **Bones** with parent/child hierarchy, length, rotation, translation, scale and shear, and inherit modes (normal, only translation, no rotation, no scale).
-- **Slots** with draw order, colour/alpha tint, **two-colour tint** (a keyable dark colour for the image's shadows, like Spine's tint black; Canvas2D and WebGL2) and blend modes (normal, additive, multiply, screen).
+- **Slots** with draw order, colour/alpha tint, **two-colour tint** (a keyable dark colour for the image's shadows, like Spine's tint black; drawn by every renderer and engine runtime) and blend modes (normal, additive, multiply, screen).
 - **Skins**: create, duplicate, rename and delete outfits, switch them live in the viewport, player and previews; attachments can override the default skin per outfit.
 - **Constraints**
   - **IK**: 1- and 2-bone, mix, bend direction, softness, stretch, compress and uniform scaling; mix and softness blend between keys, bend/stretch/compress key in steps (like Spine's IK timeline).

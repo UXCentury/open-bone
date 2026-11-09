@@ -46,7 +46,7 @@ surface.flush();
 
 ## How it draws
 
-One `drawVertices` per `@openbone/render-webgl` batch: positions, texture coordinates (scaled to the image), per-vertex colours modulating the image shader, so meshes, weights, tints, sequences and particles match the reference renderer. Blend modes map to Skia's `SrcOver`, `Plus`, `Multiply` and `Screen`; clipping masks are clip paths (anti-aliased). Text attachments are drawn by Skia when you pass `fonts: (family, weight) => typeface`, otherwise rasterised with a 2D canvas where one exists.
+One `drawVertices` per `@openbone/render-webgl` batch: positions, texture coordinates (scaled to the image), per-vertex colours modulating the image shader, so meshes, weights, tints, sequences and particles match the reference renderer. Slots with a two-colour tint (`dark`) draw through a colour-matrix filter (`rgb = dark + (light − dark) × rgb`), one `drawVertices` per run of items with the same light and dark colour; batches without one are untouched. Blend modes map to Skia's `SrcOver`, `Plus`, `Multiply` and `Screen`; clipping masks are clip paths (anti-aliased). Text attachments are drawn by Skia when you pass `fonts: (family, weight) => typeface`, otherwise rasterised with a 2D canvas where one exists.
 
 ## Demo
 
