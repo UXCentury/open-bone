@@ -705,6 +705,11 @@ public final class DocumentLoader {
 
   /** Decode .obonb bytes (core/binary.ts): float32 values are rounded to 7 significant digits. */
   public static OpenBoneDocument fromBinary(byte[] bytes) {
+    return fromTree(decodeBinary(bytes));
+  }
+
+  /** Decode .obonb bytes to the JSON tree they encode (before validation and defaults). */
+  public static Object decodeBinary(byte[] bytes) {
     if (!isBinary(bytes)) throw new IllegalArgumentException("Not an OpenBone binary document (missing OBNB header)");
     int version = bytes[4] & 0xff;
     if (version > 1) throw new IllegalArgumentException("Binary version " + version + " is newer than supported 1");
@@ -718,7 +723,7 @@ public final class DocumentLoader {
       r.p += n;
     }
     r.strings = strings;
-    return fromTree(r.value());
+    return r.value();
   }
 
   private static final class BinReader {

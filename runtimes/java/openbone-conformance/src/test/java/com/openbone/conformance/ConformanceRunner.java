@@ -30,9 +30,8 @@ public final class ConformanceRunner {
   static final double EPS = 1e-7;
 
   static double r4(double n) {
-    double v = Math.floor(n * 1e4 + 0.5) / 1e4;
     double r = Math.floor(n * 1e4);
-    v = (n * 1e4 - r >= 0.5 ? r + 1 : r) / 1e4;
+    double v = (n * 1e4 - r >= 0.5 ? r + 1 : r) / 1e4;
     return v == 0 ? 0 : v;
   }
 
@@ -81,7 +80,6 @@ public final class ConformanceRunner {
     if (kind.equals("stateMachine")) {
       machine = inst.useStateMachine((String) c.get("stateMachine"));
       for (Object a : (List<Object>) c.get("actions")) actions.add((Map<String, Object>) a);
-      final StateMachineInstance m = machine;
       machine.addListener(new StateMachineInstance.EventListener() {
         @Override
         public void error(Throwable e) {

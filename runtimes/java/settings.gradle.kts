@@ -4,6 +4,9 @@ pluginManagement {
     google()
     mavenCentral()
   }
+  plugins {
+    kotlin("jvm") version "2.4.21"
+  }
 }
 
 dependencyResolutionManagement {
@@ -15,4 +18,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "openbone-java"
 
-include("openbone-runtime", "openbone-conformance")
+include("openbone-runtime", "openbone-scripting", "openbone-conformance")

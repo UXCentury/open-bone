@@ -45,6 +45,7 @@ class ConformanceTest {
     }
     if (files.isEmpty()) throw new IllegalStateException("No expected files in " + dir);
     ScriptHost host = scriptHost();
+    if (host == null) throw new IllegalStateException("openbone-scripting (QuickJS host) is not on the test classpath");
     List<DynamicNode> out = new ArrayList<>();
     for (Path f : files) {
       String name = f.getFileName().toString().replace(".json", "");
