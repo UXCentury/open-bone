@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { type OpenBoneDocument, applyOp, deserialize, layoutAtlas } from "@openbone/core";
+import { DocumentStore, type OpenBoneDocument, applyOp, createDocument, deserialize, layoutAtlas } from "@openbone/core";
 import { WebGLRenderer } from "@openbone/render-webgl";
 import { OpenBoneInstance, type Skeleton } from "@openbone/runtime";
 import type { Batch } from "../src/batch.ts";
@@ -16,7 +16,7 @@ export const example = (name: string): OpenBoneDocument => deserialize(readFileS
 /** One draw call: vertices in skeleton space with uvs and straight colours; `stencil` = a clip-mask write. */
 export interface RefDraw {
   stencil: boolean;
-  /** Per triangle-list vertex (indices expanded): x, y, u, v, r, g, b, a. */
+  /** Per triangle-list vertex (indices expanded): x, y, u, v, r, g, b, a, then the dark colour's r, g, b. */
   verts: number[][];
 }
 
@@ -43,9 +43,9 @@ export function webglReference(sk: Skeleton): RefDraw[] {
         return (_mode: number, count: number) => {
           const verts: number[][] = [];
           for (let i = 0; i < count; i++) {
-            // render-webgl's vertex: x, y, u, v, r, g, b, a, then the two-colour tint's dark r, g, b (not compared).
+            // render-webgl's vertex: x, y, u, v, r, g, b, a, then the two-colour tint's dark r, g, b.
             const o = ibo[i] * 11;
-            verts.push(Array.from(vbo.subarray(o, o + 8)));
+            verts.push(Array.from(vbo.subarray(o, o + 11)));
           }
           draws.push({ stencil: !colorWrite, verts });
           void bound;
@@ -69,16 +69,20 @@ export function batchesAsDraws(batches: Batch[]): RefDraw[] {
       clip = b.clip;
       if (clip) {
         const p = clip.polygon;
-        out.push({ stencil: true, verts: Array.from(clip.indices, (i) => [p[i * 2], p[i * 2 + 1], 1, 1, 1, 1, 1, 1]) });
+        out.push({ stencil: true, verts: Array.from(clip.indices, (i) => [p[i * 2], p[i * 2 + 1], 1, 1, 1, 1, 1, 1, 0, 0, 0]) });
       }
     }
     const verts: number[][] = [];
     for (const i of b.indices)
-      verts.push([b.vertices[i * 2], b.vertices[i * 2 + 1], b.uvs[i * 2], b.uvs[i * 2 + 1], b.colors[i * 4], b.colors[i * 4 + 1], b.colors[i * 4 + 2], b.colors[i * 4 + 3]]);
+      verts.push([b.vertices[i * 2], b.vertices[i * 2 + 1], b.uvs[i * 2], b.uvs[i * 2 + 1], ...rgba(b.colors, i), ...darkAt(b.dark, i)]);
     out.push({ stencil: false, verts });
   }
   return out;
 }
+
+const rgba = (c: Float32Array, i: number) => [c[i * 4], c[i * 4 + 1], c[i * 4 + 2], c[i * 4 + 3]];
+/** A vertex's dark colour from a per-vertex rgb array (black when the batch has none). */
+export const darkAt = (d: ArrayLike<number> | undefined, i: number) => (d ? [d[i * 3], d[i * 3 + 1], d[i * 3 + 2]] : [0, 0, 0]);
 
 /** Flatten draws to one list of rounded numbers (draw-call boundaries dropped, for engines that merge batches). */
 export function flatten(draws: RefDraw[], digits = 3): number[][] {
@@ -108,8 +112,65 @@ export function posed(doc: OpenBoneDocument, t = 0.5, steps = 10, setup?: (i: Op
   return inst;
 }
 
+/**
+ * The two-colour tint fixture: an 80×20 artboard (origin at its centre) with three copies of a 20×10 image whose
+ * left half is black and right half white, all in one batch:
+ * - "tinted" (artboard x 5..25): dark red, light green: black → red, white → green;
+ * - "plain" (x 30..50): no dark colour (a dark-less item inside a dark batch): black stays black, white white;
+ * - "blue" (x 55..75): dark blue, white light: black → blue, white stays white.
+ */
+export function darkTintDoc(): OpenBoneDocument {
+  const s = new DocumentStore(createDocument("dark-tint"));
+  s.apply("setDocument", { width: 80, height: 20, originX: 40, originY: 10 });
+  s.apply("addImage", { id: "bw", name: "bw", src: "bw.png", width: 20, height: 10 });
+  const slot = (name: string, x: number, color: string, dark?: string) => {
+    s.apply("addSlot", { bone: "root", name, color, ...(dark ? { dark } : {}) });
+    s.apply("addRegion", { slot: name, image: "bw", x });
+  };
+  slot("tinted", -25, "#00ff00", "#ff0000");
+  slot("plain", 0, "#ffffff");
+  slot("blue", 25, "#ffffff", "#0000ff");
+  return s.doc;
+}
+
+/** Pixels of the fixture's image (RGBA, 20×10): left half black, right half white, opaque. */
+export function blackWhitePixels(): Uint8Array {
+  const px = new Uint8Array(20 * 10 * 4);
+  for (let y = 0; y < 10; y++)
+    for (let x = 0; x < 20; x++) {
+      const o = (y * 20 + x) * 4;
+      px.set(x < 10 ? [0, 0, 0, 255] : [255, 255, 255, 255], o);
+    }
+  return px;
+}
+
+/** Artboard pixels to sample in the fixture (centre row) and the colour each must come out as. */
+export const DARK_TINT_EXPECTED: { x: number; y: number; rgb: [number, number, number] }[] = [
+  { x: 10, y: 10, rgb: [255, 0, 0] },
+  { x: 20, y: 10, rgb: [0, 255, 0] },
+  { x: 35, y: 10, rgb: [0, 0, 0] },
+  { x: 45, y: 10, rgb: [255, 255, 255] },
+  { x: 60, y: 10, rgb: [0, 0, 255] },
+  { x: 70, y: 10, rgb: [255, 255, 255] },
+];
+
+export interface GeometryCase {
+  name: string;
+  /** Example file name, or `doc` for a document built in code. */
+  file: string;
+  doc?: () => OpenBoneDocument;
+  atlas?: boolean;
+  setup?: (i: OpenBoneInstance) => void;
+}
+
+/** The document a case draws (packed into an atlas when the case asks for it). */
+export function caseDoc(c: Pick<GeometryCase, "file" | "doc" | "atlas">): OpenBoneDocument {
+  const doc = c.doc ? c.doc() : example(c.file);
+  return c.atlas ? packed(doc) : doc;
+}
+
 /** Examples used by every engine's geometry test, with the features they exercise. */
-export const GEOMETRY_CASES: { name: string; file: string; atlas?: boolean; setup?: (i: OpenBoneInstance) => void }[] = [
+export const GEOMETRY_CASES: GeometryCase[] = [
   { name: "knight (regions, mesh, state machine)", file: "knight.obone", setup: (i) => i.stateMachine?.setInput("walk", true) },
   { name: "knight packed into an atlas", file: "knight.obone", atlas: true },
   { name: "campfire (sequences, additive, clipping)", file: "campfire.obone" },
@@ -117,6 +178,7 @@ export const GEOMETRY_CASES: { name: string; file: string; atlas?: boolean; setu
   { name: "button (clipping mask, shapes)", file: "button.obone" },
   { name: "walker packed (weights, atlas)", file: "walker.obone", atlas: true },
   { name: "crash game (text, sequence)", file: "crash.obone", setup: (i) => i.stateMachine?.fire("start") },
+  { name: "two-colour tint (dark and plain items in one batch)", file: "dark-tint", doc: darkTintDoc },
 ];
 
 /**

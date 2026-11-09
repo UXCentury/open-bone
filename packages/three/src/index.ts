@@ -52,13 +52,22 @@ export async function loadOpenBone(src: OpenBoneSource, opts: LoadOptions = {}):
   return { doc, baseUrl, textures };
 }
 
+// DARK (materials of batches with a two-colour tint): rgb = dark + (light - dark) × texture rgb, on premultiplied
+// texels, as render-webgl. Without it the dark attribute is neither declared nor uploaded.
 const VERTEX = /* glsl */ `
 attribute vec4 obColor;
 varying vec2 vUv;
 varying vec4 vColor;
+#ifdef DARK
+attribute vec3 obDark;
+varying vec3 vDark;
+#endif
 void main() {
   vUv = uv;
   vColor = obColor;
+#ifdef DARK
+  vDark = obDark;
+#endif
   gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }`;
 
@@ -68,9 +77,16 @@ uniform sampler2D map;
 uniform float opacity;
 varying vec2 vUv;
 varying vec4 vColor;
+#ifdef DARK
+varying vec3 vDark;
+#endif
 void main() {
   vec4 t = texture2D(map, vUv);
+#ifdef DARK
+  gl_FragColor = vec4(vDark * (t.a - t.rgb) + t.rgb * vColor.rgb, t.a) * vColor.a * opacity;
+#else
   gl_FragColor = vec4(t.rgb * vColor.rgb, t.a) * vColor.a * opacity;
+#endif
 }`;
 
 /** render-webgl's blend functions (premultiplied alpha), as Three.js factors. */
@@ -105,12 +121,14 @@ function warnWithoutStencil(renderer: THREE.WebGLRenderer) {
 let stencilRef = 0;
 const nextStencilRef = () => (stencilRef = (stencilRef % 255) + 1);
 
-type MaterialKind = { kind: "draw"; stencil: number } | { kind: "mask"; stencil: number };
+type MaterialKind = { kind: "draw"; stencil: number; dark?: boolean } | { kind: "mask"; stencil: number };
 
 /** A batch mesh whose buffers grow as needed and are re-filled each frame (no per-frame allocations). */
 class BatchMesh extends THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> {
   private capV = 0;
   private capI = 0;
+  /** True while the mesh holds a two-colour (dark) batch. */
+  twoColor = false;
   constructor() {
     super(new THREE.BufferGeometry(), undefined as unknown as THREE.ShaderMaterial);
     this.frustumCulled = false;
@@ -127,8 +145,18 @@ class BatchMesh extends THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> {
     g.setIndex(new THREE.BufferAttribute(new Uint16Array(this.capI), 1).setUsage(THREE.DynamicDrawUsage));
     this.geometry = g;
   }
-  /** Fill from x,y pairs (+ optional uvs / colours). */
-  fill(vertices: Float32Array, indices: Uint16Array, uvs?: Float32Array, colors?: Float32Array) {
+  /** The dark colour attribute, added the first time this mesh holds a dark batch (re-added after a grow). */
+  private darkAttribute(): THREE.BufferAttribute {
+    const g = this.geometry;
+    let a = g.getAttribute("obDark") as THREE.BufferAttribute | undefined;
+    if (!a) {
+      a = new THREE.BufferAttribute(new Float32Array(this.capV * 3), 3).setUsage(THREE.DynamicDrawUsage);
+      g.setAttribute("obDark", a);
+    }
+    return a;
+  }
+  /** Fill from x,y pairs (+ optional uvs / colours / dark colours). */
+  fill(vertices: Float32Array, indices: Uint16Array, uvs?: Float32Array, colors?: Float32Array, dark?: Float32Array) {
     const nv = vertices.length / 2;
     this.alloc(nv, indices.length);
     const g = this.geometry;
@@ -155,19 +183,28 @@ class BatchMesh extends THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial> {
       a.addUpdateRange(0, n);
       a.needsUpdate = true;
     }
+    this.twoColor = !!dark;
+    if (dark) {
+      const d = this.darkAttribute();
+      (d.array as Float32Array).set(dark);
+      d.clearUpdateRanges();
+      d.addUpdateRange(0, nv * 3);
+      d.needsUpdate = true;
+    }
     g.setDrawRange(0, indices.length);
   }
-  /** Read back what is drawn: x, y, u, v, r, g, b, a per index (for tests and debugging). */
+  /** Read back what is drawn: x, y, u, v, r, g, b, a, dark r, g, b per index (for tests and debugging). */
   drawnVertices(): number[][] {
     const g = this.geometry;
     const p = g.attributes.position.array;
     const uv = g.attributes.uv.array;
     const c = g.attributes.obColor.array;
+    const d = this.twoColor ? g.attributes.obDark.array : null;
     const out: number[][] = [];
     const idx = g.index!.array;
     for (let k = 0; k < g.drawRange.count; k++) {
       const i = idx[k];
-      out.push([p[i * 3], p[i * 3 + 1], uv[i * 2], uv[i * 2 + 1], c[i * 4], c[i * 4 + 1], c[i * 4 + 2], c[i * 4 + 3]]);
+      out.push([p[i * 3], p[i * 3 + 1], uv[i * 2], uv[i * 2 + 1], c[i * 4], c[i * 4 + 1], c[i * 4 + 2], c[i * 4 + 3], d ? d[i * 3] : 0, d ? d[i * 3 + 1] : 0, d ? d[i * 3 + 2] : 0]);
     }
     return out;
   }
@@ -275,7 +312,8 @@ export class OpenBoneObject3D extends THREE.Group {
   }
 
   private material(texture: THREE.Texture, blend: Batch["blend"], k: MaterialKind): THREE.ShaderMaterial {
-    const key = `${texture.uuid}|${blend}|${k.kind}|${k.stencil}`;
+    const dark = k.kind === "draw" && !!k.dark;
+    const key = `${texture.uuid}|${blend}|${k.kind}|${k.stencil}${dark ? "|dark" : ""}`;
     let m = this.materials.get(key);
     if (m) {
       m.uniforms.opacity.value = this.opacity;
@@ -286,6 +324,7 @@ export class OpenBoneObject3D extends THREE.Group {
       uniforms: { map: { value: texture }, opacity: { value: this.opacity } },
       vertexShader: VERTEX,
       fragmentShader: FRAGMENT,
+      ...(dark ? { defines: { DARK: "" } } : {}),
       transparent: true,
       premultipliedAlpha: true,
       depthWrite: false,
@@ -374,8 +413,8 @@ export class OpenBoneObject3D extends THREE.Group {
         }
       }
       const mesh = (this.meshes[i] ??= new BatchMesh());
-      mesh.fill(b.vertices, b.indices, b.uvs, b.colors);
-      mesh.material = this.material(this.textureFor(b), b.blend, { kind: "draw", stencil: ref });
+      mesh.fill(b.vertices, b.indices, b.uvs, b.colors, b.dark);
+      mesh.material = this.material(this.textureFor(b), b.blend, { kind: "draw", stencil: ref, dark: !!b.dark });
       mesh.renderOrder = order++;
       this.add(mesh);
     });

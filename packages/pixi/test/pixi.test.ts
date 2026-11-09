@@ -2,8 +2,8 @@ import "./env.ts";
 import { OpenBoneDriver, buildBatches } from "@openbone/engine-kit";
 import { Container, Texture } from "pixi.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { GEOMETRY_CASES, type RefDraw, example, flatten, installFakeOffscreenCanvas, packed, webglReference } from "../../engine-kit/test/reference.ts";
-import { OpenBone, type OpenBoneAsset, PIXI_BLEND } from "../src/index.ts";
+import { GEOMETRY_CASES, type GeometryCase, type RefDraw, caseDoc, darkAt, darkTintDoc, example, flatten, installFakeOffscreenCanvas, webglReference } from "../../engine-kit/test/reference.ts";
+import { type BatchMesh, OpenBone, type OpenBoneAsset, PIXI_BLEND } from "../src/index.ts";
 
 let restore = () => {};
 beforeAll(() => void (restore = installFakeOffscreenCanvas()));
@@ -25,7 +25,12 @@ function pixiDraws(obj: OpenBone): RefDraw[] {
         const pos = a.aPosition.buffer.data;
         const uv = a.aUV.buffer.data;
         const col = a.aColor.buffer.data;
-        out.push({ stencil: false, verts: Array.from(anyCh.geometry.indexBuffer.data, (i) => [pos[i * 2], pos[i * 2 + 1], uv[i * 2], uv[i * 2 + 1], col[i * 4], col[i * 4 + 1], col[i * 4 + 2], col[i * 4 + 3]]) });
+        // The dark channel only counts when the mesh draws with the two-colour shader.
+        const dark = (ch as BatchMesh).twoColor ? a.aDark.buffer.data : undefined;
+        out.push({
+          stencil: false,
+          verts: Array.from(anyCh.geometry.indexBuffer.data, (i) => [pos[i * 2], pos[i * 2 + 1], uv[i * 2], uv[i * 2 + 1], col[i * 4], col[i * 4 + 1], col[i * 4 + 2], col[i * 4 + 3], ...darkAt(dark, i)]),
+        });
       }
     }
   };
@@ -33,8 +38,8 @@ function pixiDraws(obj: OpenBone): RefDraw[] {
   return out;
 }
 
-const asset = (file: string, atlas?: boolean): OpenBoneAsset => {
-  const doc = atlas ? packed(example(file)) : example(file);
+const asset = (c: Pick<GeometryCase, "file" | "doc" | "atlas">): OpenBoneAsset => {
+  const doc = caseDoc(c);
   const textures = new Map<string, Texture>();
   for (const t of [...(doc.atlas?.pages ?? []), ...doc.images]) textures.set(t.id, Texture.WHITE);
   return { doc, baseUrl: "", textures };
@@ -43,7 +48,7 @@ const asset = (file: string, atlas?: boolean): OpenBoneAsset => {
 describe("Pixi geometry matches render-webgl", () => {
   for (const c of GEOMETRY_CASES)
     it(c.name, () => {
-      const a = asset(c.file, c.atlas);
+      const a = asset(c);
       const driver = OpenBoneDriver.createSync(a.doc, "", { audio: false });
       c.setup?.(driver.instance);
       const obj = new OpenBone(a, driver, { autoUpdate: false, interactive: false });
@@ -61,7 +66,7 @@ describe("Pixi geometry matches render-webgl", () => {
 
 describe("Pixi object", () => {
   it("maps blend modes and textures per batch", () => {
-    const a = asset("campfire.obone", true);
+    const a = asset({ file: "campfire.obone", atlas: true });
     const driver = OpenBoneDriver.createSync(a.doc, "", { audio: false });
     const obj = new OpenBone(a, driver, { autoUpdate: false, interactive: false });
     obj.update(0.3);
@@ -72,8 +77,21 @@ describe("Pixi object", () => {
     expect(meshes.map((m) => m.blendMode)).toEqual(batches.map((b) => PIXI_BLEND[b.blend]));
   });
 
+  it("draws dark batches with the two-colour shader, plain ones with the normal one", () => {
+    const dark = new OpenBone(asset({ file: "", doc: darkTintDoc }), OpenBoneDriver.createSync(darkTintDoc(), "", { audio: false }), { autoUpdate: false, interactive: false });
+    const plain = new OpenBone(asset({ file: "knight.obone" }), OpenBoneDriver.createSync(example("knight.obone"), "", { audio: false }), { autoUpdate: false, interactive: false });
+    const meshes = (o: OpenBone) => o.view.children.filter((c) => "geometry" in c) as BatchMesh[];
+    const [m] = meshes(dark);
+    expect(m.twoColor).toBe(true);
+    expect(m.shader!.glProgram!.vertex).toContain("aDark");
+    for (const p of meshes(plain)) {
+      expect(p.twoColor).toBe(false);
+      expect(p.shader!.glProgram!.vertex).not.toContain("aDark");
+    }
+  });
+
   it("routes pointer events to the state machine listeners", () => {
-    const a = asset("button.obone");
+    const a = asset({ file: "button.obone" });
     const driver = OpenBoneDriver.createSync(a.doc, "", { audio: false });
     const obj = new OpenBone(a, driver, { autoUpdate: false });
     expect(obj.eventMode).toBe("static");
@@ -90,7 +108,7 @@ describe("Pixi object", () => {
   });
 
   it("skins, inputs and speed go through to the runtime", () => {
-    const a = asset("knight.obone");
+    const a = asset({ file: "knight.obone" });
     const driver = OpenBoneDriver.createSync(a.doc, "", { audio: false });
     const obj = new OpenBone(a, driver, { autoUpdate: false, interactive: false });
     obj.setInput("walk", true);

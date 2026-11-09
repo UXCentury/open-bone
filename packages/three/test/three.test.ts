@@ -1,20 +1,20 @@
 import { OpenBoneDriver } from "@openbone/engine-kit";
 import * as THREE from "three";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { GEOMETRY_CASES, type RefDraw, example, flatten, installFakeOffscreenCanvas, packed, webglReference } from "../../engine-kit/test/reference.ts";
+import { GEOMETRY_CASES, type GeometryCase, type RefDraw, caseDoc, darkTintDoc, flatten, installFakeOffscreenCanvas, webglReference } from "../../engine-kit/test/reference.ts";
 import { BLEND_FACTORS, type OpenBoneAsset, OpenBoneObject3D } from "../src/index.ts";
 
 let restore = () => {};
 beforeAll(() => void (restore = installFakeOffscreenCanvas()));
 afterAll(() => restore());
 
-function make(file: string, atlas?: boolean, setup?: (i: OpenBoneDriver["instance"]) => void) {
-  const doc = atlas ? packed(example(file)) : example(file);
+function make(c: Pick<GeometryCase, "file" | "doc" | "atlas" | "setup">) {
+  const doc = caseDoc(c);
   const textures = new Map<string, THREE.Texture>();
   for (const t of [...(doc.atlas?.pages ?? []), ...doc.images]) textures.set(t.id, new THREE.Texture());
   const asset: OpenBoneAsset = { doc, baseUrl: "", textures };
   const driver = OpenBoneDriver.createSync(doc, "", { audio: false });
-  setup?.(driver.instance);
+  c.setup?.(driver.instance);
   const obj = new OpenBoneObject3D(asset, driver);
   for (let i = 0; i < 12; i++) obj.update(0.05);
   return obj;
@@ -23,9 +23,9 @@ function make(file: string, atlas?: boolean, setup?: (i: OpenBoneDriver["instanc
 describe("Three.js geometry matches render-webgl", () => {
   for (const c of GEOMETRY_CASES)
     it(c.name, () => {
-      const obj = make(c.file, c.atlas, c.setup);
+      const obj = make(c);
       const ref = webglReference(obj.skeleton);
-      const got: RefDraw[] = obj.drawnMeshes().map((m) => ({ stencil: m.mask, verts: m.vertices.map((v) => (m.mask ? [v[0], v[1], 1, 1, 1, 1, 1, 1] : v)) }));
+      const got: RefDraw[] = obj.drawnMeshes().map((m) => ({ stencil: m.mask, verts: m.vertices.map((v) => (m.mask ? [v[0], v[1], 1, 1, 1, 1, 1, 1, 0, 0, 0] : v)) }));
       expect(got.map((d) => d.stencil)).toEqual(ref.map((d) => d.stencil));
       expect(flatten(got)).toEqual(flatten(ref));
     });
@@ -33,7 +33,7 @@ describe("Three.js geometry matches render-webgl", () => {
 
 describe("Three.js object", () => {
   it("shares one material per atlas page and blend mode", () => {
-    const obj = make("campfire.obone", true);
+    const obj = make({ file: "campfire.obone", atlas: true });
     const draws = obj.drawnMeshes().filter((m) => !m.mask);
     const keys = new Set(draws.map((m) => `${m.material.uniforms.map.value.uuid}|${m.material.blendSrc}|${m.material.blendDst}|${m.material.stencilRef}`));
     expect(new Set(draws.map((m) => m.material)).size).toBe(keys.size);
@@ -41,9 +41,22 @@ describe("Three.js object", () => {
     expect(draws.some((m) => m.material.blendDst === BLEND_FACTORS.additive[1])).toBe(true);
   });
 
+  it("only dark batches get the DARK shader variant and the obDark attribute", () => {
+    const dark = make({ file: "", doc: darkTintDoc }).drawnMeshes();
+    expect(dark.length).toBe(1);
+    expect(dark[0].material.defines).toHaveProperty("DARK");
+    expect(dark[0].material.vertexShader).toMatch(/#ifdef DARK\s+attribute vec3 obDark;/);
+    expect(dark[0].material.fragmentShader).toContain("vDark * (t.a - t.rgb)");
+    const mesh = make({ file: "", doc: darkTintDoc }).children[0] as THREE.Mesh;
+    expect(mesh.geometry.getAttribute("obDark")).toBeDefined();
+    const plain = make({ file: "knight.obone" });
+    for (const m of plain.drawnMeshes()) expect(m.material.defines ?? {}).not.toHaveProperty("DARK");
+    for (const m of plain.children as THREE.Mesh[]) expect(m.geometry.getAttribute("obDark")).toBeUndefined();
+  });
+
   it("draws in order, clipped batches test the mask's stencil value", () => {
     // Hovered: the shine (transparent at rest, so not drawn then) shows inside the glass mask.
-    const obj = make("button.obone", false, (i) => i.stateMachine?.setBool("hover", true));
+    const obj = make({ file: "button.obone", setup: (i) => i.stateMachine?.setBool("hover", true) });
     const meshes = obj.children as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>[];
     expect(meshes.map((m) => m.renderOrder)).toEqual(meshes.map((_, i) => i));
     const mask = meshes.find((m) => !m.material.colorWrite)!;
@@ -58,7 +71,7 @@ describe("Three.js object", () => {
   });
 
   it("raycasts pointers onto the skeleton plane", () => {
-    const obj = make("knight.obone");
+    const obj = make({ file: "knight.obone" });
     obj.position.set(100, 0, 0);
     obj.scale.setScalar(0.5);
     const seen: [string, number, number][] = [];
@@ -73,7 +86,7 @@ describe("Three.js object", () => {
   });
 
   it("disposes", () => {
-    const obj = make("rocket.obone");
+    const obj = make({ file: "rocket.obone" });
     obj.dispose();
     expect(obj.children.length).toBe(0);
   });

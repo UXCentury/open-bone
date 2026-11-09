@@ -16,7 +16,7 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app). Se
 - Inherit timeline: `{target: "bone", property: "inherit"}` with stepped `normal | onlyTranslation | noRotation | noScale` keys; keyable from the Inspector's Inherit field in Animate mode.
 - Constraint order: optional `order` on every constraint, applied as one sorted list (default unchanged: IK, transform, path, physics). Op `setConstraintOrder`; Inspector "Constraint order" list with ↑↓.
 - Reference scale: `skeleton.referenceScale` (default 100). Physics gravity and wind and IK softness scale with the skeleton's size relative to it, so a rescaled rig behaves the same. Document inspector "Ref. scale".
-- Two-colour tint: a keyable `dark` slot colour (Canvas2D and WebGL2 renderers; the PixiJS, Phaser, Three.js and CanvasKit runtimes draw the normal tint for now).
+- Two-colour tint: a keyable `dark` slot colour, drawn by every renderer and runtime: Canvas2D, WebGL2, PixiJS (two-colour mesh shader), Phaser (a two-colour pipeline), Three.js (a `DARK` material variant) and CanvasKit (a colour-matrix filter per run of equally tinted items). Engine-kit batches carry a per-vertex `dark` channel only when a slot in them uses one, so documents without it draw exactly as before.
 
 ## 0.1.0
 

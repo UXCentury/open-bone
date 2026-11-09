@@ -41,7 +41,7 @@ Options for `this.add.openbone`: `stateMachine`, `animation`, `loop`, `skin`, `a
 
 ## How it draws
 
-- **WebGL**: the pose is grouped into `@openbone/render-webgl`'s batches and streamed into Phaser's MultiPipeline, which can merge several textures into one draw call. Vertex colours use Phaser's tint (8 bits per channel). Blend modes map to Phaser's (additive is registered as ONE, ONE like the reference renderer). Clipping masks write the stencil buffer, so an OpenBone object with clipping should not itself be inside a Phaser geometry mask. Text is rasterised to canvas textures; particles use the built-in soft sprite.
+- **WebGL**: the pose is grouped into `@openbone/render-webgl`'s batches and streamed into Phaser's MultiPipeline, which can merge several textures into one draw call. Vertex colours use Phaser's tint (8 bits per channel). Batches with a two-colour tint (a slot `dark` colour) go through `OpenBoneTwoColorPipeline`, a MultiPipeline with a second packed colour per vertex, registered on the renderer the first time it is needed. Blend modes map to Phaser's (additive is registered as ONE, ONE like the reference renderer). Clipping masks write the stencil buffer, so an OpenBone object with clipping should not itself be inside a Phaser geometry mask. Text is rasterised to canvas textures; particles use the built-in soft sprite.
 - **Canvas**: drawn by `@openbone/render-canvas` in the object's transform.
 
 ## Demo
