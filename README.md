@@ -172,6 +172,15 @@ Every runtime builds on the TypeScript runtime (`OpenBoneInstance` for posing, a
 
 Demos of the knight in each engine: `pnpm --filter @openbone/examples engines`, then http://localhost:5190.
 
+Native runtimes are ports of the TypeScript runtime that pass the [conformance suite](conformance/README.md) (every
+pose, draw list, event, audio command and state-machine step of every example and focused fixture):
+
+| Runtime | Folder | Engine | Notes |
+|---|---|---|---|
+| Java | [`runtimes/java`](runtimes/java) `openbone-runtime` | any JVM (Java 11+), Android | Full port, no dependencies; scripts in QuickJS (`openbone-scripting`) |
+| libGDX | [`runtimes/java`](runtimes/java) `openbone-gdx` | libGDX 1.14 | Two-colour tint shader, blend modes, stencil clipping; LWJGL3 sample |
+| Android | [`runtimes/java`](runtimes/java) `openbone-android` | Android 7+ (Kotlin) | `OpenBoneView`: touch → listeners, inputs and events as lambdas |
+
 ## Repository layout
 
 | Package | What it is |
@@ -183,6 +192,7 @@ Demos of the knight in each engine: `pnpm --filter @openbone/examples engines`, 
 | `packages/render-canvas` | Canvas2D renderer (fallback, editor viewport, headless PNG/GIF in Node) |
 | `packages/player` | `<openbone-player>`, the `Player` class, Web Audio playback, and the self-contained WebView bundle + JS bridge used by the mobile packages |
 | `packages/pixi`, `packages/phaser`, `packages/three`, `packages/canvaskit` | Runtimes for PixiJS v8, Phaser 3, Three.js and CanvasKit, sharing `packages/engine-kit` (loading, playback, render-webgl-identical batching) |
+| `runtimes/java` | Java runtime, QuickJS script host, libGDX renderer and sample, Kotlin Android view (Gradle), with the conformance suite as JUnit tests |
 | `packages/export` | Export encoders and packagers: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP, sprite sheets, Unity/Godot/Flutter packs and the Flutter/Android/iOS WebView templates |
 | `packages/mcp` | MCP server (stdio + streamable HTTP), render/simulate tools, live WebSocket bridge |
 | `packages/cli` | `openbone` command line |
