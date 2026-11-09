@@ -289,7 +289,15 @@ export class Skeleton {
   /** Packed images: their page, uv map and (for trimmed regions) the trimmed rect in 0..1 image space. */
   private packed = new Map<
     Id,
-    { page: AtlasPage; rect: NonNullable<DrawItem["textureRect"]>; map: UvMap; regionUvs: Float32Array; trim: [number, number, number, number] | null }
+    {
+      page: AtlasPage;
+      rect: NonNullable<DrawItem["textureRect"]>;
+      map: UvMap;
+      regionUvs: Float32Array;
+      trim: [number, number, number, number] | null;
+      /** Polygon packing: outline in 0..1 image space, its page uvs and fan triangles (region attachments draw it). */
+      poly: { image: Float32Array; uvs: Float32Array; indices: Uint16Array } | null;
+    }
   >();
   private white: { page: AtlasPage; u: number; v: number } | null = null;
   private physicsState = new Map<Id, PhysicsState>();
@@ -355,7 +363,19 @@ export class Skeleton {
         : null;
       const quad = trim ? new Float32Array([trim[0], trim[1], trim[2], trim[1], trim[2], trim[3], trim[0], trim[3]]) : REGION_UVS;
       const rect = regionPageRect(r);
-      this.packed.set(r.image, { page, rect, map, regionUvs: remapUvs(quad, map), trim });
+      let poly = null;
+      if (r.polygon && r.polygon.length >= 6) {
+        const image = new Float32Array(r.polygon.length);
+        for (let i = 0; i < image.length; i += 2) {
+          image[i] = r.polygon[i] / r.originalWidth;
+          image[i + 1] = r.polygon[i + 1] / r.originalHeight;
+        }
+        const n = image.length / 2;
+        const indices = new Uint16Array((n - 2) * 3);
+        for (let i = 0; i < n - 2; i++) indices.set([0, i + 1, i + 2], i * 3);
+        poly = { image, uvs: remapUvs(image, map), indices };
+      }
+      this.packed.set(r.image, { page, rect, map, regionUvs: remapUvs(quad, map), trim, poly });
     }
     for (const sm of doc.stateMachines)
       for (const i of sm.inputs) {
@@ -1101,11 +1121,20 @@ export class Skeleton {
         let vertices = this.attachmentWorldVertices(slot, att);
         const packed = this.packed.get(att.image);
         let uvs: Float32Array;
+        let indices: Uint16Array;
         if (att.type === "region") {
           uvs = packed ? packed.regionUvs : REGION_UVS;
-          if (packed?.trim) vertices = trimQuad(vertices, packed.trim);
-        } else uvs = packed ? remapUvs(att.uvs, packed.map) : new Float32Array(att.uvs);
-        const indices = att.type === "region" ? REGION_INDICES : new Uint16Array(att.triangles);
+          indices = REGION_INDICES;
+          if (packed?.poly) {
+            // Polygon packing: draw only the outline around the visible pixels.
+            vertices = quadPoints(vertices, packed.poly.image);
+            uvs = packed.poly.uvs;
+            indices = packed.poly.indices;
+          } else if (packed?.trim) vertices = trimQuad(vertices, packed.trim);
+        } else {
+          uvs = packed ? remapUvs(att.uvs, packed.map) : new Float32Array(att.uvs);
+          indices = new Uint16Array(att.triangles);
+        }
         const texture = packed ? packed.page : image;
         items.push({
           slot,
@@ -1294,6 +1323,18 @@ function trimQuad(q: Float32Array, [u0, v0, u1, v1]: [number, number, number, nu
   const vx = q[6] - q[0], vy = q[7] - q[1]; // TL -> BL
   const at = (u: number, v: number) => [q[0] + ux * u + vx * v, q[1] + uy * u + vy * v];
   return new Float32Array([...at(u0, v0), ...at(u1, v0), ...at(u1, v1), ...at(u0, v1)]);
+}
+
+/** Points given in 0..1 image space (flat u,v pairs) placed on a region quad (TL, TR, BR, BL). */
+function quadPoints(q: Float32Array, uv: Float32Array): Float32Array {
+  const ux = q[2] - q[0], uy = q[3] - q[1];
+  const vx = q[6] - q[0], vy = q[7] - q[1];
+  const out = new Float32Array(uv.length);
+  for (let i = 0; i < uv.length; i += 2) {
+    out[i] = q[0] + ux * uv[i] + vx * uv[i + 1];
+    out[i + 1] = q[1] + uy * uv[i] + vy * uv[i + 1];
+  }
+  return out;
 }
 
 const mulColor = (a: RGBA, b: RGBA): RGBA => [a[0] * b[0], a[1] * b[1], a[2] * b[2], a[3] * b[3]];

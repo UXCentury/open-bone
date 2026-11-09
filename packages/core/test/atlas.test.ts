@@ -12,6 +12,14 @@ import {
   regionPageRect,
   packRects,
   remapUvs,
+  alphaBounds,
+  alphaHull,
+  analyzeImageAlpha,
+  polygonArea,
+  premultipliedTextures,
+  premultiplyPixels,
+  trimLimits,
+  unpremultiplyPixels,
   validate,
 } from "../src/index.ts";
 
@@ -281,5 +289,104 @@ describe("packer rotation and scaling", () => {
     expect(scale).toBeLessThan(1);
     expect(scale).toBeGreaterThan(0.55);
     expect(layoutAtlasFit([{ id: "s", width: 100, height: 100 }], { white: false }).scale).toBe(1);
+  });
+});
+
+/** RGBA pixels of a w x h image where `on(x, y)` pixels are opaque (alpha 255, or `alpha`). */
+function mask(w: number, h: number, on: (x: number, y: number) => boolean, alpha = 255) {
+  const px = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (on(x, y)) px.set([200, 100, 50, alpha], (y * w + x) * 4);
+  return px;
+}
+
+const inside = (poly: number[], x: number, y: number) => {
+  // Convex polygon: the point is on the same side of every edge (with a tiny tolerance).
+  let pos = 0;
+  let neg = 0;
+  for (let i = 0; i < poly.length; i += 2) {
+    const j = (i + 2) % poly.length;
+    const c = (poly[j] - poly[i]) * (y - poly[i + 1]) - (poly[j + 1] - poly[i + 1]) * (x - poly[i]);
+    if (c > 0.1) pos++;
+    if (c < -0.1) neg++;
+  }
+  return pos === 0 || neg === 0;
+};
+
+describe("whitespace stripping and polygon packing", () => {
+  const disc = (x: number, y: number) => Math.hypot(x + 0.5 - 50, y + 0.5 - 40) < 20;
+
+  it("finds the visible bounds", () => {
+    expect(alphaBounds(mask(100, 80, disc), 100, 80)).toEqual({ x: 30, y: 20, width: 40, height: 40 });
+    expect(alphaBounds(mask(10, 10, () => false), 10, 10)).toBeNull();
+    expect(alphaBounds(mask(10, 10, () => true, 3), 10, 10, 5)).toBeNull();
+  });
+
+  it("outlines every visible pixel with a few corners, tighter than the bounds", () => {
+    const px = mask(100, 80, disc);
+    for (const max of [4, 6, 8, 12]) {
+      const poly = alphaHull(px, 100, 80, { maxVertices: max })!;
+      expect(poly.length / 2).toBeLessThanOrEqual(max + 4);
+      for (let y = 0; y < 80; y++)
+        for (let x = 0; x < 100; x++) if (disc(x, y)) for (const [cx, cy] of [[x, y], [x + 1, y], [x, y + 1], [x + 1, y + 1]]) expect(inside(poly, cx, cy), `${max}: ${cx},${cy}`).toBe(true);
+      for (let i = 0; i < poly.length; i += 2) {
+        expect(poly[i]).toBeGreaterThanOrEqual(0);
+        expect(poly[i]).toBeLessThanOrEqual(100);
+        expect(poly[i + 1]).toBeGreaterThanOrEqual(0);
+        expect(poly[i + 1]).toBeLessThanOrEqual(80);
+      }
+      if (max >= 8) expect(polygonArea(poly)).toBeLessThan(0.9 * 40 * 40);
+    }
+  });
+
+  it("packs trimmed bounds with offsets and keeps worthwhile polygons", () => {
+    const px = mask(100, 80, disc);
+    const a = analyzeImageAlpha(px, 100, 80, { stripWhitespace: true, polygons: true });
+    expect(a.trim).toEqual({ x: 30, y: 20, width: 40, height: 40 });
+    const atlas = layoutAtlas([{ id: "d", width: 100, height: 80, ...a }, { id: "sq", width: 30, height: 30, polygon: [0, 0, 30, 0, 30, 30, 0, 30] }], { padding: 2, stripWhitespace: true, polygons: true });
+    const r = atlas.regions.find((x) => x.image === "d")!;
+    expect(r).toMatchObject({ offsetX: 30, offsetY: 20, width: 40, height: 40, originalWidth: 100, originalHeight: 80 });
+    expect(r.polygon!.length).toBeGreaterThanOrEqual(8);
+    // A polygon covering the whole rect is dropped (the quad is cheaper).
+    expect(atlas.regions.find((x) => x.image === "sq")!.polygon).toBeUndefined();
+    expect(atlas).toMatchObject({ stripWhitespace: true, polygons: true });
+    // At half scale offsets and polygon scale too (rounded outwards).
+    const half = layoutAtlas([{ id: "d", width: 100, height: 80, ...a }], { scale: 0.5 }).regions[0];
+    expect(half).toMatchObject({ offsetX: 15, offsetY: 10, width: 20, height: 20, originalWidth: 50, originalHeight: 40 });
+    for (let i = 0; i < half.polygon!.length; i += 2) {
+      expect(half.polygon![i]).toBeGreaterThanOrEqual(15);
+      expect(half.polygon![i]).toBeLessThanOrEqual(35);
+    }
+  });
+
+  it("keeps what meshes sample and never trims particle images", () => {
+    const s = new DocumentStore(createDocument("t"));
+    s.apply("addImage", { id: "m", name: "m", src: "m.png", width: 100, height: 80 });
+    s.apply("addImage", { id: "p", name: "p", src: "p.png", width: 100, height: 80 });
+    s.apply("addSlot", { bone: "root", name: "a" });
+    s.apply("addMesh", { slot: "a", image: "m", vertices: [0, 0, 10, 0, 10, 10, 0, 10], uvs: [0.1, 0.1, 0.5, 0.1, 0.5, 0.95, 0.1, 0.95], triangles: [0, 1, 2, 0, 2, 3], hull: 4 });
+    s.apply("addSlot", { bone: "root", name: "b" });
+    s.apply("addParticles", { slot: "b", look: "image", image: "p" });
+    const limits = trimLimits(s.doc);
+    expect(limits.get("m")).toEqual([0.1, 0.1, 0.5, 0.95]);
+    expect(limits.get("p")).toBe(false);
+    const px = mask(100, 80, disc);
+    expect(analyzeImageAlpha(px, 100, 80, { stripWhitespace: true, limit: limits.get("m") }).trim).toEqual({ x: 10, y: 8, width: 60, height: 68 });
+    expect(analyzeImageAlpha(px, 100, 80, { stripWhitespace: true, polygons: true, limit: false })).toEqual({});
+  });
+});
+
+describe("premultiplied alpha", () => {
+  it("premultiplies and back", () => {
+    const px = new Uint8ClampedArray([200, 100, 50, 128, 10, 20, 30, 255, 99, 99, 99, 0]);
+    premultiplyPixels(px);
+    expect(Array.from(px)).toEqual([100, 50, 25, 128, 10, 20, 30, 255, 0, 0, 0, 0]);
+    unpremultiplyPixels(px);
+    expect(Array.from(px)).toEqual([199, 100, 50, 128, 10, 20, 30, 255, 0, 0, 0, 0]);
+  });
+
+  it("lists premultiplied pages", () => {
+    const atlas = layoutAtlas([{ id: "a", width: 10, height: 10 }], { premultipliedAlpha: true });
+    expect([...premultipliedTextures({ atlas })]).toEqual(["atlas_page0"]);
+    expect(premultipliedTextures({ atlas: { ...atlas, premultipliedAlpha: undefined } }).size).toBe(0);
   });
 });

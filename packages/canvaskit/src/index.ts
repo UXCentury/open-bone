@@ -1,4 +1,4 @@
-import type { OpenBoneDocument } from "@openbone/core";
+import { type OpenBoneDocument, premultipliedTextures } from "@openbone/core";
 import {
   type Batch,
   type DriverOptions,
@@ -32,13 +32,21 @@ export interface LoadOptions extends FetchOptions {
 export async function loadOpenBone(ck: CanvasKit, src: OpenBoneSource, opts: LoadOptions = {}): Promise<OpenBoneAsset> {
   const { doc, baseUrl } = await loadDocument(src, opts);
   const fetchFn = opts.fetch ?? fetch;
+  const pma = premultipliedTextures(doc);
   const images = await loadTextures<Image>(doc, baseUrl, {
     resolveImageUrl: opts.resolveImageUrl,
-    load: async (url) => {
+    load: async (url, req) => {
       try {
         const res = await fetchFn(url);
         if (!res.ok) return null;
-        return ck.MakeImageFromEncoded(new Uint8Array(await res.arrayBuffer()));
+        const img = ck.MakeImageFromEncoded(new Uint8Array(await res.arrayBuffer()));
+        if (!img || !pma.has(req.id)) return img;
+        // A premultiplied atlas page: Skia decodes PNGs as straight alpha, so take its bytes as they are in the
+        // file and label them premultiplied (Skia's own format), which draws them with the matching blend.
+        const info = { width: img.width(), height: img.height(), colorType: ck.ColorType.RGBA_8888, colorSpace: ck.ColorSpace.SRGB };
+        const px = img.readPixels(0, 0, { ...info, alphaType: ck.AlphaType.Unpremul });
+        img.delete();
+        return px ? ck.MakeImage({ ...info, alphaType: ck.AlphaType.Premul }, px as Uint8Array, info.width * 4) : null;
       } catch {
         return null;
       }

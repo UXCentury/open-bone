@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, parseDocument } from "@openbone/core";
+import { type OpenBoneDocument, parseDocument, premultipliedTextures } from "@openbone/core";
 import {
   type Batch,
   type DriverOptions,
@@ -10,7 +10,7 @@ import {
   particleDotCanvas,
   textureRequests,
 } from "@openbone/engine-kit";
-import { CanvasRenderer } from "@openbone/render-canvas";
+import { CanvasRenderer, straightAlphaCopy } from "@openbone/render-canvas";
 import { type ClipRegion, PARTICLE_DOT_TEXTURE, type ScriptHost } from "@openbone/runtime";
 import * as Phaser from "phaser";
 
@@ -130,6 +130,31 @@ export class OpenBoneGameObject extends Phaser.GameObjects.GameObject {
   private text = new TextRasterizer();
   private textTextures = new Map<string, { key: string; version: number }>();
   private canvasRenderer: CanvasRenderer | null = null;
+  /** Texture keys already turned from premultiplied to straight alpha (shared by every object of a game). */
+  private static straightened = new WeakMap<object, Set<string>>();
+  private pma: Set<string> | null = null;
+
+  /**
+   * Phaser key of an image / atlas page id. Premultiplied atlas pages are replaced once by straight-alpha copies:
+   * Phaser premultiplies textures on upload and its canvas renderer expects straight alpha.
+   */
+  textureKeyOf(id: string): string | undefined {
+    const key = this.entry.textureKeys.get(id);
+    const textures = this.scene.sys.textures;
+    this.pma ??= premultipliedTextures(this.entry.doc);
+    if (!key || !this.pma.has(id) || !textures.exists(key)) return key;
+    let done = OpenBoneGameObject.straightened.get(textures);
+    if (!done) OpenBoneGameObject.straightened.set(textures, (done = new Set()));
+    if (!done.has(key)) {
+      done.add(key);
+      const c = straightAlphaCopy(textures.get(key).getSourceImage() as CanvasImageSource, (w, h) => Object.assign(document.createElement("canvas"), { width: w, height: h }) as never);
+      if (c) {
+        textures.remove(key);
+        textures.addCanvas(key, c as HTMLCanvasElement);
+      }
+    }
+    return key;
+  }
   private static uid = 0;
   private readonly uid = ++OpenBoneGameObject.uid;
   private unbindPointer: (() => void) | null = null;
@@ -285,7 +310,7 @@ export class OpenBoneGameObject extends Phaser.GameObjects.GameObject {
       }
       return textures.get(key).source[0].glTexture ?? renderer.whiteTexture;
     }
-    const key = this.entry.textureKeys.get(b.texture);
+    const key = this.textureKeyOf(b.texture);
     return (key && textures.exists(key) && textures.get(key).source[0].glTexture) || renderer.whiteTexture;
   }
 
@@ -295,7 +320,7 @@ export class OpenBoneGameObject extends Phaser.GameObjects.GameObject {
     return buildBatches(this.driver.instance.drawList(), {
       hasTexture: (id) => {
         if (id === PARTICLE_DOT_TEXTURE) return true;
-        const key = this.entry.textureKeys.get(id);
+        const key = this.textureKeyOf(id);
         return !!key && textures.exists(key);
       },
     });
@@ -395,10 +420,14 @@ export class OpenBoneGameObject extends Phaser.GameObjects.GameObject {
       set: (t, k, v) => Reflect.set(t, k, v, t),
     });
     const textures = src.scene.sys.textures;
-    src.canvasRenderer ??= new CanvasRenderer(local, (id) => {
-      const key = src.entry.textureKeys.get(id);
-      return key && textures.exists(key) ? (textures.get(key).getSourceImage() as CanvasImageSource) : null;
-    });
+    if (!src.canvasRenderer) {
+      src.canvasRenderer = new CanvasRenderer(local, (id) => {
+        const key = src.textureKeyOf(id);
+        return key && textures.exists(key) ? (textures.get(key).getSourceImage() as CanvasImageSource) : null;
+      });
+      // textureKeyOf already hands out straight-alpha copies of premultiplied pages.
+      src.canvasRenderer.convertPremultiplied = false;
+    }
     src.canvasRenderer.ctx = local;
     const d = src.entry.doc;
     src.canvasRenderer.render(src.driver.skeleton, { view: { x: -d.originX, y: -d.originY, zoom: 1 }, clear: false });

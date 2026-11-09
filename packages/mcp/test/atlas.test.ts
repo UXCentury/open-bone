@@ -1,4 +1,5 @@
 import { mkdtempSync } from "node:fs";
+import { inflateSync } from "node:zlib";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -136,4 +137,116 @@ describe("atlas packing renders the same", () => {
     // Beyond half the padding stays empty, so neighbours never touch.
     expect(at(r.x - 3, midY)[3]).toBe(0);
   });
+
+  it("polygon outlines and premultiplied pages render the same, and re-pack", async () => {
+    for (const file of ["knight.obone", "walker.obone"]) {
+      const s = await open(file);
+      const reqs = frames(s).slice(0, 4);
+      const before = await Promise.all(reqs.map(async (r) => pixels((await renderPng(s, r)).png)));
+      const atlas = await packAtlas(s, s.doc, { padding: 2, powerOfTwo: false, stripWhitespace: true, polygons: true, premultipliedAlpha: true, allowRotation: true });
+      expect(atlas).toMatchObject({ premultipliedAlpha: true, stripWhitespace: true, polygons: true });
+      expect(atlas.regions.filter((r) => r.polygon).length).toBeGreaterThan(3);
+      s.store.apply("setAtlas", { atlas, stripImageSources: true });
+      expect(validate(s.doc).filter((i) => i.level === "error")).toEqual([]);
+      const check = async (what: string) => {
+        for (let i = 0; i < reqs.length; i++) {
+          const d = diff(before[i], await pixels((await renderPng(s, reqs[i])).png));
+          // Premultiplied storage rounds faint pixels and rotation resamples: a few edge pixels may differ.
+          expect(d.share, `${file} ${what} frame ${i}`).toBeLessThan(0.003);
+        }
+      };
+      await check("packed");
+      // Re-pack from the premultiplied pages into a straight-alpha atlas: pixels come back intact.
+      s.store.apply("setAtlas", { atlas: await packAtlas(s, s.doc, { padding: 2, powerOfTwo: false }), stripImageSources: true });
+      expect(s.doc.atlas!.premultipliedAlpha).toBeUndefined();
+      await check("re-packed");
+    }
+  }, 60_000);
+
+  it("strips whitespace (meshes keep their uvs), stores premultiplied pixels, and renders the same", async () => {
+    // A 120x100 image with a soft disc in the middle and a lot of transparent margin.
+    const c = createCanvas(120, 100);
+    const g = c.getContext("2d");
+    const grad = g.createRadialGradient(60, 50, 5, 60, 50, 25);
+    grad.addColorStop(0, "rgba(255,120,40,1)");
+    grad.addColorStop(1, "rgba(40,80,255,0)");
+    g.fillStyle = grad;
+    g.fillRect(30, 20, 60, 60);
+    const src = `data:image/png;base64,${c.toBuffer("image/png").toString("base64")}`;
+    const s = new ProjectSession();
+    s.autosave = false;
+    s.newProject("trim", null, { width: 300, height: 140, originX: 150, originY: 70, background: "#202020" });
+    s.store.apply("addImage", { id: "disc", name: "disc", src, width: 120, height: 100 });
+    s.store.apply("addImage", { id: "disc2", name: "disc2", src, width: 120, height: 100 });
+    s.store.apply("addSlot", { bone: "root", name: "a" });
+    s.store.apply("addRegion", { slot: "a", image: "disc", x: -70, rotation: 20, scaleX: 1.3 });
+    s.store.apply("addSlot", { bone: "root", name: "b" });
+    // A mesh whose uvs reach into the margin: that part must stay packed.
+    s.store.apply("addMesh", { slot: "b", image: "disc2", vertices: [10, -40, 130, -40, 130, 40, 10, 40], uvs: [0.05, 0.1, 0.9, 0.1, 0.9, 0.9, 0.05, 0.9], triangles: [0, 1, 2, 0, 2, 3], hull: 4 });
+    const before = await pixels((await renderPng(s, {})).png);
+    const atlas = await packAtlas(s, s.doc, { padding: 2, powerOfTwo: false, stripWhitespace: true, polygons: true, premultipliedAlpha: true });
+    const disc = atlas.regions.find((r) => r.image === "disc")!;
+    const disc2 = atlas.regions.find((r) => r.image === "disc2")!;
+    // The visible disc is about 50x50 around (60, 50).
+    expect(disc.width).toBeLessThan(60);
+    expect(disc.height).toBeLessThan(60);
+    expect(disc.offsetX).toBeGreaterThan(30);
+    expect(disc.polygon!.length / 2).toBeGreaterThanOrEqual(6);
+    // The mesh's uvs span x 6..108, y 10..90: kept.
+    expect(disc2.offsetX).toBeLessThanOrEqual(6);
+    expect(disc2.offsetX + disc2.width).toBeGreaterThanOrEqual(108);
+    expect(disc2.offsetY + disc2.height).toBeGreaterThanOrEqual(90);
+    s.store.apply("setAtlas", { atlas, stripImageSources: true });
+    expect(validate(s.doc).filter((i) => i.level === "error")).toEqual([]);
+    const d = diff(before, await pixels((await renderPng(s, {})).png));
+    expect(d.share).toBeLessThan(0.003);
+
+    // Page bytes as stored: rgb = straight rgb × alpha.
+    const straight = await packAtlas(s, s.doc, { padding: 2, powerOfTwo: false, stripWhitespace: true });
+    const raw = (src: string) => decodeRawPng(Buffer.from(src.split(",")[1], "base64"));
+    const a = raw(straight.pages[0].src);
+    const b = raw((await packAtlas(s, s.doc, { padding: 2, powerOfTwo: false, stripWhitespace: true, premultipliedAlpha: true })).pages[0].src);
+    let soft = 0;
+    for (let i = 0; i < a.length; i += 4) {
+      expect(b[i + 3]).toBe(a[i + 3]);
+      if (a[i + 3] > 0 && a[i + 3] < 255) {
+        soft++;
+        for (let k = 0; k < 3; k++) expect(Math.abs(b[i + k] - Math.round((a[i + k] * a[i + 3]) / 255))).toBeLessThanOrEqual(1);
+      }
+    }
+    expect(soft).toBeGreaterThan(100);
+  });
 });
+
+/** Raw RGBA bytes of an 8-bit RGBA PNG exactly as stored (no colour management or premultiplication by a decoder). */
+function decodeRawPng(png: Buffer): Uint8Array {
+  let p = 8;
+  let w = 0;
+  let h = 0;
+  const idat: Buffer[] = [];
+  while (p < png.length) {
+    const len = png.readUInt32BE(p);
+    const type = png.toString("ascii", p + 4, p + 8);
+    if (type === "IHDR") {
+      w = png.readUInt32BE(p + 8);
+      h = png.readUInt32BE(p + 12);
+    } else if (type === "IDAT") idat.push(png.subarray(p + 8, p + 8 + len));
+    p += 12 + len;
+  }
+  const raw = inflateSync(Buffer.concat(idat));
+  const out = new Uint8Array(w * h * 4);
+  const stride = w * 4;
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (stride + 1)];
+    for (let x = 0; x < stride; x++) {
+      const v = raw[y * (stride + 1) + 1 + x];
+      const left = x >= 4 ? out[y * stride + x - 4] : 0;
+      const up = y ? out[(y - 1) * stride + x] : 0;
+      const ul = x >= 4 && y ? out[(y - 1) * stride + x - 4] : 0;
+      const pa = Math.abs(up - ul), pb = Math.abs(left - ul), pc = Math.abs(left + up - 2 * ul);
+      const paeth = pa <= pb && pa <= pc ? left : pb <= pc ? up : ul;
+      out[y * stride + x] = (v + [0, left, up, (left + up) >> 1, paeth][f]) & 255;
+    }
+  }
+  return out;
+}

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { loadImage } from "@napi-rs/canvas";
-import { registry, serialize, summarize, validate } from "@openbone/core";
+import { isTrimmed, registry, serialize, summarize, validate } from "@openbone/core";
 import type { ScriptHost } from "@openbone/runtime";
 import { createQuickJsHost } from "@openbone/scripting";
 import { z } from "zod";
@@ -235,6 +235,9 @@ export function createServer(opts: ServerOptions = {}) {
           .union([z.number().min(0.05).max(1), z.literal("auto")])
           .default(1)
           .describe("Store images at this fraction of their size; \"auto\" shrinks only as much as needed to fit one page"),
+        stripWhitespace: z.boolean().default(false).describe("Pack each image by its visible bounds (meshes keep what their uvs cover; particle images stay whole)"),
+        polygons: z.boolean().default(false).describe("Polygon packing: region attachments draw a tight outline around the visible pixels instead of the full quad"),
+        premultipliedAlpha: z.boolean().default(false).describe("Store page pixels premultiplied (rgb × alpha); renderers use the matching blend"),
         stripImageSources: z.boolean().default(false),
       },
     },
@@ -247,11 +250,14 @@ export function createServer(opts: ServerOptions = {}) {
           maxHeight: a.maxSize,
           powerOfTwo: a.powerOfTwo,
           allowRotation: a.rotate,
+          stripWhitespace: a.stripWhitespace,
+          polygons: a.polygons,
+          premultipliedAlpha: a.premultipliedAlpha,
           ...(a.scale === "auto" ? { autoScale: true } : { scale: a.scale }),
         });
         session.store.apply("setAtlas", { atlas, stripImageSources: a.stripImageSources });
         await session.maybeAutosave();
-        return text({ ok: true, pages: atlas.pages.map((p) => `${p.id} ${p.width}x${p.height}`), regions: atlas.regions.length, rotated: atlas.regions.filter((r) => r.rotated).length, scale: atlas.scale ?? 1 });
+        return text({ ok: true, pages: atlas.pages.map((p) => `${p.id} ${p.width}x${p.height}`), regions: atlas.regions.length, rotated: atlas.regions.filter((r) => r.rotated).length, trimmed: atlas.regions.filter((r) => isTrimmed(r)).length, polygons: atlas.regions.filter((r) => r.polygon).length, premultipliedAlpha: !!atlas.premultipliedAlpha, scale: atlas.scale ?? 1 });
       } catch (e) {
         return fail(e);
       }

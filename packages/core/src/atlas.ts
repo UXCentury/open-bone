@@ -2,7 +2,7 @@
  * Texture atlas packing: a MaxRects rectangle packer (pure, no pixels) plus the helpers that map image
  * uvs into atlas page uvs. Composing page pixels is left to whoever has a canvas (editor, MCP, CLI).
  */
-import type { AtlasData, AtlasPage, AtlasRegion, Id, ImageAsset, OpenBoneDocument } from "./types.ts";
+import type { AtlasData, AtlasPage, AtlasRegion, Id, OpenBoneDocument } from "./types.ts";
 
 export interface PackInput {
   id: string;
@@ -231,21 +231,77 @@ export interface AtlasLayoutOptions extends PackOptions {
   pageId?: string;
   /** Store images at this fraction of their size (smaller pages, softer art). Default 1. */
   scale?: number;
+  /** Recorded in the atlas: page pixels will be stored premultiplied (whoever composes the pages does it). */
+  premultipliedAlpha?: boolean;
+  /** Recorded in the atlas: images were trimmed to their visible bounds (pass each image's `trim`). */
+  stripWhitespace?: boolean;
+  /** Recorded in the atlas: images carry outline polygons (pass each image's `polygon`). */
+  polygons?: boolean;
 }
+
+/** An image to lay out, optionally trimmed to its visible part and with an outline polygon (both in its own pixels). */
+export interface AtlasImage {
+  id: string;
+  width: number;
+  height: number;
+  /** Visible bounds in image pixels (y-down); only this part is packed. */
+  trim?: { x: number; y: number; width: number; height: number };
+  /** Convex outline around the visible pixels, flat [x0,y0,...] in image pixels (y-down). */
+  polygon?: number[];
+}
+
+/** A polygon is kept only when its area is below this fraction of its packed rect. */
+const POLYGON_WORTH = 0.9;
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
 /**
  * Lay out images on atlas pages. The returned atlas has pages with an empty `src`: draw each region's image
  * at (x, y) (and fill `white` with opaque white), then store the page images as their `src`.
  */
-export function layoutAtlas(images: Pick<ImageAsset, "id" | "width" | "height">[], opts: AtlasLayoutOptions = {}): AtlasData {
+export function layoutAtlas(images: AtlasImage[], opts: AtlasLayoutOptions = {}): AtlasData {
   const padding = Math.max(0, Math.floor(opts.padding ?? 2));
   const scale = Math.min(1, Math.max(0.01, opts.scale ?? 1));
   const sized = (n: number) => Math.max(1, Math.round(n * scale));
-  const input: PackInput[] = images.map((i) => ({ id: i.id, width: sized(i.width), height: sized(i.height) }));
+  // Per image: stored size and the part of it that is packed (trimmed images keep only their visible bounds).
+  const parts = new Map<string, { ow: number; oh: number; ox: number; oy: number; w: number; h: number; polygon?: number[] }>();
+  for (const i of images) {
+    const ow = sized(i.width);
+    const oh = sized(i.height);
+    let part = { ow, oh, ox: 0, oy: 0, w: ow, h: oh } as { ow: number; oh: number; ox: number; oy: number; w: number; h: number; polygon?: number[] };
+    if (i.trim && i.trim.width > 0 && i.trim.height > 0) {
+      const kx = ow / i.width;
+      const ky = oh / i.height;
+      const x0 = Math.max(0, Math.floor(i.trim.x * kx));
+      const y0 = Math.max(0, Math.floor(i.trim.y * ky));
+      const x1 = Math.min(ow, Math.max(x0 + 1, Math.ceil((i.trim.x + i.trim.width) * kx)));
+      const y1 = Math.min(oh, Math.max(y0 + 1, Math.ceil((i.trim.y + i.trim.height) * ky)));
+      part = { ow, oh, ox: x0, oy: y0, w: x1 - x0, h: y1 - y0 };
+    }
+    if (i.polygon && i.polygon.length >= 6) {
+      const kx = ow / i.width;
+      const ky = oh / i.height;
+      const box = { x0: part.ox, y0: part.oy, x1: part.ox + part.w, y1: part.oy + part.h };
+      const poly: number[] = [];
+      for (let k = 0; k < i.polygon.length; k += 2)
+        poly.push(round3(Math.min(box.x1, Math.max(box.x0, i.polygon[k] * kx))), round3(Math.min(box.y1, Math.max(box.y0, i.polygon[k + 1] * ky))));
+      // Only worth it when the polygon covers clearly less than the packed rect.
+      if (polygonArea(poly) < POLYGON_WORTH * part.w * part.h) part.polygon = poly;
+    }
+    parts.set(i.id, part);
+  }
+  const input: PackInput[] = images.map((i) => ({ id: i.id, width: parts.get(i.id)!.w, height: parts.get(i.id)!.h }));
   if (input.length && opts.white !== false) input.push({ id: WHITE_ID, width: ATLAS_WHITE_SIZE, height: ATLAS_WHITE_SIZE });
   const packed = packRects(input, { ...opts, padding });
   const prefix = opts.pageId ?? "atlas_page";
-  const atlas: AtlasData = { pages: [], regions: [], padding, ...(scale !== 1 ? { scale } : {}) };
+  const atlas: AtlasData = {
+    pages: [],
+    regions: [],
+    padding,
+    ...(scale !== 1 ? { scale } : {}),
+    ...(opts.premultipliedAlpha ? { premultipliedAlpha: true } : {}),
+    ...(opts.stripWhitespace ? { stripWhitespace: true } : {}),
+    ...(opts.polygons ? { polygons: true } : {}),
+  };
   packed.forEach((p, i) => {
     const page: AtlasPage = { id: `${prefix}${i}`, name: `atlas ${i + 1}`, src: "", width: p.width, height: p.height };
     atlas.pages.push(page);
@@ -254,6 +310,7 @@ export function layoutAtlas(images: Pick<ImageAsset, "id" | "width" | "height">[
         atlas.white = { page: page.id, x: r.x, y: r.y, width: r.width, height: r.height };
         continue;
       }
+      const part = parts.get(r.id)!;
       atlas.regions.push({
         image: r.id,
         page: page.id,
@@ -261,12 +318,13 @@ export function layoutAtlas(images: Pick<ImageAsset, "id" | "width" | "height">[
         y: r.y,
         width: r.width,
         height: r.height,
-        offsetX: 0,
-        offsetY: 0,
+        offsetX: part.ox,
+        offsetY: part.oy,
         // Page pixels: with `scale` these are smaller than the image asset's size (uvs only use the ratios).
-        originalWidth: r.width,
-        originalHeight: r.height,
+        originalWidth: part.ow,
+        originalHeight: part.oh,
         ...(r.rotated ? { rotated: true } : {}),
+        ...(part.polygon ? { polygon: part.polygon } : {}),
       });
     }
   });
@@ -322,7 +380,7 @@ export const regionPageRect = (r: AtlasRegion) => ({ x: r.x, y: r.y, width: r.ro
  * Lay out images at the largest scale (down to `minScale`) that fits on a single page, for "auto scale" packing.
  * Returns the layout and the scale used (1 when everything already fits).
  */
-export function layoutAtlasFit(images: Pick<ImageAsset, "id" | "width" | "height">[], opts: AtlasLayoutOptions & { minScale?: number } = {}): { atlas: AtlasData; scale: number } {
+export function layoutAtlasFit(images: AtlasImage[], opts: AtlasLayoutOptions & { minScale?: number } = {}): { atlas: AtlasData; scale: number } {
   const fitsOne = (scale: number) => {
     try {
       const a = layoutAtlas(images, { ...opts, scale });
@@ -363,4 +421,229 @@ export function atlasRegion(doc: OpenBoneDocument, image: Id): { region: AtlasRe
 /** Texture sources a loader needs: atlas pages plus images that are not packed (or still have their own src). */
 export function textureAssets(doc: OpenBoneDocument): AtlasPage[] {
   return [...(doc.atlas?.pages ?? []), ...doc.images].filter((t) => t.src);
+}
+
+// ---------- Whitespace stripping, polygon packing, premultiplied alpha ----------
+
+/** Area of a simple polygon (flat [x0,y0,...]), always positive. */
+export function polygonArea(p: ArrayLike<number>): number {
+  let a = 0;
+  const n = p.length;
+  for (let i = 0; i < n; i += 2) {
+    const j = (i + 2) % n;
+    a += p[i] * p[j + 1] - p[j] * p[i + 1];
+  }
+  return Math.abs(a) / 2;
+}
+
+/**
+ * Bounds of the pixels whose alpha is above `threshold` in RGBA pixels (row-major, y-down), or null when the
+ * image is fully transparent.
+ */
+export function alphaBounds(rgba: ArrayLike<number>, width: number, height: number, threshold = 0): { x: number; y: number; width: number; height: number } | null {
+  let x0 = width, y0 = height, x1 = -1, y1 = -1;
+  for (let y = 0; y < height; y++) {
+    const row = y * width * 4 + 3;
+    for (let x = 0; x < width; x++) {
+      if (rgba[row + x * 4] <= threshold) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      y1 = y;
+    }
+  }
+  return x1 < 0 ? null : { x: x0, y: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 };
+}
+
+type Pt = [number, number];
+const cross = (o: Pt, a: Pt, b: Pt) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+
+/** Convex hull (monotone chain), counter-clockwise in y-down coordinates' maths sense; collinear points dropped. */
+function convexHull(points: Pt[]): Pt[] {
+  const pts = points.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (pts.length < 3) return pts;
+  const lower: Pt[] = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper: Pt[] = [];
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+/**
+ * Cut a convex polygon down to `max` vertices while still containing it: repeatedly drop the edge whose removal
+ * (extending its two neighbouring edges until they meet) adds the least area.
+ */
+function reduceHull(hull: Pt[], max: number): Pt[] {
+  const p = hull.slice();
+  while (p.length > max) {
+    const n = p.length;
+    let best = -1;
+    let bestArea = Infinity;
+    let bestPt: Pt | null = null;
+    for (let i = 0; i < n; i++) {
+      const a = p[(i - 1 + n) % n], b = p[i], c = p[(i + 1) % n], d = p[(i + 2) % n];
+      // a + t (b - a) = d + s (c - d), meeting beyond b and beyond c.
+      const rx = b[0] - a[0], ry = b[1] - a[1];
+      const sx = c[0] - d[0], sy = c[1] - d[1];
+      const den = rx * sy - ry * sx;
+      if (Math.abs(den) < 1e-12) continue;
+      const t = ((d[0] - a[0]) * sy - (d[1] - a[1]) * sx) / den;
+      const s = ((d[0] - a[0]) * ry - (d[1] - a[1]) * rx) / den;
+      if (t < 1 - 1e-9 || s < 1 - 1e-9) continue;
+      const x: Pt = [a[0] + t * rx, a[1] + t * ry];
+      const area = Math.abs(cross(b, x, c)) / 2;
+      if (area < bestArea) {
+        bestArea = area;
+        best = i;
+        bestPt = x;
+      }
+    }
+    if (best < 0 || !bestPt) break;
+    // Replace b (index best) and c with the meeting point.
+    const ci = (best + 1) % n;
+    p[best] = bestPt;
+    p.splice(ci, 1);
+  }
+  return p;
+}
+
+/** Clip a convex polygon to an axis-aligned box (Sutherland–Hodgman). */
+function clipToBox(poly: Pt[], x0: number, y0: number, x1: number, y1: number): Pt[] {
+  const edges: [(p: Pt) => boolean, (a: Pt, b: Pt) => Pt][] = [
+    [(p) => p[0] >= x0, (a, b) => [x0, a[1] + ((b[1] - a[1]) * (x0 - a[0])) / (b[0] - a[0])]],
+    [(p) => p[0] <= x1, (a, b) => [x1, a[1] + ((b[1] - a[1]) * (x1 - a[0])) / (b[0] - a[0])]],
+    [(p) => p[1] >= y0, (a, b) => [a[0] + ((b[0] - a[0]) * (y0 - a[1])) / (b[1] - a[1]), y0]],
+    [(p) => p[1] <= y1, (a, b) => [a[0] + ((b[0] - a[0]) * (y1 - a[1])) / (b[1] - a[1]), y1]],
+  ];
+  let out = poly;
+  for (const [inside, cut] of edges) {
+    const src = out;
+    out = [];
+    for (let i = 0; i < src.length; i++) {
+      const cur = src[i];
+      const prev = src[(i - 1 + src.length) % src.length];
+      if (inside(cur)) {
+        if (!inside(prev)) out.push(cut(prev, cur));
+        out.push(cur);
+      } else if (inside(prev)) out.push(cut(prev, cur));
+    }
+    if (!out.length) break;
+  }
+  return out;
+}
+
+/**
+ * A convex outline with at most `maxVertices` corners around every pixel whose alpha is above `threshold`
+ * (flat [x0,y0,...] in pixel units, y-down; pixel (x, y) covers x..x+1, y..y+1). Null when fully transparent.
+ */
+export function alphaHull(rgba: ArrayLike<number>, width: number, height: number, opts: { threshold?: number; maxVertices?: number } = {}): number[] | null {
+  const th = opts.threshold ?? 0;
+  const max = Math.max(3, opts.maxVertices ?? 8);
+  const pts: Pt[] = [];
+  for (let y = 0; y < height; y++) {
+    const row = y * width * 4 + 3;
+    let l = -1, r = -1;
+    for (let x = 0; x < width; x++)
+      if (rgba[row + x * 4] > th) {
+        if (l < 0) l = x;
+        r = x;
+      }
+    if (l < 0) continue;
+    pts.push([l, y], [r + 1, y], [l, y + 1], [r + 1, y + 1]);
+  }
+  if (!pts.length) return null;
+  let hull = reduceHull(convexHull(pts), max);
+  hull = clipToBox(hull, 0, 0, width, height);
+  return hull.flatMap(([x, y]) => [round3(x), round3(y)]);
+}
+
+/** rgb × a, in place (RGBA bytes). */
+export function premultiplyPixels(px: Uint8Array | Uint8ClampedArray): typeof px {
+  for (let i = 0; i < px.length; i += 4) {
+    const a = px[i + 3];
+    if (a === 255) continue;
+    px[i] = Math.round((px[i] * a) / 255);
+    px[i + 1] = Math.round((px[i + 1] * a) / 255);
+    px[i + 2] = Math.round((px[i + 2] * a) / 255);
+  }
+  return px;
+}
+
+/** rgb ÷ a, in place (RGBA bytes): premultiplied back to straight alpha. */
+export function unpremultiplyPixels(px: Uint8Array | Uint8ClampedArray): typeof px {
+  for (let i = 0; i < px.length; i += 4) {
+    const a = px[i + 3];
+    if (a === 255) continue;
+    if (a === 0) {
+      px[i] = px[i + 1] = px[i + 2] = 0;
+      continue;
+    }
+    px[i] = Math.min(255, Math.round((px[i] * 255) / a));
+    px[i + 1] = Math.min(255, Math.round((px[i + 1] * 255) / a));
+    px[i + 2] = Math.min(255, Math.round((px[i + 2] * 255) / a));
+  }
+  return px;
+}
+
+/** Ids of the textures (atlas pages) whose pixels are stored premultiplied. */
+export function premultipliedTextures(doc: Pick<OpenBoneDocument, "atlas">): Set<Id> {
+  return new Set(doc.atlas?.premultipliedAlpha ? doc.atlas.pages.map((p) => p.id) : []);
+}
+
+/**
+ * What whitespace stripping may cut from each image: `false` = keep the whole image (particles draw it as a
+ * plain rectangle), or a uv box [u0, v0, u1, v1] that must stay packed (meshes sample everything their uvs cover).
+ * Images not in the map may be trimmed freely.
+ */
+export function trimLimits(doc: OpenBoneDocument): Map<Id, false | [number, number, number, number]> {
+  const out = new Map<Id, false | [number, number, number, number]>();
+  for (const skin of doc.skeleton.skins)
+    for (const atts of Object.values(skin.attachments))
+      for (const a of Object.values(atts)) {
+        if (a.type === "particles" && a.image) out.set(a.image, false);
+        if (a.type !== "mesh" || out.get(a.image) === false) continue;
+        let [u0, v0, u1, v1] = (out.get(a.image) as [number, number, number, number] | undefined) ?? [Infinity, Infinity, -Infinity, -Infinity];
+        for (let i = 0; i < a.uvs.length; i += 2) {
+          u0 = Math.min(u0, a.uvs[i]);
+          u1 = Math.max(u1, a.uvs[i]);
+          v0 = Math.min(v0, a.uvs[i + 1]);
+          v1 = Math.max(v1, a.uvs[i + 1]);
+        }
+        if (u0 <= u1) out.set(a.image, [u0, v0, u1, v1]);
+      }
+  return out;
+}
+
+/**
+ * The trim rect and outline polygon to pack for one image, from its RGBA pixels: visible bounds (grown to keep
+ * what `limit` asks for), and with `polygons` a convex outline. Undefined fields mean "the whole image".
+ */
+export function analyzeImageAlpha(
+  rgba: ArrayLike<number>,
+  width: number,
+  height: number,
+  opts: { stripWhitespace?: boolean; polygons?: boolean; limit?: false | [number, number, number, number]; maxVertices?: number },
+): Pick<AtlasImage, "trim" | "polygon"> {
+  if (opts.limit === false || (!opts.stripWhitespace && !opts.polygons)) return {};
+  const vis = alphaBounds(rgba, width, height) ?? { x: 0, y: 0, width: 1, height: 1 };
+  let trim: AtlasImage["trim"];
+  if (opts.stripWhitespace) {
+    let x0 = vis.x, y0 = vis.y, x1 = vis.x + vis.width, y1 = vis.y + vis.height;
+    if (opts.limit) {
+      x0 = Math.min(x0, Math.max(0, Math.floor(opts.limit[0] * width)));
+      y0 = Math.min(y0, Math.max(0, Math.floor(opts.limit[1] * height)));
+      x1 = Math.max(x1, Math.min(width, Math.ceil(opts.limit[2] * width)));
+      y1 = Math.max(y1, Math.min(height, Math.ceil(opts.limit[3] * height)));
+    }
+    if (x0 > 0 || y0 > 0 || x1 < width || y1 < height) trim = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
+  }
+  const polygon = opts.polygons ? (alphaHull(rgba, width, height, { maxVertices: opts.maxVertices }) ?? undefined) : undefined;
+  return { ...(trim ? { trim } : {}), ...(polygon ? { polygon } : {}) };
 }
