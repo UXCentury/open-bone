@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Type-checks the Unity package (Runtime and Editor) against UnityStubs.cs, which mirrors the Unity API it uses.
+    This is not a Unity build: it catches C# errors and API misuse against the stubs, nothing more.
+      dotnet build runtimes/csharp/unity/compile-check
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <DefineConstants>$(DefineConstants);UNITY_2021_2_OR_NEWER;ENABLE_LEGACY_INPUT_MANAGER;UNITY_EDITOR</DefineConstants>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="UnityStubs.cs" />
+    <Compile Include="../com.openbone.runtime/Runtime/**/*.cs" />
+    <Compile Include="../com.openbone.runtime/Editor/**/*.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/OpenBone.Runtime/OpenBone.Runtime.csproj" />
+    <ProjectReference Include="../../src/OpenBone.Scripting.Jint/OpenBone.Scripting.Jint.csproj" />
+  </ItemGroup>
+</Project>

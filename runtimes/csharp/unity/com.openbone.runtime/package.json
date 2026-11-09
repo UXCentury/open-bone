@@ -1,0 +1,12 @@
+{
+  "name": "com.openbone.runtime",
+  "version": "0.1.0",
+  "displayName": "OpenBone Runtime",
+  "description": "Play OpenBone skeletal animations and interactive state machines in Unity: .obone/.obonb importer, animation and state-machine components, a mesh renderer with blend modes, clipping and two-colour tint, and an AudioSource bridge.",
+  "unity": "2021.3",
+  "license": "MIT",
+  "keywords": ["animation", "skeletal", "2d", "state machine", "openbone"],
+  "author": { "name": "OpenBone contributors", "url": "https://github.com/UXCentury/open-bone" },
+  "documentationUrl": "https://github.com/UXCentury/open-bone/tree/main/runtimes/csharp/unity/com.openbone.runtime#readme",
+  "licensesUrl": "https://github.com/UXCentury/open-bone/blob/main/LICENSE"
+}

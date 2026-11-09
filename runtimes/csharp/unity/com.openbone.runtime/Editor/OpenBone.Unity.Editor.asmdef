@@ -1,0 +1,14 @@
+{
+  "name": "OpenBone.Unity.Editor",
+  "rootNamespace": "OpenBone.Unity.Editor",
+  "references": ["OpenBone.Unity"],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": ["OpenBone.Runtime.dll"],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
