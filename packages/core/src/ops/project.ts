@@ -41,6 +41,37 @@ defineOp({
 });
 
 defineOp({
+  name: "updateImage",
+  group: "project",
+  description:
+    "Change an image asset: name, src (new pixels, e.g. the art file changed) and size. When the size changes, region attachments that showed the whole image at its old size take the new size (their scale and place are kept).",
+  schema: z.object({
+    image: ref("Image"),
+    name: z.string().min(1).optional(),
+    src: z.string().optional(),
+    width: z.number().positive().optional(),
+    height: z.number().positive().optional(),
+  }),
+  apply(doc, a) {
+    const img = get.image(doc, a.image);
+    const next = { ...img, ...(a.name ? { name: a.name } : {}), ...(a.src !== undefined ? { src: a.src } : {}), ...(a.width ? { width: a.width } : {}), ...(a.height ? { height: a.height } : {}) };
+    // Image assets are shared between undo snapshots: replace, don't mutate.
+    doc.images = doc.images.map((i) => (i === img ? next : i));
+    let regions = 0;
+    if (next.width !== img.width || next.height !== img.height)
+      for (const skin of doc.skeleton.skins)
+        for (const atts of Object.values(skin.attachments))
+          for (const att of Object.values(atts))
+            if (att.type === "region" && att.image === img.id && Math.abs(att.width - img.width) < 1e-6 && Math.abs(att.height - img.height) < 1e-6) {
+              att.width = next.width;
+              att.height = next.height;
+              regions++;
+            }
+    return { regions };
+  },
+});
+
+defineOp({
   name: "deleteImage",
   group: "project",
   description: "Remove an image asset. Fails if attachments still use it.",
