@@ -1,0 +1,496 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "constraints",
+  "width": 400,
+  "height": 400,
+  "originX": 200,
+  "originY": 300,
+  "background": null,
+  "fps": 30,
+  "images": [
+    {
+      "id": "img_seg",
+      "name": "seg",
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==",
+      "width": 60,
+      "height": 12
+    }
+  ],
+  "skeleton": {
+    "bones": [
+      {
+        "id": "bone_wfol40d",
+        "name": "root",
+        "parent": null,
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_wosqu0e",
+        "name": "thigh",
+        "parent": "bone_wfol40d",
+        "length": 70,
+        "x": -60,
+        "y": 100,
+        "rotation": -80,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_om1nc0f",
+        "name": "shin",
+        "parent": "bone_wosqu0e",
+        "length": 70,
+        "x": 70,
+        "y": 0,
+        "rotation": 10,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_7bvr90g",
+        "name": "target",
+        "parent": "bone_wfol40d",
+        "length": 50,
+        "x": -40,
+        "y": -10,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_350mc0i",
+        "name": "arm",
+        "parent": "bone_wfol40d",
+        "length": 50,
+        "x": 60,
+        "y": 100,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_y3hjf0j",
+        "name": "aim",
+        "parent": "bone_wfol40d",
+        "length": 50,
+        "x": 140,
+        "y": 160,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_2cnfh0l",
+        "name": "driver",
+        "parent": "bone_wfol40d",
+        "length": 40,
+        "x": 0,
+        "y": 200,
+        "rotation": 30,
+        "scaleX": 1.3,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_51hj20m",
+        "name": "follower-w",
+        "parent": "bone_wfol40d",
+        "length": 40,
+        "x": -100,
+        "y": 250,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_2g2xg0n",
+        "name": "follower-l",
+        "parent": "bone_wfol40d",
+        "length": 40,
+        "x": 100,
+        "y": 250,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot_ma21k0q",
+        "name": "thigh",
+        "bone": "bone_wosqu0e",
+        "color": "#ffffff",
+        "attachment": "seg",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_1ln7m0r",
+        "name": "shin",
+        "bone": "bone_om1nc0f",
+        "color": "#ffffff",
+        "attachment": "seg",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_9vvla0s",
+        "name": "arm",
+        "bone": "bone_350mc0i",
+        "color": "#ffffff",
+        "attachment": "seg",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_sf70k0t",
+        "name": "follower-w",
+        "bone": "bone_51hj20m",
+        "color": "#ffffff",
+        "attachment": "seg",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_3mq4w0u",
+        "name": "follower-l",
+        "bone": "bone_2g2xg0n",
+        "color": "#ffffff",
+        "attachment": "seg",
+        "blend": "normal"
+      }
+    ],
+    "skins": [
+      {
+        "id": "skin_default",
+        "name": "default",
+        "attachments": {
+          "slot_ma21k0q": {
+            "seg": {
+              "type": "region",
+              "name": "seg",
+              "image": "img_seg",
+              "x": 30,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 60,
+              "height": 12,
+              "color": "#ffffff"
+            }
+          },
+          "slot_1ln7m0r": {
+            "seg": {
+              "type": "region",
+              "name": "seg",
+              "image": "img_seg",
+              "x": 30,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 60,
+              "height": 12,
+              "color": "#ffffff"
+            }
+          },
+          "slot_9vvla0s": {
+            "seg": {
+              "type": "region",
+              "name": "seg",
+              "image": "img_seg",
+              "x": 30,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 60,
+              "height": 12,
+              "color": "#ffffff"
+            }
+          },
+          "slot_sf70k0t": {
+            "seg": {
+              "type": "region",
+              "name": "seg",
+              "image": "img_seg",
+              "x": 30,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 60,
+              "height": 12,
+              "color": "#ffffff"
+            }
+          },
+          "slot_3mq4w0u": {
+            "seg": {
+              "type": "region",
+              "name": "seg",
+              "image": "img_seg",
+              "x": 30,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 60,
+              "height": 12,
+              "color": "#ffffff"
+            }
+          }
+        }
+      }
+    ],
+    "ik": [
+      {
+        "id": "ik_iudex0h",
+        "name": "leg",
+        "bones": [
+          "bone_wosqu0e",
+          "bone_om1nc0f"
+        ],
+        "target": "bone_7bvr90g",
+        "mix": 1,
+        "bendPositive": true,
+        "softness": 10,
+        "stretch": true,
+        "compress": false
+      },
+      {
+        "id": "ik_zj6zd0k",
+        "name": "point",
+        "bones": [
+          "bone_350mc0i"
+        ],
+        "target": "bone_y3hjf0j",
+        "mix": 1,
+        "bendPositive": true,
+        "softness": 0,
+        "stretch": true,
+        "compress": true,
+        "uniform": true
+      }
+    ],
+    "transform": [
+      {
+        "id": "tc_rht2f0o",
+        "name": "world",
+        "bones": [
+          "bone_51hj20m"
+        ],
+        "target": "bone_2cnfh0l",
+        "mixRotate": 0.8,
+        "mixTranslate": 0.25,
+        "mixScale": 0.5,
+        "mixShear": 0,
+        "offsetRotation": 15,
+        "offsetX": 0,
+        "offsetY": 0,
+        "offsetScaleX": 0,
+        "offsetScaleY": 0,
+        "offsetShear": 0,
+        "local": false,
+        "relative": false
+      },
+      {
+        "id": "tc_n5l2z0p",
+        "name": "local",
+        "bones": [
+          "bone_2g2xg0n"
+        ],
+        "target": "bone_2cnfh0l",
+        "mixRotate": 1,
+        "mixTranslate": 1,
+        "mixScale": 1,
+        "mixShear": 1,
+        "offsetRotation": 0,
+        "offsetX": 0,
+        "offsetY": 0,
+        "offsetScaleX": 0,
+        "offsetScaleY": 0,
+        "offsetShear": 0,
+        "local": true,
+        "relative": true
+      }
+    ],
+    "path": [],
+    "physics": []
+  },
+  "events": [],
+  "animations": [
+    {
+      "id": "anim_gg2010v",
+      "name": "reach",
+      "duration": 0,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_7bvr90g",
+          "property": "x",
+          "keys": [
+            {
+              "time": 0,
+              "value": -40,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": 80,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": -40,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_7bvr90g",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": -10,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": 120,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": -10,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "ik",
+          "id": "ik_iudex0h",
+          "property": "bend",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": "stepped"
+            },
+            {
+              "time": 1.5,
+              "value": -1,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "ik",
+          "id": "ik_iudex0h",
+          "property": "mix",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 0.5,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_y3hjf0j",
+          "property": "x",
+          "keys": [
+            {
+              "time": 0,
+              "value": 140,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": 70,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 140,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_2cnfh0l",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 30,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 210,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "transform",
+          "id": "tc_rht2f0o",
+          "property": "mixTranslate",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.25,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 1,
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    }
+  ],
+  "stateMachines": [],
+  "scripts": []
+}

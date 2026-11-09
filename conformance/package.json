@@ -1,0 +1,13 @@
+{
+  "name": "@openbone/conformance",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Cross-language conformance suite: reference poses, draw lists, events and state traces from the TypeScript runtime",
+  "dependencies": {
+    "@openbone/core": "workspace:*",
+    "@openbone/runtime": "workspace:*",
+    "@openbone/scripting": "workspace:*"
+  }
+}

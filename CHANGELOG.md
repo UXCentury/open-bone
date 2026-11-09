@@ -10,6 +10,7 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app). Se
 - Compensate (`J`, toolbar ⇲ Comp): transform a bone while its child bones keep their place.
 - Linked meshes (`addLinkedMesh`): share another mesh's geometry and weights with a different image, optionally following its deform keys.
 - Photoshop (`.psd`) import: layers become slots and regions in place; groups can become bones.
+- Conformance suite (`conformance/`, `pnpm conformance`): reference poses, draw lists, events, audio and state-machine traces from the TypeScript runtime for every example plus focused rigs and packed atlases, checked by a drift test; `docs/runtime-spec.md` specifies the evaluation rules for ports to other languages.
 - Two-colour tint: a keyable `dark` slot colour (Canvas2D and WebGL2 renderers; the PixiJS, Phaser, Three.js and CanvasKit runtimes draw the normal tint for now).
 
 ## 0.1.0

@@ -18,6 +18,7 @@
     "examples": "tsx examples/build-examples.ts",
     "build:player-bundle": "tsx packages/player/src/bundle/build.ts",
     "icons": "tsx brand/build-icons.ts",
+    "conformance": "tsx conformance/generate.ts",
     "version:check": "tsx scripts/version.ts check",
     "version:set": "tsx scripts/version.ts set"
   },

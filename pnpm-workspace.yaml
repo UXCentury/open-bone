@@ -2,6 +2,7 @@ packages:
   - "packages/*"
   - "apps/*"
   - "examples"
+  - "conformance"
 onlyBuiltDependencies:
   - esbuild
   - "@napi-rs/canvas"
