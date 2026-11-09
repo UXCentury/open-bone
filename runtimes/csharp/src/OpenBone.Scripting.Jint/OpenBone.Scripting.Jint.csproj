@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.1;net8.0</TargetFrameworks>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>OpenBone.Scripting</RootNamespace>
+    <Version>0.1.0</Version>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Description>Script host for OpenBone state machines, running the document's JavaScript in Jint.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../OpenBone.Runtime/OpenBone.Runtime.csproj" />
+    <PackageReference Include="Jint" Version="3.1.6" />
+  </ItemGroup>
+</Project>
