@@ -1,0 +1,456 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "interactive",
+  "width": 400,
+  "height": 400,
+  "originX": 200,
+  "originY": 300,
+  "background": null,
+  "fps": 30,
+  "images": [
+    {
+      "id": "img_btn",
+      "name": "btn",
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==",
+      "width": 80,
+      "height": 40
+    }
+  ],
+  "skeleton": {
+    "bones": [
+      {
+        "id": "bone_vhehd1n",
+        "name": "root",
+        "parent": null,
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_knc5l1o",
+        "name": "body",
+        "parent": "bone_vhehd1n",
+        "length": 50,
+        "x": 0,
+        "y": 100,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot_eighg1p",
+        "name": "button",
+        "bone": "bone_knc5l1o",
+        "color": "#ffffff",
+        "attachment": "btn",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_xi6qt1q",
+        "name": "label",
+        "bone": "bone_knc5l1o",
+        "color": "#ffffff",
+        "attachment": "text",
+        "blend": "normal"
+      }
+    ],
+    "skins": [
+      {
+        "id": "skin_default",
+        "name": "default",
+        "attachments": {
+          "slot_eighg1p": {
+            "btn": {
+              "type": "region",
+              "name": "btn",
+              "image": "img_btn",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 80,
+              "height": 40,
+              "color": "#ffffff"
+            },
+            "hitbox": {
+              "type": "boundingBox",
+              "name": "hitbox",
+              "vertices": [
+                -40,
+                -20,
+                40,
+                -20,
+                40,
+                20,
+                -40,
+                20
+              ]
+            }
+          },
+          "slot_xi6qt1q": {
+            "text": {
+              "type": "text",
+              "name": "text",
+              "text": "{count} / {status}",
+              "x": 0,
+              "y": 30,
+              "rotation": 0,
+              "width": 120,
+              "height": 20,
+              "font": "sans-serif",
+              "size": 32,
+              "weight": 400,
+              "color": "#ffffff",
+              "align": "center"
+            }
+          }
+        }
+      }
+    ],
+    "ik": [],
+    "transform": [],
+    "path": [],
+    "physics": []
+  },
+  "events": [
+    {
+      "id": "evt_ra49o1v",
+      "name": "click",
+      "int": 0,
+      "float": 0,
+      "string": "",
+      "audio": "snd_421w91x"
+    }
+  ],
+  "animations": [
+    {
+      "id": "anim_v13941r",
+      "name": "idle",
+      "duration": 0,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_knc5l1o",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": 0,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": 0,
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_wzbe91s",
+      "name": "walk",
+      "duration": 0,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_knc5l1o",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": 30,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": 0,
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_keapu1t",
+      "name": "run",
+      "duration": 0,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_knc5l1o",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": 60,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": 0,
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_yx88r1u",
+      "name": "press",
+      "duration": 0,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_knc5l1o",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": -20,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": 0,
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "time": 0.25,
+          "event": "evt_ra49o1v"
+        }
+      ]
+    }
+  ],
+  "stateMachines": [
+    {
+      "id": "sm_2kemw1y",
+      "name": "main",
+      "inputs": [
+        {
+          "id": "in_2di0d1z",
+          "name": "speed",
+          "type": "number",
+          "default": 0
+        },
+        {
+          "id": "in_jh6vb20",
+          "name": "pressed",
+          "type": "trigger",
+          "default": false
+        },
+        {
+          "id": "in_ixk8821",
+          "name": "on",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "id": "in_doqgk22",
+          "name": "count",
+          "type": "number",
+          "default": 0
+        },
+        {
+          "id": "in_kbvjx23",
+          "name": "status",
+          "type": "string",
+          "default": "ready"
+        }
+      ],
+      "bindings": [
+        {
+          "id": "bind_2sbos29",
+          "input": "in_2di0d1z",
+          "target": "bone",
+          "object": "bone_knc5l1o",
+          "property": "scaleX",
+          "inMin": 0,
+          "inMax": 1,
+          "outMin": 1,
+          "outMax": 1.5
+        }
+      ],
+      "layers": [
+        {
+          "id": "sm_2kemw1y_layer1",
+          "name": "Layer 1",
+          "entry": "st_czeo524",
+          "states": [
+            {
+              "id": "st_czeo524",
+              "name": "locomotion",
+              "type": "blend1d",
+              "loop": true,
+              "speed": 1,
+              "blendInput": "in_2di0d1z",
+              "blend": [
+                {
+                  "animation": "anim_v13941r",
+                  "value": 0
+                },
+                {
+                  "animation": "anim_wzbe91s",
+                  "value": 0.5
+                },
+                {
+                  "animation": "anim_keapu1t",
+                  "value": 1
+                }
+              ],
+              "x": 160,
+              "y": 80
+            },
+            {
+              "id": "st_n7lwq25",
+              "name": "press",
+              "type": "animation",
+              "animation": "anim_yx88r1u",
+              "loop": false,
+              "speed": 1,
+              "x": 340,
+              "y": 80
+            }
+          ],
+          "transitions": [
+            {
+              "id": "tr_wymxp26",
+              "from": "@any",
+              "to": "st_n7lwq25",
+              "conditions": [
+                {
+                  "input": "in_jh6vb20",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.1,
+              "exitTime": null
+            },
+            {
+              "id": "tr_bhyls27",
+              "from": "st_n7lwq25",
+              "to": "st_czeo524",
+              "conditions": [],
+              "duration": 0.2,
+              "exitTime": 1
+            }
+          ]
+        }
+      ],
+      "listeners": [
+        {
+          "id": "lis_l5ad228",
+          "name": "down",
+          "slot": "slot_eighg1p",
+          "event": "down",
+          "actions": [
+            {
+              "type": "fireTrigger",
+              "input": "in_jh6vb20"
+            },
+            {
+              "type": "reportEvent",
+              "event": "evt_ra49o1v"
+            }
+          ]
+        }
+      ],
+      "scripts": [
+        "scr_dnko52a"
+      ]
+    }
+  ],
+  "scripts": [
+    {
+      "id": "scr_dnko52a",
+      "name": "counter",
+      "code": "let n = 0;\nfunction onEvent(e) { if (e.name === 'click') { n++; ob.setInput('count', n); ob.setInput('status', n > 1 ? 'busy' : 'ready'); } }"
+    }
+  ],
+  "audio": {
+    "master": 1,
+    "muted": false,
+    "assets": [
+      {
+        "id": "aud_abe8i1w",
+        "name": "beep",
+        "src": "beep.wav",
+        "duration": 0.2
+      }
+    ],
+    "buses": [
+      {
+        "id": "bus_sfx",
+        "name": "sfx",
+        "volume": 1,
+        "muted": false
+      },
+      {
+        "id": "bus_music",
+        "name": "music",
+        "volume": 1,
+        "muted": false
+      },
+      {
+        "id": "bus_ui",
+        "name": "ui",
+        "volume": 1,
+        "muted": false
+      }
+    ],
+    "sounds": [
+      {
+        "id": "snd_421w91x",
+        "name": "beep",
+        "asset": "aud_abe8i1w",
+        "bus": "bus_sfx",
+        "volume": 1,
+        "rate": 1,
+        "loop": false,
+        "fadeIn": 0,
+        "fadeOut": 0
+      }
+    ]
+  }
+}

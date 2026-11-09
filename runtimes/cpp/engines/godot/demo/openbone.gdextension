@@ -1,0 +1,12 @@
+[configuration]
+
+entry_symbol = "openbone_library_init"
+compatibility_minimum = "4.4"
+reloadable = false
+
+[libraries]
+
+linux.x86_64 = "res://bin/libopenbone_godot.so"
+linux.arm64 = "res://bin/libopenbone_godot.so"
+windows.x86_64 = "res://bin/openbone_godot.dll"
+macos = "res://bin/libopenbone_godot.dylib"
