@@ -27,6 +27,12 @@ Reference numbers are rounded to 4 decimals (`Math.round(n·1e4)/1e4`, `-0` → 
 same way or allow the extra ±5e-5. Out of scope: rendering itself (blending, texture filtering, text rasterising,
 strokes), the editor, ops, and anything not observable in a sample.
 
+Fixtures (`conformance/fixtures.ts`, listed in `conformance/README.md`) are focused rigs, one area each; the ones for
+the features below are `rigging` (skin bones and a skin IK + physics that exist only in the `hero` skin, inherit-mode
+keys, a custom constraint order with transform before IK, `referenceScale` 50) and `atlas-polygons` (the knight packed
+with an octagon polygon per region and `premultipliedAlpha`). Setup and animation cases run once per skin, each on a
+fresh instance with `setSkin(name)` called right after construction.
+
 ## 2. Loading
 
 `core/document.ts:deserialize`, `core/binary.ts:deserializeBinary`, `core/document.ts:normalizeDocument`
@@ -51,8 +57,9 @@ strokes), the editor, ops, and anything not observable in a sample.
 up among bones *already created*, so a parent listed after its child makes the child a root (documents are
 written parent-first, `core/document.ts:sortBones`). Slots whose bone is missing are dropped (they are absent from
 `slots` in samples too). Atlas regions whose page or image is missing are ignored. The constructor ends with
-`setToSetupPose()` and **one `updateWorldTransform()`** (with no time pending: this creates physics state at rest,
-§7.4). The active skin starts as none (`null`); `setSkin(ref)` finds a skin by id, then by name.
+`updateActive()` (§3.3, skin none), `setToSetupPose()` and **one `updateWorldTransform()`** (with no time pending:
+this creates physics state at rest, §7.4). The active skin starts as none (`null`); `setSkin(ref)` finds a skin by id,
+then by name (unknown or `null` ⇒ none) and recomputes the active flags (§3.3).
 
 ## 3. Per-frame pipeline
 
@@ -69,35 +76,76 @@ skeleton.updateWorldTransform()// §3.2
 With a state machine, `StateMachineInstance.advance(dt)` replaces all of it (§9).
 
 ### 3.1 `skeleton.ts:Skeleton.setToSetupPose`
-Bones' local pose ← bone data; slot colour ← `parseHex(color)`, dark ← `parseHex(dark)` or none, attachment name ←
+Bones' local pose and `inherit` ← bone data; slot colour ← `parseHex(color)`, dark ← `parseHex(dark)` or none, attachment name ←
 `slot.attachment`, deform offsets and keyed sequence frames cleared; `drawOrder` ← document slot order;
 `animationTime` ← null; constraint values ← setup values (`setupValues`: every keyable property from the constraint,
 non-number ⇒ 0; transform constraints also get `mix = 1`; IK `bend = bendPositive ? 1 : -1`, `stretch`,
-`compress` as 1/0); particle values cleared. **Not** reset: skin, clock, physics state, particle emitters,
-input values, text overrides.
+`compress` as 1/0); particle values cleared. **Not** reset: skin and active flags (§3.3), clock, physics state,
+particle emitters, input values, text overrides.
 
 ### 3.2 `skeleton.ts:Skeleton.updateWorldTransform`
 ```
 applySliders()                                  // §7.5, writes bones' local pose
 root = [scaleX 0; 0 scaleY | x, y]              // skeleton placement, identity in the suite
 for bone in bones (document order):
+    if !bone.active: continue                   // §3.3: world left as it was
     bone.applied ← bone local pose              // resetApplied
-    bone.world ← boneWorld(parent ? parent.world : root, applied, parent ? inherit : "normal")
-for c in ik:        applyIk(c)                  // §7.1
-for c in transform: applyTransform(c)           // §7.2
-for c in path:      applyPath(c)                // §7.3
+    bone.world ← boneWorld(parent ? parent.world : root, applied, parent ? bone.inherit : "normal")
 dt = pendingDt; pendingDt = 0
-for c in physics:   applyPhysics(c, dt)         // §7.4
+for c in constraintOrder(skeleton):             // core/constraints.ts, one list of every kind
+    if c inactive (§3.3): continue
+    ik ⇒ applyIk(c) §7.1 | transform ⇒ applyTransform(c) §7.2 | path ⇒ applyPath(c) §7.3 | physics ⇒ applyPhysics(c, dt) §7.4
 if particleClock == "realtime" and particlePending > 0: advanceParticles(particlePending)   // §8.8
 particlePending = 0
 ```
+`bone.inherit` is the live inherit mode (setup value, or an `inherit` key, §5.1).
 Constraints read their *live values* (setup values overwritten by timelines and bindings), not the data.
+
+**Constraint order** (`core/constraints.ts:constraintOrder`): the default list is `ik`, `transform`, `path`,
+`physics`, each in array order; `i` = index in that list. If no constraint has `order`, use the list as is. Otherwise
+sort by key `k = order ?? i`, ties by `i` (so `order` values compare directly with default positions of unset
+constraints):
+```
+list = [...ik, ...transform, ...path, ...physics]
+if any c.order defined: list = stable sort of list by (c.order ?? index, index)
+```
 
 `bone.updateSubtree(root, includeSelf)` recomputes world matrices from `applied` for the bone (optionally) and all
 descendants, depth-first, children in creation order. A constraint that changes a world matrix directly (IK stretch,
 world-space transform constraints, path, physics) then calls `bone.syncApplied(root)`, which stores the matching
 local values in `applied` (`core/math.ts:localFromWorld`: full decomposition for inherit `normal`, position only for
 the other modes, shear X kept), so a later constraint that recomputes an ancestor's subtree keeps the result.
+`syncApplied` decomposes with the bone's current (possibly keyed) inherit mode `bone.inherit`. `updateSubtree`
+returns at once on an inactive bone (self and descendants untouched).
+
+### 3.3 Skin bones and skin constraints (`skeleton.ts:Skeleton.updateActive`, `core/constraints.ts:skinRequired/activeBones`)
+`SkinData.bones` / `SkinData.constraints` are id lists. A bone or constraint listed in **any** skin is *skin-only*: it is
+active only while the current skin lists it. Recomputed by `setSkin` (skipped when the skin and the skin the flags were
+computed for are both unchanged) and by the constructor; not by `setToSetupPose`.
+```
+reqBones = ∪ skin.bones ;  reqCons = ∪ skin.constraints        // over every skin, ids
+mineB = set(current?.bones) ;  mineC = set(current?.constraints)
+if reqBones empty: every bone active
+else for b in bones (document order):                             // parent-first
+    active(b) = (!b.parent or active(b.parent)) and (b ∉ reqBones or b ∈ mineB)
+off(id) = bone exists and !active      // unknown id ⇒ not off
+for c in constraintOrder:
+    skip = c ∈ reqCons and c ∉ mineC
+    if !skip and reqBones not empty:
+        physics: skip = off(c.bone)
+        path:    skip = any off(c.bones) or off(bone of slot c.target)
+        ik, transform: skip = any off(c.bones) or off(c.target)
+```
+An inactive bone's children are inactive too (whatever they list). Effects of an inactive bone:
+- not posed: no `resetApplied`/`updateWorld`, skipped by `updateSubtree`; its `world` keeps its last value
+  (**identity** if it was never active, e.g. the suite's `default` cases; samples still record it);
+- its slots: not drawn (`drawList` treats the attachment as none, so a clipping mask on it doesn't start, but a mask
+  whose `end` is that slot still ends), no particle steps (the emitter is kept, frozen), `hitTest` false. Slot state
+  (colour, attachment, deform) is still keyed;
+- a weighted mesh on an active slot that names it reads its stale world.
+
+Inactive constraints are skipped entirely (no live-value effect, physics state not advanced; the frame's `dt` is still
+consumed). Timelines and bindings still write their live values.
 
 ## 4. Maths
 
@@ -167,7 +215,8 @@ Arrays (`sampleArray`) lerp element-wise to the longer length, missing elements 
 | target / property | value written |
 | --- | --- |
 | `bone` rotation | alpha ≥ 1: `bone.rotation = v`; otherwise `lerpAngle(bone.rotation, v, alpha)` (the shortest way round) |
-| `bone` x, y, scaleX, scaleY, shearX, shearY | `lerp(cur, v, alpha)` |
+| `bone` x, y, scaleX, scaleY, shearX, shearY | alpha ≥ 1: `v`; otherwise `lerp(cur, v, alpha)` |
+| `bone` inherit | keys are inherit-mode strings, always stepped (curves ignored); if `alpha ≥ 0.5`: `bone.inherit = sampleStep` (else untouched). Reset to `data.inherit` by `setToSetupPose` |
 | `slot` color | key colours lerped by `t` (stepped ⇒ left); `alpha ≥ 1` ⇒ replace, else `lerpColor(slot.color, v, alpha)` |
 | `slot` dark | as colour; mixing base is current dark or `[0,0,0,1]` |
 | `slot` attachment | if `alpha ≥ 0.5`: `attachmentName = sampleStep` (null hides) |
@@ -221,8 +270,13 @@ mixTime, mixDuration, completedLoops = 0}`.
 
 ## 7. Constraints
 
-All in `skeleton.ts`. Order per frame: sliders (before world transforms), then IK, transform, path, physics, each
-list in array order (§3.2). `root` is the skeleton placement matrix. `det(m) = sign(a·d − b·c) ‖ 1`.
+All in `skeleton.ts`. Order per frame: sliders (before world transforms), then the active constraints in
+`constraintOrder` (§3.2; default IK, transform, path, physics, each in array order). `root` is the skeleton placement
+matrix. `det(m) = sign(a·d − b·c) ‖ 1`.
+
+**Unit scale** (`Skeleton.unitScaleX/Y`): `usX = (skeleton.referenceScale ?? 100)/100 · sk.scaleX`,
+`usY = (referenceScale ?? 100)/100 · sk.scaleY` (signed; `sk.scaleX/Y` = placement scale, 1 in the suite). Only IK
+softness (`|usX|`) and physics wind (`usX`) / gravity (`usY`) use it.
 
 ### 7.1 IK (`applyIk`)
 Skip if `mix ≤ 0`, the target is missing or no bone exists. `bendPositive = bend > 0`, `stretch = stretch > 0`,
@@ -247,7 +301,7 @@ b.updateSubtree(root, false)
 (px, py) = p.world position
 l1 = |ch.world.pos − p.world.pos| ;  l2 = ch.data.length · worldScaleX(ch.world) ;  reach = l1 + l2
 dRaw = |(tx, ty) − (px, py)|
-soft = min(softness, reach)
+soft = min(softness·|usX|, reach)                         // softness = live value
 dSoft = (soft > 1e-6 and dRaw > reach − soft) ? reach − soft + soft·(1 − exp(−(dRaw − (reach − soft)) / soft)) : dRaw
 dEff = min(max(dSoft, |l1 − l2| + 1e-4), reach − 1e-4)
 (ux, uy) = dRaw > 1e-9 ? ((tx,ty) − (px,py)) / dRaw : (1, 0)
@@ -341,6 +395,7 @@ shift origin (x, px) by (ox − lastO)·carry, tip by (tx − lastT)·carry ;  l
 h = 1 / max(1, fps ‖ 60)
 time += dt ;  due = floor(time/h + 1e-6) ;  if due − steps > 8: steps = due − 8      // drop excess
 k = min(max(0, strength) / max(1e-6, mass), 1/h²) ;  decay = exp(−max(0, damping)·h)
+wind = values.wind · usX ;  gravity = values.gravity · usY      // signed: a flipped skeleton flips them
 while steps < due:  step(origin → (ox,oy)), step(tip → (tx,ty)), steps++
     step(p, g): p.px,py = p.x,y
                 p.vx = (p.vx + ((g.x − p.x)·k + wind)·h)·decay
@@ -353,7 +408,7 @@ if c.rotate > 0 or c.scaleX > 0:
     (dx, dy) = S(tip) − w.pos ;  d = hypot ;  if d > 1e-9:
         rotateAxes(w, wrap((atan2(dy,dx) − atan2(ty−oy, tx−ox))·RAD)·c.rotate·mix·DEG)
         if c.scaleX > 0 and data.length > 1e-6: s = 1 + (d/rest − 1)·c.scaleX·mix; w.a,c *= s   // rest = world distance origin→tip before simulating (len if 0)
-bone.updateSubtree(root, false)
+bone.syncApplied(root) ;  bone.updateSubtree(root, false)
 ```
 `dt` is everything passed to `Skeleton.update` since the previous `updateWorldTransform`. `x, y, rotate, scaleX`
 are read from the data (not keyable); the rest from live values.
@@ -371,13 +426,15 @@ additive:     save bones' 7 local values; all bones ← setup pose; applyAnimati
               per bone & property: delta = cur − setup (rotation: wrap(cur − setup)); value = saved + delta·mix
               then the animation's non-bone timelines are applied with alpha = mix
 ```
-`animationTime` is restored after all sliders.
+`animationTime` is restored after all sliders. Additive inherit modes: the setup reset also resets `inherit`; afterwards
+every bone gets its previous inherit mode back, except bones the slider's animation keys `inherit` for, which keep the
+keyed mode when `mix ≥ 0.5` (stepped, like any discrete key).
 
 ## 8. Skins, attachments and the draw list
 
 ### 8.1 Attachment lookup (`Skeleton.getAttachment`)
 `skin.attachments[slotId][name] ?? skins[0].attachments[slotId][name] ?? null` — `skins[0]` is the default skin
-whatever its name; `null` name ⇒ none.
+whatever its name; `null` name ⇒ none. Slots on inactive bones (§3.3) draw nothing whatever this returns.
 
 ### 8.2 Quads: region, sequence, text (`attachmentWorldVertices`)
 ```
@@ -398,12 +455,12 @@ Other polygons: shape outline (§8.5), `boundingBox`/`clipping` vertices, point 
 World vertices and uvs are stored as **float32**.
 
 ### 8.4 Draw list (`Skeleton.drawList`)
-For each slot in `drawOrder`, with its current attachment:
+For each slot in `drawOrder`, with its current attachment (none if the slot's bone is inactive, §3.3):
 
 | attachment | item |
 | --- | --- |
 | `clipping` | not drawn. If no mask is active and it has ≥ 3 points: becomes the active mask (polygon in world space, indices = earcut of the local vertices), ending at slot `end` (null = never). A mask met while one is active is ignored. |
-| `region`, `mesh` | `color = slot.color × att.color`; skip if alpha ≤ 0. Region: quad (§8.2), trimmed packed regions shrink it (§8.7). Mesh: §8.3. `texture` = atlas page if the image is packed, else the image (null if missing — still emitted). `dark` = slot dark if set. `blend` = slot blend. |
+| `region`, `mesh` | `color = slot.color × att.color`; skip if alpha ≤ 0. Region: quad (§8.2); packed regions with a polygon draw it instead, else trimmed packed regions shrink the quad (§8.7). Mesh: §8.3. `texture` = atlas page if the image is packed, else the image (null if missing — still emitted). `dark` = slot dark if set. `blend` = slot blend. |
 | `sequence` | §8.6 |
 | `particles` | §8.8 (`blend` = attachment blend) |
 | `text` | `color = slot.color` (attachment colour goes to the text record); skip if alpha ≤ 0; vertices = the unscaled box quad; uvs/indices as a region; `texture` null; record content (§8.9). |
@@ -444,7 +501,25 @@ For a region `r` on page `P`:
 - rotated: `u' = (r.x + r.height + offY)/P.w − v·origH/P.w`, `v' = (r.y − offX)/P.h + u·origW/P.h`
 Trimmed (`offsets ≠ 0` or size ≠ original): trim box `[offX/origW, offY/origH, (offX+w)/origW, (offY+h)/origH]`;
 region quads use the remapped trim box uvs and `trimQuad` on vertices. Mesh uvs are remapped as is.
-The white block's uv is its centre. (No fixture or example currently uses an atlas.)
+The white block's uv is its centre. Fixtures: `atlas-knight`, `atlas-walker`, `atlas-polygons`.
+
+**Polygons** (`AtlasRegion.polygon`, flat `[x0,y0,…]` in original-image pixels, y-down, like the offsets; used when
+length ≥ 6; built in `Skeleton.constructor`). Only `region` attachments use it (sequences, meshes, particles and
+hit-testing ignore it). With `n = length/2`:
+```
+img[i] = (polygon[2i]/origW, polygon[2i+1]/origH)             // float32, 0..1 of the original image
+uvs    = remapUvs(img, atlasUvMap(r, P))                       // rotated regions handled by the map, as above
+indices = fan: for i in 0..n−3: [0, i+1, i+2]                  // no earcut; polygon is convex
+q = region quad (§8.2: TL, TR, BR, BL, untrimmed) ;  U = TR − TL ;  V = BL − TL
+vertex i = TL + U·img[i].u + V·img[i].v                       // skeleton.ts:quadPoints, float32
+```
+The polygon replaces the trim (`trimQuad` is not applied: the polygon is already in original-image coordinates).
+
+**`premultipliedAlpha`, `stripWhitespace`, `polygons`** change nothing in the draw list: same textures (page ids),
+uvs and straight (non-premultiplied) vertex colours. `stripWhitespace`/`polygons` are informational (trimming is
+already in the regions' offsets/sizes, polygons in `polygon`). Renderers (not in the contract): WebGL uploads
+premultiplied pages as they are (`UNPACK_PREMULTIPLY_ALPHA_WEBGL` false, other textures premultiplied on upload) under
+the same premultiplied blending; Canvas2D draws straight-alpha copies of those pages (`convertPremultiplied`).
 
 ### 8.8 Particles (`particles.ts`, `skeleton.ts:stepParticles/advanceParticles/particleItem`)
 **Clock** (realtime): `acc = frac + dt`, `n = floor(acc/STEP + 1e-6)` with `STEP = 1/60`, take `min(n, 30)` steps,
@@ -699,5 +774,5 @@ fired there survive until the next frame's step 6.
   shortest way round. Sliders, bindings and `ob.bone()` see these raw values.
 - **World edits are synced back to local** (`syncApplied`, §3.2); a port that skips it loses constraint results when a
   later constraint rebuilds an ancestor.
-- **Stable sorts** (blend entries, transition candidates, gradient stops) are required.
+- **Stable sorts** (blend entries, transition candidates, gradient stops, constraint order) are required.
 - **Hit-test fallback** picks the first bounding box in JS object key order (integer-like names first, then insertion order).

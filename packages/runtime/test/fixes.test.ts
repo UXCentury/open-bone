@@ -102,3 +102,21 @@ describe("runtime behaviour fixed before the native ports", () => {
     expect(new Skeleton(s.doc).drawList()).toHaveLength(0);
   });
 });
+
+describe("inherit modes with constraints and additive sliders", () => {
+  it("an additive slider keeps a keyed inherit mode on bones it doesn't key", () => {
+    const s = doc();
+    s.apply("addBone", { name: "p", rotation: 30, length: 20 });
+    s.apply("addBone", { name: "c", parent: "p", x: 20, length: 20 });
+    s.apply("addBone", { name: "knob" });
+    s.apply("createAnimation", { name: "main" });
+    s.apply("setKeys", { animation: "main", target: "bone", id: "c", property: "inherit", keys: [{ time: 0, value: "noRotation" }] });
+    s.apply("createAnimation", { name: "extra" });
+    s.apply("setKeys", { animation: "extra", target: "bone", id: "p", property: "x", keys: [{ time: 0, value: 0 }, { time: 1, value: 10 }] });
+    s.apply("addSlider", { name: "sl", animation: "extra", bone: "knob", property: "rotation", from: 0, to: 90, additive: true });
+    const sk = new Skeleton(s.doc);
+    applyAnimation(sk, s.doc.animations.find((a) => a.name === "main")!, 0);
+    sk.updateWorldTransform();
+    expect(sk.bones.find((b) => b.data.name === "c")!.inherit).toBe("noRotation");
+  });
+});

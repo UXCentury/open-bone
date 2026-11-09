@@ -116,7 +116,7 @@ export class Bone {
    */
   syncApplied(root: Affine) {
     const parent = this.parent ? this.parent.world : root;
-    Object.assign(this.applied, localFromWorld(parent, this.world, this.parent ? this.data.inherit : "normal", this.applied));
+    Object.assign(this.applied, localFromWorld(parent, this.world, this.parent ? this.inherit : "normal", this.applied));
   }
   updateSubtree(root: Affine, includeSelf = true) {
     if (!this.active) return;
@@ -668,6 +668,7 @@ export class Skeleton {
       // Additive: add the animation's change from the setup pose on top of the current pose.
       const props = ["x", "y", "rotation", "scaleX", "scaleY", "shearX", "shearY"] as const;
       const before = this.bones.map((b) => props.map((p) => b[p]));
+      const inherits = this.bones.map((b) => b.inherit);
       for (const b of this.bones) b.setToSetupPose();
       // Bone keys add their change from the setup pose; everything else (colours, constraint values…) mixes in by `mix`.
       applyAnimation(this, { ...anim, timelines: anim.timelines.filter((tl) => tl.target === "bone") }, t, 1);
@@ -676,6 +677,12 @@ export class Skeleton {
           const delta = p === "rotation" ? wrap(b[p] - b.data[p]) : b[p] - b.data[p];
           b[p] = before[i][k] + delta * sl.mix;
         });
+      });
+      // Inherit modes aren't additive: the pose underneath keeps its mode (an inherit key here switches it only
+      // when the slider is at least half mixed in, like any stepped key).
+      const keysInherit = new Set(anim.timelines.filter((tl) => tl.target === "bone" && tl.property === "inherit").map((tl) => tl.id));
+      this.bones.forEach((b, i) => {
+        if (sl.mix < 0.5 || !keysInherit.has(b.data.id)) b.inherit = inherits[i];
       });
       const other = anim.timelines.filter((tl) => tl.target !== "bone");
       if (other.length) applyAnimation(this, { ...anim, timelines: other }, t, sl.mix);
