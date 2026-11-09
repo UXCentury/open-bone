@@ -1,0 +1,5 @@
+// Textual: the C++ runtime includes quickjs.h inside extern "C" { }, which a module import would not allow.
+module CQuickJS {
+  textual header "quickjs.h"
+  export *
+}

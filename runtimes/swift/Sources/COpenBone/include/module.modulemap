@@ -1,0 +1,4 @@
+module COpenBone {
+  header "openbone.h"
+  export *
+}
