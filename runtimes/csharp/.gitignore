@@ -1,0 +1,9 @@
+bin/
+obj/
+*.user
+.vs/
+TestResults/
+unity/com.openbone.runtime/Plugins/*.dll
+unity/com.openbone.runtime/Plugins/*.dll.meta
+unity/obj-plugins/
+unity/*.tgz

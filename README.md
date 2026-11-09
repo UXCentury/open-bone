@@ -157,7 +157,7 @@ Requires Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3
 
 ## Runtimes
 
-Every runtime builds on the TypeScript runtime (`OpenBoneInstance` for posing, animations, state machines, listeners, events and scripts) and draws `Skeleton.drawList()` in the same batches as the WebGL renderer, with tests that check its geometry against it frame for frame.
+The web runtimes build on the TypeScript runtime (`OpenBoneInstance` for posing, animations, state machines, listeners, events and scripts) and draws `Skeleton.drawList()` in the same batches as the WebGL renderer, with tests that check its geometry against it frame for frame.
 
 | Runtime | Package | Engine | Notes |
 |---|---|---|---|
@@ -170,6 +170,8 @@ Every runtime builds on the TypeScript runtime (`OpenBoneInstance` for posing, a
 | Three.js | [`@openbone/three`](packages/three) | Three.js r160+ | An `Object3D` with one material per atlas page; raycast pointers |
 | CanvasKit | [`@openbone/canvaskit`](packages/canvaskit) | CanvasKit (Skia WASM) | Renderer for any Skia canvas (browser or Node) and a player |
 | C++ | [`runtimes/cpp`](runtimes/cpp) | Godot 4, SDL2, SFML, Unreal 5, Cocos2d-x, any | Native port (C++17) passing the conformance suite: rig, state machines, particles, text, audio commands, scripts in embedded QuickJS. Stable C API (`openbone.h`) for Swift/Dart/C# FFI; Godot GDExtension, SDL2/SFML samples, Unreal plugin and Cocos2d-x node |
+| C# | [`OpenBone.Runtime`](runtimes/csharp) | .NET Standard 2.1 / .NET 8 | Native port that passes the [conformance suite](conformance/README.md): rig, constraints, particles, text, state machines, audio commands; scripts in Jint |
+| Unity | [`com.openbone.runtime`](runtimes/csharp/unity/com.openbone.runtime) | Unity 2021.3+ | `.obone`/`.obonb` importer, animation and state-machine components, mesh with blend modes, stencil clipping and two-colour tint, AudioSource bridge (preview: not yet run in the Unity Editor) |
 
 Demos of the knight in each engine: `pnpm --filter @openbone/examples engines`, then http://localhost:5190.
 
@@ -187,6 +189,7 @@ Native runtimes are ports, not wrappers: they implement [docs/runtime-spec.md](d
 | `packages/player` | `<openbone-player>`, the `Player` class, Web Audio playback, and the self-contained WebView bundle + JS bridge used by the mobile packages |
 | `packages/pixi`, `packages/phaser`, `packages/three`, `packages/canvaskit` | Runtimes for PixiJS v8, Phaser 3, Three.js and CanvasKit, sharing `packages/engine-kit` (loading, playback, render-webgl-identical batching) |
 | `runtimes/cpp` | Native C++17 runtime, C API (`openbone.h`), conformance runner, and Godot / SDL2 / SFML / Unreal / Cocos2d-x integrations |
+| `runtimes/csharp` | C# runtime (`OpenBone.Runtime`), Jint script host, conformance tests and the Unity package |
 | `packages/export` | Export encoders and packagers: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP, sprite sheets, Unity/Godot/Flutter packs and the Flutter/Android/iOS WebView templates |
 | `packages/mcp` | MCP server (stdio + streamable HTTP), render/simulate tools, live WebSocket bridge |
 | `packages/cli` | `openbone` command line |
