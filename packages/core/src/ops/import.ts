@@ -350,6 +350,13 @@ class Importer {
         n++;
       }
     }
+    // Skin bones and skin constraints come along, mapped to this project's bones and constraints.
+    const bones = (srcSkin.bones ?? []).map((b) => this.bone.get(b)).filter((b): b is Id => !!b);
+    if (bones.length) target.bones = [...new Set([...(target.bones ?? []), ...bones])];
+    const cons = (srcSkin.constraints ?? [])
+      .map((c) => Object.values(this.constraint).map((m) => m.get(c)).find(Boolean))
+      .filter((c): c is Id => !!c);
+    if (cons.length) target.constraints = [...new Set([...(target.constraints ?? []), ...cons])];
     return n;
   }
 
