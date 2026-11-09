@@ -10,6 +10,9 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app). Se
 - Compensate (`J`, toolbar ⇲ Comp): transform a bone while its child bones keep their place.
 - Linked meshes (`addLinkedMesh`): share another mesh's geometry and weights with a different image, optionally following its deform keys.
 - Photoshop (`.psd`) import: layers become slots and regions in place; groups can become bones.
+- Folders for slots, skins, animations, events, constraints and state machines (optional `folder` path; ops `setFolder`, `renameFolder`): grouped, collapsible lists with drag into folders, new / rename / delete folder. New Events list in the left panel.
+- Import data (☰ Menu → Import from project…, op `importData`): copy animations and skins from another project by bone/slot name, with the images, sounds and events they use, or bring in its whole skeleton under a new root bone; conflicts rename, replace or skip.
+- Weight tools: lock bones while painting (locked weights stay, the others renormalise; also Smooth / Auto / Prune / Direct), and `swapWeights` (Weights panel → Swap…) to trade two bones' weights on a mesh or its selected vertices.
 - Two-colour tint: a keyable `dark` slot colour (Canvas2D and WebGL2 renderers; the PixiJS, Phaser, Three.js and CanvasKit runtimes draw the normal tint for now).
 
 ## 0.1.0

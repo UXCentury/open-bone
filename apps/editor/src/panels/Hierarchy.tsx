@@ -1,4 +1,4 @@
-import { type BoneData, slotAttachments } from "@openbone/core";
+import { type BoneData, type SlotData, slotAttachments } from "@openbone/core";
 import { For, Show, createEffect, createMemo, createRoot, createSignal, untrack } from "solid-js";
 import {
   activeSkin,
@@ -24,6 +24,7 @@ import { AudioSection } from "./AudioPanel.tsx";
 import { cycleVis, visOf } from "../visibility.ts";
 import { resolveImageUrl } from "../images.ts";
 import { StatsSection } from "./Stats.tsx";
+import { Foldered, allFolderPaths, draggableItem, newFolder, setAllFolders } from "./Folders.tsx";
 
 // ---- skeleton tree: guide lines and collapsible nodes (bones and slots), like Spine's tree ----
 const [collapsedNodes, setCollapsedNodes] = createSignal<Set<string>>(new Set());
@@ -194,71 +195,77 @@ function BoneNode(p: { bone: BoneData }) {
       </div>
       <Show when={has() && isOpen(p.bone.id)}>
         <div class="tchildren">
-          <For each={slots()}>
-            {(s) => {
-              const atts = () => slotAttachments(doc(), s.id, activeSkin()?.id).filter((a) => shown(`${s.id}/${a.name}`) || (!!searchHits() && matches(s.name)));
-              const slotSelected = () => sel()?.kind === "slot" && sel()!.id === s.id && !(sel() as { attachment?: string }).attachment;
-              const sounds = () => slotSounds(s.id);
-              return (
-                <div class="tnode">
-                  <div
-                    class="tree-row slot-row"
-                    ref={(el) => scrollWhenSelected(el, slotSelected)}
-                    classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id, "vis-off": visOf(s.id) !== "shown" }}
-                    onClick={() => setSelection({ kind: "slot", id: s.id })}
-                  >
-                    <Twisty id={s.id} has={atts().length + sounds().length > 0} />
-                    <span class="icon">▣</span> <Name text={s.name} />
-                    <span class="muted"> {s.attachment ? `· ${s.attachment}` : "· hidden"}</span>
-                    <EyeBtn id={s.id} name={s.name} />
-                  </div>
-                  <Show when={sounds().length > 0 && isOpen(s.id)}>
-                    <div class="tchildren">
-                      <For each={sounds()}>
-                        {(snd) => (
-                          <div class="tnode">
-                            <div
-                              class="tree-row sound-row"
-                              classList={{ selected: sel()?.kind === "sound" && sel()!.id === snd.id }}
-                              title="Played by this slot's listeners: click to edit the sound"
-                              onClick={() => setSelection({ kind: "sound", id: snd.id })}
-                            >
-                              <span class="icon">♪</span> {snd.name}
-                              <span class="muted"> · sound</span>
-                            </div>
-                          </div>
-                        )}
-                      </For>
-                    </div>
-                  </Show>
-                  <Show when={atts().length > 0 && isOpen(s.id)}>
-                    <div class="tchildren">
-                      <For each={atts()}>
-                        {(a) => (
-                          <div class="tnode">
-                            <div
-                              class="tree-row att-row"
-                              ref={(el) => scrollWhenSelected(el, () => sel()?.kind === "slot" && sel()!.id === s.id && (sel() as { attachment?: string }).attachment === a.name)}
-                              classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id && (sel() as { attachment?: string }).attachment === a.name }}
-                              title={a.skin.id === doc().skeleton.skins[0].id ? "In the default skin" : `In skin “${a.skin.name}”${a.overrides ? " (overrides the default skin)" : ""}`}
-                              onClick={() => setSelection({ kind: "slot", id: s.id, attachment: a.name })}
-                            >
-                              <span class="icon">{({ boundingBox: "⬚", clipping: "✂", sequence: "🎞", particles: "✺" } as Record<string, string>)[a.attachment.type] ?? "◇"}</span> <Name text={a.name} />
-                              <Thumb image={(a.attachment as { image?: string; frames?: { image: string }[] }).image ?? (a.attachment as { frames?: (string | { image: string })[] }).frames?.map((f) => (typeof f === "string" ? f : f.image))[0]} />
-                              <Show when={a.skin.id !== doc().skeleton.skins[0].id}>
-                                <span class="skin-badge">{a.skin.name}</span>
-                              </Show>
-                            </div>
-                          </div>
-                        )}
-                      </For>
-                    </div>
-                  </Show>
-                </div>
-              );
-            }}
-          </For>
+          <Foldered kind="slot" scope={p.bone.id} items={slots} tree forceOpen={() => !!query()}>
+            {(s) => <SlotNode s={s} />}
+          </Foldered>
           <For each={children()}>{(c) => <BoneNode bone={c} />}</For>
+        </div>
+      </Show>
+    </div>
+  );
+}
+
+
+function SlotNode(p: { s: SlotData }) {
+  const s = p.s;
+  const sel = () => selection();
+  const atts = () => slotAttachments(doc(), s.id, activeSkin()?.id).filter((a) => shown(`${s.id}/${a.name}`) || (!!searchHits() && matches(s.name)));
+  const slotSelected = () => sel()?.kind === "slot" && sel()!.id === s.id && !(sel() as { attachment?: string }).attachment;
+  const sounds = () => slotSounds(s.id);
+  return (
+    <div class="tnode">
+      <div
+        {...draggableItem("slot", s.id, s.bone)}
+        class="tree-row slot-row"
+        ref={(el) => scrollWhenSelected(el, slotSelected)}
+        classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id, "vis-off": visOf(s.id) !== "shown" }}
+        onClick={() => setSelection({ kind: "slot", id: s.id })}
+      >
+        <Twisty id={s.id} has={atts().length + sounds().length > 0} />
+        <span class="icon">▣</span> <Name text={s.name} />
+        <span class="muted"> {s.attachment ? `· ${s.attachment}` : "· hidden"}</span>
+        <EyeBtn id={s.id} name={s.name} />
+      </div>
+      <Show when={sounds().length > 0 && isOpen(s.id)}>
+        <div class="tchildren">
+          <For each={sounds()}>
+            {(snd) => (
+              <div class="tnode">
+    <div
+      class="tree-row sound-row"
+      classList={{ selected: sel()?.kind === "sound" && sel()!.id === snd.id }}
+      title="Played by this slot's listeners: click to edit the sound"
+      onClick={() => setSelection({ kind: "sound", id: snd.id })}
+    >
+      <span class="icon">♪</span> {snd.name}
+      <span class="muted"> · sound</span>
+    </div>
+              </div>
+            )}
+          </For>
+        </div>
+      </Show>
+      <Show when={atts().length > 0 && isOpen(s.id)}>
+        <div class="tchildren">
+          <For each={atts()}>
+            {(a) => (
+              <div class="tnode">
+    <div
+      class="tree-row att-row"
+      ref={(el) => scrollWhenSelected(el, () => sel()?.kind === "slot" && sel()!.id === s.id && (sel() as { attachment?: string }).attachment === a.name)}
+      classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id && (sel() as { attachment?: string }).attachment === a.name }}
+      title={a.skin.id === doc().skeleton.skins[0].id ? "In the default skin" : `In skin “${a.skin.name}”${a.overrides ? " (overrides the default skin)" : ""}`}
+      onClick={() => setSelection({ kind: "slot", id: s.id, attachment: a.name })}
+    >
+      <span class="icon">{({ boundingBox: "⬚", clipping: "✂", sequence: "🎞", particles: "✺" } as Record<string, string>)[a.attachment.type] ?? "◇"}</span> <Name text={a.name} />
+      <Thumb image={(a.attachment as { image?: string; frames?: { image: string }[] }).image ?? (a.attachment as { frames?: (string | { image: string })[] }).frames?.map((f) => (typeof f === "string" ? f : f.image))[0]} />
+      <Show when={a.skin.id !== doc().skeleton.skins[0].id}>
+        <span class="skin-badge">{a.skin.name}</span>
+      </Show>
+    </div>
+              </div>
+            )}
+          </For>
         </div>
       </Show>
     </div>
@@ -335,9 +342,18 @@ function SkinsSection() {
     if (name && name !== current) apply("renameSkin", { skin: id, name });
   };
   return (
-    <Section title="Skins" actions={<button title="New empty skin" onClick={() => newSkin()}>+</button>}>
-      <For each={skins()}>
-        {(k, i) => {
+    <Section
+      title="Skins"
+      actions={
+        <>
+          <button title="New folder for skins" onClick={() => void newFolder("skin")}>🗀</button>
+          <button title="New empty skin" onClick={() => newSkin()}>+</button>
+        </>
+      }
+    >
+      <Foldered kind="skin" items={skins}>
+        {(k) => {
+          const i = () => (skins()[0]?.id === k.id ? 0 : 1);
           // The store mutates skins in place, so read through doc() to re-render on every change.
           const name = () => (doc(), k.name);
           const count = () => (doc(), Object.values(k.attachments).reduce((n, m) => n + Object.keys(m).length, 0));
@@ -361,12 +377,74 @@ function SkinsSection() {
             </div>
           );
         }}
-      </For>
+      </Foldered>
       <Show when={activeSkin()} fallback={<div class="hint pad">Add a skin for each outfit. Attachments you add while it is active go into it.</div>}>
         <div class="hint pad">
           New attachments go into “{activeSkin()!.name}”. Copy a default attachment into it from the Inspector to override it.
         </div>
       </Show>
+    </Section>
+  );
+}
+
+type ConstraintKind = "ik" | "transform" | "path" | "physics" | "slider";
+const CONSTRAINT_ICONS: Record<ConstraintKind, string> = { ik: "⤳", transform: "⇉", path: "〰", physics: "≋", slider: "⇆" };
+const constraintItems = () => {
+  const sk = doc().skeleton;
+  return [...sk.ik, ...sk.transform, ...sk.path, ...sk.physics, ...(sk.sliders ?? [])] as { id: string; name: string; folder?: string }[];
+};
+function constraintKind(id: string): ConstraintKind {
+  const sk = doc().skeleton;
+  if (sk.ik.some((c) => c.id === id)) return "ik";
+  if (sk.transform.some((c) => c.id === id)) return "transform";
+  if (sk.path.some((c) => c.id === id)) return "path";
+  if (sk.physics.some((c) => c.id === id)) return "physics";
+  return "slider";
+}
+function ConstraintRow(p: { c: { id: string; name: string } }) {
+  const kind = () => constraintKind(p.c.id);
+  const slider = () => doc().skeleton.sliders?.find((x) => x.id === p.c.id);
+  return (
+    <div class="tree-row" classList={{ selected: selection()?.kind === kind() && selection()!.id === p.c.id }} onClick={() => setSelection({ kind: kind(), id: p.c.id })}>
+      <span class="icon">{CONSTRAINT_ICONS[kind()]}</span> {(doc(), p.c.name)}
+      <Show when={slider()}>
+        <span class="muted"> · {doc().animations.find((a) => a.id === slider()!.animation)?.name ?? "?"}</span>
+      </Show>
+    </div>
+  );
+}
+
+function EventsSection() {
+  const newEvent = async () => {
+    const name = await askText({
+      title: "New event",
+      message: "Events are keyed in animations and fired by listeners; scripts, the host app and sounds react to them.",
+      value: `event${doc().events.length + 1}`,
+      confirmLabel: "Create",
+      validate: uniqueName(doc().events.map((e) => e.name)),
+    });
+    if (name) apply("addEvent", { name });
+  };
+  return (
+    <Section
+      title="Events"
+      actions={
+        <>
+          <button title="New folder for events" onClick={() => void newFolder("event")}>🗀</button>
+          <button title="New event" onClick={newEvent}>+</button>
+        </>
+      }
+    >
+      <Foldered kind="event" items={() => doc().events} fallback={<div class="muted pad">No events yet</div>}>
+        {(e) => (
+          <div class="tree-row" title={`int ${e.int} · float ${e.float}${e.string ? ` · “${e.string}”` : ""}${e.audio ? " · plays a sound" : ""}`}>
+            <span class="icon">⚡</span> {(doc(), e.name)}
+            <Show when={e.audio}>
+              <span class="muted"> ♪</span>
+            </Show>
+          </div>
+        )}
+      </Foldered>
     </Section>
   );
 }
@@ -411,11 +489,21 @@ export function Hierarchy() {
         title="Skeleton"
         actions={
           <>
-          <button title="Expand every bone and slot" onClick={() => setCollapsedNodes(new Set<string>())}>
+          <button title="Expand every bone, slot and folder" onClick={() => { setCollapsedNodes(new Set<string>()); setAllFolders("slot", false); }}>
             ⊞
           </button>
-          <button title="Collapse every bone and slot" onClick={() => setNodes(allParentIds(), true)}>
+          <button title="Collapse every bone, slot and folder" onClick={() => { setNodes(allParentIds(), true); setAllFolders("slot", true, doc().skeleton.bones.flatMap((b) => allFolderPaths(doc().skeleton.slots.filter((x) => x.bone === b.id), "slot", b.id))); }}>
             ⊟
+          </button>
+          <button
+            title="New slot folder under the selected bone (drag slots onto it)"
+            onClick={() => {
+              const b = selectedBoneId() ?? doc().skeleton.bones[0].id;
+              setNodes([b], false);
+              void newFolder("slot", b, undefined, `New slot folder in “${doc().skeleton.bones.find((x) => x.id === b)?.name ?? "bone"}”`);
+            }}
+          >
+            🗀
           </button>
           <button
             title="Add child bone to selection"
@@ -454,43 +542,10 @@ export function Hierarchy() {
         </div>
       </Section>
       <Show when={doc().skeleton.ik.length + doc().skeleton.transform.length + doc().skeleton.path.length + doc().skeleton.physics.length + (doc().skeleton.sliders?.length ?? 0) > 0}>
-        <Section title="Constraints">
-          <For each={doc().skeleton.ik}>
-            {(c) => (
-              <div class="tree-row" classList={{ selected: selection()?.kind === "ik" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "ik", id: c.id })}>
-                <span class="icon">⤳</span> {c.name}
-              </div>
-            )}
-          </For>
-          <For each={doc().skeleton.transform}>
-            {(c) => (
-              <div class="tree-row" classList={{ selected: selection()?.kind === "transform" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "transform", id: c.id })}>
-                <span class="icon">⇉</span> {c.name}
-              </div>
-            )}
-          </For>
-          <For each={doc().skeleton.path}>
-            {(c) => (
-              <div class="tree-row" classList={{ selected: selection()?.kind === "path" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "path", id: c.id })}>
-                <span class="icon">〰</span> {c.name}
-              </div>
-            )}
-          </For>
-          <For each={doc().skeleton.physics}>
-            {(c) => (
-              <div class="tree-row" classList={{ selected: selection()?.kind === "physics" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "physics", id: c.id })}>
-                <span class="icon">≋</span> {c.name}
-              </div>
-            )}
-          </For>
-          <For each={doc().skeleton.sliders ?? []}>
-            {(c) => (
-              <div class="tree-row" classList={{ selected: selection()?.kind === "slider" && selection()!.id === c.id }} onClick={() => setSelection({ kind: "slider", id: c.id })}>
-                <span class="icon">⇆</span> {c.name}
-                <span class="muted"> · {doc().animations.find((a) => a.id === c.animation)?.name ?? "?"}</span>
-              </div>
-            )}
-          </For>
+        <Section title="Constraints" actions={<button title="New folder for constraints" onClick={() => void newFolder("constraint")}>🗀</button>}>
+          <Foldered kind="constraint" items={constraintItems}>
+            {(c) => <ConstraintRow c={c} />}
+          </Foldered>
         </Section>
       </Show>
       <SkinsSection />
@@ -504,8 +559,16 @@ export function Hierarchy() {
         </For>
       </Section>
       <AudioSection />
-      <Section title="Animations" actions={<button onClick={newAnimation}>+</button>}>
-        <For each={doc().animations} fallback={<div class="muted pad">No animations yet</div>}>
+      <Section
+        title="Animations"
+        actions={
+          <>
+            <button title="New folder for animations" onClick={() => void newFolder("animation")}>🗀</button>
+            <button title="New animation" onClick={newAnimation}>+</button>
+          </>
+        }
+      >
+        <Foldered kind="animation" items={() => doc().animations} fallback={<div class="muted pad">No animations yet</div>}>
           {(a) => (
             <div
               class="tree-row"
@@ -533,10 +596,19 @@ export function Hierarchy() {
               <button class="row-del" title="Delete" onClick={(e) => { e.stopPropagation(); void askConfirm({ title: `Delete animation "${a.name}"?`, message: "Its keys are removed and state machine states that play it are left empty. You can undo this.", confirmLabel: "Delete", danger: true }).then((ok) => ok && apply("deleteAnimation", { animation: a.id })); }}>×</button>
             </div>
           )}
-        </For>
+        </Foldered>
       </Section>
-      <Section title="State machines" actions={<button onClick={newSM}>+</button>}>
-        <For each={doc().stateMachines} fallback={<div class="muted pad">Add one to make it interactive</div>}>
+      <EventsSection />
+      <Section
+        title="State machines"
+        actions={
+          <>
+            <button title="New folder for state machines" onClick={() => void newFolder("stateMachine")}>🗀</button>
+            <button title="New state machine" onClick={newSM}>+</button>
+          </>
+        }
+      >
+        <Foldered kind="stateMachine" items={() => doc().stateMachines} fallback={<div class="muted pad">Add one to make it interactive</div>}>
           {(s) => (
             <div
               class="tree-row"
@@ -550,7 +622,7 @@ export function Hierarchy() {
               <button class="row-del" title="Delete" onClick={(e) => { e.stopPropagation(); void askConfirm({ title: `Delete state machine "${s.name}"?`, message: "Its inputs, states, transitions and listeners are removed. You can undo this.", confirmLabel: "Delete", danger: true }).then((ok) => ok && apply("deleteStateMachine", { stateMachine: s.id })); }}>×</button>
             </div>
           )}
-        </For>
+        </Foldered>
       </Section>
       <StatsSection />
     </div>

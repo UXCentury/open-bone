@@ -14,6 +14,7 @@ import { importFiles } from "./sequence-import.ts";
 import { MenuHost } from "./menu.tsx";
 import { aboutOpen, contextItems, examplesOpen } from "./editor-menus.ts";
 import { AboutDialog } from "./panels/AboutDialog.tsx";
+import { ImportDialog, importOpen } from "./panels/ImportDialog.tsx";
 import { ExamplesDialog } from "./panels/ExamplesDialog.tsx";
 
 export function App() {
@@ -59,6 +60,9 @@ export function App() {
       </Show>
       <Show when={aboutOpen()}>
         <AboutDialog />
+      </Show>
+      <Show when={importOpen()}>
+        <ImportDialog />
       </Show>
       <Show when={examplesOpen()}>
         <ExamplesDialog />

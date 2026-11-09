@@ -10,6 +10,8 @@ import { cycleVisTo, visOf } from "./visibility.ts";
 import { type AttTransform, type BoneTransform, attTransformsFor, transformAttachment, transformBone } from "./transform-actions.ts";
 import { getAttachment } from "@openbone/core";
 import { activeSkin } from "./state.ts";
+import { importFromProject } from "./panels/ImportDialog.tsx";
+import { moveToFolder } from "./panels/Folders.tsx";
 
 const ATT_LABELS: Record<AttTransform, string> = {
   flipX: "Flip horizontally",
@@ -84,6 +86,7 @@ export function mainMenu(): MenuItem[] {
     { label: "Save as…", shortcut: "file.saveAs" },
     { label: "Save to folder…", action: () => void saveProjectToFolder().catch((e) => toast((e as Error).message, "error")) },
     { label: "Export…", shortcut: "file.export", disabled: locked },
+    { label: "Import from project…", action: () => void importFromProject(), disabled: locked },
     "sep",
     { label: "Examples…", action: () => setExamplesOpen(true), disabled: locked },
     "sep",
@@ -164,6 +167,7 @@ function selectionItems(): MenuItem[] {
       { label: visOf(slot.id) === "dim" ? "Undim" : "Dim", action: () => cycleVisTo(slot.id, visOf(slot.id) === "dim" ? "shown" : "dim") },
       "sep",
       { label: "Duplicate", shortcut: "edit.duplicate" },
+      { label: slot.folder ? `Move to folder… (now “${slot.folder}”)` : "Move to folder…", action: () => void moveToFolder("slot", slot.id, slot.folder) },
       { label: "Focus in viewport", shortcut: "view.focus" },
       ...(mode() === "animate" ? [{ label: "Set key", shortcut: "anim.setKey" } as MenuItem] : []),
       "sep",

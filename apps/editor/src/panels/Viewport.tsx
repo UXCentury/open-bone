@@ -11,6 +11,7 @@ import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "s
 import { imageFor, setImageReadyCallback } from "../images.ts";
 import { playCommand, previewAudioStep, stopPreviewAudio } from "../audio.ts";
 import { commitBone, commitAttachmentMove } from "../edit.ts";
+import { askForm } from "../dialogs.tsx";
 import { isTypingTarget, kbd, shortcuts, tip } from "../shortcuts/index.ts";
 import {
   type MeshTarget,
@@ -62,6 +63,9 @@ import {
   meshSel,
   setMeshSel,
   weightBone,
+  lockedBones,
+  setLockedBones,
+  toggleLockedBone,
   setWeightBone,
   brushRadius,
   setBrushRadius,
@@ -1662,16 +1666,73 @@ function WeightTools() {
     return [...set];
   };
   const scope = () => (meshSel().length ? `${meshSel().length} selected` : "all vertices");
+  const isLocked = (id: string) => lockedBones().includes(id);
+  const meshBones = () => {
+    const t = target();
+    return t ? usedBones(t) : [];
+  };
+  const swap = async () => {
+    const t = target();
+    if (!t) return;
+    const used = usedBones(t);
+    // The mesh's bones plus the bone picked for painting (pick any bone there to hand weights to a new one).
+    const options = used.map((id) => ({ value: id, label: boneName(id), description: weightBone() === id && !(t.att.weights ?? []).some((v) => v.some((i) => i.bone === id)) ? "no weight here yet" : undefined }));
+    if (options.length < 2) return toast("Pick a second bone in “Bone” below first: Swap trades weights between two bones", "error");
+    const from = weightBone() ?? used[0];
+    const r = await askForm({
+      title: "Swap weights",
+      message: `Give one bone's weights to the other and the other way round (${scope()}). Handy after mirroring or binding the wrong bone.`,
+      fields: [
+        { key: "from", label: "Bone", type: "choice", value: from, options },
+        { key: "to", label: "Swap with", type: "choice", value: used.find((b) => b !== from) ?? options.find((o) => o.value !== from)?.value, options },
+      ],
+      confirmLabel: "Swap",
+    });
+    if (!r) return;
+    if (r.from === r.to) return toast("Pick two different bones to swap", "error");
+    const res = apply("swapWeights", { slot: t.slotId, attachment: t.name, from: r.from, to: r.to, ...(meshSel().length ? { vertices: meshSel() } : {}) }) as { vertices: number } | undefined;
+    if (res && !res.vertices) toast("Neither bone has weight on those vertices", "info");
+  };
   return (
     <>
+      <div class="muted small" title="Locked bones keep their weights while you paint, smooth, prune or auto-weight; the other bones renormalise around them">
+        Bones on this mesh · 🔒 locks
+      </div>
+      <div class="lock-list">
+        <For each={meshBones()}>
+          {(b) => (
+            <button
+              class="lock-chip"
+              classList={{ unlocked: !isLocked(b), picked: weightBone() === b }}
+              title={`${isLocked(b) ? "Unlock" : "Lock"} ${boneName(b)}${weightBone() === b ? " (the bone being painted)" : ""}`}
+              onClick={() => toggleLockedBone(b)}
+            >
+              {isLocked(b) ? "🔒" : "🔓"} {boneName(b)}
+            </button>
+          )}
+        </For>
+        <Show when={lockedBones().length}>
+          <button class="lock-chip unlocked" title="Unlock every bone" onClick={() => setLockedBones([])}>
+            unlock all
+          </button>
+        </Show>
+      </div>
+      <Show when={weightBone() && isLocked(weightBone()!)}>
+        <div class="hint warn">The bone you are painting is locked: unlock it to change its weights.</div>
+      </Show>
       <Show when={weightMode() === "direct"}>
         <Show when={meshSel().length} fallback={<div class="hint">Click vertices to select them (shift-click adds or removes), then set each bone's weight below.</div>}>
           <div class="muted small">{meshSel().length} vertices · average weights</div>
           <For each={rows()}>
             {(r) => (
-              <label class="field weight-row" title={`Set ${boneName(r.bone)} on the selected vertices; the other bones share the rest`}>
-                <span>{boneName(r.bone)}</span>
-                <input type="range" min="0" max="100" step="1" value={Math.round(r.w * 100)} onChange={(e) => run((table) => setBoneWeight(table, meshSel(), r.bone, Number(e.currentTarget.value) / 100))} />
+              <label class="field weight-row" title={`Set ${boneName(r.bone)} on the selected vertices; the other unlocked bones share the rest`}>
+                <span>
+                  <button class="lock-btn" classList={{ on: isLocked(r.bone) }} title={isLocked(r.bone) ? "Locked: keeps its weight. Click to unlock" : "Lock: keep this bone's weight while changing the others"} onClick={(e) => { e.preventDefault(); toggleLockedBone(r.bone); }}>
+                    {isLocked(r.bone) ? "🔒" : "🔓"}
+                  </button>
+                  {boneName(r.bone)}
+                </span>
+                <input type="range" min="0" max="100" step="1" disabled={isLocked(r.bone)} value={Math.round(r.w * 100)} onChange={(e) => run((table) => setBoneWeight(table, meshSel(), r.bone, Number(e.currentTarget.value) / 100))} />
                 <span class="num">{Math.round(r.w * 100)}%</span>
               </label>
             )}
@@ -1699,6 +1760,9 @@ function WeightTools() {
         </button>
         <button title={`Prune: drop influences under 5% and keep at most 4 per vertex (${scope()})`} onClick={() => run((table) => pruneWeights(table, verts(), 0.05, 4))}>
           Prune
+        </button>
+        <button title={`Swap two bones' weights (${scope()})`} onClick={() => void swap()}>
+          Swap…
         </button>
       </div>
     </>
