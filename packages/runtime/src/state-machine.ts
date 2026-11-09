@@ -409,7 +409,9 @@ export class StateMachineInstance extends Emitter<SMEvents> {
   }
 
   private progress(s: StateInstance): number {
-    const anim = this.anim(s.data.animation);
+    // A blend state's progress follows its stronger animation (the one its events come from).
+    const pair = this.blendPair(s.data);
+    const anim = pair ? (pair.t >= 0.5 ? pair.hi : pair.lo) : this.anim(s.data.animation);
     const d = anim ? animationDuration(anim) : 0;
     return d > 0 ? s.time / d : 1;
   }
@@ -431,8 +433,10 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     candidates.sort((a, b) => Number(a.from === ANY_STATE) - Number(b.from === ANY_STATE));
     for (const t of candidates) {
       if (!this.canTake(t, cur)) continue;
+      // A transition to a deleted state is skipped (and keeps its triggers for others).
       const to = l.data.states.find((s) => s.id === t.to);
-      if (to) this.enter(l, to, t.duration);
+      if (!to) continue;
+      this.enter(l, to, t.duration);
       return t;
     }
     // "On complete": play once, then continue to the next state.
@@ -577,7 +581,10 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     for (const b of this.data.bindings ?? []) {
       const raw = this.inputs.get(b.input);
       if (raw === undefined) continue;
-      const t = bindingT(typeof raw === "boolean" ? Number(raw) : Number(raw), b.inMin, b.inMax);
+      // Bindings read numbers; a bool counts as 0/1, and a text input that isn't a number is ignored (no NaN poses).
+      const n = typeof raw === "boolean" ? Number(raw) : Number(raw);
+      if (!Number.isFinite(n)) continue;
+      const t = bindingT(n, b.inMin, b.inMax);
       if (b.target === "bone") {
         const bone = sk.boneById_(b.object);
         if (bone) (bone as unknown as Record<string, number>)[b.property] = lerpNum(b, t);

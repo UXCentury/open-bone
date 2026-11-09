@@ -42,7 +42,8 @@ describe("Three.js object", () => {
   });
 
   it("draws in order, clipped batches test the mask's stencil value", () => {
-    const obj = make("button.obone");
+    // Hovered: the shine (transparent at rest, so not drawn then) shows inside the glass mask.
+    const obj = make("button.obone", false, (i) => i.stateMachine?.setBool("hover", true));
     const meshes = obj.children as THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>[];
     expect(meshes.map((m) => m.renderOrder)).toEqual(meshes.map((_, i) => i));
     const mask = meshes.find((m) => !m.material.colorWrite)!;

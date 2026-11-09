@@ -94,8 +94,10 @@ particlePending = 0
 Constraints read their *live values* (setup values overwritten by timelines and bindings), not the data.
 
 `bone.updateSubtree(root, includeSelf)` recomputes world matrices from `applied` for the bone (optionally) and all
-descendants, depth-first, children in creation order. Constraints that change a world matrix directly and then call
-`updateSubtree(root, false)` keep that change only until something recomputes the bone from `applied` (§12).
+descendants, depth-first, children in creation order. A constraint that changes a world matrix directly (IK stretch,
+world-space transform constraints, path, physics) then calls `bone.syncApplied(root)`, which stores the matching
+local values in `applied` (`core/math.ts:localFromWorld`: full decomposition for inherit `normal`, position only for
+the other modes, shear X kept), so a later constraint that recomputes an ancestor's subtree keeps the result.
 
 ## 4. Maths
 
@@ -164,7 +166,7 @@ Arrays (`sampleArray`) lerp element-wise to the longer length, missing elements 
 
 | target / property | value written |
 | --- | --- |
-| `bone` rotation | `bone.rotation = lerpAngle(bone.rotation, v, alpha)` (even at alpha 1: result is `cur + wrap(v − cur)`, equal to `v` only modulo 360) |
+| `bone` rotation | alpha ≥ 1: `bone.rotation = v`; otherwise `lerpAngle(bone.rotation, v, alpha)` (the shortest way round) |
 | `bone` x, y, scaleX, scaleY, shearX, shearY | `lerp(cur, v, alpha)` |
 | `slot` color | key colours lerped by `t` (stepped ⇒ left); `alpha ≥ 1` ⇒ replace, else `lerpColor(slot.color, v, alpha)` |
 | `slot` dark | as colour; mixing base is current dark or `[0,0,0,1]` |
@@ -175,7 +177,7 @@ Arrays (`sampleArray`) lerp element-wise to the longer length, missing elements 
 | `particles` rate | `rate = lerp(current rate ‖ attachment rate (0 if not particles), v, alpha)` |
 | `deform` offsets | `v = sampleArray`; existing offsets and `alpha < 1` ⇒ element-wise `lerp(cur[i] ‖ 0, v[i], alpha)`; none and `alpha < 1` ⇒ `v·alpha`; else replace (store a copy) |
 | `sequence` frame | if `alpha ≥ 0.5`: `slot.sequenceFrames[attachment] = sampleNumber` |
-| `drawOrder` | if `alpha ≥ 0.5`: listed slot ids that exist, in listed order, **then every unlisted slot in document order** (unlisted slots end up on top) |
+| `drawOrder` | if `alpha ≥ 0.5`: like Spine, unlisted slots keep their setup (document) index; the listed slots that exist fill the remaining indices in listed order, back to front |
 
 `localTime(anim, total, loop)`: `d = animationDuration` (explicit `duration` if > 0, else the max time of every key,
 event key and audio key); `d ≤ 0` ⇒ 0; loop ⇒ `((total % d) + d) % d`; else `clamp(total, 0, d)`.
@@ -350,7 +352,7 @@ w.x = ox + (S(origin).x − ox)·c.x·mix ;  w.y = oy + (S(origin).y − oy)·c.
 if c.rotate > 0 or c.scaleX > 0:
     (dx, dy) = S(tip) − w.pos ;  d = hypot ;  if d > 1e-9:
         rotateAxes(w, wrap((atan2(dy,dx) − atan2(ty−oy, tx−ox))·RAD)·c.rotate·mix·DEG)
-        if c.scaleX > 0 and data.length > 1e-6: s = 1 + (d/len − 1)·c.scaleX·mix; w.a,c *= s   // len is unscaled
+        if c.scaleX > 0 and data.length > 1e-6: s = 1 + (d/rest − 1)·c.scaleX·mix; w.a,c *= s   // rest = world distance origin→tip before simulating (len if 0)
 bone.updateSubtree(root, false)
 ```
 `dt` is everything passed to `Skeleton.update` since the previous `updateWorldTransform`. `x, y, rotate, scaleX`
@@ -367,7 +369,7 @@ t = timeFrom ‖ 0 + f·((timeTo ‖ duration) − (timeFrom ‖ 0))
 not additive: applyAnimation(anim, t, mix)     // every timeline type
 additive:     save bones' 7 local values; all bones ← setup pose; applyAnimation(anim, t, 1)
               per bone & property: delta = cur − setup (rotation: wrap(cur − setup)); value = saved + delta·mix
-              (non-bone timelines of the animation stay applied at alpha 1)
+              then the animation's non-bone timelines are applied with alpha = mix
 ```
 `animationTime` is restored after all sliders.
 
@@ -391,7 +393,7 @@ Deform offsets: for a mesh with `linked.deform`, `slot.deform[linked.mesh]` if p
 - Unweighted: vertex `(vx + dx, vy + dy)` through the slot bone's world.
 - Weighted: `Σ_inf weight · bone(inf).world·(inf.x + dx, inf.y + dy)` (missing bone ⇒ slot bone); the same `dx, dy`
   is added to every influence.
-Deform arrays must hold 2 values per vertex. Mesh uvs are the file's `uvs`; indices its `triangles`.
+Deform values missing at the end of a short array count as 0. Mesh uvs are the file's `uvs`; indices its `triangles`.
 Other polygons: shape outline (§8.5), `boundingBox`/`clipping` vertices, point `(x, y)` — all through the slot bone.
 World vertices and uvs are stored as **float32**.
 
@@ -405,7 +407,7 @@ For each slot in `drawOrder`, with its current attachment:
 | `sequence` | §8.6 |
 | `particles` | §8.8 (`blend` = attachment blend) |
 | `text` | `color = slot.color` (attachment colour goes to the text record); skip if alpha ≤ 0; vertices = the unscaled box quad; uvs/indices as a region; `texture` null; record content (§8.9). |
-| `shape` | vertices = world outline; indices = earcut of the local outline; `color = slot.color × fill` (**no alpha skip**); texture = atlas white page with every uv at the white block's centre, else null with zero uvs. |
+| `shape` | vertices = world outline; indices = earcut of the local outline; `color = slot.color × fill`; skip if alpha ≤ 0 unless it has a visible stroke (width > 0, stroke alpha × slot alpha > 0); texture = atlas white page with every uv at the white block's centre, else null with zero uvs. |
 | `boundingBox`, `point`, `path`, none | nothing |
 
 After the slot's items: if a mask is active and its slot is not this slot, every item from this slot gets `clip`; then if
@@ -573,8 +575,8 @@ tag `hook:<sound>`); `emitters` (`setEmitter`: override, and restart the emitter
 ### 9.3 Transitions (`settle`, `evaluate`, `canTake`, `conditionPasses`, `progress`)
 `settle`: up to 4 hops per layer: `t = evaluate(l)`; stop if null; else remove from the fired set every input named in
 `t`'s conditions. `evaluate`: nothing if exited. Candidates = transitions with `from` = current id or `@any`, stably
-sorted specific-first. Take the first with `canTake`; enter its target with `duration` (a missing target is still
-"taken"). If none: if the current state has `onComplete` and `progress ≥ 1`, enter it with mix **0.1** and return null.
+sorted specific-first. Take the first with `canTake` whose target state exists (one to a missing state is skipped and
+keeps its triggers); enter it with `duration`. If none: if the current state has `onComplete` and `progress ≥ 1`, enter it with mix **0.1** and return null.
 ```
 canTake(t, s):
   from != @any and to == s.id and no conditions ⇒ false
@@ -582,7 +584,8 @@ canTake(t, s):
   exitTime = t.exitTime ?? (no conditions ? 1 : null)
   exitTime != null and s and progress(s) < exitTime ⇒ false
   every condition passes
-progress(s) = d > 0 ? s.time / d : 1     with d = duration of s.data.animation (blend1d states usually have none ⇒ 1)
+progress(s) = d > 0 ? s.time / d : 1     with d = duration of s.data.animation; for blend1d, of the stronger entry
+                                         of blendPair (hi if t ≥ 0.5, else lo); exit states have none ⇒ 1
 ```
 Conditions: trigger ⇒ fired this frame. Otherwise `v` = input value, `w` = condition value. String inputs: `==`/`!=`
 compare `String(v)` and `String(w)`. `==`: `v === w` (strict: `true ≠ 1`) or both numbers within 1e-9. `!=`: `v !== w`
@@ -621,7 +624,8 @@ Actions, in order: `setInput` (by id or name); `toggleInput` (`setInput(id, !val
 `Number(value)`, ignored if not finite. No change ⇒ no `inputChange`. `fire` marks the trigger fired until step 6.
 
 ### 9.6 Bindings (`applyBindings`)
-In array order, for each binding whose input exists: `t = bindingT(Number(value), inMin, inMax)` where `bindingT` =
+In array order, for each binding whose input exists and whose value as a number (bool ⇒ 0/1) is finite (a text input
+is skipped): `t = bindingT(Number(value), inMin, inMax)` where `bindingT` =
 `inMax == inMin ? (v ≥ inMax ? 1 : 0) : clamp((v − inMin)/(inMax − inMin), 0, 1)`. Bone: local `property` =
 `outMin + (outMax − outMin)·t`. Slot `alpha`: replace colour alpha; slot `color`: colour = per-channel lerp of
 `parseHex(outMin)`, `parseHex(outMax)` (replaces RGBA). Constraint targets: live value `property` = lerp.
@@ -691,8 +695,9 @@ fired there survive until the next frame's step 6.
   everything else is double. Particles accumulate error over hundreds of steps (hence the 1e-2 tolerance).
 - **Exact indices**: shape and clipping triangles come from earcut 3.x; a different triangulator fails the suite.
 - **Bisection curve** (§4.3): not Newton; 24 iterations; first probe at `s = t`.
-- **Rotation values are not normalised**: mixing gives `cur + wrap(v − cur)`, which sliders, bindings and `ob.bone()` can observe.
-- **World-only edits are fragile**: IK stretch, world transform constraints, path and physics edit `world` directly;
-  a later constraint that runs `updateSubtree(root)` on an ancestor recomputes these bones from `applied` and discards them.
+- **Rotation values are not normalised**: a full-weight key sets the keyed value (e.g. 370); partial mixes go the
+  shortest way round. Sliders, bindings and `ob.bone()` see these raw values.
+- **World edits are synced back to local** (`syncApplied`, §3.2); a port that skips it loses constraint results when a
+  later constraint rebuilds an ancestor.
 - **Stable sorts** (blend entries, transition candidates, gradient stops) are required.
 - **Hit-test fallback** picks the first bounding box in JS object key order (integer-like names first, then insertion order).

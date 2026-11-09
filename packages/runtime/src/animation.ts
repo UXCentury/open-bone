@@ -88,7 +88,8 @@ export function applyAnimation(sk: Skeleton, anim: AnimationData, time: number, 
         if (!bone) break;
         const v = sampleNumber(tl.keys, time);
         const prop = tl.property;
-        bone[prop] = prop === "rotation" ? lerpAngle(bone[prop], v, alpha) : lerp(bone[prop], v, alpha);
+        // At full weight the keyed value is used as is; only a partial mix takes the shortest way round.
+        bone[prop] = alpha >= 1 ? v : prop === "rotation" ? lerpAngle(bone[prop], v, alpha) : lerp(bone[prop], v, alpha);
         break;
       }
       case "slot": {
@@ -154,9 +155,17 @@ export function applyAnimation(sk: Skeleton, anim: AnimationData, time: number, 
       case "drawOrder": {
         if (alpha < 0.5) break;
         const order = sampleStep(tl.keys, time);
+        // Like Spine: slots the key doesn't list keep their setup places; the listed ones fill the other places,
+        // back to front in the key's order.
         const listed = order.map((id) => sk.slotById_(id)).filter(Boolean) as typeof sk.drawOrder;
-        const rest = sk.slots.filter((s) => !listed.includes(s));
-        sk.drawOrder = [...listed, ...rest];
+        const placed = new Set(listed);
+        const out: (typeof sk.drawOrder)[number][] = new Array(sk.slots.length);
+        sk.slots.forEach((slot, i) => {
+          if (!placed.has(slot)) out[i] = slot;
+        });
+        let next = 0;
+        for (let i = 0; i < out.length && next < listed.length; i++) if (!out[i]) out[i] = listed[next++];
+        sk.drawOrder = out.filter(Boolean);
         break;
       }
     }

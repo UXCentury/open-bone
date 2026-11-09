@@ -32,6 +32,7 @@ import {
   formatTemplate,
   identity,
   invert,
+  localFromWorld,
   isTrimmed,
   multiply,
   parseHex,
@@ -98,6 +99,15 @@ export class Bone {
   }
   updateWorld(root: Affine) {
     this.world = boneWorld(this.parent ? this.parent.world : root, this.applied, this.parent ? this.data.inherit : "normal");
+  }
+  /**
+   * After a constraint wrote `world` directly (IK stretch, world-space transform, path, physics): store the matching
+   * local values in `applied`, so anything that later rebuilds this bone from local values (a constraint that moves
+   * an ancestor) keeps the result instead of silently undoing it.
+   */
+  syncApplied(root: Affine) {
+    const parent = this.parent ? this.parent.world : root;
+    Object.assign(this.applied, localFromWorld(parent, this.world, this.parent ? this.data.inherit : "normal", this.applied));
   }
   updateSubtree(root: Affine, includeSelf = true) {
     if (includeSelf) this.updateWorld(root);
@@ -561,13 +571,16 @@ export class Skeleton {
       const props = ["x", "y", "rotation", "scaleX", "scaleY", "shearX", "shearY"] as const;
       const before = this.bones.map((b) => props.map((p) => b[p]));
       for (const b of this.bones) b.setToSetupPose();
-      applyAnimation(this, anim, t, 1);
+      // Bone keys add their change from the setup pose; everything else (colours, constraint values…) mixes in by `mix`.
+      applyAnimation(this, { ...anim, timelines: anim.timelines.filter((tl) => tl.target === "bone") }, t, 1);
       this.bones.forEach((b, i) => {
         props.forEach((p, k) => {
           const delta = p === "rotation" ? wrap(b[p] - b.data[p]) : b[p] - b.data[p];
           b[p] = before[i][k] + delta * sl.mix;
         });
       });
+      const other = anim.timelines.filter((tl) => tl.target !== "bone");
+      if (other.length) applyAnimation(this, { ...anim, timelines: other }, t, sl.mix);
     }
     this.animationTime = savedTime;
   }
@@ -610,6 +623,7 @@ export class Skeleton {
             b.world.b *= s;
             b.world.d *= s;
           }
+          b.syncApplied(root);
         }
       }
       b.updateSubtree(root, false);
@@ -664,6 +678,8 @@ export class Skeleton {
       p.world.d *= u;
       const [ox, oy] = apply(p.world, ch.applied.x, ch.applied.y);
       ch.world = { a: cw.a * s, b: cw.b * u, c: cw.c * s, d: cw.d * u, x: ox, y: oy };
+      p.syncApplied(root);
+      ch.syncApplied(root);
     }
     ch.updateSubtree(root, false);
     for (const sib of p.children) if (sib !== ch) sib.updateSubtree(root);
@@ -754,6 +770,7 @@ export class Skeleton {
           setSkew(w, sb + wrap(skewOf(t) + offShear - sb) * mh);
         }
       }
+      b.syncApplied(root);
       b.updateSubtree(root, false);
     }
   }
@@ -822,6 +839,7 @@ export class Skeleton {
           }
         }
         rotateAxes(w, wrap((ang + off) * RAD - worldRotation(w)) * mixRotate * DEG);
+        b.syncApplied(root);
       }
       b.updateSubtree(root, false);
     }
@@ -892,12 +910,15 @@ export class Skeleton {
         const base = Math.atan2(ty - oy, tx - ox);
         rotateAxes(w, wrap((Math.atan2(dy, dx) - base) * RAD) * c.rotate * mix * DEG);
         if (c.scaleX > 0 && b.data.length > 1e-6) {
-          const s = 1 + (d / len - 1) * c.scaleX * mix;
+          // Stretch relative to the bone's rest length in world space (its tip distance before simulating).
+          const rest = Math.hypot(tx - ox, ty - oy) || len;
+          const s = 1 + (d / rest - 1) * c.scaleX * mix;
           w.a *= s;
           w.c *= s;
         }
       }
     }
+    b.syncApplied(this.rootMatrix);
     b.updateSubtree(this.rootMatrix, false);
   }
 
@@ -1037,8 +1058,8 @@ export class Skeleton {
         for (let v = 0; v < n; v++) {
           let wx = 0;
           let wy = 0;
-          const dx = deform ? deform[v * 2] : 0;
-          const dy = deform ? deform[v * 2 + 1] : 0;
+          const dx = deform?.[v * 2] ?? 0;
+          const dy = deform?.[v * 2 + 1] ?? 0;
           for (const inf of att.weights[v]) {
             const bm = this.boneById.get(inf.bone)?.world ?? m;
             const lx = inf.x + dx;
@@ -1051,8 +1072,8 @@ export class Skeleton {
         }
       } else {
         for (let v = 0; v < n; v++) {
-          const lx = att.vertices[v * 2] + (deform ? deform[v * 2] : 0);
-          const ly = att.vertices[v * 2 + 1] + (deform ? deform[v * 2 + 1] : 0);
+          const lx = att.vertices[v * 2] + (deform?.[v * 2] ?? 0);
+          const ly = att.vertices[v * 2 + 1] + (deform?.[v * 2 + 1] ?? 0);
           out[v * 2] = m.a * lx + m.b * ly + m.x;
           out[v * 2 + 1] = m.c * lx + m.d * ly + m.y;
         }
@@ -1162,6 +1183,8 @@ export class Skeleton {
           this.shapeCache.set(att, cached);
         }
         const color = mulColor(slot.color, parseHex(att.fill));
+        // Like every other attachment, a fully transparent shape isn't drawn (its stroke goes with it).
+        if (color[3] <= 0 && !(att.stroke && (att.strokeWidth ?? 0) > 0 && mulColor(slot.color, parseHex(att.stroke))[3] > 0)) break draw;
         items.push({
           slot,
           attachment: att,
