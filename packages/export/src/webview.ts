@@ -1,3 +1,4 @@
+import { NATIVE_FLUTTER_URL } from "./engine-templates.ts";
 import { safeName } from "./engines.ts";
 import { createZip } from "./zip.ts";
 
@@ -408,6 +409,12 @@ function flutterWebReadme(c: TemplateContext) {
 
 Plays the OpenBone animation with its state machine, inputs, scripts and touch interaction, by embedding the
 OpenBone web player in [webview_flutter](https://pub.dev/packages/webview_flutter) (Android and iOS).
+
+> **Native alternative:** the [\`openbone\` Flutter plugin](${NATIVE_FLUTTER_URL}) plays the same \`.obone\` /
+> \`.obonb\` file without a WebView, through the native OpenBone runtime (\`dart:ffi\`, Android, iOS, macOS, Linux and
+> Windows): \`OpenBoneWidget.asset('assets/${c.base}.obone', controller: controller)\`, with the same inputs, triggers,
+> pointer listeners, events and audio commands. Export the runtime file (JSON or binary) for it; this WebView package
+> stays the zero-native-code option.
 
 ${inputsTable(c)}
 ## Install

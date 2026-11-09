@@ -1,0 +1,857 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "Button",
+  "width": 400,
+  "height": 200,
+  "originX": 200,
+  "originY": 100,
+  "background": "#0f172a",
+  "fps": 30,
+  "images": [
+    {
+      "id": "img_id5932a",
+      "name": "button-play",
+      "src": "assets/canva/button-play.png",
+      "width": 262,
+      "height": 109
+    }
+  ],
+  "skeleton": {
+    "bones": [
+      {
+        "id": "bone_ymn5l27",
+        "name": "root",
+        "parent": null,
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_l7rm328",
+        "name": "btn",
+        "parent": "bone_ymn5l27",
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_aqp4229",
+        "name": "shine",
+        "parent": "bone_l7rm328",
+        "length": 0,
+        "x": -140,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot_rzprm2b",
+        "name": "bg",
+        "bone": "bone_l7rm328",
+        "color": "#ffffff",
+        "attachment": "button-play",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_8c25p2c",
+        "name": "glass-mask",
+        "bone": "bone_l7rm328",
+        "color": "#ffffff",
+        "attachment": "mask",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_tsiuz2d",
+        "name": "shine",
+        "bone": "bone_aqp4229",
+        "color": "#ffffff00",
+        "attachment": "polygon",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_7gdz32e",
+        "name": "hit",
+        "bone": "bone_l7rm328",
+        "color": "#ffffff",
+        "attachment": null,
+        "blend": "normal"
+      }
+    ],
+    "skins": [
+      {
+        "id": "skin_default",
+        "name": "default",
+        "attachments": {
+          "slot_rzprm2b": {
+            "button-play": {
+              "type": "region",
+              "name": "button-play",
+              "image": "img_id5932a",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 236,
+              "height": 98,
+              "color": "#ffffff"
+            }
+          },
+          "slot_8c25p2c": {
+            "mask": {
+              "type": "clipping",
+              "name": "mask",
+              "vertices": [
+                73,
+                -37,
+                80.413,
+                -36.27,
+                87.542,
+                -34.107,
+                94.112,
+                -30.596,
+                99.87,
+                -25.87,
+                104.596,
+                -20.112,
+                108.107,
+                -13.542,
+                110.27,
+                -6.413,
+                111,
+                1,
+                111,
+                5,
+                110.27,
+                12.413,
+                108.107,
+                19.542,
+                104.596,
+                26.112,
+                99.87,
+                31.87,
+                94.112,
+                36.596,
+                87.542,
+                40.107,
+                80.413,
+                42.27,
+                73,
+                43,
+                -73,
+                43,
+                -80.413,
+                42.27,
+                -87.542,
+                40.107,
+                -94.112,
+                36.596,
+                -99.87,
+                31.87,
+                -104.596,
+                26.112,
+                -108.107,
+                19.542,
+                -110.27,
+                12.413,
+                -111,
+                5,
+                -111,
+                1,
+                -110.27,
+                -6.413,
+                -108.107,
+                -13.542,
+                -104.596,
+                -20.112,
+                -99.87,
+                -25.87,
+                -94.112,
+                -30.596,
+                -87.542,
+                -34.107,
+                -80.413,
+                -36.27,
+                -73,
+                -37
+              ],
+              "end": "slot_tsiuz2d"
+            }
+          },
+          "slot_tsiuz2d": {
+            "polygon": {
+              "type": "shape",
+              "name": "polygon",
+              "shape": "polygon",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "width": 50,
+              "height": 50,
+              "radius": 0,
+              "points": [
+                -10,
+                45,
+                20,
+                45,
+                0,
+                -45,
+                -30,
+                -45
+              ],
+              "fill": "#ffffff66"
+            }
+          },
+          "slot_7gdz32e": {
+            "hitbox": {
+              "type": "boundingBox",
+              "name": "hitbox",
+              "vertices": [
+                -115,
+                -45,
+                115,
+                -45,
+                115,
+                45,
+                -115,
+                45
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "ik": [],
+    "transform": [],
+    "path": [],
+    "physics": []
+  },
+  "events": [
+    {
+      "id": "evt_6r6hq2i",
+      "name": "clicked",
+      "int": 0,
+      "float": 0,
+      "string": "",
+      "audio": "snd_bpqtw2y"
+    }
+  ],
+  "animations": [
+    {
+      "id": "anim_rvga02f",
+      "name": "idle",
+      "duration": 1.5,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_l7rm328",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.75,
+              "value": 1.02,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.5,
+              "value": 1,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_l7rm328",
+          "property": "scaleY",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.75,
+              "value": 1.02,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 1.5,
+              "value": 1,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_qkk7w2g",
+      "name": "hover",
+      "duration": 0.6,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_l7rm328",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": 1.08,
+              "curve": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_l7rm328",
+          "property": "scaleY",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": 1.08,
+              "curve": [
+                0.34,
+                1.56,
+                0.64,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_rzprm2b",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffff",
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": "#ffe7b3",
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_tsiuz2d",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ffffffff",
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "value": "#ffffffff",
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_aqp4229",
+          "property": "x",
+          "keys": [
+            {
+              "time": 0,
+              "value": -140,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.6,
+              "value": 140,
+              "curve": [
+                0.42,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_rhjhs2h",
+      "name": "press",
+      "duration": 0.25,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_l7rm328",
+          "property": "scaleX",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1.08,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.08,
+              "value": 0.94,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": 1.08,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_l7rm328",
+          "property": "scaleY",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1.08,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.08,
+              "value": 0.9,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": 1.08,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_l7rm328",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.08,
+              "value": -4,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            },
+            {
+              "time": 0.25,
+              "value": 0,
+              "curve": [
+                0,
+                0,
+                0.58,
+                1
+              ]
+            }
+          ]
+        }
+      ],
+      "events": [
+        {
+          "time": 0.08,
+          "event": "evt_6r6hq2i"
+        }
+      ]
+    }
+  ],
+  "stateMachines": [
+    {
+      "id": "sm_x9mr82j",
+      "name": "ui",
+      "inputs": [
+        {
+          "id": "in_twkp92k",
+          "name": "hover",
+          "type": "bool",
+          "default": false
+        },
+        {
+          "id": "in_vyhwa2l",
+          "name": "press",
+          "type": "trigger",
+          "default": false
+        }
+      ],
+      "bindings": [],
+      "layers": [
+        {
+          "id": "sm_x9mr82j_layer1",
+          "name": "Layer 1",
+          "entry": "st_afdle2m",
+          "states": [
+            {
+              "id": "st_afdle2m",
+              "name": "idle",
+              "type": "animation",
+              "animation": "anim_rvga02f",
+              "loop": true,
+              "speed": 1,
+              "x": 120,
+              "y": 120
+            },
+            {
+              "id": "st_lsaa92n",
+              "name": "hover",
+              "type": "animation",
+              "animation": "anim_qkk7w2g",
+              "loop": false,
+              "speed": 1,
+              "x": 360,
+              "y": 60
+            },
+            {
+              "id": "st_b3ul72o",
+              "name": "press",
+              "type": "animation",
+              "animation": "anim_rhjhs2h",
+              "loop": false,
+              "speed": 1,
+              "x": 360,
+              "y": 200
+            }
+          ],
+          "transitions": [
+            {
+              "id": "tr_oox5u2p",
+              "from": "st_afdle2m",
+              "to": "st_lsaa92n",
+              "conditions": [
+                {
+                  "input": "in_twkp92k",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.1,
+              "exitTime": null
+            },
+            {
+              "id": "tr_opx0a2q",
+              "from": "st_lsaa92n",
+              "to": "st_afdle2m",
+              "conditions": [
+                {
+                  "input": "in_twkp92k",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "duration": 0.2,
+              "exitTime": null
+            },
+            {
+              "id": "tr_f5cx92r",
+              "from": "@any",
+              "to": "st_b3ul72o",
+              "conditions": [
+                {
+                  "input": "in_vyhwa2l",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.05,
+              "exitTime": null
+            },
+            {
+              "id": "tr_rvcxu2s",
+              "from": "st_b3ul72o",
+              "to": "st_lsaa92n",
+              "conditions": [
+                {
+                  "input": "in_twkp92k",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.05,
+              "exitTime": 1
+            },
+            {
+              "id": "tr_k4a2b2t",
+              "from": "st_b3ul72o",
+              "to": "st_afdle2m",
+              "conditions": [
+                {
+                  "input": "in_twkp92k",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "duration": 0.1,
+              "exitTime": 1
+            }
+          ]
+        }
+      ],
+      "listeners": [
+        {
+          "id": "lis_prweq2u",
+          "name": "enter",
+          "slot": "slot_7gdz32e",
+          "event": "enter",
+          "actions": [
+            {
+              "type": "setInput",
+              "input": "in_twkp92k",
+              "value": true
+            }
+          ]
+        },
+        {
+          "id": "lis_4ngx02v",
+          "name": "exit",
+          "slot": "slot_7gdz32e",
+          "event": "exit",
+          "actions": [
+            {
+              "type": "setInput",
+              "input": "in_twkp92k",
+              "value": false
+            }
+          ]
+        },
+        {
+          "id": "lis_2cfsq2w",
+          "name": "down",
+          "slot": "slot_7gdz32e",
+          "event": "down",
+          "actions": [
+            {
+              "type": "fireTrigger",
+              "input": "in_vyhwa2l"
+            }
+          ]
+        },
+        {
+          "id": "lis_igzhb31",
+          "name": "hover sound",
+          "slot": "slot_7gdz32e",
+          "event": "enter",
+          "actions": [
+            {
+              "type": "playSound",
+              "sound": "snd_uv0yo30"
+            }
+          ]
+        }
+      ],
+      "scripts": []
+    }
+  ],
+  "scripts": [],
+  "audio": {
+    "master": 1,
+    "muted": false,
+    "assets": [
+      {
+        "id": "aud_cl02n2x",
+        "name": "click",
+        "src": "assets/eleven/button-click.wav",
+        "duration": 0.034
+      },
+      {
+        "id": "aud_uehut2z",
+        "name": "hover",
+        "src": "assets/eleven/button-hover.wav",
+        "duration": 0.798
+      }
+    ],
+    "buses": [
+      {
+        "id": "bus_sfx",
+        "name": "sfx",
+        "volume": 1,
+        "muted": false
+      },
+      {
+        "id": "bus_music",
+        "name": "music",
+        "volume": 1,
+        "muted": false
+      },
+      {
+        "id": "bus_ui",
+        "name": "ui",
+        "volume": 1,
+        "muted": false
+      }
+    ],
+    "sounds": [
+      {
+        "id": "snd_bpqtw2y",
+        "name": "click",
+        "asset": "aud_cl02n2x",
+        "bus": "bus_ui",
+        "volume": 0.8,
+        "rate": 1,
+        "loop": false,
+        "fadeIn": 0,
+        "fadeOut": 0
+      },
+      {
+        "id": "snd_uv0yo30",
+        "name": "hover",
+        "asset": "aud_uehut2z",
+        "bus": "bus_ui",
+        "volume": 0.45,
+        "rate": 1,
+        "loop": false,
+        "fadeIn": 0,
+        "fadeOut": 0
+      }
+    ]
+  }
+}
