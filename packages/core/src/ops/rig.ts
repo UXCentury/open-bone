@@ -7,6 +7,7 @@ import { setupWorld } from "../setup.ts";
 import type { Attachment, BoneData, OpenBoneDocument, SkinData, SliderData, VertexWeight } from "../types.ts";
 import { defineOp, hex, optId, ref } from "./registry.ts";
 import { checkSequenceProps } from "./sequence-props.ts";
+import { swapInfluence } from "../weights.ts";
 
 const inherit = z.enum(["normal", "onlyTranslation", "noRotation", "noScale"]);
 const blend = z.enum(["normal", "additive", "multiply", "screen"]);
@@ -261,7 +262,7 @@ defineOp({
     const src = get.skin(doc, a.skin);
     assertSkinName(doc, a.name);
     const id = (a.id ??= newId("skin"));
-    doc.skeleton.skins.push({ id, name: a.name, attachments: structuredClone(src.attachments) });
+    doc.skeleton.skins.push({ id, name: a.name, attachments: structuredClone(src.attachments), ...(src.folder ? { folder: src.folder } : {}) });
     return { id };
   },
 });
@@ -891,6 +892,31 @@ defineOp({
     });
     if (!verts.length) return { vertices: 0 };
     return writeWeights(doc, a.slot, a.attachment, toEdits(table, verts), "pruneWeights", a.skin);
+  },
+});
+
+defineOp({
+  name: "swapWeights",
+  group: "attachment",
+  description:
+    "Swap two bones' weights on a mesh: every vertex (or only `vertices`) gives bone `from`'s weight to `to` and the other way round. Handy after mirroring a limb or binding the wrong bone. The mesh keeps its setup-pose shape.",
+  schema: z.object({
+    slot: ref("Slot"),
+    attachment: z.string(),
+    skin: ref("Skin").optional(),
+    from: ref("Bone"),
+    to: ref("Bone"),
+    vertices: z.array(z.number().int().min(0)).optional().describe("Vertex indices (default all)"),
+  }),
+  apply(doc, a) {
+    const from = get.bone(doc, a.from).id;
+    const to = get.bone(doc, a.to).id;
+    if (from === to) throw new Error("Pick two different bones to swap");
+    const { table, n } = meshWeightTable(doc, a.slot, a.attachment, a.skin);
+    for (const v of a.vertices ?? []) if (v >= n) throw new Error(`Vertex ${v} out of range (mesh has ${n})`);
+    const verts = (a.vertices ?? Array.from({ length: n }, (_, i) => i)).filter((v) => swapInfluence(table[v], from, to));
+    if (!verts.length) return { vertices: 0 };
+    return writeWeights(doc, a.slot, a.attachment, toEdits(table, verts), "swapWeights", a.skin);
   },
 });
 
