@@ -19,6 +19,7 @@
     "@tauri-apps/plugin-dialog": "^2.4.0",
     "@tauri-apps/plugin-fs": "^2.4.0",
     "@tauri-apps/plugin-opener": "^2.7.2",
+    "ag-psd": "^34.1.0",
     "idb-keyval": "^6.2.2",
     "mp4-muxer": "5.2.2",
     "solid-js": "^1.9.9"

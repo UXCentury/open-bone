@@ -6,6 +6,11 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app). Se
 
 - About dialog (☰ Menu → About OpenBone): version, build, credits for the open-source tools OpenBone is built with.
 - `pnpm version:set` / `pnpm version:check` keep every package, the Tauri app and the desktop crate on one version.
+- Dopesheet: multi-key selection (Shift/Ctrl-click, Shift-drag box, Ctrl/⌘+A), drag and arrow-key nudge of the selection, copy / cut / paste at the playhead (across animations), scale in time, curve and delete for all selected keys. New ops `transformKeys`, `pasteKeys`, `deleteKeys` (also MCP tools).
+- Compensate (`J`, toolbar ⇲ Comp): transform a bone while its child bones keep their place.
+- Linked meshes (`addLinkedMesh`): share another mesh's geometry and weights with a different image, optionally following its deform keys.
+- Photoshop (`.psd`) import: layers become slots and regions in place; groups can become bones.
+- Two-colour tint: a keyable `dark` slot colour (Canvas2D and WebGL2 renderers; the PixiJS, Phaser, Three.js and CanvasKit runtimes draw the normal tint for now).
 
 ## 0.1.0
 

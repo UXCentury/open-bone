@@ -3,6 +3,7 @@
  * or described by a TexturePacker / Aseprite "frames" JSON, and ZIP archives of either.
  */
 import { type SequenceFrame, gridSheetFrames, groupNumbered, parseSheetJson } from "@openbone/core";
+import { importPsd, isPsd } from "./psd-import.ts";
 import { readZip } from "@openbone/export";
 import type { Skeleton } from "@openbone/runtime";
 import { createSignal } from "solid-js";
@@ -183,7 +184,10 @@ async function importJsonSheet(json: File, images: File[]): Promise<File | null>
  * asking); other images are handed to `single` (regular image import), or, with `sheet`, cut as a grid sheet.
  */
 export async function importFiles(input: FileList | File[], single: (files: File[]) => Promise<void>, opts: { sheet?: boolean } = {}) {
-  const files = await expandZips(Array.from(input));
+  const all = await expandZips(Array.from(input));
+  // Photoshop files become layered rigs (one slot per layer).
+  for (const psd of all.filter(isPsd)) await importPsd(psd);
+  const files = all.filter((f) => !isPsd(f));
   let images = files.filter(isImage);
   for (const json of files.filter(isJson)) {
     const used = await importJsonSheet(json, images);

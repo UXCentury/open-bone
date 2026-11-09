@@ -89,6 +89,23 @@ export function boneWorld(parent: Affine | null, local: LocalTransform, inherit:
   }
 }
 
+/**
+ * Local transform that puts a child bone at `childWorld` under a parent now at `parentWorld` (Spine's "compensate":
+ * move a parent, the children stay where they are). Shear X is kept from `keep`; with an inherit mode other than
+ * normal only the position is solved and the rest of `keep` is returned unchanged.
+ */
+export function localFromWorld(parentWorld: Affine, childWorld: Affine, inherit: Inherit, keep: LocalTransform): LocalTransform {
+  const inv = invert(parentWorld);
+  const [x, y] = apply(inv, childWorld.x, childWorld.y);
+  if (inherit !== "normal") return { ...keep, x, y };
+  const m = multiply(inv, childWorld);
+  const rotation = Math.atan2(m.c, m.a) * RAD - keep.shearX;
+  const scaleX = Math.hypot(m.a, m.c);
+  const scaleY = Math.hypot(m.b, m.d);
+  const shearY = wrapDeg(Math.atan2(m.d, m.b) * RAD - 90 - rotation);
+  return { x, y, rotation: wrapDeg(rotation), scaleX, scaleY, shearX: keep.shearX, shearY };
+}
+
 export const worldRotation = (m: Affine) => Math.atan2(m.c, m.a) * RAD;
 export const worldScaleX = (m: Affine) => Math.hypot(m.a, m.c);
 export const worldScaleY = (m: Affine) => Math.hypot(m.b, m.d);

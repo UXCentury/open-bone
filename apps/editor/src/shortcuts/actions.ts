@@ -33,6 +33,8 @@ import { multiBones,
   toast,
   tool,
   transaction,
+  compensate,
+  setCompensate,
 } from "../state.ts";
 import { saveProject } from "../storage.ts";
 import { reorderSlot } from "../visibility.ts";
@@ -249,6 +251,7 @@ export function setupShortcuts(): () => void {
     b("play.actual", () => setPlayFit("none")),
     b("play.fullWindow", () => setPlayFullWindow(!playFullWindow())),
     b("help.shortcuts", () => setShortcutsOpen(true)),
+    b("tool.compensate", () => setCompensate(!compensate())),
   ];
   const scopes = (): Scope[] => (playActive() ? ["global", "play"] : ["global", "editor"]);
   const uninstall = installShortcuts(scopes);

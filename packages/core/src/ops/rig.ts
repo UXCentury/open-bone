@@ -126,6 +126,7 @@ defineOp({
     name: z.string().optional(),
     bone: ref("Bone"),
     color: hex.optional(),
+    dark: hex.optional().describe("Two-colour tint: what the image's dark parts become (#rrggbb)"),
     blend: blend.optional(),
     index: z.number().int().min(0).optional().describe("Draw order position (0 = back)"),
   }),
@@ -133,7 +134,7 @@ defineOp({
     const bone = get.bone(doc, a.bone);
     const id = (a.id ??= newId("slot"));
     const name = (a.name = uniqueName(doc.skeleton.slots, a.name ?? bone.name));
-    const slot = { id, name, bone: bone.id, color: a.color ?? "#ffffff", attachment: null, blend: a.blend ?? "normal" } as const;
+    const slot = { id, name, bone: bone.id, color: a.color ?? "#ffffff", attachment: null, blend: a.blend ?? "normal", ...(a.dark ? { dark: a.dark.slice(0, 7) } : {}) } as const;
     const slots = doc.skeleton.slots;
     if (a.index === undefined || a.index >= slots.length) slots.push({ ...slot });
     else slots.splice(a.index, 0, { ...slot });
@@ -144,12 +145,14 @@ defineOp({
 defineOp({
   name: "updateSlot",
   group: "rig",
-  description: "Change a slot's name, bone, tint color, blend mode, visible attachment (null to hide) or draw-order index.",
+  description:
+    "Change a slot's name, bone, tint color, two-colour tint (dark: what the image's dark parts become, null for none), blend mode, visible attachment (null to hide) or draw-order index.",
   schema: z.object({
     slot: ref("Slot"),
     name: z.string().optional(),
     bone: ref("Bone").optional(),
     color: hex.optional(),
+    dark: hex.nullable().optional(),
     blend: blend.optional(),
     attachment: z.string().nullable().optional(),
     index: z.number().int().min(0).optional(),
@@ -159,6 +162,10 @@ defineOp({
     if (a.name) s.name = a.name;
     if (a.bone) s.bone = get.bone(doc, a.bone).id;
     if (a.color) s.color = a.color;
+    if (a.dark !== undefined) {
+      if (a.dark === null || /^#0{6}/.test(a.dark)) delete s.dark;
+      else s.dark = a.dark.slice(0, 7);
+    }
     if (a.blend) s.blend = a.blend;
     if (a.attachment !== undefined) s.attachment = a.attachment;
     if (a.index !== undefined) {
@@ -412,6 +419,39 @@ defineOp({
 });
 
 defineOp({
+  name: "addLinkedMesh",
+  group: "attachment",
+  description:
+    "Add a linked mesh (like Spine's): a mesh that uses another mesh's vertices, triangles and weights with a different image, e.g. the same rigged sleeve in another outfit or colour. Edit the parent and every linked mesh follows. `deform: true` (default) makes the parent's deform keys move it too. The parent defaults to the same slot; give `parentSlot` / `parentSkin` when it lives elsewhere.",
+  schema: z.object({
+    ...attTarget,
+    image: ref("Image"),
+    parent: z.string().describe("Name of the parent mesh attachment"),
+    parentSlot: ref("Slot of the parent mesh").optional(),
+    parentSkin: ref("Skin of the parent mesh").optional(),
+    deform: z.boolean().default(true),
+    color: hex.default("#ffffff"),
+  }),
+  apply(doc, a) {
+    const img = get.image(doc, a.image);
+    const slot = get.slot(doc, a.slot);
+    const pSlot = a.parentSlot ? get.slot(doc, a.parentSlot) : slot;
+    const pSkin = a.parentSkin ? get.skin(doc, a.parentSkin) : undefined;
+    const skins = pSkin ? [pSkin] : [a.skin ? get.skin(doc, a.skin) : defaultSkin(doc), defaultSkin(doc), ...doc.skeleton.skins];
+    const parent = skins.map((k) => k.attachments[pSlot.id]?.[a.parent]).find(Boolean);
+    if (!parent) throw new Error(`Mesh "${a.parent}" not found on slot "${pSlot.name}"`);
+    if (parent.type !== "mesh") throw new Error(`"${a.parent}" is a ${parent.type}, not a mesh`);
+    if (parent.linked) throw new Error(`"${a.parent}" is itself linked to "${parent.linked.mesh}": link to that mesh instead`);
+    const name = a.name ?? img.name;
+    if (name === parent.name && pSlot === slot && (!a.skin || (pSkin ?? defaultSkin(doc)) === get.skin(doc, a.skin)))
+      throw new Error("Give the linked mesh a different name, slot or skin than its parent");
+    const linked = { mesh: parent.name, ...(pSlot !== slot ? { slot: pSlot.id } : {}), ...(pSkin ? { skin: pSkin.id } : {}), deform: a.deform };
+    const { vertices, uvs, triangles, hull, weights } = structuredClone(parent);
+    return putAttachment(doc, a.slot, a.skin, { type: "mesh", name, image: img.id, vertices, uvs, triangles, hull, ...(weights ? { weights } : {}), color: a.color, linked }, a.activate);
+  },
+});
+
+defineOp({
   name: "addBoundingBox",
   group: "attachment",
   description: "Attach a bounding-box polygon (hit area for listeners/pointer events). Give vertices or a rect.",
@@ -534,6 +574,12 @@ defineOp({
       delete map[att.name];
       map[props.name] = att;
       if (slot.attachment === att.name) slot.attachment = props.name;
+      // Linked meshes follow their parent's new name.
+      if (att.type === "mesh")
+        for (const k of doc.skeleton.skins)
+          for (const [sid, atts] of Object.entries(k.attachments))
+            for (const x of Object.values(atts))
+              if (x.type === "mesh" && x.linked?.mesh === att.name && (x.linked.slot ?? sid) === slot.id && (!x.linked.skin || x.linked.skin === owner.id)) x.linked.mesh = props.name;
     }
     if (att.type === "mesh") return updateMesh(doc, slot.bone, att, props);
     if (att.type === "sequence") checkSequenceProps(doc, props);
@@ -552,6 +598,15 @@ defineOp({
  * vertex count re-triangulates when no `triangles` are given, and the result is validated.
  */
 function updateMesh(doc: OpenBoneDocument, slotBone: string, att: MeshAtt, props: Record<string, unknown>) {
+  if (att.linked) {
+    const geometry = ["vertices", "uvs", "triangles", "hull", "weights"].filter((k) => k in props);
+    if (geometry.length && props.linked !== null)
+      throw new Error(`"${att.name}" is a linked mesh: its ${geometry.join(", ")} come from "${att.linked.mesh}". Edit that mesh, or unlink this one first (props: {linked: null}).`);
+  }
+  if (props.linked === null) {
+    delete att.linked;
+    delete props.linked;
+  }
   const oldN = att.vertices.length / 2;
   const next = { ...att, ...props } as MeshAtt;
   const n = next.vertices.length / 2;

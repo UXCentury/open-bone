@@ -99,6 +99,11 @@ export function applyAnimation(sk: Skeleton, anim: AnimationData, time: number, 
           const ca = parseHex(a.value);
           const v = !b || a.curve === "stepped" ? ca : lerpColor(ca, parseHex(b.value), t);
           slot.color = alpha >= 1 ? v : lerpColor(slot.color, v, alpha);
+        } else if (tl.property === "dark") {
+          const { a, b, t } = locate(tl.keys, time);
+          const ca = parseHex(a.value);
+          const v = !b || a.curve === "stepped" ? ca : lerpColor(ca, parseHex(b.value), t);
+          slot.dark = alpha >= 1 ? v : lerpColor(slot.dark ?? [0, 0, 0, 1], v, alpha);
         } else if (alpha >= 0.5) {
           slot.attachmentName = sampleStep(tl.keys, time);
         }

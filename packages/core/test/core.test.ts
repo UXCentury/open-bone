@@ -142,3 +142,16 @@ describe("constraints (ops, validation, migration)", () => {
     expect(summarize(s.doc)).toContain("Path p");
   });
 });
+
+describe("localFromWorld (compensate)", () => {
+  it("keeps a child's world transform when its parent moves, rotates and scales", async () => {
+    const { boneWorld, localFromWorld } = await import("../src/math.ts");
+    const child = { x: 30, y: 5, rotation: 25, scaleX: 1.2, scaleY: 0.9, shearX: 0, shearY: 4 };
+    const parent0 = boneWorld(null, { x: 10, y: 20, rotation: 15, scaleX: 1, scaleY: 1, shearX: 0, shearY: 0 }, "normal");
+    const world = boneWorld(parent0, child, "normal");
+    const parent1 = boneWorld(null, { x: -40, y: 7, rotation: -70, scaleX: 1.5, scaleY: 0.8, shearX: 0, shearY: 0 }, "normal");
+    const local = localFromWorld(parent1, world, "normal", child);
+    const again = boneWorld(parent1, local, "normal");
+    for (const k of ["a", "b", "c", "d", "x", "y"] as const) expect(again[k]).toBeCloseTo(world[k], 6);
+  });
+});

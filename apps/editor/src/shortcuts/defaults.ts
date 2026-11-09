@@ -39,6 +39,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDef[] = [
   { id: "tool.bone", label: "Create bone tool", group: "Tools", keys: ["B"], scope: "editor" },
   { id: "tool.mesh", label: "Mesh edit tool", group: "Tools", keys: ["M"], scope: "editor" },
   { id: "tool.weights", label: "Weight paint tool", group: "Tools", keys: ["W"], scope: "editor" },
+  { id: "tool.compensate", label: "Compensate (children stay put when a bone moves)", group: "Tools", keys: ["J"], scope: "editor" },
 
   // ---- View
   { id: "view.fit", label: "Fit artboard", group: "View", keys: ["F", "Shift+1"], scope: "editor" },

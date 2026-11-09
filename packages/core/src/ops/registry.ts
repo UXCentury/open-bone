@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hasLinkedMeshes, syncLinkedMeshes } from "../linked.ts";
 import type { OpenBoneDocument } from "../types.ts";
 
 export type OpGroup = "project" | "rig" | "attachment" | "constraint" | "animation" | "interactivity" | "audio";
@@ -40,6 +41,8 @@ export function applyOp(doc: OpenBoneDocument, op: string, args: unknown): { res
   }
   const normalised = parsed.data as Record<string, unknown>;
   const result = def.apply(doc, normalised);
+  // Linked meshes follow their parent's geometry whatever op changed it.
+  if (hasLinkedMeshes(doc)) syncLinkedMeshes(doc);
   return { result, args: normalised };
 }
 

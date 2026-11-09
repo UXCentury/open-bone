@@ -1,8 +1,8 @@
 import { type Curve, EASINGS, type Key, type Timeline as TL, animationDuration } from "@openbone/core";
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
-import { tip } from "../shortcuts/index.ts";
-import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey, transaction } from "../state.ts";
-import { askText, confirmDelete } from "../dialogs.tsx";
+import { isMac, tip } from "../shortcuts/index.ts";
+import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey, toast, transaction } from "../state.ts";
+import { askForm, askText, confirmDelete } from "../dialogs.tsx";
 import { AudioTrack, addSoundKey } from "./AudioPanel.tsx";
 import { GraphView, timelineColor, timelineKey } from "./GraphView.tsx";
 import { lipSyncDialog } from "../lipsync-ui.ts";
@@ -12,6 +12,15 @@ import { scrubAudio, scrubSound, setScrubSound } from "../audio.ts";
 const [timelineView, setTimelineView] = createSignal<"dopesheet" | "graph">("dopesheet");
 
 type KeyRef = { tl: TL; time: number } | { event: string; time: number };
+
+/** Identity of a key in the dopesheet selection: timeline + time, or event + time. */
+const refId = (r: KeyRef) => ("tl" in r ? `${timelineKey(r.tl)}@${r.time.toFixed(6)}` : `ev:${r.event}@${r.time.toFixed(6)}`);
+const same = (a: number, b: number) => Math.abs(a - b) < 1e-6;
+
+/** Copied keys, with times relative to the earliest one. Kept while the editor is open, so keys paste into other animations. */
+type CopiedKey = { target: TL["target"]; id: string; property: string; attachment?: string; time: number; value: unknown; curve: Curve };
+type CopiedEvent = { event: string; time: number; int?: number; float?: number; string?: string };
+const [keyClipboard, setKeyClipboard] = createSignal<{ keys: CopiedKey[]; events: CopiedEvent[] } | null>(null);
 
 const LABEL_W = 170;
 
@@ -79,7 +88,7 @@ function propName(tl: TL): string {
   if (tl.target === "drawOrder") return "order";
   return tl.property;
 }
-const PROP_ICONS: Record<string, string> = { rotation: "↻", x: "↔", y: "↕", scaleX: "⤢", scaleY: "⤢", shearX: "▱", shearY: "▱", color: "●", attachment: "▣", emitting: "✺", rate: "✺" };
+const PROP_ICONS: Record<string, string> = { rotation: "↻", x: "↔", y: "↕", scaleX: "⤢", scaleY: "⤢", shearX: "▱", shearY: "▱", color: "●", dark: "◐", attachment: "▣", emitting: "✺", rate: "✺" };
 function propIcon(tl: TL): string {
   if (tl.target === "deform") return "◇";
   if (tl.target === "sequence") return "🎞";
@@ -97,7 +106,18 @@ function holds(tl: TL): [number, number][] {
 
 export function Timeline() {
   const [pps, setPps] = createSignal(220); // pixels per second
-  const [selKey, setSelKey] = createSignal<KeyRef | null>(null);
+  // Selected keys (Shift/Ctrl-click and Shift-drag a box to pick more); the last one picked is the "primary" key
+  // whose curve the ease editor and the Curve menu show.
+  const [sel, setSel] = createSignal<KeyRef[]>([]);
+  const selKey = () => sel()[sel().length - 1] ?? null;
+  const setSelKey = (r: KeyRef | null) => setSel(r ? [r] : []);
+  const isSel = (r: KeyRef) => {
+    const id = refId(r);
+    return sel().some((x) => refId(x) === id);
+  };
+  const toggleSel = (r: KeyRef) => (isSel(r) ? setSel(sel().filter((x) => refId(x) !== refId(r))) : setSel([...sel(), r]));
+  /** Seconds the selection is being dragged by (keys draw shifted until the drop). */
+  const [dragDt, setDragDt] = createSignal(0);
   const [showGraph, setShowGraph] = createSignal(true);
   const anim = currentAnimation;
   // Scrub audio: while the playhead moves without playback (dragging it, stepping frames), sound the audio under it.
@@ -113,14 +133,18 @@ export function Timeline() {
   // Forget a selected key that no longer exists (undo, another animation, deleted timeline) instead of showing
   // "Key not found".
   createEffect(() => {
-    const k = selKey();
+    const keys = sel();
     const a = anim();
-    if (!k) return;
-    if (!a) return setSelKey(null);
-    if ("tl" in k) {
-      const tl = liveTimeline(k.tl);
-      if (!tl || !(tl.keys as { time: number }[]).some((x) => Math.abs(x.time - k.time) < 1e-6)) setSelKey(null);
-    } else if (!a.events.some((x) => x.event === k.event && Math.abs(x.time - k.time) < 1e-6)) setSelKey(null);
+    if (!keys.length) return;
+    if (!a) return setSel([]);
+    const live = keys.flatMap((k): KeyRef[] => {
+      if ("tl" in k) {
+        const tl = liveTimeline(k.tl);
+        return tl && (tl.keys as { time: number }[]).some((x) => same(x.time, k.time)) ? [{ tl, time: k.time }] : [];
+      }
+      return a.events.some((x) => x.event === k.event && same(x.time, k.time)) ? [k] : [];
+    });
+    if (live.length !== keys.length || live.some((k, i) => "tl" in k && "tl" in keys[i] && k.tl !== keys[i].tl)) setSel(live);
   });
   const duration = () => {
     const a = anim();
@@ -151,42 +175,216 @@ export function Timeline() {
     window.addEventListener("pointerup", up);
   };
 
-  const dragKey = (e: PointerEvent, ref: KeyRef) => {
+  /** The selection as transformKeys / deleteKeys arguments. */
+  const picks = (refs: KeyRef[] = sel()) => {
+    const byTl = new Map<string, { tl: TL; times: number[] }>();
+    const events: { event: string; time: number }[] = [];
+    for (const r of refs) {
+      if (!("tl" in r)) {
+        events.push({ event: r.event, time: r.time });
+        continue;
+      }
+      const k = timelineKey(r.tl);
+      const e = byTl.get(k) ?? { tl: r.tl, times: [] };
+      e.times.push(r.time);
+      byTl.set(k, e);
+    }
+    return { keys: [...byTl.values()].map((e) => ({ ...keyArgs(e.tl), times: e.times })), events };
+  };
+  const shiftedSel = (dt: number, scale = 1, pivot = 0) =>
+    sel().map((r) => ({ ...r, time: Math.round(Math.max(0, pivot + (r.time - pivot) * scale + dt) * fps()) / fps() }));
+
+  /** Shift every selected key by `dt` seconds (one undo step). */
+  const moveSelection = (dt: number) => {
+    const a = anim();
+    if (!a || !sel().length || Math.abs(dt) < 1e-9) return;
+    const next = shiftedSel(dt);
+    apply("transformKeys", { animation: a.id, ...picks(), offset: dt, fps: fps() });
+    setSel(next);
+  };
+
+  /**
+   * Press on a key: plain click selects just it (or keeps a multi-selection it belongs to, to drag it), Shift or
+   * Ctrl/⌘ toggles it. Dragging moves every selected key together, snapped to frames.
+   */
+  const dragKey = (e: PointerEvent, ref: KeyRef, group?: KeyRef[]) => {
     e.stopPropagation();
-    setSelKey(ref);
+    const refs = group ?? [ref];
+    if (e.shiftKey || e.ctrlKey || e.metaKey) {
+      if (group) {
+        const all = refs.every(isSel);
+        setSel(all ? sel().filter((x) => !refs.some((r) => refId(r) === refId(x))) : [...sel().filter((x) => !refs.some((r) => refId(r) === refId(x))), ...refs]);
+      } else toggleSel(ref);
+      return;
+    }
+    if (!refs.every(isSel)) setSel(refs);
+    else if (!group) setSel([...sel().filter((x) => refId(x) !== refId(ref)), ref]); // make it the primary key
+    setPlaying(false);
     setTime(ref.time);
     const startX = e.clientX;
-    let newTime = ref.time;
-    const el = e.currentTarget as HTMLElement;
+    const minT = Math.min(...sel().map((r) => r.time));
+    let dt = 0;
     const move = (m: PointerEvent) => {
-      newTime = snap(ref.time + (m.clientX - startX) / pps());
-      el.style.left = `${newTime * pps()}px`;
+      dt = Math.max(-minT, Math.round(((m.clientX - startX) / pps()) * fps()) / fps());
+      setDragDt(dt);
+      setTime(ref.time + dt);
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
-      const a = anim();
-      if (!a || Math.abs(newTime - ref.time) < 1e-6) return;
-      if ("tl" in ref) apply("moveKey", { animation: a.id, ...keyArgs(ref.tl), time: ref.time, newTime });
-      else {
-        const k = a.events.find((x) => x.event === ref.event && Math.abs(x.time - ref.time) < 1e-6);
-        apply("deleteEventKey", { animation: a.id, event: ref.event, time: ref.time });
-        apply("addEventKey", { animation: a.id, event: ref.event, time: newTime, int: k?.int, float: k?.float, string: k?.string });
-      }
-      setSelKey({ ...ref, time: newTime });
-      setTime(newTime);
+      setDragDt(0);
+      moveSelection(dt);
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
   };
 
   const deleteSelected = () => {
-    const k = selKey();
     const a = anim();
-    if (!k || !a) return;
-    if ("tl" in k) apply("deleteKey", { animation: a.id, ...keyArgs(k.tl), time: k.time });
-    else apply("deleteEventKey", { animation: a.id, event: k.event, time: k.time });
-    setSelKey(null);
+    if (!a || !sel().length) return;
+    apply("deleteKeys", { animation: a.id, ...picks() });
+    setSel([]);
+  };
+
+  // ---- copy / paste ----
+  const copySelection = (cut = false) => {
+    const a = anim();
+    if (!a || !sel().length) return;
+    const t0 = Math.min(...sel().map((r) => r.time));
+    const keys: CopiedKey[] = [];
+    const events: CopiedEvent[] = [];
+    for (const r of sel()) {
+      if ("tl" in r) {
+        const k = (liveTimeline(r.tl)?.keys as Key<unknown>[] | undefined)?.find((x) => same(x.time, r.time));
+        if (k) keys.push({ ...keyArgs(r.tl), time: r.time - t0, value: structuredClone(k.value), curve: k.curve } as CopiedKey);
+      } else {
+        const k = a.events.find((x) => x.event === r.event && same(x.time, r.time));
+        if (k) events.push({ event: k.event, time: r.time - t0, int: k.int, float: k.float, string: k.string });
+      }
+    }
+    setKeyClipboard({ keys, events });
+    if (cut) deleteSelected();
+    toast(`${cut ? "Cut" : "Copied"} ${keys.length + events.length} key${keys.length + events.length === 1 ? "" : "s"}. Move the playhead and press ${isMac ? "⌘V" : "Ctrl+V"} to paste.`);
+  };
+  const paste = () => {
+    const a = anim();
+    const c = keyClipboard();
+    if (!a || !c) return;
+    const at = snap(time());
+    // Timelines whose bone/slot/constraint is gone (another project) are skipped instead of failing the paste.
+    const exists = (k: CopiedKey) => {
+      const sk = doc().skeleton;
+      if (k.target === "bone") return sk.bones.some((b) => b.id === k.id);
+      if (k.target === "drawOrder") return true;
+      if (k.target === "ik" || k.target === "transform" || k.target === "path" || k.target === "physics") return (sk[k.target] as { id: string }[]).some((x) => x.id === k.id);
+      return sk.slots.some((x) => x.id === k.id);
+    };
+    const keys = c.keys.filter(exists);
+    const events = c.events.filter((e) => doc().events.some((x) => x.id === e.event));
+    if (!keys.length && !events.length) return toast("Nothing to paste here: the copied keys belong to bones or slots this project doesn't have", "error");
+    const r = apply("pasteKeys", { animation: a.id, at, keys, events });
+    if (r === undefined) return;
+    const live = currentAnimation();
+    setSel([
+      ...keys.flatMap((k): KeyRef[] => {
+        const tl = live?.timelines.find((t) => timelineKey(t) === timelineKey(k as unknown as TL));
+        return tl ? [{ tl, time: Math.round((at + k.time) * 1e6) / 1e6 }] : [];
+      }),
+      ...events.map((e) => ({ event: e.event, time: Math.round((at + e.time) * 1e6) / 1e6 })),
+    ]);
+  };
+  const selectAll = () => {
+    const a = anim();
+    if (!a) return;
+    setSel([...a.timelines.flatMap((tl) => (tl.keys as { time: number }[]).map((k) => ({ tl, time: k.time }))), ...a.events.map((e) => ({ event: e.event, time: e.time }))]);
+  };
+  const scaleSelection = async () => {
+    const a = anim();
+    if (!a || sel().length < 2) return;
+    const t0 = Math.min(...sel().map((r) => r.time));
+    const r = await askForm({
+      title: `Scale ${sel().length} keys in time`,
+      message: "Below 100% the keys move closer together (faster), above 100% further apart (slower). Keys snap to frames.",
+      confirmLabel: "Scale",
+      fields: [
+        { key: "pct", type: "text", label: "Scale (%)", value: "50", validate: (v) => (Number(v) > 0 ? null : "Enter a number above 0") },
+        { key: "pivot", type: "choice", label: "Around", options: [{ value: "first", label: `First selected key (${t0.toFixed(2)}s)` }, { value: "playhead", label: `Playhead (${time().toFixed(2)}s)` }, { value: "zero", label: "Start (0s)" }] },
+      ],
+    });
+    if (!r) return;
+    const scale = Number(r.pct) / 100;
+    const pivot = r.pivot === "playhead" ? snap(time()) : r.pivot === "zero" ? 0 : t0;
+    const next = shiftedSel(0, scale, pivot);
+    apply("transformKeys", { animation: a.id, ...picks(), scale, pivot, fps: fps() });
+    setSel(next);
+  };
+
+  // ---- box selection: Shift- or Ctrl-drag on empty dopesheet space ----
+  const [box, setBox] = createSignal<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const trackDown = (e: PointerEvent) => {
+    if (!(e.shiftKey || e.ctrlKey || e.metaKey)) {
+      setSel([]);
+      return scrub(e);
+    }
+    e.preventDefault();
+    const r = area.getBoundingClientRect();
+    const at = (ev: PointerEvent) => ({ x: ev.clientX - r.left + area.scrollLeft, y: ev.clientY - r.top + area.scrollTop });
+    const p0 = at(e);
+    const base = sel();
+    setBox({ x0: p0.x, y0: p0.y, x1: p0.x, y1: p0.y });
+    const move = (m: PointerEvent) => {
+      const p = at(m);
+      setBox({ x0: p0.x, y0: p0.y, x1: p.x, y1: p.y });
+    };
+    const up = (m: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setBox(null);
+      const p = at(m);
+      const [left, right] = [Math.min(p0.x, p.x), Math.max(p0.x, p.x)].map((x) => x + r.left - area.scrollLeft);
+      const [top, bottom] = [Math.min(p0.y, p.y), Math.max(p0.y, p.y)].map((y) => y + r.top - area.scrollTop);
+      const a = anim();
+      if (!a) return;
+      const hit: KeyRef[] = [];
+      for (const el of area.querySelectorAll<HTMLElement>("[data-kid]")) {
+        const b = el.getBoundingClientRect();
+        const cx = (b.left + b.right) / 2;
+        const cy = (b.top + b.bottom) / 2;
+        if (cx < left || cx > right || cy < top || cy > bottom) continue;
+        const t = Number(el.dataset.time);
+        if (el.dataset.event) hit.push({ event: el.dataset.event, time: t });
+        else {
+          const tl = a.timelines.find((x) => timelineKey(x) === el.dataset.tl);
+          if (tl) hit.push({ tl, time: t });
+        }
+      }
+      // Ctrl/⌘ removes from the selection, Shift adds.
+      const ids = new Set(hit.map(refId));
+      setSel(e.ctrlKey || e.metaKey ? base.filter((x) => !ids.has(refId(x))) : [...base.filter((x) => !ids.has(refId(x))), ...hit]);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  const timelineKeys = (e: KeyboardEvent) => {
+    const mod = e.ctrlKey || e.metaKey;
+    const k = e.key.toLowerCase();
+    const take = () => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    if ((e.key === "Delete" || e.key === "Backspace") && sel().length) return take(), deleteSelected();
+    if (mod && k === "c" && sel().length) return take(), copySelection();
+    if (mod && k === "x" && sel().length) return take(), copySelection(true);
+    if (mod && k === "v" && keyClipboard()) return take(), paste();
+    if (mod && k === "a" && anim()) return take(), selectAll();
+    if (e.key === "Escape" && sel().length) return take(), setSel([]);
+    if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && sel().length && !mod) {
+      take();
+      const step = (e.shiftKey ? 10 : 1) / fps();
+      const minT = Math.min(...sel().map((r) => r.time));
+      moveSelection(e.key === "ArrowLeft" ? -Math.min(step, minT) : step);
+    }
   };
 
   const selectedCurve = () => {
@@ -215,38 +413,12 @@ export function Timeline() {
     for (const tl of g.timelines) for (const k of tl.keys as { time: number }[]) if (!times.some((t) => Math.abs(t - k.time) < 1e-6)) times.push(k.time);
     return times.sort((x, y) => x - y);
   };
+  /** Every key of a group at time t (what its summary key stands for). */
+  const groupRefs = (g: Group, t: number): KeyRef[] =>
+    g.timelines.filter((tl) => (tl.keys as { time: number }[]).some((k) => same(k.time, t))).map((tl) => ({ tl, time: t }));
   const summarySelected = (g: Group, t: number) => {
-    const k = selKey();
-    return !!k && "tl" in k && Math.abs(k.time - t) < 1e-6 && g.timelines.some((tl) => timelineKey(tl) === timelineKey(k.tl));
-  };
-  /** Drag a summary key: every key of the group at that time moves together (one undo step). */
-  const dragSummary = (e: PointerEvent, g: Group, t: number) => {
-    e.stopPropagation();
-    setPlaying(false);
-    setTime(t);
-    const first = g.timelines.find((tl) => (tl.keys as { time: number }[]).some((k) => Math.abs(k.time - t) < 1e-6));
-    if (first) setSelKey({ tl: first, time: t });
-    const startX = e.clientX;
-    let newTime = t;
-    const el = e.currentTarget as HTMLElement;
-    const move = (m: PointerEvent) => {
-      newTime = snap(t + (m.clientX - startX) / pps());
-      el.style.left = `${newTime * pps()}px`;
-      setTime(newTime);
-    };
-    const up = () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", up);
-      const a = anim();
-      if (!a || Math.abs(newTime - t) < 1e-6) return;
-      transaction("Move keys", () => {
-        for (const tl of g.timelines)
-          if ((tl.keys as { time: number }[]).some((k) => Math.abs(k.time - t) < 1e-6)) apply("moveKey", { animation: a.id, ...keyArgs(tl), time: t, newTime });
-      });
-      if (first) setSelKey({ tl: first, time: newTime });
-    };
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", up);
+    const refs = groupRefs(g, t);
+    return refs.length > 0 && refs.every(isSel);
   };
 
   const ticks = () => {
@@ -257,13 +429,8 @@ export function Timeline() {
   };
 
   return (
-    <div class="timeline" onKeyDown={(e) => {
-        // A selected key wins over the global Delete shortcut (which deletes the selected bone or slot).
-        if ((e.key === "Delete" || e.key === "Backspace") && selKey()) {
-          e.preventDefault();
-          deleteSelected();
-        }
-      }} tabIndex={0}>
+    // Selected keys win over the global shortcuts (Delete deletes the selected bone, arrows nudge vertices…).
+    <div class="timeline" onKeyDown={timelineKeys} tabIndex={0}>
       <div class="timeline-bar">
         <select value={anim()?.id ?? ""} onChange={(e) => setAnimationId(e.currentTarget.value || null)}>
           <option value="" selected={!(anim()?.id ?? "")}>— animation —</option>
@@ -325,17 +492,43 @@ export function Timeline() {
             {scrubSound() ? "🔊" : "🔇"} Scrub
           </button>
         
-        <Show when={selKey()}>
+        <Show when={sel().length || keyClipboard()}>
           <span class="sep" />
+          <Show when={sel().length > 1}>
+            <span class="muted small" title="Shift/Ctrl-click keys or Shift-drag a box to change the selection; ← → nudge by a frame">
+              {sel().length} keys
+            </span>
+          </Show>
+          <Show when={sel().length}>
+            <button title={`Copy the selected keys (${isMac ? "⌘C" : "Ctrl+C"}); paste them at the playhead, in this or another animation`} onClick={() => copySelection()}>
+              Copy
+            </button>
+          </Show>
+          <Show when={keyClipboard()}>
+            <button title={`Paste ${keyClipboard()!.keys.length + keyClipboard()!.events.length} copied keys at the playhead (${isMac ? "⌘V" : "Ctrl+V"})`} onClick={paste} disabled={!anim()}>
+              Paste
+            </button>
+          </Show>
+          <Show when={sel().length > 1}>
+            <button title="Spread the selected keys out or squeeze them together in time" onClick={() => void scaleSelection()}>
+              Scale…
+            </button>
+          </Show>
+        </Show>
+        <Show when={selKey()}>
           <Show when={selectedCurve()}>
             <label class="check">
               Curve
               <select
                 value={selectedCurve()!}
                 onChange={(e) => {
-                  const k = selKey();
                   const a = anim();
-                  if (k && a && "tl" in k) apply("moveKey", { animation: a.id, ...keyArgs(k.tl), time: k.time, curve: e.currentTarget.value });
+                  const curve = e.currentTarget.value;
+                  // Every selected key gets the curve (one undo step).
+                  if (a)
+                    transaction("Set curve", () => {
+                      for (const k of sel()) if ("tl" in k) apply("moveKey", { animation: a.id, ...keyArgs(k.tl), time: k.time, curve });
+                    });
                 }}
               >
                 <For each={["linear", "stepped", ...Object.keys(EASINGS)]}>{(c) => <option value={c} selected={c === (selectedCurve()!)}>{c}</option>}</For>
@@ -346,7 +539,7 @@ export function Timeline() {
             </label>
           </Show>
           <button class="danger" onClick={deleteSelected}>
-            Delete key
+            {sel().length > 1 ? `Delete ${sel().length} keys` : "Delete key"}
           </button>
         </Show>
         <span class="spacer" />
@@ -441,16 +634,22 @@ export function Timeline() {
           <Show when={anim()!.events.length}>
             <div class="track-row" style={{ width: `${LABEL_W + span() * pps()}px` }}>
               <div class="row-label">⚡ events</div>
-              <div class="track" onPointerDown={scrub}>
+              <div class="track" onPointerDown={trackDown}>
                 <For each={anim()!.events}>
                   {(k) => {
                     const ev = () => doc().events.find((e) => e.id === k.event);
-                    const sel = () => {
-                      const s = selKey();
-                      return !!s && "event" in s && s.event === k.event && Math.abs(s.time - k.time) < 1e-6;
-                    };
+                    const on = () => isSel({ event: k.event, time: k.time });
                     return (
-                      <div class="event-key" classList={{ selected: sel() }} style={{ left: `${k.time * pps()}px` }} title={ev()?.name} onPointerDown={(e) => dragKey(e, { event: k.event, time: k.time })}>
+                      <div
+                        class="event-key"
+                        classList={{ selected: on() }}
+                        data-kid=""
+                        data-event={k.event}
+                        data-time={k.time}
+                        style={{ left: `${(k.time + (on() ? dragDt() : 0)) * pps()}px` }}
+                        title={ev()?.name}
+                        onPointerDown={(e) => dragKey(e, { event: k.event, time: k.time })}
+                      >
                         {ev()?.name}
                       </div>
                     );
@@ -484,15 +683,15 @@ export function Timeline() {
                       <span class="group-name">{g.name}</span>
                       <span class="muted group-count">{g.timelines.length}</span>
                     </div>
-                    <div class="track" onPointerDown={scrub}>
+                    <div class="track" onPointerDown={trackDown}>
                       <For each={summaryTimes(g)}>
                         {(t) => (
                           <div
                             class="key summary"
                             classList={{ selected: summarySelected(g, t) }}
-                            style={{ left: `${t * pps()}px` }}
-                            title={`${t}s: every key of ${g.name} at this time. Drag to move them together.`}
-                            onPointerDown={(e) => dragSummary(e, g, t)}
+                            style={{ left: `${(t + (summarySelected(g, t) ? dragDt() : 0)) * pps()}px` }}
+                            title={`${t}s: every key of ${g.name} at this time. Click selects them, drag moves them together.`}
+                            onPointerDown={(e) => dragKey(e, groupRefs(g, t)[0] ?? { event: "", time: t }, groupRefs(g, t))}
                           />
                         )}
                       </For>
@@ -511,19 +710,19 @@ export function Timeline() {
                               ×
                             </button>
                           </div>
-                          <div class="track" onPointerDown={scrub} style={{ "--key-color": timelineColor(tl) }}>
+                          <div class="track" onPointerDown={trackDown} style={{ "--key-color": timelineColor(tl) }}>
                             <For each={holds(tl)}>{(h) => <div class="hold" style={{ left: `${h[0] * pps()}px`, width: `${(h[1] - h[0]) * pps()}px` }} title="Same value: holds" />}</For>
                             <For each={tl.keys as { time: number; curve: Curve; value: unknown }[]}>
                               {(k) => {
-                                const sel = () => {
-                                  const s = selKey();
-                                  return !!s && "tl" in s && s.tl.target === tl.target && s.tl.id === tl.id && s.tl.property === tl.property && Math.abs(s.time - k.time) < 1e-6;
-                                };
+                                const on = () => isSel({ tl, time: k.time });
                                 return (
                                   <div
                                     class="key"
-                                    classList={{ selected: sel(), stepped: k.curve === "stepped", eased: Array.isArray(k.curve) }}
-                                    style={{ left: `${k.time * pps()}px` }}
+                                    classList={{ selected: on(), stepped: k.curve === "stepped", eased: Array.isArray(k.curve) }}
+                                    data-kid=""
+                                    data-tl={timelineKey(tl)}
+                                    data-time={k.time}
+                                    style={{ left: `${(k.time + (on() ? dragDt() : 0)) * pps()}px` }}
                                     title={`${k.time}s = ${JSON.stringify(k.value)} (${curveName(k.curve)})`}
                                     onPointerDown={(e) => dragKey(e, { tl, time: k.time })}
                                   />
@@ -539,6 +738,14 @@ export function Timeline() {
               );
             }}
           </For>
+          <Show when={box()}>
+            {(b) => (
+              <div
+                class="key-box"
+                style={{ left: `${Math.min(b().x0, b().x1)}px`, top: `${Math.min(b().y0, b().y1)}px`, width: `${Math.abs(b().x1 - b().x0)}px`, height: `${Math.abs(b().y1 - b().y0)}px` }}
+              />
+            )}
+          </Show>
           <div class="playhead" style={{ left: `${LABEL_W + time() * pps()}px`, height: `${(rowCount() + (anim()!.events.length ? 2 : 1)) * 24 + (anim()!.audio?.length ? 44 : 0)}px` }} />
         </div>
         <Show when={showGraph()}>
@@ -553,7 +760,9 @@ export function Timeline() {
                 <div class="curve-head">
                   <span>Key curve</span>
                 </div>
-                <div class="muted pad">Click a key in the dopesheet to shape how it eases into the next key. For every key at once, switch to Graph.</div>
+                <div class="muted pad">
+                  Click a key to shape how it eases into the next key. Shift/Ctrl-click or Shift-drag a box to select several, then drag, copy ({isMac ? "⌘C" : "Ctrl+C"}), paste at the playhead ({isMac ? "⌘V" : "Ctrl+V"}), scale or delete them.
+                </div>
               </div>
             }
           >

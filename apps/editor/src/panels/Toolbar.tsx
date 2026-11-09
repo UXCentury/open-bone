@@ -28,6 +28,8 @@ import {
   setPlaying,
   setExportOpen,
   skinArg,
+  compensate,
+  setCompensate,
 } from "../state.ts";
 import { playActive, togglePlay } from "../play.ts";
 import { tip } from "../shortcuts/index.ts";
@@ -140,8 +142,19 @@ export function Toolbar() {
         </For>
       </div>
       <div class="group">
-        <button disabled={locked()} onClick={() => imageInput.click()} title="Import PNG/JPG as a new slot on the selected bone">+ Image</button>
-        <input ref={imageInput} type="file" accept="image/*" multiple hidden onChange={(e) => { const f = e.currentTarget.files; if (f) void importFiles(Array.from(f), importImages); e.currentTarget.value = ""; }} />
+        <button
+          disabled={locked()}
+          classList={{ active: compensate() }}
+          aria-pressed={compensate()}
+          title={tip(compensate() ? "Compensate is on: moving, rotating or scaling a bone leaves its child bones where they are. Click to turn off." : "Compensate: move, rotate or scale a bone without moving its child bones", "tool.compensate")}
+          onClick={() => setCompensate(!compensate())}
+        >
+          ⇲ Comp
+        </button>
+      </div>
+      <div class="group">
+        <button disabled={locked()} onClick={() => imageInput.click()} title="Import PNG/JPG as a new slot on the selected bone, or a Photoshop PSD (each layer becomes a slot, groups can become bones)">+ Image</button>
+        <input ref={imageInput} type="file" accept="image/*,.psd" multiple hidden onChange={(e) => { const f = e.currentTarget.files; if (f) void importFiles(Array.from(f), importImages); e.currentTarget.value = ""; }} />
         <button disabled={locked()} onClick={() => sequenceInput.click()} title="Import a frame sequence: numbered images (fire_0001.png …), a sprite sheet (grid or TexturePacker/Aseprite JSON + image), or a ZIP of frames">+ Sequence</button>
         <input ref={sequenceInput} type="file" accept="image/*,.json,.zip,application/json,application/zip" multiple hidden onChange={(e) => { const f = e.currentTarget.files; if (f) void importFiles(Array.from(f), importImages, { sheet: true }); e.currentTarget.value = ""; }} />
         <button

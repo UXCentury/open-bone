@@ -105,6 +105,9 @@ input.tiny { width: 52px; }
 .key-btn.keyed { color: var(--warn); }
 .btn-row { display: flex; gap: 4px; flex-wrap: wrap; }
 .hint { color: var(--muted); font-size: 11px; background: #171a20; border-radius: 4px; padding: 5px 7px; }
+.hint.warn { color: #ffd98a; }
+.linked-box { display: flex; flex-direction: column; gap: 6px; padding: 7px 8px; border: 1px solid #5b8cff55; border-radius: 6px; background: #5b8cff12; font-size: 12px; }
+.linked-box button { align-self: flex-start; }
 /* particles inspector */
 .range-field { display: flex; gap: 4px; align-items: center; }
 .range-field > .field { flex: 1; min-width: 0; }
@@ -139,6 +142,7 @@ input.tiny { width: 52px; }
 .key.selected { background: var(--warn); box-shadow: 0 0 0 2px #ffcc0055; }
 .key.summary { background: #e6e9ef; width: 9px; height: 9px; top: 7px; margin-left: -4px; }
 .key.summary.selected { background: var(--warn); }
+.key-box { position: absolute; z-index: 5; border: 1px solid var(--accent); background: #5b8cff22; pointer-events: none; }
 .track .hold { position: absolute; top: 10px; height: 4px; background: var(--key-color, #c4ccdb); opacity: 0.45; border-radius: 2px; pointer-events: auto; }
 .group-row .track { background: #20242c; }
 .group-row .row-label { background: #23272f; font-weight: 600; gap: 4px; align-items: center; }

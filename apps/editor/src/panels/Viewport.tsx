@@ -1,4 +1,4 @@
-import { type BoneData, RAD, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint, textureAssets } from "@openbone/core";
+import { type Affine, type BoneData, RAD, localFromWorld, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint, textureAssets } from "@openbone/core";
 import { toggleBackground } from "../background.ts";
 import { checkerPattern, fillArtboard } from "../checker.ts";
 import { slotOpacity } from "../visibility.ts";
@@ -34,6 +34,7 @@ import {
 import {
   activeSkin,
   activeSkinId,
+  compensate,
   currentAnimation,
   currentStateMachine,
   mode,
@@ -98,7 +99,20 @@ createQuickJsHost({ timeoutMs: 30 })
 
 type Drag =
   | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
-  | { kind: "bone"; op: "rotate" | "translate" | "scale"; bone: Bone; start: [number, number]; startWorld: [number, number]; base: Partial<BoneData>; cur: Partial<BoneData>; axis?: "x" | "y"; uniform?: boolean; group?: { bone: Bone; base: Partial<BoneData>; cur: Partial<BoneData> }[] }
+  | {
+      kind: "bone";
+      op: "rotate" | "translate" | "scale";
+      bone: Bone;
+      start: [number, number];
+      startWorld: [number, number];
+      base: Partial<BoneData>;
+      cur: Partial<BoneData>;
+      axis?: "x" | "y";
+      uniform?: boolean;
+      group?: { bone: Bone; base: Partial<BoneData>; cur: Partial<BoneData> }[];
+      /** Compensate: child bones that keep their world transform while their parent moves. */
+      comp?: { bone: Bone; world: Affine; base: Partial<BoneData>; cur: Partial<BoneData> }[];
+    }
   /** Box selection in screen px. */
   | { kind: "marquee"; start: [number, number]; end: [number, number]; mode: "replace" | "add" | "remove" }
   | { kind: "guide"; guide: Guide; isNew: boolean }
@@ -234,6 +248,17 @@ export function Viewport() {
       if (drag?.kind === "bone") {
         Object.assign(drag.bone, drag.cur);
         for (const g of drag.group ?? []) Object.assign(g.bone, g.cur);
+        if (drag.comp?.length) {
+          // Solve the children against their parents' new world transforms, so they stay put on screen.
+          sk.updateWorldTransform();
+          for (const c of drag.comp) {
+            const b = c.bone;
+            const l = localFromWorld(b.parent!.world, c.world, b.data.inherit, { x: b.x, y: b.y, rotation: b.rotation, scaleX: b.scaleX, scaleY: b.scaleY, shearX: b.shearX, shearY: b.shearY });
+            const r4 = (n: number) => Math.round(n * 1e4) / 1e4;
+            c.cur = { x: round2(l.x), y: round2(l.y), rotation: round2(l.rotation), scaleX: r4(l.scaleX), scaleY: r4(l.scaleY), shearY: round2(l.shearY) };
+            Object.assign(b, c.cur);
+          }
+        }
       }
       if (drag?.kind === "pose") for (const [b, r] of drag.cur) b.rotation = r;
       sk.update(dt);
@@ -1084,7 +1109,8 @@ export function Viewport() {
       const base = { x: gz.x, y: gz.y, rotation: gz.rotation, scaleX: gz.scaleX, scaleY: gz.scaleY };
       const op = gizmoKind() ?? "translate";
       const axis = gzPart === "x" || gzPart === "y" ? gzPart : undefined;
-      drag = { kind: "bone", op, bone: gz, start: [x, y], startWorld: [gz.world.x, gz.world.y], base, cur: { ...base }, axis, uniform: op === "scale" && gzPart === "xy", group: selectionGroup(gz, op) };
+      const group = selectionGroup(gz, op);
+      drag = { kind: "bone", op, bone: gz, start: [x, y], startWorld: [gz.world.x, gz.world.y], base, cur: { ...base }, axis, uniform: op === "scale" && gzPart === "xy", group, comp: compensationFor(gz, group) };
       return;
     }
     const bone = pickBone(x, y);
@@ -1141,7 +1167,21 @@ export function Viewport() {
     const baseOf = (b: Bone) => ({ x: b.x, y: b.y, rotation: b.rotation, scaleX: b.scaleX, scaleY: b.scaleY });
     const base = baseOf(target);
     const group = bone ? selectionGroup(target, op) : undefined;
-    drag = { kind: "bone", op, bone: target, start: [x, y], startWorld: [target.world.x, target.world.y], base, cur: { ...base }, group };
+    drag = { kind: "bone", op, bone: target, start: [x, y], startWorld: [target.world.x, target.world.y], base, cur: { ...base }, group, comp: compensationFor(target, group) };
+  }
+
+  /** With Compensate on: the dragged bones' children (outside the drag), with their world transforms now. */
+  function compensationFor(target: Bone, group?: { bone: Bone }[]) {
+    if (!compensate()) return undefined;
+    const moving = new Set([target, ...(group ?? []).map((g) => g.bone)]);
+    const out: NonNullable<Extract<Drag, { kind: "bone" }>["comp"]> = [];
+    for (const m of moving)
+      for (const c of m.children) {
+        if (moving.has(c)) continue;
+        const base = { x: c.x, y: c.y, rotation: c.rotation, scaleX: c.scaleX, scaleY: c.scaleY, shearY: c.shearY };
+        out.push({ bone: c, world: { ...c.world }, base, cur: { ...base } });
+      }
+    return out.length ? out : undefined;
   }
 
   /**
@@ -1377,7 +1417,11 @@ export function Viewport() {
         for (const k of Object.keys(cur) as (keyof BoneData)[]) if (cur[k] !== base[k]) changed[k] = cur[k] as number;
         return changed;
       };
-      const all = [{ id: d.bone.data.id, changed: diff(d.cur, d.base) }, ...(d.group ?? []).map((g) => ({ id: g.bone.data.id, changed: diff(g.cur, g.base) }))].filter((c) => Object.keys(c.changed).length);
+      const all = [
+        { id: d.bone.data.id, changed: diff(d.cur, d.base) },
+        ...(d.group ?? []).map((g) => ({ id: g.bone.data.id, changed: diff(g.cur, g.base) })),
+        ...(d.comp ?? []).map((c) => ({ id: c.bone.data.id, changed: diff(c.cur, c.base) })),
+      ].filter((c) => Object.keys(c.changed).length);
       if (all.length === 1) commitBone(all[0].id, all[0].changed);
       else if (all.length > 1) transaction(`move ${all.length} bones`, () => all.forEach((c) => commitBone(c.id, c.changed)));
     } else if (d.kind === "vertex") {
@@ -1680,6 +1724,9 @@ function MeshPanel() {
               {tool() === "mesh" ? "Mesh" : "Weights"} · <b>{t().name}</b> · {t().att.vertices.length / 2} vertices ({t().att.hull} hull)
               {t().att.weights ? " · weighted" : ""}
             </div>
+            <Show when={t().att.linked}>
+              <div class="hint warn">🔗 Linked to “{t().att.linked!.mesh}”: its vertices and weights come from there, so select and edit that mesh (or unlink this one in the Inspector).</div>
+            </Show>
             <Show when={tool() === "mesh"}>
               <div class="hint">Click a vertex to select (shift: add, Ctrl/⌘+A: all), drag or arrow keys to move, Ctrl/⌘-click to add (outside the hull extends the outline), Delete removes, Esc deselects.</div>
               <label class="check" title="Dragging vertices also pulls nearby unselected vertices, less the further away they are">

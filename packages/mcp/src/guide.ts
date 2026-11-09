@@ -26,7 +26,7 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
    for hair/cloth/tails. It simulates over time, so check it with render_gif rather than a single frame.
 6. Animate: create_animation {name}, then set_keys with absolute values:
    set_keys {animation:"walk", target:"bone", id:"thigh", property:"rotation", keys:[{time:0,value:-20},{time:0.5,value:20,curve:"easeInOut"},{time:1,value:-20}]}
-   Properties: bone rotation|x|y|scaleX|scaleY|shearX|shearY, slot color ("#rrggbbaa") | attachment (name or null),
+   Properties: bone rotation|x|y|scaleX|scaleY|shearX|shearY, slot color ("#rrggbbaa") | dark (two-colour tint "#rrggbb") | attachment (name or null),
    ik mix|softness, transform mix|mixRotate|mixTranslate|mixScale|mixShear, path position|spacing|mixRotate|mixX|mixY,
    physics mix|inertia|strength|damping|mass|gravity|wind, deform offsets (mesh or path), sequence frame (with attachment), drawOrder. Curves: linear, stepped, easeIn, easeOut, easeInOut, backOut or [cx1,cy1,cx2,cy2].
    Loop cleanly by making the last key equal the first. add_event_key fires events (footsteps, sounds).

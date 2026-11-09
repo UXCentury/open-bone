@@ -14,14 +14,19 @@ interface TextTexture {
 const MAX_TEXT_TEXTURE = 2048;
 
 const VS = `#version 300 es
-in vec2 aPos; in vec2 aUv; in vec4 aColor;
+in vec2 aPos; in vec2 aUv; in vec4 aColor; in vec3 aDark;
 uniform mat3 uView;
-out vec2 vUv; out vec4 vColor;
-void main(){ vec3 p = uView * vec3(aPos, 1.0); gl_Position = vec4(p.xy, 0.0, 1.0); vUv = aUv; vColor = aColor; }`;
+out vec2 vUv; out vec4 vColor; out vec3 vDark;
+void main(){ vec3 p = uView * vec3(aPos, 1.0); gl_Position = vec4(p.xy, 0.0, 1.0); vUv = aUv; vColor = aColor; vDark = aDark; }`;
+// Two-colour tint on a premultiplied texture: rgb = dark * (a - rgb) + light * rgb, i.e. dark + (light - dark) * colour
+// before premultiplying. With dark = black it is the usual multiply tint.
 const FS = `#version 300 es
 precision mediump float;
-in vec2 vUv; in vec4 vColor; uniform sampler2D uTex; out vec4 o;
-void main(){ vec4 t = texture(uTex, vUv); o = vec4(t.rgb * vColor.rgb, t.a) * vColor.a; }`;
+in vec2 vUv; in vec4 vColor; in vec3 vDark; uniform sampler2D uTex; out vec4 o;
+void main(){ vec4 t = texture(uTex, vUv); o = vec4(vDark * (t.a - t.rgb) + t.rgb * vColor.rgb, t.a) * vColor.a; }`;
+
+/** Floats per vertex: x, y, u, v, r, g, b, a, dark r, g, b. */
+const STRIDE = 11;
 
 type TexSource = TexImageSource;
 
@@ -38,7 +43,7 @@ export class WebGLRenderer {
   private uView: WebGLUniformLocation;
   private textures = new Map<string, WebGLTexture>();
   private white: WebGLTexture;
-  private verts = new Float32Array(8 * 16384);
+  private verts = new Float32Array(STRIDE * 16384);
   private idx = new Uint16Array(6 * 16384);
   private nv = 0;
   private ni = 0;
@@ -66,7 +71,7 @@ export class WebGLRenderer {
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibo);
-    const stride = 8 * 4;
+    const stride = STRIDE * 4;
     const attr = (name: string, size: number, off: number) => {
       const loc = gl.getAttribLocation(this.prog, name);
       gl.enableVertexAttribArray(loc);
@@ -75,6 +80,7 @@ export class WebGLRenderer {
     attr("aPos", 2, 0);
     attr("aUv", 2, 2);
     attr("aColor", 4, 4);
+    attr("aDark", 3, 8);
     this.white = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, this.white);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 255, 255, 255]));
@@ -251,10 +257,11 @@ export class WebGLRenderer {
     gl.colorMask(false, false, false, false);
     const n = clip.polygon.length / 2;
     for (let i = 0; i < n; i++) {
-      const o = i * 8;
+      const o = i * STRIDE;
       this.verts[o] = clip.polygon[i * 2];
       this.verts[o + 1] = clip.polygon[i * 2 + 1];
       this.verts.fill(1, o + 2, o + 8);
+      this.verts.fill(0, o + 8, o + STRIDE);
     }
     this.idx.set(clip.indices);
     this.nv = n;
@@ -290,12 +297,16 @@ export class WebGLRenderer {
 
   private pushGeometry(it: DrawItem) {
     const n = it.vertices.length / 2;
-    if (this.nv + n > this.verts.length / 8 || this.ni + it.indices.length > this.idx.length) this.flush();
+    if (this.nv + n > this.verts.length / STRIDE || this.ni + it.indices.length > this.idx.length) this.flush();
     const base = this.nv;
     const [r, g, b, a] = it.color;
     const cols = it.colors;
+    const [dr, dg, db] = it.dark ?? [0, 0, 0];
     for (let i = 0; i < n; i++) {
-      const o = (this.nv + i) * 8;
+      const o = (this.nv + i) * STRIDE;
+      this.verts[o + 8] = dr;
+      this.verts[o + 9] = dg;
+      this.verts[o + 10] = db;
       this.verts[o] = it.vertices[i * 2];
       this.verts[o + 1] = it.vertices[i * 2 + 1];
       this.verts[o + 2] = it.uvs[i * 2] ?? 0;
@@ -331,7 +342,7 @@ export class WebGLRenderer {
     const gl = this.gl;
     gl.bindTexture(gl.TEXTURE_2D, this.curTex);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
-    gl.bufferData(gl.ARRAY_BUFFER, this.verts.subarray(0, this.nv * 8), gl.DYNAMIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, this.verts.subarray(0, this.nv * STRIDE), gl.DYNAMIC_DRAW);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ibo);
     gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, this.idx.subarray(0, this.ni), gl.DYNAMIC_DRAW);
     gl.drawElements(gl.TRIANGLES, this.ni, gl.UNSIGNED_SHORT, 0);

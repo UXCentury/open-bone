@@ -120,6 +120,8 @@ export class Bone {
 
 export class Slot {
   color: RGBA = [1, 1, 1, 1];
+  /** Two-colour tint: what the image's dark parts become (alpha unused), or null for none (black). */
+  dark: RGBA | null = null;
   attachmentName: string | null = null;
   /** Mesh/path deform offsets by attachment name. */
   deform = new Map<string, number[]>();
@@ -136,6 +138,7 @@ export class Slot {
   }
   setToSetupPose() {
     this.color = parseHex(this.data.color);
+    this.dark = this.data.dark ? parseHex(this.data.dark) : null;
     this.attachmentName = this.data.attachment;
     this.deform.clear();
     this.sequenceFrames.clear();
@@ -166,6 +169,11 @@ export interface DrawItem {
   uvs: Float32Array;
   indices: Uint16Array;
   color: RGBA;
+  /**
+   * Two-colour tint for images: output rgb = dark + (color - dark) * texture rgb (alpha from texture x color).
+   * Unset means black, i.e. the usual multiply tint. Alpha is unused.
+   */
+  dark?: RGBA;
   blend: SlotData["blend"];
   stroke?: { color: RGBA; width: number; outline: Float32Array };
   /** Clipping mask this item is drawn inside (shared object for consecutive items under the same mask). */
@@ -959,6 +967,7 @@ export class Skeleton {
       uvs,
       indices: REGION_INDICES,
       color,
+      ...(slot.dark ? { dark: slot.dark } : {}),
       blend: slot.data.blend,
     };
   }
@@ -1020,7 +1029,9 @@ export class Skeleton {
     }
     if (att.type === "mesh" || att.type === "path") {
       const n = att.vertices.length / 2;
-      const deform = slot.deform.get(att.name);
+      // A linked mesh that inherits deform uses its parent's deform keys (on this slot); its own keys otherwise.
+      const linked = att.type === "mesh" && att.linked?.deform ? att.linked.mesh : null;
+      const deform = (linked !== null ? slot.deform.get(linked) : undefined) ?? slot.deform.get(att.name);
       const out = new Float32Array(n * 2);
       if (att.weights) {
         for (let v = 0; v < n; v++) {
@@ -1106,6 +1117,7 @@ export class Skeleton {
           uvs,
           indices,
           color,
+          ...(slot.dark ? { dark: slot.dark } : {}),
           blend: slot.data.blend,
         });
       } else if (att.type === "sequence") {

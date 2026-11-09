@@ -52,7 +52,7 @@ export function keyBoneProperty(boneId: string, property: BoneProperty, value: n
   if (anim) setKeysExtending({ animation: anim, target: "bone", id: boneId, property, keys: [{ time: round3(time()), value }] });
 }
 
-export function keySlot(slotId: string, property: "color" | "attachment", value: string | null) {
+export function keySlot(slotId: string, property: "color" | "attachment" | "dark", value: string | null) {
   const anim = ensureAnimation();
   if (anim) setKeysExtending({ animation: anim, target: "slot", id: slotId, property, keys: [{ time: round3(time()), value, curve: property === "attachment" ? "stepped" : "linear" }] });
 }

@@ -67,9 +67,17 @@ export class CanvasRenderer {
    * The image multiplied by a colour, with its own transparency kept (so a tint never darkens what is behind it).
    * Colours are quantised to 1/64 so a keyed, changing tint reuses a few copies instead of making one per frame.
    */
-  private tinted(img: CanvasImageSource, r: number, g: number, b: number, rect?: { x: number; y: number; width: number; height: number }): CanvasImageSource | null {
+  private tinted(
+    img: CanvasImageSource,
+    r: number,
+    g: number,
+    b: number,
+    rect?: { x: number; y: number; width: number; height: number },
+    dark?: ArrayLike<number>,
+  ): CanvasImageSource | null {
     const q = (x: number) => Math.round(Math.max(0, Math.min(1, x)) * 64);
-    const key = `${q(r)},${q(g)},${q(b)}${rect ? `@${rect.x},${rect.y},${rect.width},${rect.height}` : ""}`;
+    const dk = dark && (dark[0] > 0 || dark[1] > 0 || dark[2] > 0) ? dark : undefined;
+    const key = `${q(r)},${q(g)},${q(b)}${dk ? `/${q(dk[0])},${q(dk[1])},${q(dk[2])}` : ""}${rect ? `@${rect.x},${rect.y},${rect.width},${rect.height}` : ""}`;
     let m = this.tints.get(img as object);
     if (!m) this.tints.set(img as object, (m = new Map()));
     const hit = m.get(key);
@@ -84,6 +92,27 @@ export class CanvasRenderer {
     if (!c || !g2) return null;
     const put = () => (rect ? g2.drawImage(img, rect.x, rect.y, w, h, 0, 0, w, h) : g2.drawImage(img, 0, 0));
     put();
+    if (dk) {
+      // Two-colour tint: each colour channel maps from dark (at 0) to the slot colour (at 1). Done per pixel, once
+      // per colour pair; a cross-origin image can't be read, so it falls back to the plain tint.
+      try {
+        const data = g2.getImageData(0, 0, w, h);
+        const px = data.data;
+        const L = [q(r) / 64, q(g) / 64, q(b) / 64];
+        const D = [q(dk[0]) / 64, q(dk[1]) / 64, q(dk[2]) / 64];
+        for (let i = 0; i < px.length; i += 4) {
+          if (!px[i + 3]) continue;
+          for (let c = 0; c < 3; c++) px[i + c] = Math.round((D[c] + (L[c] - D[c]) * (px[i + c] / 255)) * 255);
+        }
+        g2.putImageData(data, 0, 0);
+        if (m.size > 24) m.delete(m.keys().next().value!);
+        const out = c as unknown as CanvasImageSource;
+        m.set(key, out);
+        return out;
+      } catch {
+        /* tainted canvas: plain tint below */
+      }
+    }
     g2.globalCompositeOperation = "multiply";
     g2.fillStyle = `rgb(${(q(r) / 64) * 255},${(q(g) / 64) * 255},${(q(b) / 64) * 255})`;
     g2.fillRect(0, 0, w, h);
@@ -175,8 +204,9 @@ export class CanvasRenderer {
       // Packed images sample their atlas page; uvs are already in page space.
       const tex = it.texture ?? it.image;
       const raw = this.images(tex.id) as CanvasImageSource | null;
-      const tint = it.color[0] < 1 || it.color[1] < 1 || it.color[2] < 1;
-      const tintedImg = raw && tint ? this.tinted(raw, it.color[0], it.color[1], it.color[2], it.textureRect ?? undefined) : null;
+      const dark = it.dark && (it.dark[0] > 0 || it.dark[1] > 0 || it.dark[2] > 0) ? it.dark : undefined;
+      const tint = it.color[0] < 1 || it.color[1] < 1 || it.color[2] < 1 || !!dark;
+      const tintedImg = raw && tint ? this.tinted(raw, it.color[0], it.color[1], it.color[2], it.textureRect ?? undefined, dark) : null;
       const img = tintedImg ?? raw;
       ctx.globalAlpha = it.color[3];
       const iw = tex.width;

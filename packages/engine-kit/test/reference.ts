@@ -43,7 +43,8 @@ export function webglReference(sk: Skeleton): RefDraw[] {
         return (_mode: number, count: number) => {
           const verts: number[][] = [];
           for (let i = 0; i < count; i++) {
-            const o = ibo[i] * 8;
+            // render-webgl's vertex: x, y, u, v, r, g, b, a, then the two-colour tint's dark r, g, b (not compared).
+            const o = ibo[i] * 11;
             verts.push(Array.from(vbo.subarray(o, o + 8)));
           }
           draws.push({ stencil: !colorWrite, verts });

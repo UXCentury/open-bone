@@ -7,7 +7,7 @@ import { For, Match, Show, Switch, createSignal } from "solid-js";
 import { commitBone, keyBoneProperty, keyConstraint, keySlot } from "../edit.ts";
 import { imageFor } from "../images.ts";
 import { activeSkin, apply, currentAnimation, doc, mode, selection, setSelection, skinArg, store, time, transaction } from "../state.ts";
-import { askConfirm, confirmDelete } from "../dialogs.tsx";
+import { askConfirm, askForm, confirmDelete } from "../dialogs.tsx";
 import { deleteAttachmentAsk, deleteBoneAsk, deleteConstraintAsk, deleteSlotAsk } from "../destructive.ts";
 import { ColorField, NumberField, Section, SelectField, TextField } from "./fields.tsx";
 import { AudioAssetInspector, BusInspector, SoundInspector } from "./AudioPanel.tsx";
@@ -420,9 +420,38 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
                 <div class="hint">
                   {m().vertices.length / 2} vertices · {m().triangles.length / 3} triangles · {m().weights ? "weighted" : "unweighted (follows slot bone)"}
                 </div>
-                <BindBones slotId={p.slotId} attachment={m().name} skin={p.owner.id} />
+                <Show
+                  when={m().linked}
+                  fallback={
+                    <button title="Add a linked mesh: same vertices, triangles and weights with another image (e.g. this sleeve in another outfit). Edit this mesh and it follows." onClick={() => void newLinkedMesh(p.slotId, p.owner, m().name)}>
+                      + Linked mesh…
+                    </button>
+                  }
+                >
+                  {(l) => (
+                    <div class="linked-box">
+                      <div>
+                        🔗 Linked to <b>“{l().mesh}”</b>
+                        {l().slot && l().slot !== p.slotId ? ` on ${doc().skeleton.slots.find((s) => s.id === l().slot)?.name ?? "?"}` : ""}
+                        {l().skin ? ` in ${doc().skeleton.skins.find((k) => k.id === l().skin)?.name ?? "?"}` : ""}. Its vertices and weights come from there: edit that mesh.
+                      </div>
+                      <Check
+                        label="Follow its deform keys"
+                        title="Play the parent mesh's deform keys on this mesh too (Spine: inherit timelines)"
+                        checked={l().deform}
+                        onChange={(v) => apply("updateAttachment", { slot: p.slotId, attachment: m().name, skin: p.owner.id, props: { linked: { ...l(), deform: v } } })}
+                      />
+                      <button title="Make this a normal mesh with its own copy of the geometry" onClick={() => apply("updateAttachment", { slot: p.slotId, attachment: m().name, skin: p.owner.id, props: { linked: null } })}>
+                        Unlink
+                      </button>
+                    </div>
+                  )}
+                </Show>
+                <Show when={!m().linked}>
+                  <BindBones slotId={p.slotId} attachment={m().name} skin={p.owner.id} />
+                </Show>
                 <button
-                  disabled={!!m().weights?.length}
+                  disabled={!!m().weights?.length || !!m().linked}
                   title={m().weights?.length ? "Weighted meshes cannot be re-traced (the weights would be lost)" : "Rebuild this mesh from the image's visible pixels, where it sits now"}
                   onClick={() => void retraceMesh(p.slotId, p.owner.id, m())}
                 >
@@ -475,6 +504,7 @@ function SlotInspector(p: { id: string; attachment?: string }) {
           onKey={animate() ? () => keySlot(p.id, "color", slot()!.color) : undefined}
           keyed={animate() && isKeyed("slot", p.id, "color")}
         />
+        <DarkColorField slotId={p.id} dark={slot()!.dark} animate={animate()} keyed={animate() && isKeyed("slot", p.id, "dark")} />
         <SelectField
           label="Showing"
           value={slot()!.attachment ?? ""}
@@ -951,5 +981,54 @@ function ClippingEditor(p: { slotId: string; att: ClippingAttachment; set: (prop
         <NumberField label="Radius" value={r2(kind().radius)} onCommit={(v) => regen({ radius: Math.max(0, v) })} />
       </Show>
     </>
+  );
+}
+
+/** "+ Linked mesh…": pick an image and a skin; the new mesh shares this one's geometry and weights. */
+async function newLinkedMesh(slotId: string, owner: SkinData, parent: string) {
+  const d = store.doc;
+  if (!d.images.length) return;
+  const skins = d.skeleton.skins;
+  const others = skins.filter((k) => k.id !== owner.id);
+  const r = await askForm({
+    title: `New linked mesh of “${parent}”`,
+    message: "It uses this mesh's vertices, triangles and weights with another image. Editing this mesh updates every linked mesh.",
+    confirmLabel: "Add",
+    fields: [
+      { key: "image", type: "choice", label: "Image", options: d.images.map((i) => ({ value: i.id, label: i.name })) },
+      {
+        key: "skin",
+        type: "choice",
+        label: "Put it in",
+        value: others[0]?.id ?? owner.id,
+        options: skins.map((k) => ({ value: k.id, label: k.id === owner.id ? `${k.name} (this skin, needs another name)` : `${k.name} skin (same name: this outfit's version)` })),
+      },
+      { key: "name", type: "text", label: "Name", value: parent },
+    ],
+  });
+  if (!r) return;
+  apply("addLinkedMesh", { slot: slotId, skin: r.skin, name: r.name, image: r.image, parent, parentSkin: owner.id, activate: false });
+}
+
+/**
+ * Two-colour tint (Spine's "tint black"): the colour the image's dark parts become, while Color tints the light
+ * parts. Off = black (the usual tint). Keyable in Animate mode.
+ */
+function DarkColorField(p: { slotId: string; dark?: string; animate: boolean; keyed: boolean }) {
+  const set = (v: string | null) =>
+    p.animate ? keySlot(p.slotId, "dark", v ?? "#000000") : apply("updateSlot", { slot: p.slotId, dark: v });
+  return (
+    <label class="field" title="Two-colour tint: the colour the image's dark parts become (Color tints the light parts). Off means black, the usual tint.">
+      <span>Dark color</span>
+      <input type="checkbox" checked={!!p.dark} onChange={(e) => set(e.currentTarget.checked ? "#3a3a6a" : null)} aria-label="Use a dark colour" />
+      <Show when={p.dark || p.keyed}>
+        <input type="color" value={(p.dark ?? "#000000").slice(0, 7)} onChange={(e) => set(e.currentTarget.value)} />
+      </Show>
+      <Show when={p.animate}>
+        <button class="key-btn" classList={{ keyed: p.keyed }} title="Set a dark colour key at the current time" onClick={() => keySlot(p.slotId, "dark", p.dark ?? "#000000")}>
+          ◆
+        </button>
+      </Show>
+    </label>
   );
 }

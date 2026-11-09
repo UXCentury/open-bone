@@ -59,6 +59,26 @@ export function transaction(label: string, fn: () => void) {
 }
 
 // ---------- editor UI state ----------
+const COMPENSATE_KEY = "openbone.compensate";
+const readCompensate = () => {
+  try {
+    return localStorage.getItem(COMPENSATE_KEY) === "1";
+  } catch {
+    return false;
+  }
+};
+const [compensate, setCompensateSignal] = createSignal(readCompensate());
+/** Compensate (like Spine's): moving, rotating or scaling a bone leaves its child bones where they are. */
+export { compensate };
+export function setCompensate(on: boolean) {
+  setCompensateSignal(on);
+  try {
+    localStorage.setItem(COMPENSATE_KEY, on ? "1" : "0");
+  } catch {
+    /* private mode */
+  }
+}
+
 export type Mode = "setup" | "animate";
 export type Tool = "select" | "rotate" | "translate" | "scale" | "bone" | "mesh" | "weights" | "pose";
 /** Pose tool: how many bones bend when you drag one (the dragged bone and its parents); 99 = up to the root. */

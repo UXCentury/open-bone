@@ -32,6 +32,11 @@ export interface SlotData {
   /** Name of the attachment shown in setup pose (looked up in the active skin, then the default skin). */
   attachment: string | null;
   blend: BlendMode;
+  /**
+   * Two-colour tint (Spine's "tint black"): the colour the image's dark parts become, as `#rrggbb`. The image's
+   * colours are mapped from this dark colour to the slot's `color` (white keeps the image as is). Unset = black.
+   */
+  dark?: Hex;
 }
 
 export interface ImageAsset {
@@ -135,6 +140,23 @@ export interface MeshAttachment extends AttachmentBase {
   /** Number of vertices on the outer hull (first N vertices). */
   hull: number;
   color: Hex;
+  /**
+   * Linked mesh (like Spine's): uses the geometry and weights of another mesh (the parent) with its own image, so
+   * one rig serves many looks. Core copies the parent's vertices, uvs, triangles, hull and weights into this mesh
+   * after every edit, so readers can treat it as a plain mesh. With `deform`, the parent's deform keys move it too.
+   */
+  linked?: LinkedMesh;
+}
+
+export interface LinkedMesh {
+  /** Name of the parent mesh attachment. */
+  mesh: string;
+  /** Slot the parent is on (default: this attachment's slot). */
+  slot?: Id;
+  /** Skin the parent is in (default: this attachment's skin, then the default skin). */
+  skin?: Id;
+  /** Follow the parent's deform keys (Spine's "timelines" / inherit deform). */
+  deform: boolean;
 }
 
 export type ShapeKind = "rect" | "ellipse" | "polygon";
@@ -551,7 +573,7 @@ export interface Key<T> {
 
 export type Timeline =
   | { target: "bone"; id: Id; property: BoneProperty; keys: Key<number>[] }
-  | { target: "slot"; id: Id; property: "color"; keys: Key<Hex>[] }
+  | { target: "slot"; id: Id; property: "color" | "dark"; keys: Key<Hex>[] }
   | { target: "slot"; id: Id; property: "attachment"; keys: Key<string | null>[] }
   | { target: "ik"; id: Id; property: IkProperty; keys: Key<number>[] }
   /** "mix" multiplies every transform mix (setup value 1); the others are absolute. */

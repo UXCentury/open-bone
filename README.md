@@ -10,7 +10,7 @@
 
 ### Rigging
 - **Bones** with parent/child hierarchy, length, rotation, translation, scale and shear, and inherit modes (normal, only translation, no rotation, no scale).
-- **Slots** with draw order, colour/alpha tint and blend modes (normal, additive, multiply, screen).
+- **Slots** with draw order, colour/alpha tint, **two-colour tint** (a keyable dark colour for the image's shadows, like Spine's tint black; Canvas2D and WebGL2) and blend modes (normal, additive, multiply, screen).
 - **Skins**: create, duplicate, rename and delete outfits, switch them live in the viewport, player and previews; attachments can override the default skin per outfit.
 - **Constraints**
   - **IK**: 1- and 2-bone, mix, bend direction, softness, stretch, compress and uniform scaling; mix and softness blend between keys, bend/stretch/compress key in steps (like Spine's IK timeline).
@@ -21,7 +21,7 @@
 
 ### Attachments
 - **Regions** (images), **vector shapes** (rect, rounded rect, ellipse, polygon with fill and stroke), **points** and **bounding boxes** (hit areas).
-- **Meshes**: deformable, weighted to bones, with free-form deform keys. **Trace mesh** builds one automatically from an image's visible pixels (outline detail, padding and inner vertices to choose; honours the region's rotation and scale), so less transparent area is drawn and the mesh bends with the art.
+- **Meshes**: deformable, weighted to bones, with free-form deform keys. **Linked meshes** reuse a mesh's vertices, triangles and weights with another image (the same rigged sleeve in every outfit) and can follow its deform keys; edit the parent and they all update. **Trace mesh** builds one automatically from an image's visible pixels (outline detail, padding and inner vertices to choose; honours the region's rotation and scale), so less transparent area is drawn and the mesh bends with the art.
 - **Clipping masks**: slots after the mask, up to an end slot, are drawn only inside its outline (Canvas2D clip, WebGL2 stencil).
 - **Bezier paths** for path constraints, optionally weighted to bones.
 - **Sprite sequences**: frame-by-frame animation from numbered image files (After Effects / render output, sorted naturally), sprite sheets cut by a grid or read from TexturePacker / Aseprite JSON (hash or array, trimmed frames), or a ZIP of frames. Own fps, loop / once / ping-pong / hold-last, start offset; driven by animation or state time, by frame keys, or by a number input. Works with skins, clipping, draw order and the atlas.
@@ -31,6 +31,7 @@
 
 ### Animation
 - Per-property timelines: bone rotate/translate/scale/shear, slot colour and attachment, IK/transform/path/physics constraint values, mesh and path deform, sequence frame, particle emitting and rate, draw order.
+- **Key editing**: select many keys (Shift/Ctrl-click, Shift-drag a box, Ctrl/⌘+A), drag or nudge them together, **copy and paste** them at the playhead (into this or another animation), **scale** them in time around a pivot, change their curve or delete them at once.
 - Linear, stepped and bezier curves. The Timeline's **Graph view** shows every numeric timeline as value curves over time: drag keys in time and value, shape bezier handles on the curve, pan, zoom, fit, and normalize curves of different units; a per-key ease editor sits beside the dopesheet.
 - **Full-width dopesheet timeline** with a **● Rec** button (keys past the end extend the animation), grouped by bone, slot and constraint (collapsible, with summary keys that move a group's keys together), keys coloured per property and shaped by curve type, hold bars where a value stays the same, auto-key, key dragging, events (with int/float/string payloads and audio references).
 - Per-animation **Export** switch (helper animations stay out of exports) and **colour**.
@@ -52,7 +53,8 @@
 ### Editor
 - **Selection**: drag a box on empty space to select many bones (Shift adds, Ctrl/⌘ removes, Shift-click toggles); drag, rotate, scale or key (`K`) them together.
 - **Tools**: select/rotate, translate, scale, **Pose** (`I`: drag any bone and it plus its parents bend to follow, inverse kinematics without setting up a constraint; chain length 1–5 or to the root, Shift for just the grabbed bone; keys in Animate mode), create bone, **mesh vertex editing** (select, drag, add, delete, nudge; re-triangulates) with **soft selection** (nearby vertices follow with a falloff), and **weights** (brush with add/remove, radius and strength, heat-map; **Direct** mode sets selected vertices' weights per bone; **Smooth**, **Auto** and **Prune**).
-- **Setup and Animate modes**, undo/redo for every change.
+- **Setup and Animate modes**, undo/redo for every change. **Compensate** (`J`): move, rotate or scale a bone while its child bones stay where they are.
+- **Photoshop import**: drop a `.psd` (or pick it with + Image) and every layer becomes an image, slot and region in place, in the same stacking order, with opacity and blend modes; groups can become bones and hidden layers can be skipped.
 - **Skeleton tree** with parent/child guide lines, collapsible bones and slots (Alt-click: a whole branch), **search** (matches shown with their parents; Enter selects the first) and auto-scroll to whatever you select in the viewport.
 - **Viewport aids**: checkerboard (transparent backgrounds supported), origin lines, red/green **move arrows** on the selected bone (axis-locked dragging), grid, rulers, draggable guides (saved per project) and **smart snapping** to the artboard centre/edges/origin, guides, grid, other bone joints and mesh vertices (hold Ctrl/⌘ to bypass).
 - **Dockable workspace**: resize panels, drag panel tabs to any side or group them, split a dock in two (drop a tab on its lower or right part; Layout → "Preview under the Inspector"), collapse sections; the layout is remembered and can be reset. File commands, Examples (a gallery with live previews) and Layout live under the ☰ Menu button, and right-click opens editor context menus (bone and slot actions, tools, view toggles).
