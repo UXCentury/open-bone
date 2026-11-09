@@ -19,7 +19,7 @@ import java.util.Map;
 
 /**
  * Runs one case of conformance/expected/*.json exactly like conformance/generate.ts and compares every sample with the
- * tolerances in conformance/README.md.
+ * tolerances in conformance/README.md. Shared by the JVM tests and the Android instrumented test.
  */
 public final class ConformanceRunner {
   static final double DT = 1.0 / 60;
@@ -60,14 +60,14 @@ public final class ConformanceRunner {
   private final ScriptHost host;
   private final String file;
 
-  ConformanceRunner(String file, OpenBoneDocument doc, ScriptHost host) {
+  public ConformanceRunner(String file, OpenBoneDocument doc, ScriptHost host) {
     this.file = file;
     this.doc = doc;
     this.host = host;
   }
 
   @SuppressWarnings("unchecked")
-  void runCase(Map<String, Object> c) {
+  public void runCase(Map<String, Object> c) {
     String kind = (String) c.get("kind");
     String name = (String) c.get("name");
     List<Object> samples = (List<Object>) c.get("samples");
