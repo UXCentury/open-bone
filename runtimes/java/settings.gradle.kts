@@ -18,4 +18,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "openbone-java"
 
-include("openbone-runtime", "openbone-scripting", "openbone-conformance")
+include("openbone-runtime", "openbone-scripting", "openbone-conformance", "openbone-gdx", "openbone-gdx-sample")
