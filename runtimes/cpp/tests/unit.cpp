@@ -15,7 +15,53 @@ static void expect(const std::string& got, const std::string& want, const char* 
   }
 }
 
-int main() {
+/** Pose both documents through every animation and state machine; they must agree exactly. */
+static int compareDocs(const std::string& a, const std::string& b) {
+  auto da = loadFile(a), db = loadFile(b);
+  int bad = 0;
+  auto check = [&](Instance& x, Instance& y, const std::string& what) {
+    for (size_t i = 0; i < x.skeleton->bones.size(); i++) {
+      const Affine &p = x.skeleton->bones[i]->world, &q = y.skeleton->bones[i]->world;
+      if (p.a != q.a || p.b != q.b || p.c != q.c || p.d != q.d || p.x != q.x || p.y != q.y) bad++;
+    }
+    DrawList l1 = x.drawList(), l2 = y.drawList();
+    if (l1.items.size() != l2.items.size()) bad++;
+    else
+      for (size_t i = 0; i < l1.items.size(); i++)
+        if (l1.items[i].vertices != l2.items[i].vertices || l1.items[i].uvs != l2.items[i].uvs || l1.items[i].indices != l2.items[i].indices) bad++;
+    if (bad) std::printf("FAIL %s: %s differs\n", a.c_str(), what.c_str());
+  };
+  for (const auto& anim : da->animations) {
+    Instance x(da), y(db);
+    x.play(anim.name);
+    y.play(anim.name);
+    for (int i = 0; i < 90; i++) {
+      x.advance(1.0 / 60);
+      y.advance(1.0 / 60);
+    }
+    check(x, y, "animation " + anim.name);
+  }
+  for (const auto& sm : da->stateMachines) {
+    Instance x(da), y(db);
+    x.useStateMachine(sm.name);
+    y.useStateMachine(sm.name);
+    for (int i = 0; i < 90; i++) {
+      x.advance(1.0 / 60);
+      y.advance(1.0 / 60);
+    }
+    check(x, y, "state machine " + sm.name);
+  }
+  return bad;
+}
+
+int main(int argc, char** argv) {
+  if (argc >= 3) {
+    // openbone_unit <a.obonb> <a.decoded.obone>...: binary decoding matches the TypeScript decoder.
+    int bad = 0;
+    for (int i = 1; i + 1 < argc; i += 2) bad += compareDocs(argv[i], argv[i + 1]);
+    std::printf(bad ? "binary FAILED\n" : "binary OK\n");
+    return bad ? 1 : 0;
+  }
   expect(jsNumberToString(0.1), "0.1", "String(0.1)");
   expect(jsNumberToString(1e21), "1e+21", "String(1e21)");
   expect(jsNumberToString(123456789012345680000.0), "123456789012345680000", "String(1.2e20)");

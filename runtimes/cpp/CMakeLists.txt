@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.18)
 project(openbone_runtime VERSION 0.1.0 LANGUAGES C CXX)
 
 # OpenBone C++ runtime: C++17, no engine dependencies. nlohmann/json is vendored (third_party/), QuickJS (quickjs-ng)
@@ -18,11 +18,9 @@ if(OPENBONE_WITH_SCRIPTS)
     FetchContent_Declare(quickjs_ng
       URL https://github.com/quickjs-ng/quickjs/archive/refs/tags/v0.10.1.tar.gz
       URL_HASH SHA256=4e917eea3bb6051a0551fdd3aac45199ff705fa08920c15b824a08c5fbb032e4
-      DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
-    FetchContent_GetProperties(quickjs_ng)
-    if(NOT quickjs_ng_POPULATED)
-      FetchContent_Populate(quickjs_ng)
-    endif()
+      DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+      SOURCE_SUBDIR do-not-add)  # only download: the sources are compiled below with this project's flags
+    FetchContent_MakeAvailable(quickjs_ng)
     set(OPENBONE_QUICKJS_DIR ${quickjs_ng_SOURCE_DIR})
   endif()
   add_library(openbone_quickjs STATIC
@@ -111,6 +109,9 @@ if(OPENBONE_BUILD_TESTS)
   target_link_libraries(openbone_unit PRIVATE openbone)
   target_include_directories(openbone_unit PRIVATE src)
   add_test(NAME unit COMMAND openbone_unit)
+  set(OB_DATA ${CMAKE_CURRENT_SOURCE_DIR}/tests/data)
+  add_test(NAME binary COMMAND openbone_unit ${OB_DATA}/interactive.obonb ${OB_DATA}/interactive.decoded.obone
+    ${OB_DATA}/dynamics.obonb ${OB_DATA}/dynamics.decoded.obone)
   if(OPENBONE_BUILD_SHARED)
     add_executable(openbone_c_example examples/c/play.c)
     target_link_libraries(openbone_c_example PRIVATE openbone_shared)
