@@ -1,0 +1,13 @@
+; OpenBone GDExtension demo. Build the extension (see runtimes/cpp/README.md), then open this folder in Godot 4.4+.
+
+config_version=5
+
+[application]
+
+config/name="OpenBone demo"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.4")
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
