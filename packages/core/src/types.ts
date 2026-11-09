@@ -395,11 +395,20 @@ export interface SkinData {
   name: string;
   /** slotId -> attachmentName -> attachment */
   attachments: Record<Id, Record<string, Attachment>>;
+  /**
+   * Skin bones (Spine-style): bones listed in any skin are active only while a skin listing them is set. An inactive
+   * bone (and every bone below it) is not posed and its slots are not drawn.
+   */
+  bones?: Id[];
+  /** Skin constraints: constraints listed in any skin are applied only while a skin listing them is set. */
+  constraints?: Id[];
 }
 
 export interface IkConstraintData {
   id: Id;
   name: string;
+  /** Position in the constraint update order (see `SkeletonData`); unset = the default order. */
+  order?: number;
   /** One or two bones; for two, the second must be a child of the first. */
   bones: Id[];
   target: Id;
@@ -418,6 +427,8 @@ export interface IkConstraintData {
 export interface TransformConstraintData {
   id: Id;
   name: string;
+  /** Position in the constraint update order (see `SkeletonData`); unset = the default order. */
+  order?: number;
   bones: Id[];
   target: Id;
   mixRotate: number;
@@ -452,6 +463,8 @@ export type PathRotateMode = "tangent" | "chain" | "chainScale";
 export interface PathConstraintData {
   id: Id;
   name: string;
+  /** Position in the constraint update order (see `SkeletonData`); unset = the default order. */
+  order?: number;
   /** Bones placed along the path, in hierarchy order (parent before child). */
   bones: Id[];
   /** Slot whose current attachment is a path attachment. */
@@ -475,6 +488,8 @@ export interface PathConstraintData {
 export interface PhysicsConstraintData {
   id: Id;
   name: string;
+  /** Position in the constraint update order (see `SkeletonData`); unset = the default order. */
+  order?: number;
   bone: Id;
   /** Per-channel influence 0..1: how much the simulation moves the bone origin (x, y), rotates it and stretches it. */
   x: number;
@@ -503,13 +518,22 @@ export interface SkeletonData {
   /** Array order is the setup draw order (first = back). */
   slots: SlotData[];
   skins: SkinData[];
-  /** Constraints solve in this order each frame: ik, transform, path, physics (each list in array order). */
+  /**
+   * Constraints solve in one list each frame, sorted by their `order`. A constraint without `order` uses its index in
+   * the default order (ik, transform, path, physics, each list in array order); ties keep the default order.
+   */
   ik: IkConstraintData[];
   transform: TransformConstraintData[];
   path: PathConstraintData[];
   physics: PhysicsConstraintData[];
   /** Sliders: animations scrubbed by a bone property or an input. Applied first, before the constraints above. */
   sliders?: SliderData[];
+  /**
+   * Size, in percent, the rig's physics and IK softness values were made for (default 100). Exporting the rig at
+   * another size changes this with it: physics gravity and wind and IK softness are multiplied by
+   * `referenceScale / 100` times the skeleton's placement scale, so the rig behaves the same at any size.
+   */
+  referenceScale?: number;
 }
 
 /**
@@ -539,6 +563,7 @@ export type Curve = "linear" | "stepped" | [number, number, number, number];
 
 export type BoneProperty = "rotation" | "x" | "y" | "scaleX" | "scaleY" | "shearX" | "shearY";
 export const BONE_PROPERTIES: BoneProperty[] = ["rotation", "x", "y", "scaleX", "scaleY", "shearX", "shearY"];
+export const INHERIT_MODES: InheritMode[] = ["normal", "onlyTranslation", "noRotation", "noScale"];
 
 /** bend (1 = positive, -1 = negative), stretch and compress (1 = on, 0 = off) key in steps, like Spine's IK timeline. */
 export type IkProperty = "mix" | "softness" | "bend" | "stretch" | "compress";
@@ -573,6 +598,8 @@ export interface Key<T> {
 
 export type Timeline =
   | { target: "bone"; id: Id; property: BoneProperty; keys: Key<number>[] }
+  /** Switches the bone's inherit mode at each key (stepped, curves ignored). */
+  | { target: "bone"; id: Id; property: "inherit"; keys: Key<InheritMode>[] }
   | { target: "slot"; id: Id; property: "color" | "dark"; keys: Key<Hex>[] }
   | { target: "slot"; id: Id; property: "attachment"; keys: Key<string | null>[] }
   | { target: "ik"; id: Id; property: IkProperty; keys: Key<number>[] }

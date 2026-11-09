@@ -125,6 +125,12 @@ export function validate(d: OpenBoneDocument): Issue[] {
     path: new Set((sk.path ?? []).map((c) => c.id)),
     physics: new Set((sk.physics ?? []).map((c) => c.id)),
   };
+  const allConstraintIds = new Set(Object.values(constraintIds).flatMap((x) => [...x]));
+  for (const skin of sk.skins) {
+    for (const b of skin.bones ?? []) if (!boneIds.has(b)) err(`skins.${skin.name}`, `skin bone ${b} missing`);
+    for (const c of skin.constraints ?? []) if (!allConstraintIds.has(c)) err(`skins.${skin.name}`, `skin constraint ${c} missing`);
+  }
+  if (sk.referenceScale !== undefined && !(sk.referenceScale > 0)) err("skeleton", "referenceScale must be positive");
   const animIds = new Set(d.animations.map((a) => a.id));
   const eventIds = new Set(d.events.map((e) => e.id));
   for (const a of d.animations) {

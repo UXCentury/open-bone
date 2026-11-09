@@ -672,3 +672,14 @@ input.small { width: 90px; }
 .credit-list li { display: flex; align-items: baseline; gap: 4px; min-width: 0; font-size: 12.5px; }
 .credit-list li a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .credit-license { margin-left: auto; flex: none; font-size: 10.5px; padding: 0 6px; border: 1px solid var(--line); border-radius: 9px; color: var(--muted, #8b93a3); }
+
+/* Skin bones / constraints and constraint order (Inspector) */
+.skin-membership > span:first-child { width: auto; }
+.skin-membership .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.skin-membership .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 4px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+.skin-membership .chip input { margin: 0; }
+.constraint-order .tree-row { cursor: default; }
+.constraint-order .order-index { width: 18px; text-align: right; font-variant-numeric: tabular-nums; }
+.constraint-order .order-name { flex: 1; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.constraint-order .order-btns { display: inline-flex; gap: 2px; }
+.constraint-order .order-btns button { padding: 0 6px; }

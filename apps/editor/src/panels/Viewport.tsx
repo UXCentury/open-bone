@@ -253,7 +253,7 @@ export function Viewport() {
           sk.updateWorldTransform();
           for (const c of drag.comp) {
             const b = c.bone;
-            const l = localFromWorld(b.parent!.world, c.world, b.data.inherit, { x: b.x, y: b.y, rotation: b.rotation, scaleX: b.scaleX, scaleY: b.scaleY, shearX: b.shearX, shearY: b.shearY });
+            const l = localFromWorld(b.parent!.world, c.world, b.inherit, { x: b.x, y: b.y, rotation: b.rotation, scaleX: b.scaleX, scaleY: b.scaleY, shearX: b.shearX, shearY: b.shearY });
             const r4 = (n: number) => Math.round(n * 1e4) / 1e4;
             c.cur = { x: round2(l.x), y: round2(l.y), rotation: round2(l.rotation), scaleX: r4(l.scaleX), scaleY: r4(l.scaleY), shearY: round2(l.shearY) };
             Object.assign(b, c.cur);
@@ -384,7 +384,9 @@ export function Viewport() {
   function gizmoBone(sk_: Skeleton | null | undefined): Bone | null {
     if (!sk_ || running() || !showBones() || meshToolOn() || tool() === "bone") return null;
     const id = selectedBoneId();
-    return (id && sk_.boneById_(id)) || null;
+    const b = id && sk_.boneById_(id);
+    // A skin bone outside the shown skin is not posed: no gizmo.
+    return b && b.active ? b : null;
   }
   type GizmoPart = "x" | "y" | "xy" | "ring";
   /** The selected tool's gizmo: rotate = a ring, translate = X/Y arrows, scale = X/Y handles along the bone. */
@@ -967,7 +969,7 @@ export function Viewport() {
     if (a.snapBones && sk) {
       const pts: [number, number][] = [];
       for (const b of sk.bones) {
-        if (movingBones.has(b.data.id)) continue;
+        if (movingBones.has(b.data.id) || !b.active) continue;
         pts.push([b.world.x, b.world.y]);
         if (b.data.length > 0) pts.push(applyM(b.world, b.data.length, 0) as [number, number]);
       }
@@ -1039,6 +1041,7 @@ export function Viewport() {
     let best: Bone | null = null;
     let bestD = 8 / view.zoom;
     for (const b of sk.bones) {
+      if (!b.active) continue;
       const [ex, ey] = applyM(b.world, b.data.length, 0);
       const d = segDist(x, y, b.world.x, b.world.y, ex, ey);
       if (d <= bestD) {

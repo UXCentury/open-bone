@@ -9,14 +9,14 @@
 ## Features
 
 ### Rigging
-- **Bones** with parent/child hierarchy, length, rotation, translation, scale and shear, and inherit modes (normal, only translation, no rotation, no scale).
+- **Bones** with parent/child hierarchy, length, rotation, translation, scale and shear, and inherit modes (normal, only translation, no rotation, no scale) that can be keyed per frame.
 - **Slots** with draw order, colour/alpha tint, **two-colour tint** (a keyable dark colour for the image's shadows, like Spine's tint black; Canvas2D and WebGL2) and blend modes (normal, additive, multiply, screen).
-- **Skins**: create, duplicate, rename and delete outfits, switch them live in the viewport, player and previews; attachments can override the default skin per outfit.
-- **Constraints**
+- **Skins**: create, duplicate, rename and delete outfits, switch them live in the viewport, player and previews; attachments can override the default skin per outfit. **Skin bones and skin constraints** exist only in the skins that list them (a cape's bones and physics only in the knight outfit).
+- **Constraints**, applied in a default or custom order (reorder them in the Inspector)
   - **IK**: 1- and 2-bone, mix, bend direction, softness, stretch, compress and uniform scaling; mix and softness blend between keys, bend/stretch/compress key in steps (like Spine's IK timeline).
   - **Transform**: rotate/translate/scale/shear mixes, world or local space, absolute or relative.
   - **Path**: place and rotate a bone chain along a bezier path, with position, spacing and rotate modes.
-  - **Physics**: secondary motion (hair, cloth, tails) with inertia, strength, damping, gravity and wind; deterministic fixed timestep.
+  - **Physics**: secondary motion (hair, cloth, tails) with inertia, strength, damping, gravity and wind; deterministic fixed timestep. Gravity, wind and IK softness follow the rig's **reference scale**, so a rig exported at another size behaves the same.
   - **Sliders**: a bone's property (e.g. shoulder rotation) or a number input scrubs an animation: corrective shapes, shadows, dials. Range-to-time mapping, mix, loop and additive; applied before the other constraints.
 
 ### Attachments

@@ -15,7 +15,8 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
    Attachments are positioned in the slot BONE's local frame (x along the bone).
    Draw order = slot order (first is back). Use update_slot {index} to reorder.
 4. Deformation: add_mesh {cols, rows} then auto_weights {bones:[...]} so the mesh bends with bones.
-5. Constraints (solved in this order every frame: IK, transform, path, physics):
+5. Constraints (solved every frame in one list; default order IK, transform, path, physics — set_constraint_order
+   {constraints:[every constraint, first applied first]} changes it, [] restores the default):
    add_ik_constraint {bones:["thigh","shin"], target:"foot-target"} (target must not be a child of the chain);
    optional softness (2-bone), stretch, compress (1-bone).
    add_transform_constraint {bones, target, mixRotate, mixTranslate, mixScale, mixShear, local?, relative?}.
@@ -24,9 +25,10 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
    positionMode:"fixed"|"percent", spacingMode:"length"|"fixed"|"percent"|"proportional", rotateMode:"tangent"|"chain"|"chainScale"}.
    Physics: add_physics_constraint {bone, inertia, strength, damping, mass, gravity, wind, mix} per bone (parent first)
    for hair/cloth/tails. It simulates over time, so check it with render_gif rather than a single frame.
+   Physics gravity/wind and IK softness scale with the skeleton's size relative to set_document {referenceScale} (default 100 %).
 6. Animate: create_animation {name}, then set_keys with absolute values:
    set_keys {animation:"walk", target:"bone", id:"thigh", property:"rotation", keys:[{time:0,value:-20},{time:0.5,value:20,curve:"easeInOut"},{time:1,value:-20}]}
-   Properties: bone rotation|x|y|scaleX|scaleY|shearX|shearY, slot color ("#rrggbbaa") | dark (two-colour tint "#rrggbb") | attachment (name or null),
+   Properties: bone rotation|x|y|scaleX|scaleY|shearX|shearY|inherit (stepped string: normal|onlyTranslation|noRotation|noScale), slot color ("#rrggbbaa") | dark (two-colour tint "#rrggbb") | attachment (name or null),
    ik mix|softness, transform mix|mixRotate|mixTranslate|mixScale|mixShear, path position|spacing|mixRotate|mixX|mixY,
    physics mix|inertia|strength|damping|mass|gravity|wind, deform offsets (mesh or path), sequence frame (with attachment), drawOrder. Curves: linear, stepped, easeIn, easeOut, easeInOut, backOut or [cx1,cy1,cx2,cy2].
    Loop cleanly by making the last key equal the first. add_event_key fires events (footsteps, sounds).
@@ -51,6 +53,8 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
 9. Skins (outfits): the first skin is the default skin, shared by all. add_skin {name}, then either pass skin:"<name>" to
    add_shape/add_region/... or copy_attachment {slot, attachment, toSkin} and update_attachment {..., skin} to override a
    default attachment under the same name. rename_skin, duplicate_skin, delete_skin manage them; render_frame {skin} previews one.
+   Skin bones/constraints: add_to_skin {skin, bones?, constraints?} makes them skin-only (active only while a skin listing
+   them is set; inactive bones and their children aren't posed and their slots aren't drawn); remove_from_skin undoes it.
 10. Audio: import_audio {path} (or add_audio {name, src:data:/path, duration}) creates an asset and a same-named sound on the
    sfx bus. Play it with add_audio_key {animation, sound, time, volume?, rate?, loop?}, set_event_sound {event, sound} (plays
    whenever the event fires), set_state_sound {stateMachine, state, sound, on:"enter"|"exit", action:"play"|"stop"} or a

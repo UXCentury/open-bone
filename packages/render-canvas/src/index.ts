@@ -412,6 +412,7 @@ export class CanvasRenderer {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
     for (const b of sk.bones) {
+      if (!b.active) continue; // skin bone outside the current skin
       const m = b.world;
       const len = b.data.length;
       const sel = b.data.id === selected;

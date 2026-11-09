@@ -9,6 +9,7 @@ import {
   type Id,
   type IkConstraintData,
   type ImageAsset,
+  type InheritMode,
   type InputValue,
   type LocalTransform,
   type OpenBoneDocument,
@@ -23,8 +24,11 @@ import {
   type TransformConstraintData,
   DEG,
   RAD,
+  activeBones,
   animationDuration,
   apply,
+  constraintOrder,
+  skinRequired,
   atlasUvMap,
   boneWorld,
   buildSpline,
@@ -63,6 +67,10 @@ export class Bone {
   scaleY = 1;
   shearX = 0;
   shearY = 0;
+  /** Inherit mode used this frame (setup value, or an `inherit` timeline's key). */
+  inherit: InheritMode = "normal";
+  /** False while the bone is skin-only and the current skin does not list it: not posed, its slots not drawn. */
+  active = true;
   /**
    * Local values actually used for the world transform this frame: a copy of the pose above
    * that local-space constraints (IK, local transform constraints) may change.
@@ -85,6 +93,7 @@ export class Bone {
     this.scaleY = d.scaleY;
     this.shearX = d.shearX;
     this.shearY = d.shearY;
+    this.inherit = d.inherit;
   }
   resetApplied() {
     const a = this.applied;
@@ -97,9 +106,10 @@ export class Bone {
     a.shearY = this.shearY;
   }
   updateWorld(root: Affine) {
-    this.world = boneWorld(this.parent ? this.parent.world : root, this.applied, this.parent ? this.data.inherit : "normal");
+    this.world = boneWorld(this.parent ? this.parent.world : root, this.applied, this.parent ? this.inherit : "normal");
   }
   updateSubtree(root: Affine, includeSelf = true) {
+    if (!this.active) return;
     if (includeSelf) this.updateWorld(root);
     for (const c of this.children) c.updateSubtree(root);
   }
@@ -365,6 +375,7 @@ export class Skeleton {
     const w = doc.atlas?.white;
     const wp = w && pages.get(w.page);
     if (w && wp) this.white = { page: wp, u: (w.x + w.width / 2) / wp.width, v: (w.y + w.height / 2) / wp.height };
+    this.updateActive();
     this.setToSetupPose();
     this.updateWorldTransform();
   }
@@ -383,7 +394,46 @@ export class Skeleton {
   }
 
   setSkin(ref: string | null) {
-    this.skin = ref ? (this.doc.skeleton.skins.find((s) => s.id === ref || s.name === ref) ?? null) : null;
+    const skin = ref ? (this.doc.skeleton.skins.find((s) => s.id === ref || s.name === ref) ?? null) : null;
+    if (skin === this.skin && this.activeFor === skin) return;
+    this.skin = skin;
+    this.updateActive();
+  }
+
+  /** Skin the active flags were computed for (undefined = never). */
+  private activeFor: SkinData | null | undefined = undefined;
+  /** Ids of constraints skipped with the current skin. */
+  private inactiveConstraints = new Set<Id>();
+
+  /**
+   * Recompute which bones and constraints are active for the current skin (skin bones / skin constraints). setSkin
+   * calls this; call it yourself after changing a skin's `bones` or `constraints` lists in place.
+   */
+  updateActive() {
+    this.activeFor = this.skin;
+    const sk = this.doc.skeleton;
+    const req = skinRequired(sk);
+    const active = req.bones.size ? activeBones(sk, this.skin) : null;
+    for (const b of this.bones) b.active = !active || active.has(b.data.id);
+    this.inactiveConstraints.clear();
+    const mine = new Set(this.skin?.constraints ?? []);
+    const off = (id: Id) => !(this.boneById.get(id)?.active ?? true);
+    for (const e of constraintOrder(sk)) {
+      const c = e.data;
+      let skip = req.constraints.has(c.id) && !mine.has(c.id);
+      if (!skip && active) {
+        // A constraint whose bones or target are inactive is skipped too.
+        if (e.kind === "physics") skip = off(e.data.bone);
+        else if (e.kind === "path") skip = e.data.bones.some(off) || off(this.slotById.get(e.data.target)?.bone.data.id ?? "");
+        else skip = e.data.bones.some(off) || off(e.data.target);
+      }
+      if (skip) this.inactiveConstraints.add(c.id);
+    }
+  }
+
+  /** Whether a constraint is applied with the current skin. */
+  isConstraintActive(id: Id): boolean {
+    return !this.inactiveConstraints.has(id);
   }
 
   setToSetupPose() {
@@ -474,6 +524,7 @@ export class Skeleton {
 
   private stepParticles(h: number) {
     for (const slot of this.slots) {
+      if (!slot.bone.active) continue;
       const att = this.getAttachment(slot);
       const id = slot.data.id;
       if (!att || att.type !== "particles") {
@@ -507,25 +558,52 @@ export class Skeleton {
     this.pendingDt = 0;
   }
 
+  /**
+   * Factor applied to physics gravity/wind and IK softness on each axis: `referenceScale / 100` times the skeleton's
+   * placement scale (signed, so gravity keeps pointing down the skeleton when it is flipped).
+   */
+  get unitScaleX() {
+    return ((this.doc.skeleton.referenceScale ?? 100) / 100) * this.scaleX;
+  }
+  get unitScaleY() {
+    return ((this.doc.skeleton.referenceScale ?? 100) / 100) * this.scaleY;
+  }
+
   private get rootMatrix(): Affine {
     return { a: this.scaleX, b: 0, c: 0, d: this.scaleY, x: this.x, y: this.y };
   }
 
-  /** Solve world transforms, then constraints in order: IK, transform, path, physics. */
+  /**
+   * Solve world transforms, then the active constraints in their update order (`constraintOrder`; by default IK,
+   * transform, path, physics). Inactive (skin-only) bones and constraints are skipped.
+   */
   updateWorldTransform() {
     this.applySliders();
     const root = this.rootMatrix;
     for (const b of this.bones) {
+      if (!b.active) continue;
       b.resetApplied();
       b.updateWorld(root);
     }
-    const sk = this.doc.skeleton;
-    for (const c of sk.ik) this.applyIk(c, this.values("ik", c));
-    for (const c of sk.transform) this.applyTransform(c, this.values("transform", c));
-    for (const c of sk.path ?? []) this.applyPath(c, this.values("path", c));
     const dt = this.pendingDt;
     this.pendingDt = 0;
-    for (const c of sk.physics ?? []) this.applyPhysics(c, this.values("physics", c), dt);
+    for (const e of constraintOrder(this.doc.skeleton)) {
+      if (this.inactiveConstraints.has(e.data.id)) continue;
+      switch (e.kind) {
+        case "ik":
+          this.applyIk(e.data, this.values("ik", e.data));
+          break;
+        case "transform":
+          this.applyTransform(e.data, this.values("transform", e.data));
+          break;
+        case "path":
+          this.applyPath(e.data, this.values("path", e.data));
+          break;
+        case "physics":
+          this.applyPhysics(e.data, this.values("physics", e.data), dt);
+          break;
+      }
+    }
     const pdt = this.particlePending;
     this.particlePending = 0;
     if (this.particleClock === "realtime" && pdt > 0) this.advanceParticles(pdt);
@@ -626,7 +704,7 @@ export class Skeleton {
     // Soft IK: inside `softness` of full extension, the reached distance approaches full
     // extension exponentially instead of snapping straight.
     let dSoft = dRaw;
-    const soft = Math.min(v.softness ?? 0, reach);
+    const soft = Math.min((v.softness ?? 0) * Math.abs(this.unitScaleX), reach);
     if (soft > 1e-6 && dRaw > reach - soft) dSoft = reach - soft + soft * (1 - Math.exp(-(dRaw - (reach - soft)) / soft));
     const dEff = Math.min(Math.max(dSoft, Math.abs(l1 - l2) + 1e-4), reach - 1e-4);
     const ux = dRaw > 1e-9 ? (tx - px) / dRaw : 1;
@@ -863,11 +941,13 @@ export class Skeleton {
     // Spring constant per unit mass, capped so explicit integration stays stable.
     const k = Math.min(Math.max(0, v.strength) / Math.max(1e-6, v.mass), 1 / (h * h));
     const decay = Math.exp(-Math.max(0, v.damping) * h);
+    const wind = v.wind * this.unitScaleX;
+    const gravity = v.gravity * this.unitScaleY;
     const step = (p: Particle, gx: number, gy: number) => {
       p.px = p.x;
       p.py = p.y;
-      p.vx = (p.vx + ((gx - p.x) * k + v.wind) * h) * decay;
-      p.vy = (p.vy + ((gy - p.y) * k - v.gravity) * h) * decay;
+      p.vx = (p.vx + ((gx - p.x) * k + wind) * h) * decay;
+      p.vy = (p.vy + ((gy - p.y) * k - gravity) * h) * decay;
       p.x += p.vx * h;
       p.y += p.vy * h;
     };
@@ -1076,7 +1156,8 @@ export class Skeleton {
     let clip: ClipRegion | null = null;
     let clipEnd: Id | null = null;
     for (const slot of this.drawOrder) {
-      const att = this.getAttachment(slot);
+      // Slots on inactive (skin-only) bones are not drawn.
+      const att = slot.bone.active ? this.getAttachment(slot) : null;
       const first = items.length;
       draw: if (att) {
       if (att.type === "clipping") {
@@ -1247,6 +1328,7 @@ export class Skeleton {
   }
 
   hitTest(slot: Slot, x: number, y: number): boolean {
+    if (!slot.bone.active) return false;
     const poly = this.hitPolygon(slot);
     return !!poly && pointInPolygon(x, y, poly);
   }

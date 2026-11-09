@@ -99,6 +99,8 @@ export function SelectField<T extends string>(p: {
   value: T | "";
   options: { value: T | ""; label: string }[];
   onCommit: (v: T) => void;
+  onKey?: () => void;
+  keyed?: boolean;
 }) {
   return (
     <label class="field">
@@ -110,6 +112,11 @@ export function SelectField<T extends string>(p: {
           </option>
         ))}
       </select>
+      <Show when={p.onKey}>
+        <button class="key-btn" classList={{ keyed: p.keyed }} title="Set key at current time (stepped)" onClick={(e) => (e.preventDefault(), p.onKey!())}>
+          ◆
+        </button>
+      </Show>
     </label>
   );
 }

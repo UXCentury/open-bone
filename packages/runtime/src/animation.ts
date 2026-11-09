@@ -86,6 +86,11 @@ export function applyAnimation(sk: Skeleton, anim: AnimationData, time: number, 
       case "bone": {
         const bone = sk.boneById_(tl.id);
         if (!bone) break;
+        if (tl.property === "inherit") {
+          // Inherit modes switch at keys; the stronger side of a mix wins.
+          if (alpha >= 0.5) bone.inherit = sampleStep(tl.keys, time);
+          break;
+        }
         const v = sampleNumber(tl.keys, time);
         const prop = tl.property;
         bone[prop] = prop === "rotation" ? lerpAngle(bone[prop], v, alpha) : lerp(bone[prop], v, alpha);

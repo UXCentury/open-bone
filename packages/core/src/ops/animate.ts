@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { get, getAttachment, newId } from "../document.ts";
 import type { AnimationData, Curve, Key, OpenBoneDocument, Timeline } from "../types.ts";
-import { BONE_PROPERTIES, CONSTRAINT_PROPERTIES, PARTICLE_PROPERTIES } from "../types.ts";
+import { BONE_PROPERTIES, CONSTRAINT_PROPERTIES, INHERIT_MODES, PARTICLE_PROPERTIES } from "../types.ts";
 import { EASINGS, curve as curveSchema, defineOp, hex, optId, ref } from "./registry.ts";
 
 const curveIn = z
@@ -16,7 +16,7 @@ const target = z
 const keyValue = z.union([z.boolean(), z.number(), z.string(), z.null(), z.array(z.number()), z.array(z.string())]);
 
 const PROPS: Record<string, string[]> = {
-  bone: BONE_PROPERTIES,
+  bone: [...BONE_PROPERTIES, "inherit"],
   slot: ["color", "attachment", "dark"],
   ik: CONSTRAINT_PROPERTIES.ik,
   transform: CONSTRAINT_PROPERTIES.transform,
@@ -93,7 +93,9 @@ function need<T>(v: T | undefined, what: string): T {
 
 function checkValue(tl: Timeline, value: unknown) {
   const ok =
-    tl.target === "particles"
+    tl.target === "bone" && tl.property === "inherit"
+      ? INHERIT_MODES.includes(value as never)
+      : tl.target === "particles"
       ? tl.property === "emitting"
         ? typeof value === "boolean"
         : typeof value === "number"
@@ -188,7 +190,7 @@ defineOp({
   name: "setKeys",
   group: "animation",
   description:
-    "Set one or more keyframes on a timeline (absolute values). Examples: bone rotation {target:'bone', id:'arm', property:'rotation', keys:[{time:0,value:0},{time:0.5,value:45,curve:'easeInOut'}]}; path constraint {target:'path', id:'tail-path', property:'position', keys:[...]}; slot color value '#ff0000'; particle emitter {target:'particles', id:'exhaust', property:'emitting', keys:[{time:0,value:true},{time:1,value:false}]} or property 'rate' (numbers); slot attachment value 'eyes-closed' or null; deform value = flat offsets per vertex; sequence {target:'sequence', id:slot, attachment, property:'frame'} value = frame counter (use curve 'stepped' or linear to count through frames); drawOrder value = slot ids/names back-to-front.",
+    "Set one or more keyframes on a timeline (absolute values). Examples: bone rotation {target:'bone', id:'arm', property:'rotation', keys:[{time:0,value:0},{time:0.5,value:45,curve:'easeInOut'}]}; path constraint {target:'path', id:'tail-path', property:'position', keys:[...]}; slot color value '#ff0000'; particle emitter {target:'particles', id:'exhaust', property:'emitting', keys:[{time:0,value:true},{time:1,value:false}]} or property 'rate' (numbers); slot attachment value 'eyes-closed' or null; deform value = flat offsets per vertex; sequence {target:'sequence', id:slot, attachment, property:'frame'} value = frame counter (use curve 'stepped' or linear to count through frames); drawOrder value = slot ids/names back-to-front; bone inherit mode {target:'bone', id:'cape', property:'inherit', keys:[{time:0,value:'normal'},{time:1,value:'noRotation'}]} (stepped).",
   schema: z.object({
     animation: ref("Animation"),
     target,
@@ -197,7 +199,7 @@ defineOp({
       .string()
       .optional()
       .describe(
-        `bone: ${BONE_PROPERTIES.join("|")}; slot: color|attachment; ${Object.entries(CONSTRAINT_PROPERTIES)
+        `bone: ${BONE_PROPERTIES.join("|")}|inherit (stepped: normal|onlyTranslation|noRotation|noScale); slot: color|attachment; ${Object.entries(CONSTRAINT_PROPERTIES)
           .map(([k, v]) => `${k}: ${v.join("|")}`)
           .join("; ")}`,
       ),
@@ -210,7 +212,8 @@ defineOp({
     for (const k of a.keys) {
       let value = k.value;
       if (tl.target === "drawOrder") value = (value as string[]).map((r) => get.slot(doc, r).id);
-      upsertKey(tl, { time: k.time, value, curve: k.curve });
+      // Inherit keys switch at the key: always stepped.
+      upsertKey(tl, { time: k.time, value, curve: tl.target === "bone" && tl.property === "inherit" ? "stepped" : k.curve });
     }
     return { timeline: `${tl.target}:${tl.id}:${tl.property}`, keys: tl.keys.length };
   },

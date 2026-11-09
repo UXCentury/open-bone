@@ -20,7 +20,8 @@ const DEFAULT_CURVE: [number, number, number, number] = [1 / 3, 1 / 3, 2 / 3, 2 
 
 /** Timelines whose keys are plain numbers (others switch values or hold arrays/colours). */
 export function isNumericTimeline(tl: TL): boolean {
-  if (tl.target === "bone" || tl.target === "sequence") return true;
+  if (tl.target === "bone") return tl.property !== "inherit"; // inherit keys are modes, not numbers
+  if (tl.target === "sequence") return true;
   if (tl.target === "ik" || tl.target === "transform" || tl.target === "path" || tl.target === "physics") return true;
   return tl.target === "particles" && tl.property === "rate";
 }

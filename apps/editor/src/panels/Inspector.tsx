@@ -1,10 +1,10 @@
-import { animationDuration, type Attachment, attachmentOwner, type BindingTarget, type BoneProperty, type ClippingAttachment, CONSTRAINT_PROPERTIES, defaultSkin, descendantIds, estimateTextBox, getAttachment, type SequenceAttachment, shapeOutline, type SkinData, slotAttachments, templateInputs } from "@openbone/core";
+import { animationDuration, type Attachment, attachmentOwner, constraintOrder, INHERIT_MODES, type BindingTarget, type BoneProperty, type ClippingAttachment, CONSTRAINT_PROPERTIES, defaultSkin, descendantIds, estimateTextBox, getAttachment, type SequenceAttachment, shapeOutline, type SkinData, slotAttachments, templateInputs } from "@openbone/core";
 import { regionGridMesh, retraceMesh, traceRegion } from "../mesh-trace.ts";
 import { lastBackground, setBackground } from "../background.ts";
 import { reorderSlot } from "../visibility.ts";
 import { tip } from "../shortcuts/index.ts";
 import { For, Match, Show, Switch, createSignal } from "solid-js";
-import { commitBone, keyBoneProperty, keyConstraint, keySlot } from "../edit.ts";
+import { commitBone, keyBoneInherit, keyBoneProperty, keyConstraint, keySlot } from "../edit.ts";
 import { imageFor } from "../images.ts";
 import { activeSkin, apply, currentAnimation, doc, mode, selection, setSelection, skinArg, store, time, transaction } from "../state.ts";
 import { askConfirm, askForm, confirmDelete } from "../dialogs.tsx";
@@ -61,9 +61,12 @@ function BoneInspector(p: { id: string }) {
         <SelectField
           label="Inherit"
           value={bone()!.inherit}
-          options={["normal", "onlyTranslation", "noRotation", "noScale"].map((v) => ({ value: v, label: v }))}
-          onCommit={(v) => apply("updateBone", { bone: p.id, inherit: v })}
+          options={INHERIT_MODES.map((v) => ({ value: v, label: v }))}
+          onCommit={(v) => (animate() ? keyBoneInherit(p.id, v) : apply("updateBone", { bone: p.id, inherit: v }))}
+          onKey={animate() ? () => keyBoneInherit(p.id, bone()!.inherit) : undefined}
+          keyed={animate() && isKeyed("bone", p.id, "inherit")}
         />
+        <SkinMembership kind="bones" id={p.id} />
         <div class="btn-row">
           <button
             onClick={() => {
@@ -599,10 +602,12 @@ function IkInspector(p: { id: string }) {
         <Show when={c()!.stretch || (c()!.bones.length === 1 && c()!.compress)}>
           <Check label="Uniform" title="Scale both axes when stretching or compressing, so the art keeps its proportions" checked={!!c()!.uniform} onChange={(v) => set({ uniform: v })} />
         </Show>
+        <SkinMembership kind="constraints" id={p.id} />
         <button class="danger" onClick={() => void deleteConstraintAsk(p.id, "IK")}>
           Delete
         </button>
       </Section>
+      <ConstraintOrderSection current={p.id} />
     </Show>
   );
 }
@@ -653,10 +658,12 @@ function TransformInspector(p: { id: string }) {
         <CNumber kind="transform" id={p.id} prop="offsetScaleX" label="Offset sX" step={0.01} value={c()!.offsetScaleX} />
         <CNumber kind="transform" id={p.id} prop="offsetScaleY" label="Offset sY" step={0.01} value={c()!.offsetScaleY} />
         <CNumber kind="transform" id={p.id} prop="offsetShear" label="Offset shear" value={c()!.offsetShear} />
+        <SkinMembership kind="constraints" id={p.id} />
         <button class="danger" onClick={() => void deleteConstraintAsk(p.id, "transform")}>
           Delete
         </button>
       </Section>
+      <ConstraintOrderSection current={p.id} />
     </Show>
   );
 }
@@ -681,10 +688,12 @@ function PathInspector(p: { id: string }) {
         <CNumber kind="path" id={p.id} prop="mixX" label="Mix X" step={0.01} min={0} max={1} value={c()!.mixX} />
         <CNumber kind="path" id={p.id} prop="mixY" label="Mix Y" step={0.01} min={0} max={1} value={c()!.mixY} />
         <CNumber kind="path" id={p.id} prop="offsetRotation" label="Offset rot" value={c()!.offsetRotation} />
+        <SkinMembership kind="constraints" id={p.id} />
         <button class="danger" onClick={() => void deleteConstraintAsk(p.id, "path")}>
           Delete
         </button>
       </Section>
+      <ConstraintOrderSection current={p.id} />
     </Show>
   );
 }
@@ -756,10 +765,12 @@ function PhysicsInspector(p: { id: string }) {
         <CNumber kind="physics" id={p.id} prop="wind" label="Wind" value={c()!.wind} />
         <CNumber kind="physics" id={p.id} prop="mix" label="Mix" step={0.01} min={0} max={1} value={c()!.mix} />
         <CNumber kind="physics" id={p.id} prop="fps" label="Steps/s" min={1} max={480} value={c()!.fps} />
+        <SkinMembership kind="constraints" id={p.id} />
         <button class="danger" onClick={() => void deleteConstraintAsk(p.id, "physics")}>
           Delete
         </button>
       </Section>
+      <ConstraintOrderSection current={p.id} />
     </Show>
   );
 }
@@ -830,6 +841,21 @@ function DocumentInspector() {
       <NumberField label="Origin Y" value={d().originY} onCommit={(v) => apply("setDocument", { originY: v })} />
       <BackgroundField />
       <NumberField label="FPS" value={d().fps} onCommit={(v) => apply("setDocument", { fps: v })} />
+      <label class="field" title="Size (%) the rig's physics gravity and wind and IK softness were made for. They scale with the skeleton's size relative to it, so a rig exported at another size behaves the same. Default 100.">
+        <span>Ref. scale</span>
+        <input
+          type="number"
+          min={1}
+          step={10}
+          value={d().skeleton.referenceScale ?? 100}
+          onChange={(e) => {
+            const v = Number(e.currentTarget.value);
+            if (v > 0) apply("setDocument", { referenceScale: v });
+            else e.currentTarget.value = String(d().skeleton.referenceScale ?? 100);
+          }}
+        />
+        <span class="unit">%</span>
+      </label>
       <div class="hint">
         Select a bone or slot to edit it. Tools: V rotate · T translate · S scale · B create bone. Drop images on the viewport. Ctrl+Z undo.
       </div>
@@ -840,7 +866,14 @@ function DocumentInspector() {
 export function Inspector() {
   return (
     <div class="panel inspector">
-      <Switch fallback={<DocumentInspector />}>
+      <Switch
+        fallback={
+          <>
+            <DocumentInspector />
+            <ConstraintOrderSection />
+          </>
+        }
+      >
         <Match when={selection()?.kind === "bone" && selection()}>{(s) => <BoneInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "slot" && selection()}>
           {(s) => <SlotInspector id={s().id} attachment={(s() as { attachment?: string }).attachment} />}
@@ -1030,5 +1063,86 @@ function DarkColorField(p: { slotId: string; dark?: string; animate: boolean; ke
         </button>
       </Show>
     </label>
+  );
+}
+
+/**
+ * "Only in skins": skins that list this bone or constraint. Anything listed in a skin is active only while a skin
+ * listing it is shown (Spine skin bones / constraints).
+ */
+function SkinMembership(p: { kind: "bones" | "constraints"; id: string }) {
+  const skins = () => doc().skeleton.skins.slice(1);
+  const listed = () => skins().filter((k) => k[p.kind]?.includes(p.id));
+  const what = p.kind === "bones" ? "bone" : "constraint";
+  const toggle = (skin: string, on: boolean) => apply(on ? "addToSkin" : "removeFromSkin", { skin, [p.kind]: [p.id] });
+  return (
+    <div class="field col skin-membership" title={`Listed in a skin, this ${what} is active only while one of its skins is shown${p.kind === "bones" ? " (with the bones below it and their slots)" : ""}.`}>
+      <span>
+        Only in skins{" "}
+        <span class="muted">{listed().length ? (listed().some((k) => k.id === activeSkin()?.id) ? "· active now" : "· inactive now") : "· always active"}</span>
+      </span>
+      <Show when={skins().length} fallback={<span class="muted small">Add a skin (Skins list) to make this {what} skin-only.</span>}>
+        <div class="chips">
+          <For each={skins()}>
+            {(k) => (
+              <label class="chip">
+                <input type="checkbox" checked={!!k[p.kind]?.includes(p.id)} onChange={(e) => toggle(k.id, e.currentTarget.checked)} />
+                {k.name}
+              </label>
+            )}
+          </For>
+        </div>
+      </Show>
+    </div>
+  );
+}
+
+/** Every constraint in the order they are applied each frame, with ↑↓ to reorder. */
+function ConstraintOrderSection(p: { current?: string }) {
+  const list = () => constraintOrder(doc().skeleton);
+  const custom = () => list().some((e) => e.data.order !== undefined);
+  const skinOnly = () => new Set(doc().skeleton.skins.flatMap((k) => k.constraints ?? []));
+  const move = (i: number, by: number) => {
+    const ids = list().map((e) => e.data.id);
+    const j = i + by;
+    if (j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    apply("setConstraintOrder", { constraints: ids });
+  };
+  return (
+    <Show when={list().length > 1 || (p.current === undefined && list().length > 0)}>
+      <Section title="Constraint order">
+        <div class="hint">Applied top to bottom each frame; a constraint sees the results of the ones above it.</div>
+        <div class="constraint-order">
+          <For each={list()}>
+            {(e, i) => (
+              <div class="tree-row" classList={{ selected: e.data.id === p.current }}>
+                <span class="order-index muted">{i() + 1}</span>
+                <span class="icon">{ICONS[e.kind]}</span>
+                <span class="order-name" onClick={() => setSelection({ kind: e.kind, id: e.data.id } as never)}>
+                  {e.data.name}
+                </span>
+                <Show when={skinOnly().has(e.data.id)}>
+                  <span class="muted small" title="Only active in some skins">skin</span>
+                </Show>
+                <span class="order-btns">
+                  <button class="icon-btn" disabled={i() === 0} title="Apply earlier" aria-label={`Move ${e.data.name} up`} onClick={() => move(i(), -1)}>
+                    ↑
+                  </button>
+                  <button class="icon-btn" disabled={i() === list().length - 1} title="Apply later" aria-label={`Move ${e.data.name} down`} onClick={() => move(i(), 1)}>
+                    ↓
+                  </button>
+                </span>
+              </div>
+            )}
+          </For>
+        </div>
+        <Show when={custom()}>
+          <button title="Back to IK, transform, path, physics (each in creation order)" onClick={() => apply("setConstraintOrder", { constraints: [] })}>
+            Reset to default order
+          </button>
+        </Show>
+      </Section>
+    </Show>
   );
 }

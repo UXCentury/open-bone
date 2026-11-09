@@ -10,6 +10,10 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app). Se
 - Compensate (`J`, toolbar ⇲ Comp): transform a bone while its child bones keep their place.
 - Linked meshes (`addLinkedMesh`): share another mesh's geometry and weights with a different image, optionally following its deform keys.
 - Photoshop (`.psd`) import: layers become slots and regions in place; groups can become bones.
+- Skin bones and skin constraints: `SkinData.bones` / `constraints`; anything a skin lists is active only while a skin listing it is set (inactive bones and their children are not posed or drawn, inactive constraints are skipped). Ops `addToSkin`, `removeFromSkin`; Inspector "Only in skins" on bones and constraints.
+- Inherit timeline: `{target: "bone", property: "inherit"}` with stepped `normal | onlyTranslation | noRotation | noScale` keys; keyable from the Inspector's Inherit field in Animate mode.
+- Constraint order: optional `order` on every constraint, applied as one sorted list (default unchanged: IK, transform, path, physics). Op `setConstraintOrder`; Inspector "Constraint order" list with ↑↓.
+- Reference scale: `skeleton.referenceScale` (default 100). Physics gravity and wind and IK softness scale with the skeleton's size relative to it, so a rescaled rig behaves the same. Document inspector "Ref. scale".
 - Two-colour tint: a keyable `dark` slot colour (Canvas2D and WebGL2 renderers; the PixiJS, Phaser, Three.js and CanvasKit runtimes draw the normal tint for now).
 
 ## 0.1.0
