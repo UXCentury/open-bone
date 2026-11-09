@@ -64,6 +64,16 @@ int main(int argc, char** argv) {
     printf("  %-12s %-10s kind=%d verts=%d tris=%d tex=%s%s%s\n", it.slot, it.attachment, (int)it.kind, it.vertex_count, it.index_count / 3,
            it.texture_id ? it.texture_id : "-", it.text ? " text=" : "", it.text ? it.text : "");
   }
+  int slots = ob_instance_slot_count(inst);
+  printf("slots: %d\n", slots);
+  for (int i = 0; i < slots; i++) {
+    ob_slot_info s;
+    if (!ob_instance_slot(inst, i, &s) || ob_instance_find_slot(inst, s.name) != i) {
+      fprintf(stderr, "slot %d: %s\n", i, ob_last_error());
+      return 1;
+    }
+    printf("  %-12s bone=%s attachment=%s alpha=%.2f%s\n", s.name, s.bone, s.attachment ? s.attachment : "-", s.color[3], s.has_dark ? " dark" : "");
+  }
   if (machine) {
     for (int l = 0; l < ob_instance_layer_count(inst); l++) {
       const char *layer, *state;
