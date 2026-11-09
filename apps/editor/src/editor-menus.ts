@@ -52,6 +52,8 @@ import { toast, loadDocument, mode, onionSkin, selection, setSelection, showBone
 
 /** Examples gallery visibility. */
 export const [examplesOpen, setExamplesOpen] = createSignal(false);
+/** About dialog visibility. */
+export const [aboutOpen, setAboutOpen] = createSignal(false);
 
 export async function newProject() {
   if (await confirmDiscard("Starting a new project")) loadDocument(createDocument("Untitled"), "untitled.obone");
@@ -89,6 +91,7 @@ export function mainMenu(): MenuItem[] {
     { label: "Show panel", submenu: panelItems(), disabled: locked },
     "sep",
     { label: "Keyboard shortcuts", shortcut: "help.shortcuts", action: () => setShortcutsOpen(true) },
+    { label: "About OpenBone", action: () => setAboutOpen(true) },
   ];
 }
 

@@ -17,7 +17,9 @@
     "desktop:build": "pnpm --filter @openbone/desktop tauri build",
     "examples": "tsx examples/build-examples.ts",
     "build:player-bundle": "tsx packages/player/src/bundle/build.ts",
-    "icons": "tsx brand/build-icons.ts"
+    "icons": "tsx brand/build-icons.ts",
+    "version:check": "tsx scripts/version.ts check",
+    "version:set": "tsx scripts/version.ts set"
   },
   "devDependencies": {
     "@napi-rs/canvas": "^0.1.100",

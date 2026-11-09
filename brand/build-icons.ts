@@ -51,6 +51,7 @@ const write = (file: string, data: Buffer | string) => {
 console.log("Editor (apps/editor/public):");
 write(path.join(pub, "favicon.svg"), fs.readFileSync(brand("logo-small.svg")));
 write(path.join(pub, "logo-mark.svg"), fs.readFileSync(brand("logo-mark.svg")));
+write(path.join(pub, "logo.svg"), fs.readFileSync(brand("logo.svg")));
 write(path.join(pub, "favicon.ico"), ico(await Promise.all([16, 32, 48].map(async (size) => ({ size, data: await png("logo-small.svg", size) })))));
 write(path.join(pub, "apple-touch-icon.png"), await png("logo-maskable.svg", 180));
 write(path.join(pub, "icon-192.png"), await png("logo.svg", 192));

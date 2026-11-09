@@ -1,7 +1,10 @@
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { type Plugin, defineConfig } from "vite";
 import solid from "vite-plugin-solid";
+import { collectCredits } from "../../scripts/credits.ts";
+import { currentVersion } from "../../scripts/version.ts";
 import { type WebBundleFormat, buildPlayerBundle, buildScriptsAddon, buildWebBundle, quickJsWasmBytes } from "../../packages/player/src/bundle/build.ts";
 
 const EXAMPLES = path.resolve(__dirname, "../../examples");
@@ -107,8 +110,36 @@ function webPlayerBundle(): Plugin {
   };
 }
 
+/** `virtual:openbone-about`: version, git commit, build date and the credits list, for the About dialog. */
+function about(): Plugin {
+  const id = "virtual:openbone-about";
+  const resolved = `\0${id}`;
+  const git = (...args: string[]) => {
+    try {
+      return execFileSync("git", args, { cwd: __dirname, stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+    } catch {
+      return "";
+    }
+  };
+  return {
+    name: "openbone-about",
+    resolveId: (s) => (s === id ? resolved : undefined),
+    load(i) {
+      if (i !== resolved) return;
+      const info = {
+        version: currentVersion(),
+        commit: process.env.OPENBONE_COMMIT ?? git("rev-parse", "--short", "HEAD"),
+        dirty: !process.env.OPENBONE_COMMIT && git("status", "--porcelain", "--untracked-files=no") !== "",
+        buildDate: new Date().toISOString().slice(0, 10),
+        credits: collectCredits(),
+      };
+      return `export default ${JSON.stringify(info)};`;
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [solid(), examples(), playerBundle(), webPlayerBundle()],
+  plugins: [solid(), examples(), playerBundle(), webPlayerBundle(), about()],
   server: { port: Number(process.env.PORT) || 5180, strictPort: false },
   optimizeDeps: { exclude: ["quickjs-emscripten"] },
   build: { target: "es2022", rollupOptions: { input: { editor: path.resolve(__dirname, "index.html"), player: path.resolve(__dirname, "player.html") } } },

@@ -177,6 +177,12 @@ Demos of the knight in each engine: `pnpm --filter @openbone/examples engines`, 
 
 Read [docs/architecture.md](docs/architecture.md) for the design and [docs/format.md](docs/format.md) for the file format.
 
+## Versions and credits
+
+One version covers the whole repo: every package, the editor and the desktop app. `pnpm version:set <major|minor|patch|x.y.z>` updates them all (including the Tauri config and Cargo files), `pnpm version:check` (also a test) fails when they drift, and [CHANGELOG.md](CHANGELOG.md) lists what changed. The editor shows its version, build and the open-source projects it is built with under **☰ Menu → About OpenBone**; a test keeps every dependency's licence permissive.
+
+OpenBone is made by [UXCentury](https://uxcentury.com).
+
 ## Open core
 
 OpenBone (editor, runtime, player, MCP, CLI) is and stays MIT. A hosted **OpenBone Cloud** (accounts, cloud projects, real-time collaboration, hosted MCP, asset CDN) is planned as a separate service that builds on these packages. The editor already talks to storage through one place (`apps/editor/src/storage.ts`) so a cloud backend can slot in without forking.

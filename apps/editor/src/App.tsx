@@ -12,7 +12,8 @@ import { playActive } from "./play.ts";
 import { setupShortcuts, shortcutsOpen } from "./shortcuts/actions.ts";
 import { importFiles } from "./sequence-import.ts";
 import { MenuHost } from "./menu.tsx";
-import { contextItems, examplesOpen } from "./editor-menus.ts";
+import { aboutOpen, contextItems, examplesOpen } from "./editor-menus.ts";
+import { AboutDialog } from "./panels/AboutDialog.tsx";
 import { ExamplesDialog } from "./panels/ExamplesDialog.tsx";
 
 export function App() {
@@ -55,6 +56,9 @@ export function App() {
       <DialogHost />
       <Show when={exportOpen()}>
         <ExportDialog />
+      </Show>
+      <Show when={aboutOpen()}>
+        <AboutDialog />
       </Show>
       <Show when={examplesOpen()}>
         <ExamplesDialog />
