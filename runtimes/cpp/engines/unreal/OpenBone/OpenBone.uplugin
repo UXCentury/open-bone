@@ -1,0 +1,22 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "OpenBone",
+  "Description": "Plays OpenBone skeletal animations and state machines (.obone / .obonb) with the native C++ runtime.",
+  "Category": "Animation",
+  "CreatedBy": "OpenBone contributors",
+  "DocsURL": "https://github.com/UXCentury/open-bone/tree/main/runtimes/cpp",
+  "CanContainContent": false,
+  "Installed": false,
+  "Modules": [
+    {
+      "Name": "OpenBone",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    { "Name": "ProceduralMeshComponent", "Enabled": true }
+  ]
+}

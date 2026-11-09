@@ -1,0 +1,3 @@
+# Prebuilt libopenbone per platform (see OpenBone.Build.cs): <Platform>/include, <Platform>/lib
+*
+!.gitignore

@@ -1,7 +1,8 @@
 // SFML 2.6 sample renderer for OpenBone: plays a document's first state machine (or an animation), forwards the mouse,
 // and draws the draw list as textured triangle arrays. Two-colour tint uses a small GLSL shader when available.
 //
-//   openbone_sfml file.obone [--animation name] [--skin name]
+//   openbone_sfml file.obone [--animation name] [--skin name] [--font file.ttf]
+//   openbone_sfml file.obone --frames 60 --out frame.png      (offscreen sf::RenderTexture, no window)
 //
 // SFML 2 has no stencil buffer access, so clipping masks are not applied; text uses sf::Text when a font is given with
 // --font path.ttf. Screen blending falls back to additive.
@@ -9,6 +10,7 @@
 #include <SFML/Graphics.hpp>
 
 #include <cstdio>
+#include <cstdlib>
 #include <map>
 #include <memory>
 #include <string>
@@ -134,12 +136,15 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "usage: %s file.obone [--animation name] [--skin name] [--font file.ttf]\n", argv[0]);
     return 2;
   }
-  std::string path = argv[1], animation, skin, fontPath;
+  std::string path = argv[1], animation, skin, fontPath, out;
+  int frames = 0;
   for (int i = 2; i + 1 < argc; i += 2) {
     const std::string k = argv[i];
     if (k == "--animation") animation = argv[i + 1];
     else if (k == "--skin") skin = argv[i + 1];
     else if (k == "--font") fontPath = argv[i + 1];
+    else if (k == "--frames") frames = std::atoi(argv[i + 1]);
+    else if (k == "--out") out = argv[i + 1];
   }
   std::shared_ptr<const ob::Document> doc;
   try {
@@ -156,8 +161,6 @@ int main(int argc, char** argv) {
   inst.advance(0);
 
   const unsigned W = doc->width > 0 ? unsigned(doc->width) : 800, H = doc->height > 0 ? unsigned(doc->height) : 600;
-  sf::RenderWindow window(sf::VideoMode(W, H), "OpenBone - " + doc->name);
-  window.setVerticalSyncEnabled(true);
   Textures textures{path, {}};
   sf::Shader shader;
   sf::Shader* darkShader = sf::Shader::isAvailable() && shader.loadFromMemory(DARK_SHADER, sf::Shader::Fragment) ? &shader : nullptr;
@@ -166,6 +169,20 @@ int main(int argc, char** argv) {
   OpenBoneDrawable drawable(inst, textures, darkShader, fontPtr);
   drawable.setPosition(float(doc->originX), float(doc->originY));
 
+  if (!out.empty()) {
+    sf::RenderTexture rt;
+    if (!rt.create(W, H)) return 1;
+    for (int i = 0; i < frames; i++) inst.advance(1.0 / 60);
+    rt.clear(sf::Color(40, 44, 52));
+    rt.draw(drawable);
+    rt.display();
+    const bool ok = rt.getTexture().copyToImage().saveToFile(out);
+    std::printf("%s %d items -> %s\n", ok ? "wrote" : "failed", (int)inst.drawList().items.size(), out.c_str());
+    return ok ? 0 : 1;
+  }
+
+  sf::RenderWindow window(sf::VideoMode(W, H), "OpenBone - " + doc->name);
+  window.setVerticalSyncEnabled(true);
   sf::Clock clock;
   while (window.isOpen()) {
     sf::Event e;
