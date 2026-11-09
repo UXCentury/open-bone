@@ -172,6 +172,9 @@ The web runtimes build on the TypeScript runtime (`OpenBoneInstance` for posing,
 | C++ | [`runtimes/cpp`](runtimes/cpp) | Godot 4, SDL2, SFML, Unreal 5, Cocos2d-x, any | Native port (C++17) passing the conformance suite: rig, state machines, particles, text, audio commands, scripts in embedded QuickJS. Stable C API (`openbone.h`) for Swift/Dart/C# FFI; Godot GDExtension, SDL2/SFML samples, Unreal plugin and Cocos2d-x node |
 | C# | [`OpenBone.Runtime`](runtimes/csharp) | .NET Standard 2.1 / .NET 8 | Native port that passes the [conformance suite](conformance/README.md): rig, constraints, particles, text, state machines, audio commands; scripts in Jint |
 | Unity | [`com.openbone.runtime`](runtimes/csharp/unity/com.openbone.runtime) | Unity 2021.3+ | `.obone`/`.obonb` importer, animation and state-machine components, mesh with blend modes, stencil clipping and two-colour tint, AudioSource bridge (preview: not yet run in the Unity Editor) |
+| Java | [`runtimes/java`](runtimes/java) `openbone-runtime` | any JVM (Java 11+), Android | Full port, no dependencies; scripts in QuickJS (`openbone-scripting`) |
+| libGDX | [`runtimes/java`](runtimes/java) `openbone-gdx` | libGDX 1.14 | Two-colour tint shader, blend modes, stencil clipping; LWJGL3 sample |
+| Android | [`runtimes/java`](runtimes/java) `openbone-android` | Android 7+ (Kotlin) | `OpenBoneView`: touch → listeners, inputs and events as lambdas |
 
 Demos of the knight in each engine: `pnpm --filter @openbone/examples engines`, then http://localhost:5190.
 
@@ -190,6 +193,7 @@ Native runtimes are ports, not wrappers: they implement [docs/runtime-spec.md](d
 | `packages/pixi`, `packages/phaser`, `packages/three`, `packages/canvaskit` | Runtimes for PixiJS v8, Phaser 3, Three.js and CanvasKit, sharing `packages/engine-kit` (loading, playback, render-webgl-identical batching) |
 | `runtimes/cpp` | Native C++17 runtime, C API (`openbone.h`), conformance runner, and Godot / SDL2 / SFML / Unreal / Cocos2d-x integrations |
 | `runtimes/csharp` | C# runtime (`OpenBone.Runtime`), Jint script host, conformance tests and the Unity package |
+| `runtimes/java` | Java runtime, QuickJS script host, libGDX renderer and sample, Kotlin Android view (Gradle), with the conformance suite as JUnit tests |
 | `packages/export` | Export encoders and packagers: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP, sprite sheets, Unity/Godot/Flutter packs and the Flutter/Android/iOS WebView templates |
 | `packages/mcp` | MCP server (stdio + streamable HTTP), render/simulate tools, live WebSocket bridge |
 | `packages/cli` | `openbone` command line |
