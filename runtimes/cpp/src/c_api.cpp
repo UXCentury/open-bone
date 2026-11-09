@@ -398,6 +398,30 @@ int ob_instance_find_bone(const ob_instance* o, const char* name) {
   return -1;
 }
 
+int ob_instance_slot_count(const ob_instance* o) { return o ? (int)o->inst->skeleton->slots.size() : 0; }
+int ob_instance_slot(const ob_instance* o, int i, ob_slot_info* out) {
+  if (!o || !out || i < 0 || i >= (int)o->inst->skeleton->slots.size()) return fail("no such slot");
+  const Slot& s = *o->inst->skeleton->slots[i];
+  *out = ob_slot_info{};
+  out->name = s.data->name.c_str();
+  out->bone = s.bone ? s.bone->data->name.c_str() : nullptr;
+  out->attachment = s.attachmentName ? s.attachmentName->c_str() : nullptr;
+  color4(out->color, s.color);
+  if (s.dark) {
+    out->has_dark = 1;
+    for (int k = 0; k < 3; k++) out->dark[k] = float((*s.dark)[k]);
+  }
+  out->blend = (ob_blend)s.data->blend;
+  return 1;
+}
+int ob_instance_find_slot(const ob_instance* o, const char* name) {
+  if (!o || !name) return -1;
+  const auto& ss = o->inst->skeleton->slots;
+  for (size_t i = 0; i < ss.size(); i++)
+    if (ss[i]->data->name == name || ss[i]->data->id == name) return (int)i;
+  return -1;
+}
+
 int ob_instance_update_draw_list(ob_instance* o) {
   if (!o) return 0;
   o->draw = o->inst->skeleton->drawList();

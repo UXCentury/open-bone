@@ -95,7 +95,7 @@ ob_document_free(doc);
 ```
 
 Also: animation / skin / state machine / input / texture listings on the document, `ob_instance_play` / `queue`,
-`set_bool` / `set_number` / `set_string` / `fire` / `get_input`, `active_state`, `set_text`, `set_transform`, bones,
+`set_bool` / `set_number` / `set_string` / `fire` / `get_input`, `active_state`, `set_text`, `set_transform`, bones, slots,
 clipping masks (`ob_instance_clip`), bounds. [`examples/c/play.c`](examples/c/play.c) is a complete program.
 
 ## Drawing the draw list
