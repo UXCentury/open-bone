@@ -268,6 +268,21 @@ export function documents(): { name: string; doc: OpenBoneDocument; path: string
     applyOp(doc, "setAtlas", { atlas });
     out.push({ name: `atlas-${name}`, doc, path: `conformance/fixtures/atlas-${name}.obone` });
   }
+  // Polygon packing and premultiplied alpha: every packed region of the knight draws an octagon inside its rect.
+  {
+    const doc = deserialize(fs.readFileSync(path.join(root, "examples", "knight.obone"), "utf8"));
+    const atlas = layoutAtlas(doc.images);
+    for (const p of atlas.pages) p.src = "data:,";
+    for (const r of atlas.regions) {
+      const [w, h, x0, y0] = [r.width, r.height, r.offsetX, r.offsetY];
+      const q = Math.min(w, h) * 0.25;
+      r.polygon = [x0 + q, y0, x0 + w - q, y0, x0 + w, y0 + q, x0 + w, y0 + h - q, x0 + w - q, y0 + h, x0 + q, y0 + h, x0, y0 + h - q, x0, y0 + q];
+    }
+    atlas.premultipliedAlpha = true;
+    atlas.polygons = true;
+    applyOp(doc, "setAtlas", { atlas });
+    out.push({ name: "atlas-polygons", doc, path: "conformance/fixtures/atlas-polygons.obone" });
+  }
   return out;
 }
 

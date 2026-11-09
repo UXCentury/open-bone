@@ -1,0 +1,395 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "rigging",
+  "width": 400,
+  "height": 400,
+  "originX": 200,
+  "originY": 300,
+  "background": null,
+  "fps": 30,
+  "images": [
+    {
+      "id": "img_part",
+      "name": "part",
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==",
+      "width": 40,
+      "height": 16
+    }
+  ],
+  "skeleton": {
+    "bones": [
+      {
+        "id": "bone_34kak2b",
+        "name": "root",
+        "parent": null,
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_i6hnj2c",
+        "name": "spine",
+        "parent": "bone_34kak2b",
+        "length": 60,
+        "x": 0,
+        "y": 100,
+        "rotation": 90,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_efs1o2d",
+        "name": "head",
+        "parent": "bone_i6hnj2c",
+        "length": 30,
+        "x": 60,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_xzqt52e",
+        "name": "cape",
+        "parent": "bone_i6hnj2c",
+        "length": 50,
+        "x": 50,
+        "y": 0,
+        "rotation": 180,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_514s92f",
+        "name": "cape-tip",
+        "parent": "bone_xzqt52e",
+        "length": 30,
+        "x": 50,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_8c73v2g",
+        "name": "aim",
+        "parent": "bone_34kak2b",
+        "length": 50,
+        "x": 80,
+        "y": 60,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_vym832h",
+        "name": "copy",
+        "parent": "bone_34kak2b",
+        "length": 30,
+        "x": -80,
+        "y": 150,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot_u2q9p2i",
+        "name": "spine",
+        "bone": "bone_i6hnj2c",
+        "color": "#ffffff",
+        "attachment": "part",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_ud3a42j",
+        "name": "head",
+        "bone": "bone_efs1o2d",
+        "color": "#ffffff",
+        "attachment": "part",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_8258l2k",
+        "name": "cape",
+        "bone": "bone_xzqt52e",
+        "color": "#ffffff",
+        "attachment": "part",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_9y6sl2l",
+        "name": "cape-tip",
+        "bone": "bone_514s92f",
+        "color": "#ffffff",
+        "attachment": "part",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_9vabd2m",
+        "name": "copy",
+        "bone": "bone_vym832h",
+        "color": "#ffffff",
+        "attachment": "part",
+        "blend": "normal"
+      }
+    ],
+    "skins": [
+      {
+        "id": "skin_default",
+        "name": "default",
+        "attachments": {
+          "slot_u2q9p2i": {
+            "part": {
+              "type": "region",
+              "name": "part",
+              "image": "img_part",
+              "x": 20,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 40,
+              "height": 16,
+              "color": "#ffffff"
+            }
+          },
+          "slot_ud3a42j": {
+            "part": {
+              "type": "region",
+              "name": "part",
+              "image": "img_part",
+              "x": 20,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 40,
+              "height": 16,
+              "color": "#ffffff"
+            }
+          },
+          "slot_8258l2k": {
+            "part": {
+              "type": "region",
+              "name": "part",
+              "image": "img_part",
+              "x": 20,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 40,
+              "height": 16,
+              "color": "#ffffff"
+            }
+          },
+          "slot_9y6sl2l": {
+            "part": {
+              "type": "region",
+              "name": "part",
+              "image": "img_part",
+              "x": 20,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 40,
+              "height": 16,
+              "color": "#ffffff"
+            }
+          },
+          "slot_9vabd2m": {
+            "part": {
+              "type": "region",
+              "name": "part",
+              "image": "img_part",
+              "x": 20,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 40,
+              "height": 16,
+              "color": "#ffffff"
+            }
+          }
+        }
+      },
+      {
+        "id": "skin_aot0i2q",
+        "name": "hero",
+        "attachments": {},
+        "bones": [
+          "bone_xzqt52e"
+        ],
+        "constraints": [
+          "ik_d8tdm2n",
+          "phys_q3r242o"
+        ]
+      }
+    ],
+    "ik": [
+      {
+        "id": "ik_d8tdm2n",
+        "name": "cape-reach",
+        "bones": [
+          "bone_xzqt52e",
+          "bone_514s92f"
+        ],
+        "target": "bone_8c73v2g",
+        "mix": 1,
+        "bendPositive": true,
+        "softness": 20,
+        "stretch": false,
+        "compress": false,
+        "order": 1
+      }
+    ],
+    "transform": [
+      {
+        "id": "tc_0xw2k2p",
+        "name": "follow-head",
+        "bones": [
+          "bone_vym832h"
+        ],
+        "target": "bone_efs1o2d",
+        "mixRotate": 1,
+        "mixTranslate": 0.5,
+        "mixScale": 0,
+        "mixShear": 0,
+        "offsetRotation": 0,
+        "offsetX": 0,
+        "offsetY": 0,
+        "offsetScaleX": 0,
+        "offsetScaleY": 0,
+        "offsetShear": 0,
+        "local": false,
+        "relative": false,
+        "order": 0
+      }
+    ],
+    "path": [],
+    "physics": [
+      {
+        "id": "phys_q3r242o",
+        "name": "tip-sway",
+        "bone": "bone_514s92f",
+        "x": 0,
+        "y": 0,
+        "rotate": 1,
+        "scaleX": 0,
+        "inertia": 0.8,
+        "strength": 60,
+        "damping": 6,
+        "mass": 1,
+        "gravity": 60,
+        "wind": 20,
+        "mix": 1,
+        "fps": 60,
+        "order": 2
+      }
+    ],
+    "referenceScale": 50
+  },
+  "events": [],
+  "animations": [
+    {
+      "id": "anim_bx5862r",
+      "name": "turn",
+      "duration": 0,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_i6hnj2c",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 90,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": 150,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 90,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_efs1o2d",
+          "property": "inherit",
+          "keys": [
+            {
+              "time": 0,
+              "value": "normal",
+              "curve": "stepped"
+            },
+            {
+              "time": 0.5,
+              "value": "noRotation",
+              "curve": "stepped"
+            },
+            {
+              "time": 1.5,
+              "value": "onlyTranslation",
+              "curve": "stepped"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_8c73v2g",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 60,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 160,
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    }
+  ],
+  "stateMachines": [],
+  "scripts": []
+}

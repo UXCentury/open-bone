@@ -48,5 +48,7 @@ Numbers are rounded to 4 decimals and `-0` is written as `0`; round the same way
 | `meshes` | weighted mesh with deform keys, a linked mesh in another skin that follows them, an ellipse clipping mask, a path constraint (chain rotate mode) with a keyed position, two-colour tint |
 | `dynamics` | physics chain (inertia, strength, damping, gravity, wind) driven by a moving root, a bone-driven slider, a ping-pong sequence, a seeded particle emitter, a text template |
 | `interactive` | a state machine with number / trigger / bool / number / string inputs, a blend1d state, any-state transition, exit time, a pointer listener on a hit box (fire trigger + report event), an input binding, an event that plays a sound, and a script that counts clicks into a text template |
+| `rigging` | skin bones and a skin IK + physics that exist only in the `hero` skin, inherit-mode keys, a custom constraint order (transform before IK), reference scale 50 |
 | `example-*` | every project in `examples/`, all animations and state machines |
+| `atlas-polygons` | the knight packed with an octagon polygon per region (polygon packing) and premultiplied alpha |
 | `atlas-knight`, `atlas-walker` | the knight and walker packed into a texture atlas: uv remapping, trimmed regions, one shared page |

@@ -165,4 +165,34 @@ function interactive(): OpenBoneDocument {
   return s.doc;
 }
 
-export const FIXTURES: Record<string, () => OpenBoneDocument> = { transforms, constraints, meshes, dynamics, interactive };
+/** Skin bones and skin constraints, inherit-mode keys, a custom constraint order, and a reference scale. */
+function rigging(): OpenBoneDocument {
+  const s = store("rigging");
+  image(s, "part", 40, 16);
+  s.apply("setDocument", { referenceScale: 50 });
+  s.apply("addBone", { name: "spine", y: 100, rotation: 90, length: 60 });
+  s.apply("addBone", { name: "head", parent: "spine", x: 60, length: 30 });
+  s.apply("addBone", { name: "cape", parent: "spine", x: 50, rotation: 180, length: 50 });
+  s.apply("addBone", { name: "cape-tip", parent: "cape", x: 50, length: 30 });
+  s.apply("addBone", { name: "aim", x: 80, y: 60 });
+  s.apply("addBone", { name: "copy", x: -80, y: 150, length: 30 });
+  for (const b of ["spine", "head", "cape", "cape-tip", "copy"]) {
+    s.apply("addSlot", { name: b, bone: b });
+    s.apply("addRegion", { slot: b, image: "part", x: 20 });
+  }
+  // The cape (and its chain) only exists in the "hero" skin, with an IK and physics that only run there.
+  s.apply("addIkConstraint", { name: "cape-reach", bones: ["cape", "cape-tip"], target: "aim", softness: 20 });
+  s.apply("addPhysicsConstraint", { name: "tip-sway", bone: "cape-tip", rotate: 1, gravity: 60, wind: 20, strength: 60 });
+  s.apply("addTransformConstraint", { name: "follow-head", bones: ["copy"], target: "head", mixRotate: 1, mixTranslate: 0.5 });
+  s.apply("addSkin", { name: "hero" });
+  s.apply("addToSkin", { skin: "hero", bones: ["cape"], constraints: ["cape-reach", "tip-sway"] });
+  // Transform before IK (the default would be IK first).
+  s.apply("setConstraintOrder", { constraints: ["follow-head", "cape-reach", "tip-sway"] });
+  s.apply("createAnimation", { name: "turn" });
+  s.apply("setKeys", { animation: "turn", target: "bone", id: "spine", property: "rotation", keys: [{ time: 0, value: 90 }, { time: 1, value: 150 }, { time: 2, value: 90 }] });
+  s.apply("setKeys", { animation: "turn", target: "bone", id: "head", property: "inherit", keys: [{ time: 0, value: "normal" }, { time: 0.5, value: "noRotation" }, { time: 1.5, value: "onlyTranslation" }] });
+  s.apply("setKeys", { animation: "turn", target: "bone", id: "aim", property: "y", keys: [{ time: 0, value: 60 }, { time: 2, value: 160 }] });
+  return s.doc;
+}
+
+export const FIXTURES: Record<string, () => OpenBoneDocument> = { transforms, constraints, meshes, dynamics, interactive, rigging };
