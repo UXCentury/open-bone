@@ -4,6 +4,10 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app). Se
 
 ## Unreleased
 
+- Texture atlas: **premultiplied alpha** (pages stored as rgb × a, recorded as `atlas.premultipliedAlpha`; render-webgl, Pixi, Three.js, CanvasKit and Phaser upload them as they are with the matching blend, Canvas2D converts them back), **whitespace stripping** (each image packed by its visible bounds; meshes keep what their uvs cover, particle images stay whole) and **polygon packing** (region attachments draw a tight convex outline, `region.polygon`, instead of the full quad). In the Export dialog's Texture atlas settings, `pack_atlas` / `export_file` and the `setAtlas` op. One packing path (`buildAtlas` in render-canvas) for the editor, MCP server and CLI.
+- **Live art reloading**: ☰ Menu → *Watch art for changes* watches the folders the project's images and sounds come from (desktop, via tauri-plugin-fs), or a folder picked with *Watch folder…* (web: File System Access API, checked while the editor tab is in front). Changed files replace the art in place, sizes included (region attachments scale with their image), with a toast and no undo steps. New op `updateImage`; `DocumentStore.applyQuiet` applies an op without an undo step.
+- **CLI batch export**: `openbone export <files or globs> --format json|obonb|atlas|png|jpeg|gif|apng|psd|avi|mov|spritesheet|web --out <dir>` with `--animation`, `--skin`, `--scale`, `--fps` and the atlas options. It runs the same `exportFile` code as the MCP `export_file` tool. New `atlas` format: runtime JSON plus its atlas pages as PNG files in a ZIP.
+
 - About dialog (☰ Menu → About OpenBone): version, build, credits for the open-source tools OpenBone is built with.
 - `pnpm version:set` / `pnpm version:check` keep every package, the Tauri app and the desktop crate on one version.
 - Dopesheet: multi-key selection (Shift/Ctrl-click, Shift-drag box, Ctrl/⌘+A), drag and arrow-key nudge of the selection, copy / cut / paste at the playhead (across animations), scale in time, curve and delete for all selected keys. New ops `transformKeys`, `pasteKeys`, `deleteKeys` (also MCP tools).

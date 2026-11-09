@@ -1,6 +1,7 @@
 import { type Image, createCanvas, loadImage } from "@napi-rs/canvas";
-import { type AtlasData, type AtlasLayoutOptions, type OpenBoneDocument, atlasRegion, layoutAtlas, layoutAtlasFit, textureAssets } from "@openbone/core";
-import { CanvasRenderer, type Ctx2D, drawAtlasPage, drawRegionFromPage } from "@openbone/render-canvas";
+import { type AtlasData, type OpenBoneDocument, textureAssets } from "@openbone/core";
+import { encodePng } from "@openbone/export";
+import { type AtlasCanvas, type BuildAtlasOptions, CanvasRenderer, type Ctx2D, buildAtlas } from "@openbone/render-canvas";
 import { OpenBoneInstance, type ScriptHost } from "@openbone/runtime";
 // @ts-expect-error gifenc ships without types (CommonJS)
 import gifenc from "gifenc";
@@ -188,47 +189,21 @@ export async function renderGif(
 }
 
 /**
- * Lay out every image of `doc` on atlas pages and compose the page PNGs (as data: URIs). Images that already
- * live only in an atlas are cut back out of their page. The result is ready for the `setAtlas` op.
+ * Lay out every image of `doc` on atlas pages and compose the page PNGs (as data: URIs), with the same code the
+ * editor uses (`buildAtlas`). Images that already live only in an atlas are cut back out of their page. The result
+ * is ready for the `setAtlas` op.
  */
-export async function packAtlas(
-  session: Pick<ProjectSession, "readImageSrc">,
-  doc: OpenBoneDocument,
-  opts: AtlasLayoutOptions & { autoScale?: boolean; minScale?: number } = {},
-): Promise<AtlasData> {
-  const loaded = await loadImages(session, doc);
-  const sources = new Map<string, unknown>();
-  for (const img of doc.images) {
-    if (img.src) {
-      const el = loaded.get(img.id);
-      if (!el) throw new Error(`Could not load image "${img.name}" (${img.src.slice(0, 60)})`);
-      sources.set(img.id, el);
-      continue;
-    }
-    const hit = atlasRegion(doc, img.id);
-    const page = hit && loaded.get(hit.page.id);
-    if (!hit || !page) throw new Error(`Image "${img.name}" has no pixels`);
-    const { region: r } = hit;
-    const c = createCanvas(r.originalWidth, r.originalHeight);
-    drawRegionFromPage(c.getContext("2d") as unknown as Ctx2D, page as unknown as CanvasImageSource, r);
-    sources.set(img.id, c);
-  }
-  // Images a particle emitter draws as its look render from a plain page rect: never rotate those.
-  const noRotate = new Set<string>(opts.noRotate ?? []);
-  for (const skin of doc.skeleton.skins)
-    for (const atts of Object.values(skin.attachments)) for (const a of Object.values(atts)) if (a.type === "particles" && a.image) noRotate.add(a.image);
-  // Packed images were cut out at their stored size: lay out from that.
-  const sized = doc.images.map((img) => {
-    const hit = !img.src ? atlasRegion(doc, img.id) : null;
-    return hit ? { id: img.id, width: hit.region.originalWidth, height: hit.region.originalHeight } : img;
+export async function packAtlas(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument, opts: BuildAtlasOptions = {}): Promise<AtlasData> {
+  const { atlas } = await buildAtlas(doc, opts, {
+    createCanvas: (w, h) => createCanvas(w, h) as unknown as AtlasCanvas,
+    load: async (src, name) => {
+      try {
+        return (await loadImage(await session.readImageSrc(src))) as unknown as CanvasImageSource;
+      } catch {
+        throw new Error(`Could not load image "${name}" (${src.slice(0, 60)})`);
+      }
+    },
+    encodePng: (data, width, height) => encodePng({ width, height, data }),
   });
-  const layout = { ...opts, noRotate };
-  const atlas = opts.autoScale ? layoutAtlasFit(sized, layout).atlas : layoutAtlas(sized, layout);
-  for (const page of atlas.pages) {
-    const c = createCanvas(page.width, page.height);
-    const missing = drawAtlasPage(c.getContext("2d") as unknown as Ctx2D, atlas, page.id, (id) => sources.get(id) as CanvasImageSource);
-    if (missing.length) throw new Error(`Missing image pixels: ${missing.join(", ")}`);
-    page.src = `data:image/png;base64,${c.toBuffer("image/png").toString("base64")}`;
-  }
   return atlas;
 }

@@ -27,7 +27,7 @@
 - **Sprite sequences**: frame-by-frame animation from numbered image files (After Effects / render output, sorted naturally), sprite sheets cut by a grid or read from TexturePacker / Aseprite JSON (hash or array, trimmed frames), or a ZIP of frames. Own fps, loop / once / ping-pong / hold-last, start offset; driven by animation or state time, by frame keys, or by a number input. Works with skins, clipping, draw order and the atlas.
 - **Particle emitters** on any slot: rate and bursts, point/circle/box/cone shapes, world or local space, lifetime, speed, gravity, drag, size, rotation and colour-over-life ranges, soft circle / square / spark streak / image looks, blend modes, and presets (fire, smoke, sparks, confetti, exhaust, coins). Seeded and deterministic, so the editor preview and image/video exports show the same particles; emitting and rate are keyable, and state machines can start, stop or burst them.
 - **Text attachments** (font, size, weight, colour, alignment, outline) whose content can be a live template bound to inputs.
-- **Texture atlas packing** (MaxRects): fewer GPU draw calls and single-file exports; optional **rotation** (images turn 90° when that packs tighter) and **scaling** (store images at 75/50/25%, or *Auto* to shrink just enough to fit one page).
+- **Texture atlas packing** (MaxRects): fewer GPU draw calls and single-file exports; optional **rotation** (images turn 90° when that packs tighter) and **scaling** (store images at 75/50/25%, or *Auto* to shrink just enough to fit one page), **whitespace stripping** (only each image's visible pixels are packed), **polygon outlines** (regions draw a tight outline instead of the full rectangle, so less transparent area is filled) and **premultiplied alpha** pages (every runtime switches to the matching blend).
 
 ### Animation
 - Per-property timelines: bone rotate/translate/scale/shear, slot colour and attachment, IK/transform/path/physics constraint values, mesh and path deform, sequence frame, particle emitting and rate, draw order.
@@ -60,6 +60,7 @@
 - **Skeleton tree** with parent/child guide lines, collapsible bones and slots (Alt-click: a whole branch), **search** (matches shown with their parents; Enter selects the first) and auto-scroll to whatever you select in the viewport.
 - **Viewport aids**: checkerboard (transparent backgrounds supported), origin lines, red/green **move arrows** on the selected bone (axis-locked dragging), grid, rulers, draggable guides (saved per project) and **smart snapping** to the artboard centre/edges/origin, guides, grid, other bone joints and mesh vertices (hold Ctrl/⌘ to bypass).
 - **Dockable workspace**: resize panels, drag panel tabs to any side or group them, split a dock in two (drop a tab on its lower or right part; Layout → "Preview under the Inspector"), collapse sections; the layout is remembered and can be reset. File commands, Examples (a gallery with live previews) and Layout live under the ☰ Menu button, and right-click opens editor context menus (bone and slot actions, tools, view toggles).
+- **Live art reloading**: ☰ Menu → *Watch art for changes*. Save a PNG or WAV in your paint or audio app and the editor picks it up (new size included) without undo steps. Desktop watches the folders the project's art comes from; on the web pick a folder with *Watch folder…* (Chrome/Edge), checked while the editor tab is in front.
 - **Play mode** (▶ Play, `P`): run the result in the editor exactly as shipped, with a floating panel to toggle inputs, fire triggers and watch events, state changes and script logs; pick the state machine or animation, skin and speed, fit or 1:1, full window. Stop returns to the exact editing state.
 - **Keyboard shortcuts** that use ⌘ on macOS and Ctrl on Windows/Linux, with a searchable reference (`?`) where every key can be rebound (conflict-checked, saved per browser).
 - **Preview** panel (plays an animation or runs a state machine live, clickable, while you edit), **Outline** minimap (click to move the view) and **Stats** (bones, vertices, vertex transforms, triangles, clipping, estimated draw calls).
@@ -78,7 +79,7 @@
 - Renderer-agnostic TypeScript runtime with **WebGL2** (batched) and **Canvas2D** renderers, and runtimes for **PixiJS**, **Phaser**, **Three.js** and **CanvasKit** (see [Runtimes](#runtimes)).
 - **`<openbone-player>`** web component and a `Player` class (loads `.obone`, `.json` and `.obonb`).
 - **MCP server** (120 tools; every editing op becomes a tool automatically) covering everything the editor does: render/simulate, every export format, trace mesh, lip sync, the Pose tool, weight clean-up and stats, plus a live WebSocket bridge to the editor.
-- **CLI**: validate, summarize, render PNG/GIF, simulate state machines, apply any op.
+- **CLI**: validate, summarize, render PNG/GIF, simulate state machines, apply any op, and **batch export** many files to any format with the same code as the editor and the MCP server.
 - **Desktop app** (Tauri 2) with native file dialogs.
 
 Everything in this repository is **MIT** and built only on permissively licensed open-source dependencies.
@@ -119,7 +120,17 @@ pnpm cli render examples/walker.obone --animation walk --time 0.25 --out walk.pn
 pnpm cli simulate examples/walker.obone --steps '[{"setInputs":{"speed":1},"advance":1},{"fire":["jump"],"advance":1}]'
 ```
 
-`pnpm cli` with no arguments lists every command (validate, summary, render, gif, simulate, apply, ops, mcp).
+Batch export every example as runtime JSON plus atlas pages (premultiplied, trimmed, polygon outlines), and as videos:
+
+```bash
+pnpm cli export 'examples/*.obone' --format atlas --out build/atlas --strip-whitespace --polygons --premultiplied
+```
+
+```bash
+pnpm cli export 'examples/**/*.obone' --format mov --out build/video --animation walk --scale 0.5 --fps 30
+```
+
+Formats: `json`, `obonb`, `atlas`, `png`, `jpeg`, `gif`, `apng`, `psd`, `avi`, `mov`, `spritesheet`, `web`. Globs (`*`, `**`, `?`, `[ab]`, `{a,b}`) are expanded by the CLI, so quote them. `pnpm cli` with no arguments lists every command and option (validate, summary, render, gif, simulate, export, apply, ops, mcp).
 
 ### Desktop
 

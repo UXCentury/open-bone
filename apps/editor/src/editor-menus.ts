@@ -3,6 +3,7 @@ import { confirmDiscard } from "./destructive.ts";
 import { createSignal } from "solid-js";
 import { bridgeStatus } from "./bridge.ts";
 import { saveProjectToFolder } from "./storage.ts";
+import { toggleWatching, watchFolder, watchedFolders, watching } from "./watch.ts";
 import { toggleViewAid, viewAids } from "./guides.ts";
 import { PANELS, type PanelId, movePanel, resetLayout, showPanel, swapSides, whereIs } from "./layout.ts";
 import type { MenuItem } from "./menu.tsx";
@@ -76,6 +77,12 @@ const layoutItems = (): MenuItem[] => [
 
 const panelItems = (): MenuItem[] => (Object.keys(PANELS) as PanelId[]).map((id) => ({ label: PANELS[id].title, action: () => showPanel(id) }));
 
+/** Folder names (last path part), shortened for a menu label. */
+const shortList = (paths: string[]) => {
+  const s = paths.map((p) => p.split(/[\\/]/).filter(Boolean).pop() ?? p).join(", ");
+  return s.length > 40 ? `${s.slice(0, 39)}…` : s;
+};
+
 /** The toolbar's Menu button. */
 export function mainMenu(): MenuItem[] {
   const locked = playActive();
@@ -87,6 +94,9 @@ export function mainMenu(): MenuItem[] {
     { label: "Save to folder…", action: () => void saveProjectToFolder().catch((e) => toast((e as Error).message, "error")) },
     { label: "Export…", shortcut: "file.export", disabled: locked },
     { label: "Import from project…", action: () => void importFromProject(), disabled: locked },
+    "sep",
+    { label: watching() ? `Watch art for changes (${shortList(watchedFolders())})` : "Watch art for changes", checked: watching(), action: () => void toggleWatching().catch((e) => toast((e as Error).message, "error")) },
+    { label: "Watch folder…", action: () => void watchFolder().catch((e) => toast((e as Error).message, "error")) },
     "sep",
     { label: "Examples…", action: () => setExamplesOpen(true), disabled: locked },
     "sep",

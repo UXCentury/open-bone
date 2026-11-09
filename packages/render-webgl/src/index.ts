@@ -1,3 +1,4 @@
+import { type OpenBoneDocument, premultipliedTextures } from "@openbone/core";
 import { type ClipRegion, type DrawItem, PARTICLE_DOT_SIZE, PARTICLE_DOT_TEXTURE, type Skeleton, type TextContext, type TextDraw, cssFont, drawTextBox, particleDotAlpha } from "@openbone/runtime";
 
 /** One rasterised text item: re-drawn only when its content, style or pixel scale changes. */
@@ -42,6 +43,11 @@ export class WebGLRenderer {
   private ibo: WebGLBuffer;
   private uView: WebGLUniformLocation;
   private textures = new Map<string, WebGLTexture>();
+  /** Ids of textures stored premultiplied (from the rendered document's atlas): uploaded as they are. */
+  private pma = new Set<string>();
+  private pmaDoc: OpenBoneDocument | null = null;
+  /** Whether each cached texture was uploaded as premultiplied data (re-uploaded when that changes). */
+  private texPma = new Map<string, boolean>();
   private white: WebGLTexture;
   private verts = new Float32Array(STRIDE * 16384);
   private idx = new Uint16Array(6 * 16384);
@@ -87,15 +93,19 @@ export class WebGLRenderer {
   }
 
   private texture(id: string): WebGLTexture | null {
+    const pma = this.pma.has(id);
     let t = this.textures.get(id);
-    if (t) return t;
+    if (t && (id === PARTICLE_DOT_TEXTURE || this.texPma.get(id) === pma)) return t;
+    if (t) this.invalidate(id);
     if (id === PARTICLE_DOT_TEXTURE) return this.dotTexture();
     const src = this.images(id);
     if (!src) return null;
     const gl = this.gl;
     t = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    // Straight-alpha images are premultiplied on upload; premultiplied atlas pages already are.
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !pma);
+    this.texPma.set(id, pma);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -133,14 +143,20 @@ export class WebGLRenderer {
       const t = this.textures.get(id);
       if (t) this.gl.deleteTexture(t);
       this.textures.delete(id);
+      this.texPma.delete(id);
     } else {
       for (const t of this.textures.values()) this.gl.deleteTexture(t);
       this.textures.clear();
+      this.texPma.clear();
     }
   }
 
   render(sk: Skeleton, view = { x: 0, y: 0, zoom: 1 }, clearColor: [number, number, number, number] | null = [0, 0, 0, 0]) {
     const gl = this.gl;
+    if (this.pmaDoc !== sk.doc) {
+      this.pmaDoc = sk.doc;
+      this.pma = premultipliedTextures(sk.doc);
+    }
     const w = gl.drawingBufferWidth;
     const h = gl.drawingBufferHeight;
     gl.viewport(0, 0, w, h);

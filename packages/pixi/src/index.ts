@@ -1,4 +1,4 @@
-import type { OpenBoneDocument } from "@openbone/core";
+import { type OpenBoneDocument, premultipliedTextures } from "@openbone/core";
 import {
   type Batch,
   type DriverOptions,
@@ -47,7 +47,10 @@ export async function loadOpenBone(src: OpenBoneSource, opts: LoadOptions = {}):
   const { doc, baseUrl } = await loadDocument(src, opts);
   const images = await loadTextures(doc, baseUrl, { resolveImageUrl: opts.resolveImageUrl });
   const textures = new Map<string, Texture>();
-  for (const [id, img] of images) textures.set(id, new Texture({ source: new ImageSource({ resource: img }) }));
+  // Premultiplied atlas pages are uploaded as they are; straight-alpha images are premultiplied on upload.
+  const pma = premultipliedTextures(doc);
+  for (const [id, img] of images)
+    textures.set(id, new Texture({ source: new ImageSource({ resource: img, alphaMode: pma.has(id) ? "premultiplied-alpha" : "premultiply-alpha-on-upload" }) }));
   return { doc, baseUrl, textures };
 }
 

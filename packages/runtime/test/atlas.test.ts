@@ -88,3 +88,42 @@ describe("atlas uv remapping in the draw list", () => {
     expect(Array.from(b.uvs).every((u) => u >= 0 && u <= 1)).toBe(true);
   });
 });
+
+describe("polygon packing", () => {
+  it("draws a packed region as its outline polygon, on the same quad", () => {
+    const s = project();
+    const [full] = new Skeleton(s.doc).drawList();
+    // Image a is 40x20; outline: a diamond touching the middle of each side, packed trimmed to x 4..36.
+    s.apply("setAtlas", {
+      atlas: {
+        pages: [page],
+        regions: [{ image: "a", page: "pg", x: 2, y: 2, width: 32, height: 20, offsetX: 4, offsetY: 0, polygon: [20, 0, 36, 10, 20, 20, 4, 10] }],
+      },
+    });
+    const [it] = new Skeleton(s.doc).drawList();
+    expect(it.vertices.length).toBe(8);
+    expect(Array.from(it.indices)).toEqual([0, 1, 2, 0, 2, 3]);
+    // Point (u, v) of the image lands where the full quad puts it.
+    const q = full.vertices;
+    const at = (u: number, v: number) => [q[0] + (q[2] - q[0]) * u + (q[6] - q[0]) * v, q[1] + (q[3] - q[1]) * u + (q[7] - q[1]) * v];
+    const expected = [at(0.5, 0), at(0.9, 0.5), at(0.5, 1), at(0.1, 0.5)].flat();
+    for (let i = 0; i < 8; i++) expect(it.vertices[i]).toBeCloseTo(expected[i], 4);
+    // uvs: image pixel (x, y) sits at page (2 + x - 4, 2 + y).
+    const pageUv = [2 + 16, 2, 2 + 32, 2 + 10, 2 + 16, 2 + 20, 2, 2 + 10].map((n) => n / 128);
+    for (let i = 0; i < 8; i++) expect(it.uvs[i]).toBeCloseTo(pageUv[i], 5);
+  });
+
+  it("refuses a polygon outside the packed rect", () => {
+    const s = project();
+    expect(() =>
+      s.apply("setAtlas", { atlas: { pages: [page], regions: [{ image: "a", page: "pg", x: 2, y: 2, width: 32, height: 20, offsetX: 4, polygon: [0, 0, 36, 10, 20, 20] }] } }),
+    ).toThrow(/outside the packed rect/);
+  });
+
+  it("records premultiplied alpha in the atlas", () => {
+    const s = project();
+    s.apply("setAtlas", { atlas: { pages: [page], regions: [{ image: "a", page: "pg", x: 2, y: 2, width: 40, height: 20 }], premultipliedAlpha: true } });
+    expect(s.doc.atlas!.premultipliedAlpha).toBe(true);
+    expect(layoutAtlas([{ id: "img_a", width: 40, height: 20 }], { premultipliedAlpha: true }).premultipliedAlpha).toBe(true);
+  });
+});

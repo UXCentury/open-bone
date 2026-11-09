@@ -7,6 +7,8 @@ export interface ChangeEvent {
   ops: OpCall[];
   /** Origin tag, so a live bridge doesn't echo its own changes back. */
   origin?: string;
+  /** Applied without an undo step (applyQuiet). */
+  quiet?: boolean;
 }
 
 /** One undo or redo step: the document before (undo) or after (redo) it, and what it did. */
@@ -67,6 +69,34 @@ export class DocumentStore {
     }
     this.pushHistory(before, op);
     this.emit({ kind: "op", ops: [{ op, args: r.args }], origin });
+    return r.result;
+  }
+
+  /**
+   * Apply an op without an undo step (e.g. art reloaded from disk). The same op is applied to every undo/redo
+   * snapshot where it applies, so undoing other edits never brings the old state back.
+   */
+  applyQuiet(op: string, args: unknown = {}, origin?: string): unknown {
+    if (this.txn) throw new Error("applyQuiet inside a transaction");
+    const before = cloneDocument(this.doc);
+    let r: ReturnType<typeof applyOp>;
+    try {
+      r = applyOp(this.doc, op, args);
+    } catch (e) {
+      this.doc = before;
+      throw e;
+    }
+    for (const stack of [this.past, this.future])
+      for (const entry of stack) {
+        const d = cloneDocument(entry.doc);
+        try {
+          applyOp(d, op, args);
+          entry.doc = d;
+        } catch {
+          /* not applicable to that snapshot (e.g. the image did not exist yet) */
+        }
+      }
+    this.emit({ kind: "op", ops: [{ op, args: r.args }], origin, quiet: true });
     return r.result;
   }
 

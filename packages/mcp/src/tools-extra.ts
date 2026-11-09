@@ -1,38 +1,11 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createCanvas, loadImage } from "@napi-rs/canvas";
-import {
-  type MouthShape,
-  type OpenBoneDocument,
-  animationDuration,
-  exportDocument,
-  guessMouthMapping,
-  lipSync,
-  serialize,
-  serializeBinary,
-  slotAttachments,
-  traceMesh,
-} from "@openbone/core";
-import {
-  type Frame,
-  type SheetEngine,
-  buildSpriteSheets,
-  createZip,
-  encodeApng,
-  encodeAviMjpeg,
-  encodeGif,
-  encodeMovMjpeg,
-  encodePng,
-  encodePsd,
-  enginePackZip,
-  webPackZip,
-  webIndexHtml,
-} from "@openbone/export";
-import { CanvasRenderer, type Ctx2D } from "@openbone/render-canvas";
+import { type MouthShape, guessMouthMapping, lipSync, slotAttachments, traceMesh } from "@openbone/core";
 import { OpenBoneInstance, type ScriptHost, Skeleton, applyAnimation, poseChainFrom, solvePose } from "@openbone/runtime";
 import { z } from "zod";
-import { loadImages, useSkin } from "./render.ts";
+import { EXPORT_FORMATS, assetBytes, exportBaseName, exportFile } from "./export.ts";
 import type { ProjectSession } from "./session.ts";
 
 /**
@@ -42,96 +15,6 @@ import type { ProjectSession } from "./session.ts";
 
 const text = (v: unknown) => ({ content: [{ type: "text" as const, text: typeof v === "string" ? v : JSON.stringify(v, null, 1) }] });
 const fail = (e: unknown) => ({ isError: true, content: [{ type: "text" as const, text: `Error: ${(e as Error).message}` }] });
-
-type Step = { advance?: number; setInputs?: Record<string, boolean | number | string>; fire?: string[]; pointer?: { type: "down" | "up" | "move"; x: number; y: number } };
-
-/** Render frames of an animation or a state machine run (RGBA, artboard size × scale). */
-async function renderFrames(
-  session: ProjectSession,
-  req: { animation?: string; stateMachine?: string; steps?: Step[]; skin?: string; duration?: number; fps: number; scale: number; background: string | null },
-  scriptHost?: ScriptHost,
-): Promise<Frame[]> {
-  const doc = session.doc;
-  const images = await loadImages(session, doc);
-  const w = Math.max(1, Math.round(doc.width * req.scale));
-  const h = Math.max(1, Math.round(doc.height * req.scale));
-  const canvas = createCanvas(w, h);
-  const ctx = canvas.getContext("2d") as unknown as Ctx2D;
-  const renderer = new CanvasRenderer(ctx, (id) => images.get(id) as unknown as CanvasImageSource);
-  const inst = new OpenBoneInstance(doc, { scriptHost });
-  useSkin(inst, req.skin);
-  const sm = req.stateMachine !== undefined || req.steps ? inst.useStateMachine(req.stateMachine || undefined) : null;
-  let duration = req.duration;
-  if (!sm) {
-    const anim = doc.animations.find((a) => a.name === req.animation || a.id === req.animation) ?? doc.animations[0];
-    if (!anim) throw new Error("No animation to render");
-    inst.animationState.setAnimation(0, anim.name, true, 0);
-    duration ??= Math.max(animationDuration(anim), 1 / req.fps);
-  }
-  duration ??= 2;
-  const schedule: { at: number; step: Step }[] = [];
-  let acc = 0;
-  for (const s of req.steps ?? []) {
-    schedule.push({ at: acc, step: s });
-    acc += s.advance ?? 0;
-  }
-  const frames: Frame[] = [];
-  const count = Math.max(1, Math.round(duration * req.fps));
-  let t = 0;
-  for (let f = 0; f < count; f++) {
-    if (sm)
-      while (schedule.length && schedule[0].at <= t + 1e-9) {
-        const { step } = schedule.shift()!;
-        for (const [k, v] of Object.entries(step.setInputs ?? {})) sm.setInput(k, v);
-        for (const n of step.fire ?? []) sm.fire(n);
-        if (step.pointer) sm.pointer(step.pointer.type, ...inst.artboardToSkeleton(step.pointer.x, step.pointer.y));
-      }
-    inst.advance(f === 0 ? 0 : 1 / req.fps);
-    if (f) t += 1 / req.fps;
-    ctx.clearRect(0, 0, w, h);
-    renderer.render(inst.skeleton, { view: { x: 0, y: 0, zoom: req.scale }, bones: false, background: req.background });
-    frames.push({ width: w, height: h, data: new Uint8ClampedArray(ctx.getImageData(0, 0, w, h).data) });
-  }
-  return frames;
-}
-
-/** A frame as JPEG (flattened onto `bg`). */
-function jpegOf(f: Frame, bg: string, quality = 90): Uint8Array {
-  const c = createCanvas(f.width, f.height);
-  const g = c.getContext("2d");
-  const tmp = createCanvas(f.width, f.height);
-  const tg = tmp.getContext("2d");
-  const id = tg.createImageData(f.width, f.height);
-  id.data.set(f.data);
-  tg.putImageData(id, 0, 0);
-  g.fillStyle = bg;
-  g.fillRect(0, 0, f.width, f.height);
-  g.drawImage(tmp, 0, 0);
-  return new Uint8Array(c.toBuffer("image/jpeg", quality));
-}
-
-const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", wav: "audio/wav", mp3: "audio/mpeg", ogg: "audio/ogg" };
-
-/** Bytes of a document asset src (data: URI or a path relative to the project). */
-async function assetBytes(session: ProjectSession, src: string): Promise<Buffer> {
-  if (src.startsWith("data:")) return Buffer.from(src.slice(src.indexOf(",") + 1), "base64");
-  if (/^https?:/.test(src)) return Buffer.from(await (await fetch(src)).arrayBuffer());
-  return readFile(path.isAbsolute(src) ? src : path.join(session.baseDir, src));
-}
-
-/** Copy of a document with every image, atlas page and audio file embedded as data: URIs (for self-contained exports). */
-async function embedAssets(session: ProjectSession, d: OpenBoneDocument): Promise<OpenBoneDocument> {
-  const out = structuredClone(d);
-  const embed = async (src: string) => {
-    if (!src || src.startsWith("data:")) return src;
-    const ext = src.split(".").pop()!.toLowerCase();
-    return `data:${MIME[ext] ?? "application/octet-stream"};base64,${(await assetBytes(session, src)).toString("base64")}`;
-  };
-  for (const img of out.images) if (img.src) img.src = await embed(img.src);
-  for (const p of out.atlas?.pages ?? []) p.src = await embed(p.src);
-  for (const a of out.audio?.assets ?? []) a.src = await embed(a.src);
-  return out;
-}
 
 /** Mono samples of a PCM WAV (8/16/24/32-bit int or 32-bit float). */
 function decodeWav(b: Buffer): { samples: Float32Array; rate: number } {
@@ -177,16 +60,16 @@ export function registerExtraTools(server: McpServer, session: ProjectSession, s
     "export_file",
     {
       description:
-        "Export the project like the editor's Export dialog. Formats: obone (whole project), json / obonb (runtime data: picked animations, state machines; obonb is binary), png / jpeg (one frame, or a ZIP of every frame with sequence: true), apng, gif, psd (one layer per frame), avi / mov (Motion-JPEG video), spritesheet (engine packs: engine unity | godot | flutter | generic; one clip per animation), web (the <openbone-player> library + animation + demo page as a ZIP, or one self-contained HTML file with singleFile). Frames come from `animation` (default the first) or a state machine run (`stateMachine` + `steps`). Writes to `out` (default next to the project) and returns the path and size.",
+        "Export the project like the editor's Export dialog (same code as `openbone export`). Formats: obone (whole project), json / obonb (runtime data: picked animations, state machines; obonb is binary; pack: true embeds a texture atlas), atlas (ZIP: runtime JSON + atlas pages as PNG files), png / jpeg (one frame, or a ZIP of every frame with sequence: true), apng, gif, psd (one layer per frame), avi / mov (Motion-JPEG video), spritesheet (engine packs: engine unity | godot | flutter | generic; one clip per animation), web (the <openbone-player> library + animation + demo page as a ZIP, or one self-contained HTML file with singleFile). Atlas settings (`atlas`): padding, maxSize, powerOfTwo, rotate, scale, stripWhitespace, polygons, premultipliedAlpha. Frames come from `animation` (default the first) or a state machine run (`stateMachine` + `steps`). Writes to `out` (default next to the project) and returns the path and size.",
       inputSchema: {
-        format: z.enum(["obone", "json", "obonb", "png", "jpeg", "apng", "gif", "psd", "avi", "mov", "spritesheet", "web"]),
+        format: z.enum(EXPORT_FORMATS),
         out: z.string().optional().describe("Output path (default <project>.<ext> next to the project)"),
         animation: z.string().optional(),
         stateMachine: z.string().optional(),
         steps: z.array(stepSchema).optional(),
         skin: z.string().optional(),
-        animations: z.array(z.string()).optional().describe("json/obonb: animations to keep (names; default all marked for export). spritesheet: clips (default all exported animations)"),
-        stateMachines: z.array(z.string()).optional().describe("json/obonb: state machines to keep (default all)"),
+        animations: z.array(z.string()).optional().describe("json/obonb/atlas: animations to keep (names; default all marked for export). spritesheet: clips (default all exported animations)"),
+        stateMachines: z.array(z.string()).optional().describe("json/obonb/atlas: state machines to keep (default all)"),
         duration: z.number().positive().max(60).optional().describe("Seconds (default the animation's length, or 2 for state machines)"),
         fps: z.number().int().min(1).max(60).default(30),
         scale: z.number().positive().max(4).default(1),
@@ -196,97 +79,29 @@ export function registerExtraTools(server: McpServer, session: ProjectSession, s
         engine: z.enum(["unity", "godot", "flutter", "generic"]).default("generic"),
         singleFile: z.boolean().default(false).describe("web: one HTML file (works from file://)"),
         minify: z.boolean().default(true).describe("web: minified player"),
-        binary: z.boolean().default(true).describe("web: animation as .obonb (smaller)"),
+        binary: z.boolean().optional().describe("web: animation as .obonb (default true); atlas: runtime data as .obonb instead of .json (default false)"),
+        pack: z.boolean().default(false).describe("json/obonb/web: pack images into an embedded texture atlas"),
+        atlas: z
+          .object({
+            padding: z.number().int().min(0).max(32).optional(),
+            maxSize: z.number().int().min(16).max(8192).optional(),
+            powerOfTwo: z.boolean().optional(),
+            rotate: z.boolean().optional(),
+            scale: z.union([z.number().min(0.05).max(1), z.literal("auto")]).optional(),
+            stripWhitespace: z.boolean().optional(),
+            polygons: z.boolean().optional(),
+            premultipliedAlpha: z.boolean().optional(),
+          })
+          .optional()
+          .describe("Texture atlas settings for atlas / pack"),
       },
     },
     async (a) => {
       try {
-        const doc = session.doc;
-        const base = (session.filePath ? path.basename(session.filePath).replace(/\.\w+$/, "") : doc.name || "openbone").replace(/[^\w.-]+/g, "_");
-        const extOf: Record<string, string> = { obone: "obone", json: "json", obonb: "obonb", png: a.sequence ? "zip" : "png", jpeg: a.sequence ? "zip" : "jpg", apng: "png", gif: "gif", psd: "psd", avi: "avi", mov: "mov", spritesheet: "zip", web: a.singleFile ? "html" : "zip" };
-        const out = path.resolve(session.baseDir, a.out ?? `${base}${a.format === "apng" ? ".apng" : ""}.${extOf[a.format]}`);
-        const bg = a.transparent ? null : (doc.background ?? "#ffffff");
-        const ids = (list: { id: string; name: string }[], names?: string[]) => (names ? list.filter((x) => names.includes(x.name) || names.includes(x.id)).map((x) => x.id) : undefined);
-        let bytes: Uint8Array;
-        let note = "";
-        if (a.format === "obone") bytes = new TextEncoder().encode(serialize(doc));
-        else if (a.format === "json" || a.format === "obonb") {
-          const r = exportDocument(doc, {
-            animations: ids(doc.animations, a.animations) ?? doc.animations.filter((x) => x.export !== false).map((x) => x.id),
-            stateMachines: ids(doc.stateMachines, a.stateMachines),
-            nonessential: false,
-          });
-          bytes = a.format === "json" ? new TextEncoder().encode(serialize(r.doc)) : serializeBinary(r.doc, { precision: "float32" });
-          note = r.warnings.length ? ` · ${r.warnings.join("; ")}` : "";
-        } else if (a.format === "web") {
-          const { buildWebBundle } = await import("../../player/src/bundle/build.ts");
-          const d = await embedAssets(session, exportDocument(doc, { pruneUnused: true, nonessential: false }).doc);
-          const docBytes = a.binary ? serializeBinary(d, { precision: "float32" }) : new TextEncoder().encode(serialize(d));
-          const sm = (a.stateMachine ? d.stateMachines.find((m) => m.name === a.stateMachine) : null) ?? d.stateMachines[0];
-          const hasScripts = d.scripts.length > 0;
-          const lazy = hasScripts && !a.singleFile;
-          const playerCode = await buildWebBundle({ format: "iife", minify: a.minify, scripts: lazy ? "lazy" : hasScripts });
-          let scriptsAddon: { code: string; wasm: Uint8Array } | undefined;
-          if (lazy) {
-            const { buildScriptsAddon, quickJsWasmBytes } = await import("../../player/src/bundle/build.ts");
-            scriptsAddon = { code: await buildScriptsAddon({ minify: a.minify }), wasm: quickJsWasmBytes() };
-          }
-          const pack = {
-            title: doc.name || base,
-            baseName: base,
-            playerCode,
-            format: "iife" as const,
-            minified: a.minify,
-            scripts: hasScripts,
-            scriptsAddon,
-            doc: docBytes,
-            docExt: (a.binary ? "obonb" : "obone") as "obonb" | "obone",
-            singleFile: a.singleFile,
-            demoControls: true,
-            stateMachine: sm?.name,
-            animation: sm ? undefined : (a.animation ?? d.animations[0]?.name),
-            width: d.width,
-            height: d.height,
-            background: a.transparent ? "transparent" : undefined,
-            inputs: sm?.inputs.map((i) => ({ name: i.name, type: i.type })) ?? [],
-            hasScripts,
-            hasAudio: !!d.audio?.assets.length,
-          };
-          bytes = a.singleFile ? new TextEncoder().encode(webIndexHtml(pack)) : webPackZip(pack);
-        } else if (a.format === "spritesheet") {
-          const names = a.animations ?? doc.animations.filter((x) => x.export !== false).map((x) => x.name);
-          if (!names.length) throw new Error("No animations to put on the sheet");
-          const clips = [];
-          for (const name of names) {
-            const frames = await renderFrames(session, { animation: name, skin: a.skin, fps: a.fps, scale: a.scale, background: bg }, await scriptHost());
-            clips.push({ name, fps: a.fps, loop: true, frames });
-          }
-          const set = buildSpriteSheets(clips, { trim: true, padding: 2, maxSize: 2048 });
-          bytes = await enginePackZip(a.engine as SheetEngine, set, { name: base, scale: a.scale });
-          note = ` · ${set.pages.length} sheet(s), ${clips.reduce((n, c) => n + c.frames.length, 0)} frames`;
-        } else {
-          const single = (a.format === "png" || a.format === "jpeg") && !a.sequence;
-          const frames = single
-            ? await (async () => {
-                // One frame at `time`: advance a single step to it.
-                const fps = a.time > 0 ? 1 / a.time : a.fps;
-                const fr = await renderFrames(session, { animation: a.animation, stateMachine: a.stateMachine, steps: a.steps, skin: a.skin, duration: a.time > 0 ? 2 / fps : 1 / a.fps, fps, scale: a.scale, background: a.format === "jpeg" ? (doc.background ?? "#ffffff") : bg }, await scriptHost());
-                return [fr[fr.length - 1]];
-              })()
-            : await renderFrames(session, { animation: a.animation, stateMachine: a.stateMachine, steps: a.steps, skin: a.skin, duration: a.duration, fps: a.fps, scale: a.scale, background: a.format === "jpeg" || a.format === "avi" || a.format === "mov" ? (doc.background ?? "#ffffff") : bg }, await scriptHost());
-          const { width, height } = frames[0];
-          const delayMs = Math.round(1000 / a.fps);
-          const flat = doc.background ?? "#ffffff";
-          if (a.format === "png") bytes = single ? await encodePng(frames[0]) : createZip(await Promise.all(frames.map(async (f, i) => ({ name: `${base}_${String(i + 1).padStart(4, "0")}.png`, data: await encodePng(f) }))));
-          else if (a.format === "jpeg") bytes = single ? jpegOf(frames[0], flat) : createZip(frames.map((f, i) => ({ name: `${base}_${String(i + 1).padStart(4, "0")}.jpg`, data: jpegOf(f, flat) })));
-          else if (a.format === "apng") bytes = await encodeApng(frames, { delayMs });
-          else if (a.format === "gif") bytes = encodeGif(frames, { delayMs, transparent: a.transparent });
-          else if (a.format === "psd") bytes = encodePsd(frames.map((f, i) => ({ name: `frame ${i + 1}`, frame: f })));
-          else bytes = (a.format === "avi" ? encodeAviMjpeg : encodeMovMjpeg)(frames.map((f) => jpegOf(f, flat)), { width, height, fps: a.fps });
-          if (!single) note = ` · ${frames.length} frames at ${a.fps} fps, ${width}×${height}`;
-        }
-        await writeFile(out, bytes);
-        return text(`Saved ${out} (${(bytes.length / 1024).toFixed(1)} KB)${note}`);
+        const r = await exportFile(session, a, scriptHost);
+        const out = path.resolve(session.baseDir, a.out ?? `${exportBaseName(session)}${r.suffix}.${r.ext}`);
+        await writeFile(out, r.bytes);
+        return text(`Saved ${out} (${(r.bytes.length / 1024).toFixed(1)} KB)${r.note}`);
       } catch (e) {
         return fail(e);
       }

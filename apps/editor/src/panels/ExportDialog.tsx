@@ -119,7 +119,7 @@ const clamp = (v: number, lo: number, hi: number, d: number) => (Number.isFinite
 const SETTINGS_KEY = "openbone.export.v1";
 interface SavedSettings {
   format?: Format;
-  data?: { pretty?: boolean; nonessential?: boolean; cleanUp?: boolean; precision?: "float32" | "float64"; prune?: boolean; embed?: boolean; pack?: boolean; padding?: number; maxSize?: number; pot?: boolean; rotate?: boolean; atlasScale?: number | "auto" };
+  data?: { pretty?: boolean; nonessential?: boolean; cleanUp?: boolean; precision?: "float32" | "float64"; prune?: boolean; embed?: boolean; pack?: boolean; padding?: number; maxSize?: number; pot?: boolean; rotate?: boolean; atlasScale?: number | "auto"; strip?: boolean; polygons?: boolean; pma?: boolean };
   media?: Partial<Omit<MediaOptions, "animation" | "skin">> & { transparent?: boolean; animation?: string | null; skin?: string | null };
   picks?: { animations?: string[]; stateMachines?: string[]; scripts?: string[]; skins?: string[] };
   openAfter?: boolean;
@@ -183,6 +183,9 @@ export function ExportDialog() {
   const [pot, setPot] = createSignal(sd.pot ?? true);
   const [rotate, setRotate] = createSignal(sd.rotate ?? false);
   const [atlasScale, setAtlasScale] = createSignal<number | "auto">(sd.atlasScale ?? 1);
+  const [strip, setStrip] = createSignal(sd.strip ?? false);
+  const [polygons, setPolygons] = createSignal(sd.polygons ?? false);
+  const [pma, setPma] = createSignal(sd.pma ?? false);
   const [packed, setPacked] = createSignal<PackOutcome | null>(null);
   const [packError, setPackError] = createSignal("");
   // ---- media options ----
@@ -294,10 +297,10 @@ export function ExportDialog() {
           cleanUpAnimations: cleanUp(),
         };
   const result = createMemo<ExportResult>(() => exportDocument(source, options()));
-  const packSettings = () => ({ padding: padding(), maxSize: maxSize(), powerOfTwo: pot(), rotate: rotate(), scale: atlasScale() });
+  const packSettings = () => ({ padding: padding(), maxSize: maxSize(), powerOfTwo: pot(), rotate: rotate(), scale: atlasScale(), stripWhitespace: strip(), polygons: polygons(), premultipliedAlpha: pma() });
   let packSeq = 0;
   createEffect(
-    on([result, pack, padding, maxSize, pot, rotate, atlasScale, format], () => {
+    on([result, pack, padding, maxSize, pot, rotate, atlasScale, strip, polygons, pma, format], () => {
       const seq = ++packSeq;
       setPacked(null);
       setPackError("");
@@ -433,7 +436,7 @@ export function ExportDialog() {
   const namesOf = (list: Named[], ids: Set<string>) => list.filter((x) => ids.has(x.id)).map((x) => x.name);
   const currentSettings = (): SavedSettings => ({
     format: format(),
-    data: { pretty: pretty(), nonessential: nonessential(), cleanUp: cleanUp(), precision: precision(), prune: prune(), embed: embed(), pack: pack(), padding: padding(), maxSize: maxSize(), pot: pot(), rotate: rotate(), atlasScale: atlasScale() },
+    data: { pretty: pretty(), nonessential: nonessential(), cleanUp: cleanUp(), precision: precision(), prune: prune(), embed: embed(), pack: pack(), padding: padding(), maxSize: maxSize(), pot: pot(), rotate: rotate(), atlasScale: atlasScale(), strip: strip(), polygons: polygons(), pma: pma() },
     media: {
       animation: mediaAnim()?.name ?? null,
       skin: source.skeleton.skins.find((k) => k.id === mSkin())?.name ?? null,
@@ -490,6 +493,9 @@ export function ExportDialog() {
     if (d.pot !== undefined) setPot(d.pot);
     if (d.rotate !== undefined) setRotate(d.rotate);
     if (d.atlasScale !== undefined) setAtlasScale(d.atlasScale);
+    if (d.strip !== undefined) setStrip(d.strip);
+    if (d.polygons !== undefined) setPolygons(d.polygons);
+    if (d.pma !== undefined) setPma(d.pma);
     const m = s.media ?? {};
     if (m.animation !== undefined) setMAnim(findId(source.animations, m.animation) ?? mAnim());
     if (m.skin !== undefined) setMSkin(findId(source.skeleton.skins, m.skin));
@@ -790,6 +796,15 @@ export function ExportDialog() {
                     <label class="check" title="Turn images 90° when that packs them tighter (images used by particles stay upright)">
                       <input type="checkbox" checked={rotate()} onChange={(e) => setRotate(e.currentTarget.checked)} /> Rotate to fit tighter
                     </label>
+                    <label class="check" title="Pack each image by its visible pixels only: smaller pages. Meshes keep everything their uvs cover; particle images stay whole.">
+                      <input type="checkbox" checked={strip()} onChange={(e) => setStrip(e.currentTarget.checked)} /> Strip whitespace
+                    </label>
+                    <label class="check" title="Draw each packed region as a tight outline around its visible pixels instead of the full rectangle: less transparent area to fill.">
+                      <input type="checkbox" checked={polygons()} onChange={(e) => setPolygons(e.currentTarget.checked)} /> Polygon outlines
+                    </label>
+                    <label class="check" title="Store page pixels premultiplied (colour × alpha): cleaner edges under filtering and scaling. Renderers switch to the matching blend; page previews look darker at soft edges.">
+                      <input type="checkbox" checked={pma()} onChange={(e) => setPma(e.currentTarget.checked)} /> Premultiplied alpha
+                    </label>
                     <Row label="Scale">
                       <select
                         title="Store images smaller to save memory and download size. Auto shrinks only as much as needed to fit everything on one page."
@@ -801,7 +816,7 @@ export function ExportDialog() {
                       </select>
                     </Row>
                     <div class="muted small">
-                      <Show when={packError()} fallback={packed() ? `${plural(result().doc.images.length, "image")} → ${plural(packed()!.pages.length, "page")}: ${packed()!.pages.map((p) => `${p.width}×${p.height}`).join(", ")}${packed()!.scale !== 1 ? ` at ${Math.round(packed()!.scale * 100)}%` : ""}` : "Packing…"}>
+                      <Show when={packError()} fallback={packed() ? `${plural(result().doc.images.length, "image")} → ${plural(packed()!.pages.length, "page")}: ${packed()!.pages.map((p) => `${p.width}×${p.height}`).join(", ")}${packed()!.scale !== 1 ? ` at ${Math.round(packed()!.scale * 100)}%` : ""}${packed()!.trimmed ? ` · ${packed()!.trimmed} trimmed` : ""}${packed()!.polygons ? ` · ${packed()!.polygons} outlined` : ""}${pma() ? " · premultiplied" : ""}` : "Packing…"}>
                         <span class="error">⛔ {packError()}</span>
                       </Show>
                     </div>

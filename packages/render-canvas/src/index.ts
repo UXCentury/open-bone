@@ -1,4 +1,4 @@
-import { type AtlasData, type AtlasRegion, type OpenBoneDocument, apply, buildSpline, regionPageRect, splinePolyline } from "@openbone/core";
+import { type AtlasData, type AtlasRegion, type OpenBoneDocument, apply, buildSpline, premultipliedTextures, regionPageRect, splinePolyline, unpremultiplyPixels } from "@openbone/core";
 import { type ClipRegion, type DrawItem, type Skeleton, type TextContext, drawTextBox, particleDotAlpha } from "@openbone/runtime";
 
 /** Minimal 2D context surface (browser CanvasRenderingContext2D or @napi-rs/canvas SKRSContext2D). */
@@ -38,6 +38,30 @@ const BLEND: Record<string, GlobalCompositeOperation> = {
   screen: "screen",
 };
 
+/** Straight-alpha copies of premultiplied pages, per source image (shared: editors make a renderer per frame). */
+const straightCache = new WeakMap<object, CanvasImageSource>();
+
+/**
+ * Browsers: turn a canvas into a decoded <img> in the background. Chrome's 2D canvas samples canvas sources
+ * differently from image sources when drawing a scaled sub-rectangle, so pages draw exactly like loose images
+ * only from an <img>. Headless (no Image) keeps the canvas.
+ */
+function asImageLater(c: CanvasImageSource, done: (img: CanvasImageSource) => void) {
+  if (typeof Image === "undefined" || typeof URL === "undefined") return;
+  const cv = c as unknown as { convertToBlob?: () => Promise<Blob>; toBlob?: (cb: (b: Blob | null) => void) => void };
+  const blob = cv.convertToBlob ? cv.convertToBlob() : cv.toBlob ? new Promise<Blob | null>((ok) => cv.toBlob!(ok)) : null;
+  if (!blob) return;
+  void blob
+    .then(async (b) => {
+      if (!b) return;
+      const img = new Image();
+      img.src = URL.createObjectURL(b);
+      await img.decode();
+      done(img);
+    })
+    .catch(() => {});
+}
+
 /**
  * Canvas2D renderer. Draws textured triangles via per-triangle affine maps, solid shapes as paths.
  * Used by the editor viewport fallback, MCP/CLI headless previews and environments without WebGL.
@@ -50,6 +74,25 @@ export class CanvasRenderer {
 
   /** Tinted copies of images, per image and (quantised) colour: drawn instead of the image when a slot is tinted. */
   private tints = new WeakMap<object, Map<string, CanvasImageSource>>();
+  /**
+   * Convert premultiplied atlas pages back to straight alpha before drawing (a 2D canvas only composites straight
+   * alpha). Turn off when the resolver already returns converted sources.
+   */
+  convertPremultiplied = true;
+  private pma = new Set<string>();
+  private pmaDoc: OpenBoneDocument | null = null;
+
+  /** The texture to draw for an id: premultiplied pages come back as straight-alpha copies. */
+  private source(id: string): CanvasImageSource | null {
+    const raw = this.images(id) as CanvasImageSource | null;
+    if (!raw || !this.convertPremultiplied || !this.pma.has(id)) return raw;
+    const hit = straightCache.get(raw as object);
+    if (hit) return hit;
+    const out = straightAlphaCopy(raw, (w, h) => this.makeCanvas(w, h)) ?? raw;
+    straightCache.set(raw as object, out);
+    if (out !== raw) asImageLater(out, (img) => straightCache.set(raw as object, img));
+    return out;
+  }
 
   private makeCanvas(w: number, h: number): { getContext(id: "2d"): Ctx2D | null } | null {
     try {
@@ -133,6 +176,10 @@ export class CanvasRenderer {
   render(sk: Skeleton, opts: CanvasRenderOptions = {}) {
     const { ctx } = this;
     const doc = sk.doc;
+    if (this.pmaDoc !== doc) {
+      this.pmaDoc = doc;
+      this.pma = premultipliedTextures(doc);
+    }
     const view = opts.view ?? { x: 0, y: 0, zoom: 1 };
     if (opts.clear !== false) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -203,7 +250,7 @@ export class CanvasRenderer {
     } else {
       // Packed images sample their atlas page; uvs are already in page space.
       const tex = it.texture ?? it.image;
-      const raw = this.images(tex.id) as CanvasImageSource | null;
+      const raw = this.source(tex.id);
       const dark = it.dark && (it.dark[0] > 0 || it.dark[1] > 0 || it.dark[2] > 0) ? it.dark : undefined;
       const tint = it.color[0] < 1 || it.color[1] < 1 || it.color[2] < 1 || !!dark;
       const tintedImg = raw && tint ? this.tinted(raw, it.color[0], it.color[1], it.color[2], it.textureRect ?? undefined, dark) : null;
@@ -302,7 +349,7 @@ export class CanvasRenderer {
     const cols = it.colors;
     const look = it.particles!.look;
     const tex = look === "image" ? (it.texture ?? it.image) : null;
-    const img = tex ? (this.images(tex.id) as CanvasImageSource | null) : null;
+    const img = tex ? this.source(tex.id) : null;
     if (look === "image" && !img) return;
     const tr = it.textureRect;
     for (let q = 0; q < it.particles!.count; q++) {
@@ -486,7 +533,7 @@ export function drawAtlasPage(ctx: Ctx2D, atlas: AtlasData, pageId: string, imag
  * Cut a packed image back out of its atlas page into `ctx` (sized originalWidth × originalHeight), undoing the trim
  * offset and any 90° rotation. Used to re-pack an already packed document.
  */
-export function drawRegionFromPage(ctx: Ctx2D, page: CanvasImageSource, r: AtlasRegion) {
+export function drawRegionFromPage(ctx: Ctx2D, page: CanvasImageSource, r: AtlasRegion, premultiplied = false) {
   ctx.save();
   if (r.rotated) {
     // Inverse of the packing transform: page (px, py) → image (py - y + offsetX, x + height - px + offsetY).
@@ -494,6 +541,35 @@ export function drawRegionFromPage(ctx: Ctx2D, page: CanvasImageSource, r: Atlas
     ctx.drawImage(page, r.x, r.y, r.height, r.width, r.x, r.y, r.height, r.width);
   } else ctx.drawImage(page, r.x, r.y, r.width, r.height, r.offsetX, r.offsetY, r.width, r.height);
   ctx.restore();
+  if (premultiplied) {
+    // The page stores rgb × a: turn the cut-out back into straight alpha.
+    const data = ctx.getImageData(r.offsetX, r.offsetY, r.width, r.height);
+    unpremultiplyPixels(data.data);
+    ctx.putImageData(data, r.offsetX, r.offsetY);
+  }
+}
+
+/**
+ * A straight-alpha copy of an image whose pixels are stored premultiplied (rgb × a), for 2D canvases, which only
+ * composite straight alpha. Null when no canvas can be made or the pixels can't be read (cross-origin).
+ */
+export function straightAlphaCopy(img: CanvasImageSource, makeCanvas: (w: number, h: number) => { getContext(id: "2d"): Ctx2D | null } | null): CanvasImageSource | null {
+  const src = img as { naturalWidth?: number; naturalHeight?: number; width: number; height: number };
+  const w = src.naturalWidth || src.width;
+  const h = src.naturalHeight || src.height;
+  if (!w || !h) return null;
+  const c = makeCanvas(w, h);
+  const g = c?.getContext("2d");
+  if (!c || !g) return null;
+  try {
+    g.drawImage(img, 0, 0);
+    const data = g.getImageData(0, 0, w, h);
+    unpremultiplyPixels(data.data);
+    g.putImageData(data, 0, 0);
+    return c as unknown as CanvasImageSource;
+  } catch {
+    return null;
+  }
 }
 
 function extrude(ctx: Ctx2D, r: { x: number; y: number; width: number; height: number }, e: number) {
@@ -517,3 +593,5 @@ function extrude(ctx: Ctx2D, r: { x: number; y: number; width: number; height: n
   }
   ctx.putImageData(data, r.x - e, r.y - e);
 }
+
+export * from "./atlas.ts";

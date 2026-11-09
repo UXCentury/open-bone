@@ -80,6 +80,12 @@ export interface AtlasRegion {
   originalHeight: number;
   /** Stored turned 90° clockwise to pack tighter: on the page it covers height × width at (x, y). */
   rotated?: boolean;
+  /**
+   * Polygon packing: a convex outline (flat [x0,y0,x1,y1,...], original image pixels like the offsets, y-down)
+   * around the visible pixels, inside the packed rect. Region attachments draw this polygon instead of the full quad,
+   * so less transparent area is filled.
+   */
+  polygon?: number[];
 }
 
 /** A solid white block in a page; untextured shapes sample it so they batch with packed images. */
@@ -99,6 +105,15 @@ export interface AtlasData {
   padding: number;
   /** Images were stored at this fraction of their size (informational; uvs already account for it). */
   scale?: number;
+  /**
+   * Page pixels are stored with premultiplied alpha (rgb × a). Renderers upload them as they are and blend with
+   * ONE, ONE_MINUS_SRC_ALPHA; 2D-canvas renderers convert them back to straight alpha.
+   */
+  premultipliedAlpha?: boolean;
+  /** Whitespace stripping was on when packing: regions hold only their images' visible bounds (informational). */
+  stripWhitespace?: boolean;
+  /** Polygon packing was on when packing: regions carry outline polygons (informational). */
+  polygons?: boolean;
 }
 
 interface AttachmentBase {

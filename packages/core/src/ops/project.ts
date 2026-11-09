@@ -51,6 +51,38 @@ defineOp({
 });
 
 defineOp({
+  name: "updateImage",
+  group: "project",
+  description:
+    "Change an image asset: name, src (new pixels, e.g. the art file changed) and size. When the size changes, region attachments using it grow or shrink with it (same pixel density; their place, scale and rotation are kept).",
+  schema: z.object({
+    image: ref("Image"),
+    name: z.string().min(1).optional(),
+    src: z.string().optional(),
+    width: z.number().positive().optional(),
+    height: z.number().positive().optional(),
+  }),
+  apply(doc, a) {
+    const img = get.image(doc, a.image);
+    const next = { ...img, ...(a.name ? { name: a.name } : {}), ...(a.src !== undefined ? { src: a.src } : {}), ...(a.width ? { width: a.width } : {}), ...(a.height ? { height: a.height } : {}) };
+    // Image assets are shared between undo snapshots: replace, don't mutate.
+    doc.images = doc.images.map((i) => (i === img ? next : i));
+    let regions = 0;
+    if (next.width !== img.width || next.height !== img.height)
+      for (const skin of doc.skeleton.skins)
+        for (const atts of Object.values(skin.attachments))
+          for (const att of Object.values(atts))
+            if (att.type === "region" && att.image === img.id) {
+              // Keep each region's pixel density: it grows or shrinks with its image.
+              att.width = Math.round(att.width * (next.width / img.width) * 1000) / 1000;
+              att.height = Math.round(att.height * (next.height / img.height) * 1000) / 1000;
+              regions++;
+            }
+    return { regions };
+  },
+});
+
+defineOp({
   name: "deleteImage",
   group: "project",
   description: "Remove an image asset. Fails if attachments still use it.",
@@ -85,13 +117,17 @@ const atlasRegionSchema = z.object({
   originalWidth: z.number().positive().optional().describe("Original image width (default: the image asset's width)"),
   originalHeight: z.number().positive().optional(),
   rotated: z.boolean().optional().describe("Stored turned 90° clockwise: on the page it covers height × width at (x, y)"),
+  polygon: z
+    .array(z.number())
+    .optional()
+    .describe("Polygon packing: convex outline [x0,y0,...] of the visible pixels in original image pixels (like the offsets), inside the packed rect; region attachments draw it instead of the full quad"),
 });
 
 defineOp({
   name: "setAtlas",
   group: "project",
   description:
-    "Store a texture atlas: packed pages (images, usually PNG data: URIs) and, per image, the rectangle it occupies in a page. Packed images are drawn from their page, so the WebGL renderer batches them into one draw call. Optional `white` is a solid white block in a page that untextured shapes sample from. Pass `atlas: null` to remove the atlas. With `stripImageSources`, packed images lose their own src (the file then only carries the pages).",
+    "Store a texture atlas: packed pages (images, usually PNG data: URIs) and, per image, the rectangle it occupies in a page. Packed images are drawn from their page, so the WebGL renderer batches them into one draw call. Optional `white` is a solid white block in a page that untextured shapes sample from. Set `premultipliedAlpha` when the page pixels are premultiplied (renderers then use the matching blend). Regions may be trimmed (offsets) and carry an outline `polygon` (polygon packing). Pass `atlas: null` to remove the atlas. With `stripImageSources`, packed images lose their own src (the file then only carries the pages).",
   schema: z.object({
     atlas: z
       .object({
@@ -102,6 +138,9 @@ defineOp({
         white: z.object({ page: z.string().min(1), x: px, y: px, width: z.number().int().positive(), height: z.number().int().positive() }).optional(),
         padding: z.number().int().min(0).default(0),
         scale: z.number().positive().max(1).optional().describe("Images were stored at this fraction of their size (informational)"),
+        premultipliedAlpha: z.boolean().optional().describe("Page pixels are premultiplied (rgb × alpha); renderers then upload them as they are and blend with ONE, ONE_MINUS_SRC_ALPHA"),
+        stripWhitespace: z.boolean().optional().describe("Regions were trimmed to their images' visible bounds (informational)"),
+        polygons: z.boolean().optional().describe("Regions carry outline polygons (informational)"),
       })
       .nullable(),
     stripImageSources: z.boolean().default(false),
@@ -133,8 +172,14 @@ defineOp({
       const originalHeight = r.originalHeight ?? img.height;
       if (r.offsetX + r.width > originalWidth + 1e-6 || r.offsetY + r.height > originalHeight + 1e-6)
         throw new Error(`Region of "${img.name}": offset + size exceeds the original ${originalWidth}x${originalHeight}`);
-      const { rotated, ...rest } = r;
-      return { ...rest, image: img.id, originalWidth, originalHeight, ...(rotated ? { rotated: true } : {}) };
+      const { rotated, polygon, ...rest } = r;
+      if (polygon) {
+        if (polygon.length < 6 || polygon.length % 2) throw new Error(`Region of "${img.name}": polygon needs 3 or more x,y pairs`);
+        for (let i = 0; i < polygon.length; i += 2)
+          if (polygon[i] < r.offsetX - 1e-3 || polygon[i] > r.offsetX + r.width + 1e-3 || polygon[i + 1] < r.offsetY - 1e-3 || polygon[i + 1] > r.offsetY + r.height + 1e-3)
+            throw new Error(`Region of "${img.name}": polygon point (${polygon[i]}, ${polygon[i + 1]}) lies outside the packed rect`);
+      }
+      return { ...rest, image: img.id, originalWidth, originalHeight, ...(rotated ? { rotated: true } : {}), ...(polygon ? { polygon } : {}) };
     });
     if (a.atlas.white) inPage("White block", a.atlas.white);
     const missing = doc.images.filter((i) => !i.src && !seen.has(i.id));
@@ -145,6 +190,9 @@ defineOp({
       ...(a.atlas.white ? { white: a.atlas.white } : {}),
       padding: a.atlas.padding,
       ...(a.atlas.scale && a.atlas.scale !== 1 ? { scale: a.atlas.scale } : {}),
+      ...(a.atlas.premultipliedAlpha ? { premultipliedAlpha: true } : {}),
+      ...(a.atlas.stripWhitespace ? { stripWhitespace: true } : {}),
+      ...(a.atlas.polygons ? { polygons: true } : {}),
     };
     // Image assets are shared between undo snapshots, so replace them instead of mutating.
     if (a.stripImageSources) doc.images = doc.images.map((img) => (seen.has(img.id) ? { ...img, src: "" } : img));

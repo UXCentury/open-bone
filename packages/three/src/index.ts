@@ -1,4 +1,4 @@
-import type { OpenBoneDocument } from "@openbone/core";
+import { type OpenBoneDocument, premultipliedTextures } from "@openbone/core";
 import {
   type Batch,
   type DriverOptions,
@@ -31,8 +31,9 @@ export interface LoadOptions extends FetchOptions {
 }
 
 /** Configure a texture the way OpenBone samples it: premultiplied on upload, v down, colours passed through. */
-export function prepareTexture<T extends THREE.Texture>(t: T, mipmaps = true): T {
-  t.premultiplyAlpha = true;
+export function prepareTexture<T extends THREE.Texture>(t: T, mipmaps = true, premultiplied = false): T {
+  // Straight-alpha images are premultiplied on upload; premultiplied atlas pages already are.
+  t.premultiplyAlpha = !premultiplied;
   t.flipY = false;
   t.colorSpace = THREE.NoColorSpace;
   t.generateMipmaps = mipmaps;
@@ -48,7 +49,8 @@ export async function loadOpenBone(src: OpenBoneSource, opts: LoadOptions = {}):
   const { doc, baseUrl } = await loadDocument(src, opts);
   const images = await loadTextures(doc, baseUrl, { resolveImageUrl: opts.resolveImageUrl });
   const textures = new Map<string, THREE.Texture>();
-  for (const [id, img] of images) textures.set(id, prepareTexture(new THREE.Texture(img), opts.mipmaps ?? true));
+  const pma = premultipliedTextures(doc);
+  for (const [id, img] of images) textures.set(id, prepareTexture(new THREE.Texture(img), opts.mipmaps ?? true, pma.has(id)));
   return { doc, baseUrl, textures };
 }
 

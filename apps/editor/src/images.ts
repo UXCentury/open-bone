@@ -5,7 +5,7 @@ const overrides = new Map<string, string>();
 /** Map a document image src to a different URL for display (e.g. desktop files read from disk). */
 export const registerImageOverride = (src: string, url: string) => overrides.set(src, url);
 
-const cache = new Map<string, { src: string; img: HTMLImageElement; ready: boolean }>();
+const cache = new Map<string, { src: string; img: HTMLImageElement; ready: boolean; prev?: HTMLImageElement }>();
 let onReady: () => void = () => {};
 export const setImageReadyCallback = (fn: () => void) => (onReady = fn);
 
@@ -36,16 +36,19 @@ export function imageFor(asset: ImageAsset): HTMLImageElement | null {
   let e = cache.get(asset.id);
   if (!e || e.src !== src) {
     const img = new Image();
-    e = { src, img, ready: false };
+    // Until the new pixels load (e.g. art reloaded from disk), keep showing the previous image.
+    const prev = e?.ready ? e.img : e?.prev;
+    e = { src, img, ready: false, prev };
     const entry = e;
     img.onload = () => {
       entry.ready = true;
+      entry.prev = undefined;
       onReady();
     };
     img.src = src;
     cache.set(asset.id, e);
   }
-  return e.ready ? e.img : null;
+  return e.ready ? e.img : (e.prev ?? null);
 }
 
 export function readFileAsDataUrl(file: File): Promise<string> {

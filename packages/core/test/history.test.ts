@@ -74,3 +74,34 @@ describe("saved undo history", () => {
     expect(r.canUndo).toBe(false);
   });
 });
+
+describe("applyQuiet and updateImage", () => {
+  it("changes the document without an undo step and keeps the change through undo/redo", async () => {
+    const { DocumentStore, createDocument } = await import("../src/index.ts");
+    const s = new DocumentStore(createDocument("q"));
+    s.apply("addImage", { id: "img", name: "art", src: "art.png", width: 40, height: 20 });
+    s.apply("addSlot", { bone: "root", name: "a" });
+    s.apply("addRegion", { slot: "a", image: "img" });
+    s.apply("addRegion", { slot: "a", image: "img", name: "half", width: 20, height: 10 });
+    s.apply("updateBone", { bone: "root", x: 5 });
+    const undoable = s.history().past.length;
+    const events: unknown[] = [];
+    s.subscribe((_d, e) => events.push(e));
+    const r = s.applyQuiet("updateImage", { image: "img", src: "art.png?v2", width: 80, height: 30 });
+    expect(r).toEqual({ regions: 2 });
+    expect(s.history().past.length).toBe(undoable);
+    expect(events).toEqual([expect.objectContaining({ kind: "op", quiet: true })]);
+    const atts = () => s.doc.skeleton.skins[0].attachments[s.doc.skeleton.slots[0].id];
+    expect(atts().art).toMatchObject({ width: 80, height: 30 });
+    expect(atts().half).toMatchObject({ width: 40, height: 15 });
+    // Undo the bone move: the image keeps its new size and src.
+    s.undo();
+    expect(s.doc.skeleton.bones[0].x).toBe(0);
+    expect(s.doc.images[0]).toMatchObject({ src: "art.png?v2", width: 80, height: 30 });
+    s.redo();
+    expect(s.doc.images[0]).toMatchObject({ width: 80, height: 30 });
+    // Snapshots from before the image existed are left alone.
+    while (s.undo());
+    expect(s.doc.images).toEqual([]);
+  });
+});

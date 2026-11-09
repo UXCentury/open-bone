@@ -86,6 +86,8 @@ export function savedToast(text: string, path: string | null) {
 export const isDesktop = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 let desktopPath: string | null = null;
+/** Desktop: the project file being edited (null for unsaved projects, on the web, or a binary file opened read-only). */
+export const projectFilePath = () => desktopPath;
 
 /** ProjectStorage: native dialogs + filesystem on desktop, File System Access API or download on the web. */
 export async function openProject(webFallback: () => void) {
