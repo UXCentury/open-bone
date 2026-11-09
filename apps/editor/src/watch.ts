@@ -215,11 +215,16 @@ export async function watchFolder() {
     if ((e as Error).name === "AbortError") return;
     throw e;
   }
+  watchDirectoryHandle(root);
+  toast(`Watching “${root.name}” for art changes (checked while the editor is in front)`);
+}
+
+/** Web: watch a directory handle (from the folder picker, or any FileSystemDirectoryHandle). */
+export function watchDirectoryHandle(root: FileSystemDirectoryHandle) {
   stopWatching();
   webRoot = root;
   startWeb(root);
   setWatchingSignal(true);
-  toast(`Watching “${root.name}” for art changes (checked while the editor is in front)`);
 }
 
 /** ☰ Menu toggle: desktop watches the project's art folders; the web re-uses the last picked folder or asks for one. */

@@ -88,12 +88,12 @@ describe("applyQuiet and updateImage", () => {
     const events: unknown[] = [];
     s.subscribe((_d, e) => events.push(e));
     const r = s.applyQuiet("updateImage", { image: "img", src: "art.png?v2", width: 80, height: 30 });
-    expect(r).toEqual({ regions: 1 });
+    expect(r).toEqual({ regions: 2 });
     expect(s.history().past.length).toBe(undoable);
     expect(events).toEqual([expect.objectContaining({ kind: "op", quiet: true })]);
     const atts = () => s.doc.skeleton.skins[0].attachments[s.doc.skeleton.slots[0].id];
     expect(atts().art).toMatchObject({ width: 80, height: 30 });
-    expect(atts().half).toMatchObject({ width: 20, height: 10 });
+    expect(atts().half).toMatchObject({ width: 40, height: 15 });
     // Undo the bone move: the image keeps its new size and src.
     s.undo();
     expect(s.doc.skeleton.bones[0].x).toBe(0);

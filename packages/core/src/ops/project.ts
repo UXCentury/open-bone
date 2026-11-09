@@ -44,7 +44,7 @@ defineOp({
   name: "updateImage",
   group: "project",
   description:
-    "Change an image asset: name, src (new pixels, e.g. the art file changed) and size. When the size changes, region attachments that showed the whole image at its old size take the new size (their scale and place are kept).",
+    "Change an image asset: name, src (new pixels, e.g. the art file changed) and size. When the size changes, region attachments using it grow or shrink with it (same pixel density; their place, scale and rotation are kept).",
   schema: z.object({
     image: ref("Image"),
     name: z.string().min(1).optional(),
@@ -62,9 +62,10 @@ defineOp({
       for (const skin of doc.skeleton.skins)
         for (const atts of Object.values(skin.attachments))
           for (const att of Object.values(atts))
-            if (att.type === "region" && att.image === img.id && Math.abs(att.width - img.width) < 1e-6 && Math.abs(att.height - img.height) < 1e-6) {
-              att.width = next.width;
-              att.height = next.height;
+            if (att.type === "region" && att.image === img.id) {
+              // Keep each region's pixel density: it grows or shrinks with its image.
+              att.width = Math.round(att.width * (next.width / img.width) * 1000) / 1000;
+              att.height = Math.round(att.height * (next.height / img.height) * 1000) / 1000;
               regions++;
             }
     return { regions };
