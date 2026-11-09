@@ -38,6 +38,30 @@ const BLEND: Record<string, GlobalCompositeOperation> = {
   screen: "screen",
 };
 
+/** Straight-alpha copies of premultiplied pages, per source image (shared: editors make a renderer per frame). */
+const straightCache = new WeakMap<object, CanvasImageSource>();
+
+/**
+ * Browsers: turn a canvas into a decoded <img> in the background. Chrome's 2D canvas samples canvas sources
+ * differently from image sources when drawing a scaled sub-rectangle, so pages draw exactly like loose images
+ * only from an <img>. Headless (no Image) keeps the canvas.
+ */
+function asImageLater(c: CanvasImageSource, done: (img: CanvasImageSource) => void) {
+  if (typeof Image === "undefined" || typeof URL === "undefined") return;
+  const cv = c as unknown as { convertToBlob?: () => Promise<Blob>; toBlob?: (cb: (b: Blob | null) => void) => void };
+  const blob = cv.convertToBlob ? cv.convertToBlob() : cv.toBlob ? new Promise<Blob | null>((ok) => cv.toBlob!(ok)) : null;
+  if (!blob) return;
+  void blob
+    .then(async (b) => {
+      if (!b) return;
+      const img = new Image();
+      img.src = URL.createObjectURL(b);
+      await img.decode();
+      done(img);
+    })
+    .catch(() => {});
+}
+
 /**
  * Canvas2D renderer. Draws textured triangles via per-triangle affine maps, solid shapes as paths.
  * Used by the editor viewport fallback, MCP/CLI headless previews and environments without WebGL.
@@ -57,16 +81,16 @@ export class CanvasRenderer {
   convertPremultiplied = true;
   private pma = new Set<string>();
   private pmaDoc: OpenBoneDocument | null = null;
-  private straight = new WeakMap<object, CanvasImageSource>();
 
   /** The texture to draw for an id: premultiplied pages come back as straight-alpha copies. */
   private source(id: string): CanvasImageSource | null {
     const raw = this.images(id) as CanvasImageSource | null;
     if (!raw || !this.convertPremultiplied || !this.pma.has(id)) return raw;
-    const hit = this.straight.get(raw as object);
+    const hit = straightCache.get(raw as object);
     if (hit) return hit;
     const out = straightAlphaCopy(raw, (w, h) => this.makeCanvas(w, h)) ?? raw;
-    this.straight.set(raw as object, out);
+    straightCache.set(raw as object, out);
+    if (out !== raw) asImageLater(out, (img) => straightCache.set(raw as object, img));
     return out;
   }
 
