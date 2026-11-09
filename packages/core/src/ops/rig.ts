@@ -4,6 +4,7 @@ import { distToSegmentSq, gridMesh, shapeOutline, triangulate } from "../geometr
 import { smoothKnots } from "../path.ts";
 import { apply as applyM, invert, worldRotation } from "../math.ts";
 import { setupWorld } from "../setup.ts";
+import { constraintOrder, nextConstraintOrder } from "../constraints.ts";
 import type { Attachment, BoneData, OpenBoneDocument, SkinData, SliderData, VertexWeight } from "../types.ts";
 import { defineOp, hex, optId, ref } from "./registry.ts";
 import { checkSequenceProps } from "./sequence-props.ts";
@@ -261,8 +262,70 @@ defineOp({
     const src = get.skin(doc, a.skin);
     assertSkinName(doc, a.name);
     const id = (a.id ??= newId("skin"));
-    doc.skeleton.skins.push({ id, name: a.name, attachments: structuredClone(src.attachments) });
+    doc.skeleton.skins.push({
+      id,
+      name: a.name,
+      attachments: structuredClone(src.attachments),
+      ...(src.bones?.length ? { bones: [...src.bones] } : {}),
+      ...(src.constraints?.length ? { constraints: [...src.constraints] } : {}),
+    });
     return { id };
+  },
+});
+
+/** Resolve a constraint of any kind by id or name. */
+function anyConstraint(doc: OpenBoneDocument, ref: string): { id: string; name: string } {
+  const c = constraintOrder(doc.skeleton).find((e) => e.data.id === ref || e.data.name === ref);
+  if (!c) throw new Error(`Constraint "${ref}" not found`);
+  return c.data;
+}
+
+const skinItems = {
+  skin: ref("Skin (not the default skin)"),
+  bones: z.array(ref("Bone")).optional(),
+  constraints: z.array(ref("Constraint (IK, transform, path or physics)")).optional(),
+};
+
+defineOp({
+  name: "addToSkin",
+  group: "rig",
+  description:
+    "Make bones and/or constraints skin-only (Spine skin bones/constraints): anything listed in any skin is active only while a skin listing it is set. Inactive bones (and the bones below them) are not posed and their slots are not drawn; inactive constraints are skipped. Example: a cape's bones and physics only in the 'knight' skin.",
+  schema: z.object(skinItems),
+  apply(doc, a) {
+    const skin = nonDefaultSkin(doc, a.skin, "given bones or constraints");
+    for (const r of a.bones ?? []) {
+      const id = get.bone(doc, r).id;
+      skin.bones ??= [];
+      if (!skin.bones.includes(id)) skin.bones.push(id);
+    }
+    for (const r of a.constraints ?? []) {
+      const id = anyConstraint(doc, r).id;
+      skin.constraints ??= [];
+      if (!skin.constraints.includes(id)) skin.constraints.push(id);
+    }
+    return { bones: skin.bones?.length ?? 0, constraints: skin.constraints?.length ?? 0 };
+  },
+});
+
+defineOp({
+  name: "removeFromSkin",
+  group: "rig",
+  description: "Take bones and/or constraints out of a skin's list. Once no skin lists them they are always active again.",
+  schema: z.object(skinItems),
+  apply(doc, a) {
+    const skin = get.skin(doc, a.skin);
+    const bones = new Set((a.bones ?? []).map((r) => get.bone(doc, r).id));
+    const cons = new Set((a.constraints ?? []).map((r) => anyConstraint(doc, r).id));
+    if (skin.bones) {
+      skin.bones = skin.bones.filter((id) => !bones.has(id));
+      if (!skin.bones.length) delete skin.bones;
+    }
+    if (skin.constraints) {
+      skin.constraints = skin.constraints.filter((id) => !cons.has(id));
+      if (!skin.constraints.length) delete skin.constraints;
+    }
+    return {};
   },
 });
 
@@ -910,6 +973,23 @@ function dropConstraintTimelines(doc: OpenBoneDocument) {
   // State machine input bindings whose bone, slot or constraint is gone.
   const objects = new Set([...sk.bones, ...sk.slots, ...sk.ik, ...sk.transform, ...sk.path, ...sk.physics].map((x) => x.id));
   for (const sm of doc.stateMachines) if (sm.bindings) sm.bindings = sm.bindings.filter((b) => objects.has(b.object));
+  // Skin bone / constraint lists.
+  for (const skin of sk.skins) {
+    if (skin.bones) {
+      skin.bones = skin.bones.filter((id) => objects.has(id));
+      if (!skin.bones.length) delete skin.bones;
+    }
+    if (skin.constraints) {
+      skin.constraints = skin.constraints.filter((id) => objects.has(id));
+      if (!skin.constraints.length) delete skin.constraints;
+    }
+  }
+}
+
+/** `{ order }` for a new constraint when the rig has a custom constraint order (so it goes last). */
+function orderField(doc: OpenBoneDocument): { order?: number } {
+  const order = nextConstraintOrder(doc.skeleton);
+  return order === undefined ? {} : { order };
 }
 
 function constraintName(doc: OpenBoneDocument, base: string): string {
@@ -957,6 +1037,7 @@ defineOp({
     doc.skeleton.ik.push({
       id,
       name,
+      ...orderField(doc),
       bones: bones.map((b) => b.id),
       target: target.id,
       mix: a.mix ?? 1,
@@ -1025,6 +1106,7 @@ defineOp({
     doc.skeleton.transform.push({
       id,
       name,
+      ...orderField(doc),
       bones,
       target,
       mixRotate: a.mixRotate ?? 1,
@@ -1115,6 +1197,7 @@ defineOp({
     doc.skeleton.path.push({
       id,
       name,
+      ...orderField(doc),
       bones,
       target: slot.id,
       positionMode: a.positionMode ?? "percent",
@@ -1184,6 +1267,7 @@ defineOp({
     doc.skeleton.physics.push({
       id,
       name,
+      ...orderField(doc),
       bone: bone.id,
       x: a.x ?? 0,
       y: a.y ?? 0,
@@ -1233,6 +1317,28 @@ defineOp({
     if (count() === before) throw new Error(`Constraint "${a.constraint}" not found`);
     dropConstraintTimelines(doc);
     return {};
+  },
+});
+
+defineOp({
+  name: "setConstraintOrder",
+  group: "constraint",
+  description:
+    "Set the order constraints are applied in each frame (all kinds in one list; default: ik, transform, path, physics, each in creation order). Pass every constraint (id or name) once, first applied first; an empty list restores the default order. Example: apply a transform constraint before an IK so the IK sees its result.",
+  schema: z.object({ constraints: z.array(ref("Constraint")).describe("Every constraint, in the new order; [] goes back to the default order") }),
+  apply(doc, a) {
+    const all = constraintOrder(doc.skeleton);
+    if (!a.constraints.length) {
+      for (const e of all) delete e.data.order;
+      return { order: constraintOrder(doc.skeleton).map((e) => e.data.name) };
+    }
+    const picked = a.constraints.map((r) => anyConstraint(doc, r).id);
+    if (new Set(picked).size !== picked.length) throw new Error("A constraint is listed twice");
+    const missing = all.filter((e) => !picked.includes(e.data.id)).map((e) => e.data.name);
+    if (missing.length) throw new Error(`List every constraint; missing: ${missing.join(", ")}`);
+    const byId = new Map(all.map((e) => [e.data.id, e.data]));
+    picked.forEach((id, i) => (byId.get(id)!.order = i));
+    return { order: picked.map((id) => byId.get(id)!.name) };
   },
 });
 

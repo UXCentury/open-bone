@@ -9,6 +9,7 @@ export * from "../../../core/src/document.ts";
 export * from "../../../core/src/geometry.ts";
 export * from "../../../core/src/path.ts";
 export * from "../../../core/src/setup.ts";
+export * from "../../../core/src/constraints.ts";
 export * from "../../../core/src/binary.ts";
 export * from "../../../core/src/atlas.ts";
 export * from "../../../core/src/audio.ts";

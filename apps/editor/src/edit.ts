@@ -52,6 +52,12 @@ export function keyBoneProperty(boneId: string, property: BoneProperty, value: n
   if (anim) setKeysExtending({ animation: anim, target: "bone", id: boneId, property, keys: [{ time: round3(time()), value }] });
 }
 
+/** Key a bone's inherit mode at the current time (stepped). */
+export function keyBoneInherit(boneId: string, value: string) {
+  const anim = ensureAnimation();
+  if (anim) setKeysExtending({ animation: anim, target: "bone", id: boneId, property: "inherit", keys: [{ time: round3(time()), value, curve: "stepped" }] });
+}
+
 export function keySlot(slotId: string, property: "color" | "attachment" | "dark", value: string | null) {
   const anim = ensureAnimation();
   if (anim) setKeysExtending({ animation: anim, target: "slot", id: slotId, property, keys: [{ time: round3(time()), value, curve: property === "attachment" ? "stepped" : "linear" }] });

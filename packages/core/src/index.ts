@@ -6,6 +6,7 @@ export * from "./trace.ts";
 export * from "./lipsync.ts";
 export * from "./path.ts";
 export * from "./setup.ts";
+export * from "./constraints.ts";
 export * from "./validate.ts";
 export * from "./summary.ts";
 export * from "./store.ts";

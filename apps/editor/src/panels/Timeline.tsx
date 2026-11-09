@@ -88,7 +88,7 @@ function propName(tl: TL): string {
   if (tl.target === "drawOrder") return "order";
   return tl.property;
 }
-const PROP_ICONS: Record<string, string> = { rotation: "↻", x: "↔", y: "↕", scaleX: "⤢", scaleY: "⤢", shearX: "▱", shearY: "▱", color: "●", dark: "◐", attachment: "▣", emitting: "✺", rate: "✺" };
+const PROP_ICONS: Record<string, string> = { inherit: "⇊", rotation: "↻", x: "↔", y: "↕", scaleX: "⤢", scaleY: "⤢", shearX: "▱", shearY: "▱", color: "●", dark: "◐", attachment: "▣", emitting: "✺", rate: "✺" };
 function propIcon(tl: TL): string {
   if (tl.target === "deform") return "◇";
   if (tl.target === "sequence") return "🎞";

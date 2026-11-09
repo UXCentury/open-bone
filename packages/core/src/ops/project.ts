@@ -6,7 +6,7 @@ import { defineOp, hex, optId, ref } from "./registry.ts";
 defineOp({
   name: "setDocument",
   group: "project",
-  description: "Change document settings: name, artboard size, skeleton origin within the artboard (pixels, y-down), background, fps.",
+  description: "Change document settings: name, artboard size, skeleton origin within the artboard (pixels, y-down), background, fps, reference scale.",
   schema: z.object({
     name: z.string().optional(),
     width: z.number().positive().optional(),
@@ -15,9 +15,19 @@ defineOp({
     originY: z.number().optional(),
     background: hex.nullable().optional(),
     fps: z.number().positive().optional(),
+    referenceScale: z
+      .number()
+      .positive()
+      .optional()
+      .describe("Size in percent the rig's physics (gravity, wind) and IK softness values were made for (default 100); they scale by the skeleton's size relative to it"),
   }),
   apply(doc, a) {
-    for (const [k, v] of Object.entries(a)) if (v !== undefined) (doc as unknown as Record<string, unknown>)[k] = v;
+    const { referenceScale, ...rest } = a;
+    if (referenceScale !== undefined) {
+      if (referenceScale === 100) delete doc.skeleton.referenceScale;
+      else doc.skeleton.referenceScale = referenceScale;
+    }
+    for (const [k, v] of Object.entries(rest)) if (v !== undefined) (doc as unknown as Record<string, unknown>)[k] = v;
     return {};
   },
 });
