@@ -17,6 +17,10 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app). Se
 - Constraint order: optional `order` on every constraint, applied as one sorted list (default unchanged: IK, transform, path, physics). Op `setConstraintOrder`; Inspector "Constraint order" list with ↑↓.
 - Reference scale: `skeleton.referenceScale` (default 100). Physics gravity and wind and IK softness scale with the skeleton's size relative to it, so a rescaled rig behaves the same. Document inspector "Ref. scale".
 - Two-colour tint: a keyable `dark` slot colour, drawn by every renderer and runtime: Canvas2D, WebGL2, PixiJS (two-colour mesh shader), Phaser (a two-colour pipeline), Three.js (a `DARK` material variant) and CanvasKit (a colour-matrix filter per run of equally tinted items). Engine-kit batches carry a per-vertex `dark` channel only when a slot in them uses one, so documents without it draw exactly as before.
+- Folders for slots, skins, animations, events, constraints and state machines (optional `folder` path; ops `setFolder`, `renameFolder`): grouped, collapsible lists with drag into folders, new / rename / delete folder. New Events list in the left panel.
+- Import data (☰ Menu → Import from project…, op `importData`): copy animations and skins from another project by bone/slot name, with the images, sounds and events they use, or bring in its whole skeleton under a new root bone; conflicts rename, replace or skip.
+- Weight tools: lock bones while painting (locked weights stay, the others renormalise; also Smooth / Auto / Prune / Direct), and `swapWeights` (Weights panel → Swap…) to trade two bones' weights on a mesh or its selected vertices.
+- Two-colour tint: a keyable `dark` slot colour (Canvas2D and WebGL2 renderers; the PixiJS, Phaser, Three.js and CanvasKit runtimes draw the normal tint for now).
 
 ## 0.1.0
 

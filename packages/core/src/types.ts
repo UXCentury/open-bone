@@ -37,6 +37,8 @@ export interface SlotData {
    * colours are mapped from this dark colour to the slot's `color` (white keeps the image as is). Unset = black.
    */
   dark?: Hex;
+  /** Editor folder path ("body/arms") the item is listed under. Organisation only: no effect on drawing or posing. */
+  folder?: string;
 }
 
 export interface ImageAsset {
@@ -402,6 +404,8 @@ export interface SkinData {
   bones?: Id[];
   /** Skin constraints: constraints listed in any skin are applied only while a skin listing them is set. */
   constraints?: Id[];
+  /** Editor folder path ("body/arms") the item is listed under. Organisation only: no effect on drawing or posing. */
+  folder?: string;
 }
 
 export interface IkConstraintData {
@@ -409,6 +413,8 @@ export interface IkConstraintData {
   name: string;
   /** Position in the constraint update order (see `SkeletonData`); unset = the default order. */
   order?: number;
+  /** Editor folder path ("body/arms") the item is listed under. Organisation only: no effect on drawing or posing. */
+  folder?: string;
   /** One or two bones; for two, the second must be a child of the first. */
   bones: Id[];
   target: Id;
@@ -429,6 +435,8 @@ export interface TransformConstraintData {
   name: string;
   /** Position in the constraint update order (see `SkeletonData`); unset = the default order. */
   order?: number;
+  /** Editor folder path ("body/arms") the item is listed under. Organisation only: no effect on drawing or posing. */
+  folder?: string;
   bones: Id[];
   target: Id;
   mixRotate: number;
@@ -465,6 +473,8 @@ export interface PathConstraintData {
   name: string;
   /** Position in the constraint update order (see `SkeletonData`); unset = the default order. */
   order?: number;
+  /** Editor folder path ("body/arms") the item is listed under. Organisation only: no effect on drawing or posing. */
+  folder?: string;
   /** Bones placed along the path, in hierarchy order (parent before child). */
   bones: Id[];
   /** Slot whose current attachment is a path attachment. */
@@ -490,6 +500,8 @@ export interface PhysicsConstraintData {
   name: string;
   /** Position in the constraint update order (see `SkeletonData`); unset = the default order. */
   order?: number;
+  /** Editor folder path ("body/arms") the item is listed under. Organisation only: no effect on drawing or posing. */
+  folder?: string;
   bone: Id;
   /** Per-channel influence 0..1: how much the simulation moves the bone origin (x, y), rotates it and stretches it. */
   x: number;
@@ -545,6 +557,8 @@ export interface SkeletonData {
 export interface SliderData {
   id: Id;
   name: string;
+  /** Editor folder path ("body/arms") the item is listed under. Organisation only: no effect on drawing or posing. */
+  folder?: string;
   animation: Id;
   bone?: Id;
   property?: BoneProperty;
@@ -620,6 +634,8 @@ export type TimelineTarget = Timeline["target"];
 export interface EventData {
   id: Id;
   name: string;
+  /** Editor folder path ("body/arms") the item is listed under. Organisation only: no effect on drawing or posing. */
+  folder?: string;
   int: number;
   float: number;
   string: string;
@@ -640,6 +656,8 @@ export interface EventKey {
 export interface AnimationData {
   id: Id;
   name: string;
+  /** Editor folder path ("body/arms") the item is listed under. Organisation only: no effect on drawing or posing. */
+  folder?: string;
   /** Explicit length in seconds; when 0 the last key time is used. */
   duration: number;
   timelines: Timeline[];
@@ -858,6 +876,8 @@ export interface InputBinding {
 export interface StateMachineData {
   id: Id;
   name: string;
+  /** Editor folder path ("body/arms") the item is listed under. Organisation only: no effect on drawing or posing. */
+  folder?: string;
   inputs: InputData[];
   /** Input → property drivers applied every frame after animations. */
   bindings: InputBinding[];

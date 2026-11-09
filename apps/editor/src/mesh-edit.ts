@@ -1,5 +1,5 @@
-import { type Key, type MeshAttachment, apply as applyM, invert, setupWorld, triangulate } from "@openbone/core";
-import { apply, meshSel, rev, selectedAttachment, setMeshSel, store, toast } from "./state.ts";
+import { type Key, type MeshAttachment, apply as applyM, invert, restoreLocked, setInfluence, setupWorld, triangulate } from "@openbone/core";
+import { apply, lockedBones, meshSel, rev, selectedAttachment, setMeshSel, store, toast } from "./state.ts";
 
 /**
  * Mesh vertex editing and weight painting. All edits work in the setup pose and are committed as ops
@@ -288,28 +288,26 @@ export function weightTable(t: MeshTarget): WeightTable {
  */
 export function paintDab(table: WeightTable, world: number[], cx: number, cy: number, radius: number, strength: number, bone: string, mode: "add" | "subtract"): number[] {
   const changed: number[] = [];
+  const locked = new Set(lockedBones());
   for (let v = 0; v < table.length; v++) {
     const d = Math.hypot(world[v * 2] - cx, world[v * 2 + 1] - cy);
     if (d > radius) continue;
     const f = strength * (1 - (d / radius) ** 2);
     if (f <= 0) continue;
-    const m = table[v];
-    const old = m.get(bone) ?? 0;
-    const others = 1 - old;
-    let next = mode === "add" ? old + f * (1 - old) : old - f * old;
-    // A vertex must keep some influence: can't remove weight from its only bone.
-    if (mode === "subtract" && others <= 1e-6) continue;
-    next = Math.min(1, Math.max(0, next));
-    if (Math.abs(next - old) < 1e-6) continue;
-    const k = others > 1e-6 ? (1 - next) / others : 0;
-    for (const [b, w] of m) if (b !== bone) m.set(b, w * k);
-    m.set(bone, next);
-    for (const [b, w] of m) if (w < 1e-3) m.delete(b);
-    // Renormalise after pruning.
-    const total = [...m.values()].reduce((s, w) => s + w, 0) || 1;
-    for (const [b, w] of m) m.set(b, w / total);
-    changed.push(v);
+    const old = table[v].get(bone) ?? 0;
+    const next = mode === "add" ? old + f * (1 - old) : old - f * old;
+    // Locked bones keep their weight; a vertex's only unlocked bone can't lose weight (nothing could take it).
+    if (setInfluence(table[v], bone, next, locked)) changed.push(v);
   }
+  return changed;
+}
+
+/** Run a free-form weight tool on some vertices, then put locked bones back where they were. */
+function keepingLocks(table: WeightTable, verts: number[], fn: () => number[]): number[] {
+  const locked = new Set(lockedBones());
+  const before = locked.size ? new Map(verts.map((v) => [v, new Map(table[v])])) : null;
+  const changed = fn();
+  if (before) for (const v of changed) restoreLocked(table[v], before.get(v) ?? new Map(), locked);
   return changed;
 }
 
@@ -374,24 +372,13 @@ const normalise = (m: Map<string, number>, min = 1e-4) => {
 
 /** Set `bone` to `value` on each vertex; the other influences share the rest in their current proportions. */
 export function setBoneWeight(table: WeightTable, verts: number[], bone: string, value: number): number[] {
-  const changed: number[] = [];
-  const v01 = Math.min(1, Math.max(0, value));
-  for (const v of verts) {
-    const m = table[v];
-    const others = [...m].filter(([b]) => b !== bone).reduce((s, [, w]) => s + w, 0);
-    // The only influence can't drop below 100%: there is nothing to take the rest.
-    if (others <= 1e-6 && v01 < 1) continue;
-    const k = others > 1e-6 ? (1 - v01) / others : 0;
-    for (const [b, w] of m) if (b !== bone) m.set(b, w * k);
-    m.set(bone, v01);
-    normalise(m);
-    changed.push(v);
-  }
-  return changed;
+  const locked = new Set(lockedBones());
+  return verts.filter((v) => setInfluence(table[v], bone, value, locked));
 }
 
 /** Blend each vertex's weights toward the average of its mesh neighbours (strength 0..1). */
-export function smoothWeights(table: WeightTable, verts: number[], triangles: number[], strength = 0.5): number[] {
+export const smoothWeights = (table: WeightTable, verts: number[], triangles: number[], strength = 0.5) => keepingLocks(table, verts, () => smoothFree(table, verts, triangles, strength));
+function smoothFree(table: WeightTable, verts: number[], triangles: number[], strength: number): number[] {
   const neighbours = new Map<number, Set<number>>();
   for (let i = 0; i < triangles.length; i += 3) {
     const t = [triangles[i], triangles[i + 1], triangles[i + 2]];
@@ -418,7 +405,8 @@ export function smoothWeights(table: WeightTable, verts: number[], triangles: nu
 }
 
 /** Drop influences below `threshold` and keep at most `maxInfluences` per vertex, then renormalise. */
-export function pruneWeights(table: WeightTable, verts: number[], threshold = 0.05, maxInfluences = 4): number[] {
+export const pruneWeights = (table: WeightTable, verts: number[], threshold = 0.05, maxInfluences = 4) => keepingLocks(table, verts, () => pruneFree(table, verts, threshold, maxInfluences));
+function pruneFree(table: WeightTable, verts: number[], threshold: number, maxInfluences: number): number[] {
   const changed: number[] = [];
   for (const v of verts) {
     const m = table[v];
@@ -432,7 +420,9 @@ export function pruneWeights(table: WeightTable, verts: number[], threshold = 0.
 }
 
 /** Recompute weights from the nearest bone segments (like the autoWeights op), for some vertices only. */
-export function autoWeightsFor(table: WeightTable, verts: number[], world: number[], bones: string[], maxInfluences = 2, falloff = 2): number[] {
+export const autoWeightsFor = (table: WeightTable, verts: number[], world: number[], bones: string[], maxInfluences = 2, falloff = 2) =>
+  keepingLocks(table, verts, () => autoFree(table, verts, world, bones, maxInfluences, falloff));
+function autoFree(table: WeightTable, verts: number[], world: number[], bones: string[], maxInfluences: number, falloff: number): number[] {
   const sw = setupWorld(store.doc);
   const segs = bones
     .map((id) => {

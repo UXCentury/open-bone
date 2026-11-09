@@ -114,6 +114,9 @@ export const [weightBone, setWeightBone] = createSignal<string | null>(null);
 export const [brushRadius, setBrushRadius] = createSignal(30);
 export const [brushStrength, setBrushStrength] = createSignal(0.5);
 export const [brushMode, setBrushMode] = createSignal<"add" | "subtract">("add");
+/** Weights tool: locked bones keep their weights while painting, smoothing, pruning or auto-weighting (like Spine's weight locks). */
+export const [lockedBones, setLockedBones] = createSignal<string[]>([]);
+export const toggleLockedBone = (id: string) => setLockedBones((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
 /** Bones selected together (box select / shift-click), besides the primary `selection`. Empty = just the primary. */
 export const [multiBones, setMultiBones] = createSignal<string[]>([]);
 /** Mesh tool soft selection: dragging vertices also pulls unselected ones within `softRadius` screen px, with falloff. */
