@@ -1,7 +1,10 @@
 import { type ExportOptions, type ExportResult, animationDuration, exportDocument, serialize, serializeBinary, validate } from "@openbone/core";
 import { Player } from "@openbone/player";
 import { For, type JSX, Show, createEffect, createMemo, createSignal, on, onCleanup, onMount } from "solid-js";
-import { type PackOutcome, packForExport } from "../atlas.ts";
+import { ATLAS_FILTERS, ATLAS_PIXEL_FORMATS, ATLAS_WRAPS, type AtlasFilter, type AtlasPixelFormat, type AtlasWrap } from "@openbone/core";
+import { atlasExportFiles, createZip } from "@openbone/export";
+import type { AtlasSettings } from "@openbone/render-canvas";
+import { type PackOutcome, packForExport, packScalesForExport } from "../atlas.ts";
 import { ENGINES, type EngineTarget, FLUTTER_NOTES, type SheetExportOptions, exportSpritePack, exportWebViewPack } from "../export-engines.ts";
 import { MEDIA, type MediaFormat, type MediaOptions, exportMedia, frameTimes } from "../export-media.ts";
 import { imageAsDataUrl, resolveImageUrl } from "../images.ts";
@@ -118,9 +121,26 @@ const fmtBytes = (n: number) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n /
 const clamp = (v: number, lo: number, hi: number, d: number) => (Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d);
 
 const SETTINGS_KEY = "openbone.export.v1";
+
+/** Texture packer options beyond the basic ones (saved as `data.atlas`). `scales` are the rows after the first. */
+type AtlasExtra = Omit<AtlasSettings, "padding" | "maxSize" | "maxWidth" | "powerOfTwo" | "rotate" | "scale" | "stripWhitespace" | "polygons" | "premultipliedAlpha"> & {
+  /** Write the pages as separate files next to the data, in a ZIP. */
+  zip?: boolean;
+};
+const FILTER_LABEL: Record<AtlasFilter, string> = {
+  nearest: "Nearest",
+  linear: "Linear",
+  mipmap: "Mipmap",
+  mipmapNearestNearest: "Mipmap nearest nearest",
+  mipmapLinearNearest: "Mipmap linear nearest",
+  mipmapNearestLinear: "Mipmap nearest linear",
+  mipmapLinearLinear: "Mipmap linear linear",
+};
+const WRAP_LABEL: Record<AtlasWrap, string> = { clamp: "Clamp to edge", repeat: "Repeat", mirroredRepeat: "Mirrored repeat" };
+const PAGE_SIZES = [256, 512, 1024, 2048, 4096, 8192];
 interface SavedSettings {
   format?: Format;
-  data?: { pretty?: boolean; nonessential?: boolean; cleanUp?: boolean; precision?: "float32" | "float64"; prune?: boolean; embed?: boolean; pack?: boolean; padding?: number; maxSize?: number; pot?: boolean; rotate?: boolean; atlasScale?: number | "auto"; strip?: boolean; polygons?: boolean; pma?: boolean };
+  data?: { pretty?: boolean; nonessential?: boolean; cleanUp?: boolean; precision?: "float32" | "float64"; prune?: boolean; embed?: boolean; pack?: boolean; padding?: number; maxSize?: number; pot?: boolean; rotate?: boolean; atlasScale?: number | "auto"; strip?: boolean; polygons?: boolean; pma?: boolean; atlas?: AtlasExtra };
   media?: Partial<Omit<MediaOptions, "animation" | "skin">> & { transparent?: boolean; animation?: string | null; skin?: string | null };
   picks?: { animations?: string[]; stateMachines?: string[]; scripts?: string[]; skins?: string[] };
   openAfter?: boolean;
@@ -187,6 +207,9 @@ export function ExportDialog() {
   const [strip, setStrip] = createSignal(sd.strip ?? false);
   const [polygons, setPolygons] = createSignal(sd.polygons ?? false);
   const [pma, setPma] = createSignal(sd.pma ?? false);
+  const [ax, setAx] = createSignal<AtlasExtra>(sd.atlas ?? {});
+  const setA = <K extends keyof AtlasExtra>(k: K, v: AtlasExtra[K]) => setAx({ ...ax(), [k]: v });
+  const [packedScales, setPackedScales] = createSignal<(PackOutcome & { suffix: string })[]>([]);
   const [packed, setPacked] = createSignal<PackOutcome | null>(null);
   const [packError, setPackError] = createSignal("");
   // ---- media options ----
@@ -298,18 +321,54 @@ export function ExportDialog() {
           cleanUpAnimations: cleanUp(),
         };
   const result = createMemo<ExportResult>(() => exportDocument(source, options()));
-  const packSettings = () => ({ padding: padding(), maxSize: maxSize(), powerOfTwo: pot(), rotate: rotate(), scale: atlasScale(), stripWhitespace: strip(), polygons: polygons(), premultipliedAlpha: pma() });
+  /** Rows after the first scale (several scales in one pack: one data file + page set each, in a ZIP). */
+  const extraScales = () => ax().scales ?? [];
+  const multiScale = () => extraScales().length > 0;
+  const packSettings = (): AtlasSettings => {
+    const { zip: _zip, scales: _scales, ...rest } = ax();
+    return {
+      ...rest,
+      padding: padding(),
+      maxWidth: maxSize(),
+      maxHeight: ax().maxHeight ?? maxSize(),
+      powerOfTwo: pot(),
+      rotate: rotate(),
+      scale: multiScale() && atlasScale() === "auto" ? 1 : atlasScale(),
+      stripWhitespace: strip(),
+      polygons: polygons(),
+      premultipliedAlpha: pma(),
+    };
+  };
+  /** Every scale row, first one included (only when there are several). */
+  const scaleRows = () => (multiScale() ? [{ scale: typeof atlasScale() === "number" ? (atlasScale() as number) : 1, suffix: "" }, ...extraScales()] : []);
+  const scaleIssue = () => {
+    const rows = scaleRows();
+    if (!rows.length) return "";
+    if (rows.some((r) => !(r.scale > 0 && r.scale <= 1))) return "Scales must be above 0 and at most 100%";
+    if (new Set(rows.map((r) => r.suffix)).size !== rows.length) return "Every scale needs its own suffix";
+    if (rows.some((r) => !/^[\w@.-]*$/.test(r.suffix))) return "Suffixes may use letters, digits and _ - . @";
+    return "";
+  };
+  /** Data exports become a ZIP (data + page files) with separate pages or several scales. */
+  const zipOut = () => usePack() && (!!ax().zip || multiScale());
   let packSeq = 0;
   createEffect(
-    on([result, pack, padding, maxSize, pot, rotate, atlasScale, strip, polygons, pma, format], () => {
+    on([result, pack, padding, maxSize, pot, rotate, atlasScale, strip, polygons, pma, ax, format], () => {
       const seq = ++packSeq;
       setPacked(null);
+      setPackedScales([]);
       setPackError("");
       if (!pack() || !isData(format()) || isProject(format())) return;
+      if (scaleIssue()) return setPackError(scaleIssue());
       packForExport(result().doc, packSettings()).then(
         (r) => seq === packSeq && setPacked(r),
         (e) => seq === packSeq && setPackError((e as Error).message),
       );
+      if (multiScale())
+        packScalesForExport(result().doc, { ...packSettings(), scales: scaleRows() }).then(
+          (r) => seq === packSeq && setPackedScales(r),
+          (e) => seq === packSeq && setPackError((e as Error).message),
+        );
     }),
   );
   /** The document a data export writes: packed when the atlas option is on and ready. */
@@ -437,7 +496,7 @@ export function ExportDialog() {
   const namesOf = (list: Named[], ids: Set<string>) => list.filter((x) => ids.has(x.id)).map((x) => x.name);
   const currentSettings = (): SavedSettings => ({
     format: format(),
-    data: { pretty: pretty(), nonessential: nonessential(), cleanUp: cleanUp(), precision: precision(), prune: prune(), embed: embed(), pack: pack(), padding: padding(), maxSize: maxSize(), pot: pot(), rotate: rotate(), atlasScale: atlasScale(), strip: strip(), polygons: polygons(), pma: pma() },
+    data: { pretty: pretty(), nonessential: nonessential(), cleanUp: cleanUp(), precision: precision(), prune: prune(), embed: embed(), pack: pack(), padding: padding(), maxSize: maxSize(), pot: pot(), rotate: rotate(), atlasScale: atlasScale(), strip: strip(), polygons: polygons(), pma: pma(), atlas: ax() },
     media: {
       animation: mediaAnim()?.name ?? null,
       skin: source.skeleton.skins.find((k) => k.id === mSkin())?.name ?? null,
@@ -497,6 +556,7 @@ export function ExportDialog() {
     if (d.strip !== undefined) setStrip(d.strip);
     if (d.polygons !== undefined) setPolygons(d.polygons);
     if (d.pma !== undefined) setPma(d.pma);
+    if (d.atlas) setAx(d.atlas);
     const m = s.media ?? {};
     if (m.animation !== undefined) setMAnim(findId(source.animations, m.animation) ?? mAnim());
     if (m.skin !== undefined) setMSkin(findId(source.skeleton.skins, m.skin));
@@ -577,6 +637,23 @@ export function ExportDialog() {
     remember();
     const base = name().trim() || "export";
     try {
+      if (isData(format()) && zipOut()) {
+        // Runtime data next to its atlas pages as separate files, one data file + page set per scale.
+        const variants = multiScale()
+          ? packedScales().length === scaleRows().length
+            ? packedScales()
+            : await packScalesForExport(result().doc, { ...packSettings(), scales: scaleRows() })
+          : [{ suffix: "", ...(packed() ?? (await packForExport(result().doc, packSettings()))) }];
+        for (const v of variants) if (v.doc.audio) v.doc.audio.assets = await Promise.all(v.doc.audio.assets.map(async (a) => ({ ...a, src: await audioAsDataUrl(a) })));
+        const files = atlasExportFiles(base, variants, { binary: format() === "binary", pretty: pretty(), precision: precision() });
+        const data = createZip(files);
+        const savedName = await saveFile(`${base}.zip`, data, { ext: "zip", description: "Runtime data and atlas pages (ZIP)", mime: "application/zip" });
+        if (savedName) {
+          savedToast(`Exported ${savedName}: ${plural(files.length, "file")} (${fmtBytes(data.length)})`, savedName);
+          setExportOpen(false);
+        }
+        return;
+      }
       if (isData(format())) {
         const d = usePack() ? (packed() ?? (await packForExport(result().doc, packSettings()))).doc : structuredClone(result().doc);
         if (embed() && !usePack()) for (const img of d.images) img.src = await imageAsDataUrl(img);
@@ -786,13 +863,28 @@ export function ExportDialog() {
                       <input type="number" min="0" max="16" value={padding()} onChange={(e) => setPadding(clamp(Math.round(+e.currentTarget.value), 0, 16, 2))} />
                       <span class="muted">px</span>
                     </Row>
-                    <Row label="Max page">
-                      <select value={String(maxSize())} onChange={(e) => setMaxSize(+e.currentTarget.value)}>
-                        <For each={[512, 1024, 2048, 4096]}>{(n) => <option value={n} selected={n === maxSize()}>{n}×{n}</option>}</For>
+                    <Row label="Max page" title="Largest page width × height">
+                      <select aria-label="Max page width" value={String(maxSize())} onChange={(e) => setMaxSize(+e.currentTarget.value)}>
+                        <For each={PAGE_SIZES}>{(n) => <option value={n} selected={n === maxSize()}>{n}</option>}</For>
                       </select>
+                      <span class="muted">×</span>
+                      <select aria-label="Max page height" value={String(ax().maxHeight ?? maxSize())} onChange={(e) => setA("maxHeight", +e.currentTarget.value === maxSize() ? undefined : +e.currentTarget.value)}>
+                        <For each={PAGE_SIZES}>{(n) => <option value={n} selected={n === (ax().maxHeight ?? maxSize())}>{n}</option>}</For>
+                      </select>
+                    </Row>
+                    <Row label="Min page" title="Smallest page width × height (0 = as small as the images allow)">
+                      <input type="number" aria-label="Min page width" min="0" max="8192" value={ax().minWidth ?? 0} onChange={(e) => setA("minWidth", clamp(Math.round(+e.currentTarget.value), 0, 8192, 0))} />
+                      <span class="muted">×</span>
+                      <input type="number" aria-label="Min page height" min="0" max="8192" value={ax().minHeight ?? 0} onChange={(e) => setA("minHeight", clamp(Math.round(+e.currentTarget.value), 0, 8192, 0))} />
                     </Row>
                     <label class="check">
                       <input type="checkbox" checked={pot()} onChange={(e) => setPot(e.currentTarget.checked)} /> Power-of-two page sizes
+                    </label>
+                    <label class="check" title="Pages are as wide as they are tall">
+                      <input type="checkbox" checked={!!ax().square} onChange={(e) => setA("square", e.currentTarget.checked)} /> Square pages
+                    </label>
+                    <label class="check" title="Page sizes are multiples of 4 (block-compressed texture formats need it)">
+                      <input type="checkbox" checked={!!ax().multipleOf4} disabled={pot()} onChange={(e) => setA("multipleOf4", e.currentTarget.checked)} /> Divisible by 4
                     </label>
                     <label class="check" title="Turn images 90° when that packs them tighter (images used by particles stay upright)">
                       <input type="checkbox" checked={rotate()} onChange={(e) => setRotate(e.currentTarget.checked)} /> Rotate to fit tighter
@@ -803,8 +895,26 @@ export function ExportDialog() {
                     <label class="check" title="Draw each packed region as a tight outline around its visible pixels instead of the full rectangle: less transparent area to fill.">
                       <input type="checkbox" checked={polygons()} onChange={(e) => setPolygons(e.currentTarget.checked)} /> Polygon outlines
                     </label>
+                    <label class="check" title="Images with exactly the same pixels (after trimming) are stored once and share one rectangle">
+                      <input type="checkbox" checked={ax().alias ?? true} onChange={(e) => setA("alias", e.currentTarget.checked)} /> Alias identical images
+                    </label>
+                    <label class="check" title="Fully transparent images take no space; they draw nothing">
+                      <input type="checkbox" checked={ax().ignoreBlank ?? true} onChange={(e) => setA("ignoreBlank", e.currentTarget.checked)} /> Ignore blank images
+                    </label>
+                    <Row label="Alpha threshold" title="Pixels with alpha at or below this (0–255) count as transparent for trimming, outlines and blank images">
+                      <input type="number" min="0" max="255" value={ax().alphaThreshold ?? 0} onChange={(e) => setA("alphaThreshold", clamp(Math.round(+e.currentTarget.value), 0, 255, 0))} />
+                    </Row>
                     <label class="check" title="Store page pixels premultiplied (colour × alpha): cleaner edges under filtering and scaling. Renderers switch to the matching blend; page previews look darker at soft edges.">
                       <input type="checkbox" checked={pma()} onChange={(e) => setPma(e.currentTarget.checked)} /> Premultiplied alpha
+                    </label>
+                    <label class="check" title="Repeat each image's edge pixels into half its padding, so filtering never reads transparent padding or a neighbour">
+                      <input type="checkbox" checked={ax().edgePadding ?? true} onChange={(e) => setA("edgePadding", e.currentTarget.checked)} /> Edge padding
+                    </label>
+                    <label class="check" title="Copy opaque edges into the padding opaque too: hard edges like a loose texture. Off: opaque edges are repeated as colour only and fade out.">
+                      <input type="checkbox" checked={ax().duplicatePadding ?? true} disabled={!(ax().edgePadding ?? true)} onChange={(e) => setA("duplicatePadding", e.currentTarget.checked)} /> Duplicate padding
+                    </label>
+                    <label class="check" title="Give fully transparent pixels the colour of the nearest visible pixel (alpha stays 0): no dark fringes when scaled or filtered. Not needed with premultiplied alpha.">
+                      <input type="checkbox" checked={ax().bleed ?? !pma()} onChange={(e) => setA("bleed", e.currentTarget.checked)} /> Bleed
                     </label>
                     <Row label="Scale">
                       <select
@@ -813,14 +923,107 @@ export function ExportDialog() {
                         onChange={(e) => setAtlasScale(e.currentTarget.value === "auto" ? "auto" : +e.currentTarget.value)}
                       >
                         <For each={[1, 0.75, 0.5, 0.25]}>{(n) => <option value={n} selected={atlasScale() === n}>{Math.round(n * 100)}%</option>}</For>
-                        <option value="auto" selected={atlasScale() === "auto"}>Auto (fit one page)</option>
+                        <option value="auto" selected={atlasScale() === "auto"} disabled={multiScale()}>Auto (fit one page)</option>
                       </select>
                     </Row>
+                    <div class="atlas-scales" role="group" aria-label="More scales">
+                      <For each={extraScales()}>
+                        {(row, i) => (
+                          <div class="atlas-scale-row">
+                            <input
+                              type="number"
+                              aria-label={`Scale ${i() + 2} (%)`}
+                              min="1"
+                              max="100"
+                              value={Math.round(row.scale * 1000) / 10}
+                              onChange={(e) => setA("scales", extraScales().map((r, k) => (k === i() ? { ...r, scale: clamp(+e.currentTarget.value, 1, 100, 50) / 100 } : r)))}
+                            />
+                            <span class="muted">%</span>
+                            <input
+                              type="text"
+                              aria-label={`Suffix ${i() + 2}`}
+                              placeholder="suffix"
+                              spellcheck={false}
+                              value={row.suffix}
+                              onInput={(e) => setA("scales", extraScales().map((r, k) => (k === i() ? { ...r, suffix: e.currentTarget.value } : r)))}
+                            />
+                            <button class="icon-btn" title="Remove this scale" aria-label={`Remove scale ${i() + 2}`} onClick={() => setA("scales", extraScales().filter((_, k) => k !== i()))}>
+                              ×
+                            </button>
+                          </div>
+                        )}
+                      </For>
+                      <button
+                        class="link-btn"
+                        title="Pack the images again at another scale: one data file + page set per scale, all in a ZIP"
+                        onClick={() => {
+                          const used = new Set(scaleRows().map((r) => r.scale));
+                          const next = [0.5, 0.25, 0.75, 0.33].find((n) => !used.has(n)) ?? 0.5;
+                          setA("scales", [...extraScales(), { scale: next, suffix: `@${next}x` }]);
+                        }}
+                      >
+                        + Add scale
+                      </button>
+                    </div>
+                    <details class="export-advanced">
+                      <summary>Texture settings</summary>
+                      <Row label="Filter" title="Texture filtering runtimes use for the pages, when shrinking (min) and enlarging (mag)">
+                        <select aria-label="Min filter" value={ax().filterMin ?? "linear"} onChange={(e) => setA("filterMin", e.currentTarget.value as AtlasFilter)}>
+                          <For each={ATLAS_FILTERS}>{(f) => <option value={f} selected={(ax().filterMin ?? "linear") === f}>{FILTER_LABEL[f]}</option>}</For>
+                        </select>
+                        <select aria-label="Mag filter" value={ax().filterMag ?? "linear"} onChange={(e) => setA("filterMag", e.currentTarget.value as AtlasFilter)}>
+                          <For each={ATLAS_FILTERS.slice(0, 2)}>{(f) => <option value={f} selected={(ax().filterMag ?? "linear") === f}>{FILTER_LABEL[f]}</option>}</For>
+                        </select>
+                      </Row>
+                      <Row label="Wrap" title="Texture wrap along x and y">
+                        <select aria-label="Wrap X" value={ax().wrapX ?? "clamp"} onChange={(e) => setA("wrapX", e.currentTarget.value as AtlasWrap)}>
+                          <For each={ATLAS_WRAPS}>{(w) => <option value={w} selected={(ax().wrapX ?? "clamp") === w}>{WRAP_LABEL[w]}</option>}</For>
+                        </select>
+                        <select aria-label="Wrap Y" value={ax().wrapY ?? "clamp"} onChange={(e) => setA("wrapY", e.currentTarget.value as AtlasWrap)}>
+                          <For each={ATLAS_WRAPS}>{(w) => <option value={w} selected={(ax().wrapY ?? "clamp") === w}>{WRAP_LABEL[w]}</option>}</For>
+                        </select>
+                      </Row>
+                      <Row label="Format" title="Pixel format runtimes should upload the pages as (a hint; the pages themselves are PNG or JPEG)">
+                        <select aria-label="Pixel format" value={ax().pixelFormat ?? "RGBA8888"} onChange={(e) => setA("pixelFormat", e.currentTarget.value as AtlasPixelFormat)}>
+                          <For each={ATLAS_PIXEL_FORMATS}>{(f) => <option value={f} selected={(ax().pixelFormat ?? "RGBA8888") === f}>{f}</option>}</For>
+                        </select>
+                      </Row>
+                      <Row label="Pages as" title="Page image format. JPEG pages are smaller but opaque.">
+                        <select aria-label="Page image format" value={ax().pageFormat ?? "png"} onChange={(e) => setA("pageFormat", e.currentTarget.value as "png" | "jpeg")}>
+                          <option value="png" selected={(ax().pageFormat ?? "png") === "png"}>PNG</option>
+                          <option value="jpeg" selected={ax().pageFormat === "jpeg"}>JPEG</option>
+                        </select>
+                        <Show when={ax().pageFormat === "jpeg"}>
+                          <input type="number" aria-label="JPEG quality" title="JPEG quality (1–100)" min="1" max="100" value={ax().jpegQuality ?? 90} onChange={(e) => setA("jpegQuality", clamp(Math.round(+e.currentTarget.value), 1, 100, 90))} />
+                        </Show>
+                      </Row>
+                      <Row label="Resample" title="How images are resampled when stored smaller. Bicubic uses the browser's high-quality smoothing.">
+                        <select aria-label="Resample" value={ax().resample ?? "bilinear"} onChange={(e) => setA("resample", e.currentTarget.value as "bilinear" | "bicubic" | "nearest")}>
+                          <option value="bilinear" selected={(ax().resample ?? "bilinear") === "bilinear"}>Bilinear</option>
+                          <option value="bicubic" selected={ax().resample === "bicubic"}>Bicubic</option>
+                          <option value="nearest" selected={ax().resample === "nearest"}>Nearest</option>
+                        </select>
+                      </Row>
+                      <label class="check" title="Write the data file and the pages as separate files in a ZIP instead of embedding the pages">
+                        <input type="checkbox" checked={!!ax().zip || multiScale()} disabled={multiScale()} onChange={(e) => setA("zip", e.currentTarget.checked)} /> Pages as separate files (ZIP)
+                      </label>
+                      <label class="check" title="Draw a magenta outline around every region on the pages, for checking a pack">
+                        <input type="checkbox" checked={!!ax().debug} onChange={(e) => setA("debug", e.currentTarget.checked)} /> Debug outlines
+                      </label>
+                    </details>
                     <div class="muted small">
-                      <Show when={packError()} fallback={packed() ? `${plural(result().doc.images.length, "image")} → ${plural(packed()!.pages.length, "page")}: ${packed()!.pages.map((p) => `${p.width}×${p.height}`).join(", ")}${packed()!.scale !== 1 ? ` at ${Math.round(packed()!.scale * 100)}%` : ""}${packed()!.trimmed ? ` · ${packed()!.trimmed} trimmed` : ""}${packed()!.polygons ? ` · ${packed()!.polygons} outlined` : ""}${pma() ? " · premultiplied" : ""}` : "Packing…"}>
+                      <Show
+                        when={packError()}
+                        fallback={
+                          packed()
+                            ? `${plural(result().doc.images.length, "image")} → ${plural(packed()!.pages.length, "page")}: ${packed()!.pages.map((p) => `${p.width}×${p.height}`).join(", ")}${packed()!.scale !== 1 ? ` at ${Math.round(packed()!.scale * 100)}%` : ""}${packed()!.trimmed ? ` · ${packed()!.trimmed} trimmed` : ""}${packed()!.polygons ? ` · ${packed()!.polygons} outlined` : ""}${packed()!.aliased ? ` · ${packed()!.aliased} aliased` : ""}${packed()!.blank ? ` · ${packed()!.blank} blank` : ""}${pma() ? " · premultiplied" : ""}${multiScale() ? ` · +${plural(extraScales().length, "more scale")} (${packedScales().length ? packedScales().slice(1).map((v) => `${v.suffix}: ${v.pages.map((p) => `${p.width}×${p.height}`).join(", ")}`).join("; ") : "packing…"})` : ""}`
+                            : "Packing…"
+                        }
+                      >
                         <span class="error">⛔ {packError()}</span>
                       </Show>
                     </div>
+                    <For each={packed()?.warnings ?? []}>{(w) => <div class="warn small">⚠ {w}</div>}</For>
                     <Show when={packed()?.pages.length}>
                       <div class="atlas-pages">
                         <For each={packed()!.pages}>{(p) => <img src={p.src} alt={`Atlas page ${p.width}×${p.height}`} title={`${p.width}×${p.height}`} />}</For>
@@ -1271,7 +1474,7 @@ export function ExportDialog() {
             Cancel
           </button>
           <button class="primary" onClick={doExport} disabled={busy() || issues().length > 0 || (isData(format()) && usePack() && !!packError()) || (sheetMode() && !sheetAnims().length)}>
-            {busy() ? "Exporting…" : `Export ${formatLabel()}`}
+            {busy() ? "Exporting…" : `Export ${formatLabel()}${isData(format()) && zipOut() ? " + pages (ZIP)" : ""}`}
           </button>
         </footer>
       </div>

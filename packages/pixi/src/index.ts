@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, premultipliedTextures } from "@openbone/core";
+import { type OpenBoneDocument, type TextureSampling, filterParts, premultipliedTextures, textureSamplings } from "@openbone/core";
 import {
   type Batch,
   type DriverOptions,
@@ -49,9 +49,29 @@ export async function loadOpenBone(src: OpenBoneSource, opts: LoadOptions = {}):
   const textures = new Map<string, Texture>();
   // Premultiplied atlas pages are uploaded as they are; straight-alpha images are premultiplied on upload.
   const pma = premultipliedTextures(doc);
+  // Atlas pages sample with the atlas's filter / wrap settings; everything else linear + clamp (Pixi's default).
+  const sampling = textureSamplings(doc);
   for (const [id, img] of images)
-    textures.set(id, new Texture({ source: new ImageSource({ resource: img, alphaMode: pma.has(id) ? "premultiplied-alpha" : "premultiply-alpha-on-upload" }) }));
+    textures.set(
+      id,
+      new Texture({ source: new ImageSource({ resource: img, alphaMode: pma.has(id) ? "premultiplied-alpha" : "premultiply-alpha-on-upload", ...pixiSampling(sampling.get(id)) }) }),
+    );
   return { doc, baseUrl, textures };
+}
+
+const PIXI_WRAP = { clamp: "clamp-to-edge", repeat: "repeat", mirroredRepeat: "mirror-repeat" } as const;
+
+/** Pixi texture style options for an atlas page's sampling (empty = Pixi's defaults). */
+function pixiSampling(s: TextureSampling | undefined) {
+  if (!s) return {};
+  const { texel, mip } = filterParts(s.min);
+  return {
+    minFilter: texel,
+    magFilter: s.mag,
+    addressModeU: PIXI_WRAP[s.wrapX],
+    addressModeV: PIXI_WRAP[s.wrapY],
+    ...(mip !== "none" ? { autoGenerateMipmaps: true, mipmapFilter: mip } : {}),
+  };
 }
 
 export interface OpenBoneOptions extends DriverOptions {

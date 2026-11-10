@@ -531,6 +531,10 @@ For a region `r` on page `P`:
 Trimmed (`offsets ≠ 0` or size ≠ original): trim box `[offX/origW, offY/origH, (offX+w)/origW, (offY+h)/origH]`;
 region quads use the remapped trim box uvs and `trimQuad` on vertices. Mesh uvs are remapped as is.
 The white block's uv is its centre. Fixtures: `atlas-knight`, `atlas-walker`, `atlas-polygons`.
+Aliased regions (several images sharing one rect) need nothing special: each region maps with its own offsets.
+`empty` regions (blank images) point at a 1×1 transparent block with `origW = origH = 1`, so the formulas above
+sample transparent pixels; a runtime may skip their draw items instead (the reference runtime keeps them).
+The sampling fields (`filterMin`, `filterMag`, `wrapX`, `wrapY`, `pixelFormat`) don't change the draw list.
 
 **Polygons** (`AtlasRegion.polygon`, flat `[x0,y0,…]` in original-image pixels, y-down, like the offsets; used when
 length ≥ 6; built in `Skeleton.constructor`). Only `region` attachments use it (sequences, meshes, particles and

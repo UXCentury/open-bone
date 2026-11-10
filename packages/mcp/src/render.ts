@@ -1,7 +1,7 @@
 import { type Image, createCanvas, loadImage } from "@napi-rs/canvas";
 import { type AtlasData, type OpenBoneDocument, textureAssets } from "@openbone/core";
 import { encodePng } from "@openbone/export";
-import { type AtlasCanvas, type BuildAtlasOptions, CanvasRenderer, type Ctx2D, buildAtlas } from "@openbone/render-canvas";
+import { type AtlasCanvas, type AtlasEnv, type AtlasScaleVariant, type BuildAtlasOptions, type BuiltAtlas, CanvasRenderer, type Ctx2D, buildAtlas, buildAtlasScales } from "@openbone/render-canvas";
 import { OpenBoneInstance, type ScriptHost } from "@openbone/runtime";
 // @ts-expect-error gifenc ships without types (CommonJS)
 import gifenc from "gifenc";
@@ -194,7 +194,22 @@ export async function renderGif(
  * is ready for the `setAtlas` op.
  */
 export async function packAtlas(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument, opts: BuildAtlasOptions = {}): Promise<AtlasData> {
-  const { atlas } = await buildAtlas(doc, opts, {
+  return (await buildAtlas(doc, opts, atlasEnv(session))).atlas;
+}
+
+/** `packAtlas` with the scale used and any warnings (e.g. JPEG pages losing transparency). */
+export async function packAtlasFull(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument, opts: BuildAtlasOptions = {}): Promise<BuiltAtlas> {
+  return buildAtlas(doc, opts, atlasEnv(session));
+}
+
+/** One atlas per scale variant (multi-scale packs), images loaded once. */
+export async function packAtlasScales(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument, opts: BuildAtlasOptions, variants: AtlasScaleVariant[]) {
+  return buildAtlasScales(doc, opts, variants, atlasEnv(session));
+}
+
+/** Canvases, image loading and PNG / JPEG encoding for the atlas packer, in Node (@napi-rs/canvas). */
+export function atlasEnv(session: Pick<ProjectSession, "readImageSrc">): AtlasEnv {
+  return {
     createCanvas: (w, h) => createCanvas(w, h) as unknown as AtlasCanvas,
     load: async (src, name) => {
       try {
@@ -204,6 +219,13 @@ export async function packAtlas(session: Pick<ProjectSession, "readImageSrc">, d
       }
     },
     encodePng: (data, width, height) => encodePng({ width, height, data }),
-  });
-  return atlas;
+    encodeJpeg: async (data, width, height, quality) => {
+      const c = createCanvas(width, height);
+      const g = c.getContext("2d");
+      const id = g.createImageData(width, height);
+      id.data.set(data);
+      g.putImageData(id, 0, 0);
+      return new Uint8Array(c.toBuffer("image/jpeg", quality));
+    },
+  };
 }

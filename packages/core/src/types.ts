@@ -81,6 +81,12 @@ export interface AtlasRegion {
   /** Stored turned 90° clockwise to pack tighter: on the page it covers height × width at (x, y). */
   rotated?: boolean;
   /**
+   * The image is fully transparent ("ignore blank images"): it got no space of its own. The region points at a
+   * shared 1×1 transparent block (originalWidth/Height 1), so any renderer samples nothing visible; runtimes may
+   * skip drawing it altogether.
+   */
+  empty?: boolean;
+  /**
    * Polygon packing: a convex outline (flat [x0,y0,x1,y1,...], original image pixels like the offsets, y-down)
    * around the visible pixels, inside the packed rect. Region attachments draw this polygon instead of the full quad,
    * so less transparent area is filled.
@@ -114,7 +120,23 @@ export interface AtlasData {
   stripWhitespace?: boolean;
   /** Polygon packing was on when packing: regions carry outline polygons (informational). */
   polygons?: boolean;
+  /** Texture filtering runtimes should use for the pages when minifying / magnifying. Default "linear" for both. */
+  filterMin?: AtlasFilter;
+  filterMag?: AtlasFilter;
+  /** Texture wrap mode on each axis. Default "clamp". */
+  wrapX?: AtlasWrap;
+  wrapY?: AtlasWrap;
+  /** Pixel format runtimes should upload the pages as (a hint; pages are always stored as PNG or JPEG). Default "RGBA8888". */
+  pixelFormat?: AtlasPixelFormat;
 }
+
+/** Texture filter. The mipmap variants only make sense for minification; renderers generate the mipmaps. */
+export type AtlasFilter = "nearest" | "linear" | "mipmap" | "mipmapNearestNearest" | "mipmapLinearNearest" | "mipmapNearestLinear" | "mipmapLinearLinear";
+export type AtlasWrap = "clamp" | "repeat" | "mirroredRepeat";
+export type AtlasPixelFormat = "RGBA8888" | "RGB888" | "RGBA4444" | "RGB565" | "Alpha";
+export const ATLAS_FILTERS: readonly AtlasFilter[] = ["nearest", "linear", "mipmap", "mipmapNearestNearest", "mipmapLinearNearest", "mipmapNearestLinear", "mipmapLinearLinear"];
+export const ATLAS_WRAPS: readonly AtlasWrap[] = ["clamp", "repeat", "mirroredRepeat"];
+export const ATLAS_PIXEL_FORMATS: readonly AtlasPixelFormat[] = ["RGBA8888", "RGB888", "RGBA4444", "RGB565", "Alpha"];
 
 interface AttachmentBase {
   name: string;

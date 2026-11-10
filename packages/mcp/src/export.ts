@@ -13,13 +13,14 @@ import {
   encodeMovMjpeg,
   encodePng,
   encodePsd,
+  atlasExportFiles,
   enginePackZip,
   webIndexHtml,
   webPackZip,
 } from "@openbone/export";
-import { CanvasRenderer, type Ctx2D } from "@openbone/render-canvas";
+import { type AtlasSettings, CanvasRenderer, type Ctx2D, atlasBuildOptions, describeAtlas } from "@openbone/render-canvas";
 import { OpenBoneInstance, type ScriptHost } from "@openbone/runtime";
-import { loadImages, packAtlas, useSkin } from "./render.ts";
+import { loadImages, packAtlasFull, packAtlasScales, useSkin } from "./render.ts";
 import type { ProjectSession } from "./session.ts";
 
 /**
@@ -32,18 +33,8 @@ export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
 export type Step = { advance?: number; setInputs?: Record<string, boolean | number | string>; fire?: string[]; pointer?: { type: "down" | "up" | "move"; x: number; y: number } };
 
-/** Texture atlas settings (the Export dialog's "Texture atlas" group). */
-export interface AtlasExportOptions {
-  padding?: number;
-  maxSize?: number;
-  powerOfTwo?: boolean;
-  rotate?: boolean;
-  /** Store images at this fraction of their size; "auto" shrinks only as much as needed to fit one page. */
-  scale?: number | "auto";
-  stripWhitespace?: boolean;
-  polygons?: boolean;
-  premultipliedAlpha?: boolean;
-}
+/** Texture atlas settings (the Export dialog's "Texture atlas" group): the packer settings shared with the CLI and editor. */
+export type AtlasExportOptions = AtlasSettings;
 
 export interface ExportRequest {
   format: ExportFormat;
@@ -169,23 +160,23 @@ export async function embedAssets(session: ProjectSession, d: OpenBoneDocument):
   return out;
 }
 
-/** Pack a (runtime) document's images into atlas pages with the dialog's settings; returns a packed copy. */
-export async function packDocument(session: ProjectSession, d: OpenBoneDocument, o: AtlasExportOptions = {}): Promise<OpenBoneDocument> {
+/** Pack a (runtime) document's images into atlas pages with the dialog's settings; returns a packed copy and any warnings. */
+export async function packDocument(session: ProjectSession, d: OpenBoneDocument, o: AtlasExportOptions = {}): Promise<{ doc: OpenBoneDocument; warnings: string[] }> {
   const out = structuredClone(d);
-  if (!out.images.length) return out;
-  const atlas = await packAtlas(session, out, {
-    padding: o.padding ?? 2,
-    maxWidth: o.maxSize ?? 2048,
-    maxHeight: o.maxSize ?? 2048,
-    powerOfTwo: o.powerOfTwo ?? true,
-    allowRotation: !!o.rotate,
-    stripWhitespace: !!o.stripWhitespace,
-    polygons: !!o.polygons,
-    premultipliedAlpha: !!o.premultipliedAlpha,
-    ...(o.scale === "auto" ? { autoScale: true } : { scale: o.scale ?? 1 }),
-  });
+  if (!out.images.length) return { doc: out, warnings: [] };
+  const { atlas, warnings } = await packAtlasFull(session, out, atlasBuildOptions(o));
   applyOp(out, "setAtlas", { atlas, stripImageSources: true });
-  return out;
+  return { doc: out, warnings };
+}
+
+/** One packed copy per scale variant (`o.scales`), images loaded once. */
+export async function packDocumentScales(session: ProjectSession, d: OpenBoneDocument, o: AtlasExportOptions): Promise<{ suffix: string; doc: OpenBoneDocument; warnings: string[] }[]> {
+  const built = await packAtlasScales(session, d, atlasBuildOptions(o), o.scales ?? []);
+  return built.map((b) => {
+    const out = structuredClone(d);
+    applyOp(out, "setAtlas", { atlas: b.atlas, stripImageSources: true });
+    return { suffix: b.suffix, doc: out, warnings: b.warnings };
+  });
 }
 
 /** Base name for exported files: the project file's name, else the document name. */
@@ -235,33 +226,31 @@ export async function exportFile(session: ProjectSession, a: ExportRequest, scri
   if (a.format === "json" || a.format === "obonb") {
     const r = runtimeData();
     let d = r.doc;
-    if (a.pack && d.images.length) d = await packDocument(session, d, a.atlas);
+    const warnings = [...r.warnings];
+    if (a.pack && d.images.length) {
+      const p = await packDocument(session, d, a.atlas);
+      d = p.doc;
+      warnings.push(...p.warnings);
+    }
     const bytes = a.format === "json" ? new TextEncoder().encode(serialize(d)) : serializeBinary(d, { precision: "float32" });
-    return done(bytes, r.warnings.length ? ` · ${r.warnings.join("; ")}` : "");
+    return done(bytes, warnings.length ? ` · ${warnings.join("; ")}` : "");
   }
   if (a.format === "atlas") {
-    // Runtime data next to its atlas pages as separate PNG files (smaller JSON, cacheable textures).
+    // Runtime data next to its atlas pages as separate image files (smaller JSON, cacheable textures); one set per scale.
     const r = runtimeData();
     if (!r.doc.images.length) throw new Error("No images to pack");
-    const d = await packDocument(session, r.doc, a.atlas);
-    const files: { name: string; data: Uint8Array }[] = [];
-    d.atlas!.pages.forEach((p, i) => {
-      const name = `${base}${i ? `_${i + 1}` : ""}.png`;
-      files.push({ name, data: new Uint8Array(Buffer.from(p.src.slice(p.src.indexOf(",") + 1), "base64")) });
-      p.src = name;
-    });
-    const bin = a.binary ?? false;
-    files.unshift({ name: `${base}.${bin ? "obonb" : "json"}`, data: bin ? serializeBinary(d, { precision: "float32" }) : new TextEncoder().encode(serialize(d)) });
-    const at = d.atlas!;
-    const flags = [at.premultipliedAlpha && "premultiplied", at.stripWhitespace && "trimmed", at.polygons && "polygons", at.scale && `${Math.round(at.scale * 100)}%`].filter(Boolean);
-    return done(createZip(files), ` · ${at.pages.length} page(s) ${at.pages.map((p) => `${p.width}×${p.height}`).join(", ")}${flags.length ? ` (${flags.join(", ")})` : ""}`);
+    const variants = a.atlas?.scales?.length ? await packDocumentScales(session, r.doc, a.atlas) : [{ suffix: "", ...(await packDocument(session, r.doc, a.atlas)) }];
+    const files = atlasExportFiles(base, variants, { binary: a.binary ?? false });
+    const warnings = [...new Set(variants.flatMap((v) => v.warnings))];
+    const desc = variants.map((v) => `${variants.length > 1 ? `${v.suffix || "(base)"}: ` : ""}${describeAtlas(v.doc.atlas!)}`).join(" · ");
+    return done(createZip(files), ` · ${desc}${warnings.length ? ` · ${warnings.join("; ")}` : ""}`);
   }
   if (a.format === "web") {
     const { buildWebBundle } = await import("@openbone/player/bundle");
     const minify = a.minify ?? true;
     const binary = a.binary ?? true;
     let rd = exportDocument(doc, { pruneUnused: true, nonessential: false }).doc;
-    if (a.pack && rd.images.length) rd = await packDocument(session, rd, a.atlas);
+    if (a.pack && rd.images.length) rd = (await packDocument(session, rd, a.atlas)).doc;
     const d = await embedAssets(session, rd);
     const docBytes = binary ? serializeBinary(d, { precision: "float32" }) : new TextEncoder().encode(serialize(d));
     const sm = (a.stateMachine ? d.stateMachines.find((m) => m.name === a.stateMachine) : null) ?? d.stateMachines[0];

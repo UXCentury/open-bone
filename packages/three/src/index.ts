@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, premultipliedTextures } from "@openbone/core";
+import { type OpenBoneDocument, type TextureSampling, filterParts, premultipliedTextures, textureSamplings } from "@openbone/core";
 import {
   type Batch,
   type DriverOptions,
@@ -31,7 +31,7 @@ export interface LoadOptions extends FetchOptions {
 }
 
 /** Configure a texture the way OpenBone samples it: premultiplied on upload, v down, colours passed through. */
-export function prepareTexture<T extends THREE.Texture>(t: T, mipmaps = true, premultiplied = false): T {
+export function prepareTexture<T extends THREE.Texture>(t: T, mipmaps = true, premultiplied = false, sampling?: TextureSampling): T {
   // Straight-alpha images are premultiplied on upload; premultiplied atlas pages already are.
   t.premultiplyAlpha = !premultiplied;
   t.flipY = false;
@@ -40,6 +40,20 @@ export function prepareTexture<T extends THREE.Texture>(t: T, mipmaps = true, pr
   t.minFilter = mipmaps ? THREE.LinearMipmapLinearFilter : THREE.LinearFilter;
   t.magFilter = THREE.LinearFilter;
   t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+  if (sampling) {
+    // An atlas's own filter / wrap settings win over the `mipmaps` option.
+    const { texel, mip } = filterParts(sampling.min);
+    t.generateMipmaps = mip !== "none";
+    t.minFilter =
+      mip === "none" ? (texel === "nearest" ? THREE.NearestFilter : THREE.LinearFilter)
+      : mip === "nearest" ? (texel === "nearest" ? THREE.NearestMipmapNearestFilter : THREE.LinearMipmapNearestFilter)
+      : texel === "nearest" ? THREE.NearestMipmapLinearFilter
+      : THREE.LinearMipmapLinearFilter;
+    t.magFilter = sampling.mag === "nearest" ? THREE.NearestFilter : THREE.LinearFilter;
+    const wrap = (w: TextureSampling["wrapX"]) => (w === "repeat" ? THREE.RepeatWrapping : w === "mirroredRepeat" ? THREE.MirroredRepeatWrapping : THREE.ClampToEdgeWrapping);
+    t.wrapS = wrap(sampling.wrapX);
+    t.wrapT = wrap(sampling.wrapY);
+  }
   t.needsUpdate = true;
   return t;
 }
@@ -50,7 +64,8 @@ export async function loadOpenBone(src: OpenBoneSource, opts: LoadOptions = {}):
   const images = await loadTextures(doc, baseUrl, { resolveImageUrl: opts.resolveImageUrl });
   const textures = new Map<string, THREE.Texture>();
   const pma = premultipliedTextures(doc);
-  for (const [id, img] of images) textures.set(id, prepareTexture(new THREE.Texture(img), opts.mipmaps ?? true, pma.has(id)));
+  const sampling = textureSamplings(doc);
+  for (const [id, img] of images) textures.set(id, prepareTexture(new THREE.Texture(img), opts.mipmaps ?? true, pma.has(id), sampling.get(id)));
   return { doc, baseUrl, textures };
 }
 

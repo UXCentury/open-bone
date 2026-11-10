@@ -265,13 +265,51 @@ lives in a page:
   uvs only use their ratios).
 - `white` is a solid white block that untextured shapes sample from, so they batch with images.
 - Pages are packed with 2 px padding by default, and edge pixels are extruded into half of the padding so linear
-  filtering matches a loose texture.
+  filtering matches a loose texture (edge padding; see the packer options below).
+- Several regions may share one rect (aliases: images with identical pixels after trimming). Each keeps its own
+  offsets and original size.
+- `empty: true` marks a fully transparent image that got no space ("ignore blank images"): the region points at a
+  shared 1×1 transparent block with `originalWidth = originalHeight = 1`, so a renderer that knows nothing about the
+  flag still samples only transparent pixels. Runtimes may skip such regions.
 
 | Option | Meaning |
 |---|---|
 | **Premultiplied alpha** (`atlas.premultipliedAlpha: true`) | Page pixels are stored as rgb × a. Renderers upload such pages as they are (no premultiply on upload) and blend with `ONE, ONE_MINUS_SRC_ALPHA`; 2D-canvas renderers, which only composite straight alpha, divide by alpha once when they load the page. Loose images are always straight alpha |
 | **Whitespace stripping** (`atlas.stripWhitespace`, informational) | Each image is packed by its visible bounds, recorded in the usual trim fields. Images that meshes sample keep everything their uvs cover, and particle images are never trimmed |
 | **Polygon packing** (`atlas.polygons`, informational) | A region may carry `polygon`, a convex outline `[x0, y0, x1, y1, …]` in original image pixels (y-down, the same space as the offsets) that lies inside the packed rect and covers every visible pixel. Region attachments then draw that polygon (a triangle fan) instead of their quad: point `(px, py)` is placed at image uv `(px / originalWidth, py / originalHeight)` on the region's quad. Meshes, sequences and particles ignore it |
+| **Filtering** (`atlas.filterMin`, `atlas.filterMag`) | Texture filter for the pages: `nearest`, `linear` (the default), `mipmap`, `mipmapNearestNearest`, `mipmapLinearNearest`, `mipmapNearestLinear`, `mipmapLinearLinear` (texel filter, then the filter between mip levels; `mipmap` is trilinear). Mipmap variants ask the renderer to generate mipmaps; as a mag filter they act as their texel filter |
+| **Wrap** (`atlas.wrapX`, `atlas.wrapY`) | `clamp` (the default), `repeat` or `mirroredRepeat` |
+| **Pixel format** (`atlas.pixelFormat`) | `RGBA8888` (the default), `RGB888`, `RGBA4444`, `RGB565` or `Alpha`: how a runtime may upload the pages to save memory. A hint only; the pages are always PNG or JPEG files |
+
+The web renderers (`render-webgl`, Pixi, Three.js, CanvasKit) apply the filter and wrap settings to atlas pages;
+Phaser has one filter per texture and applies `nearest` when `filterMag` is `nearest`; Canvas 2D can only turn
+smoothing off, which it does for `filterMag: nearest`. Native runtimes read and ignore these fields. Loose images
+always sample linear + clamp.
+
+### Packer options
+
+These shape the pages but are not recorded in the file (the Export dialog, `openbone export` and the MCP
+`pack_atlas` / `export_file` tools take the same settings):
+
+| Option | Default | Meaning |
+|---|---|---|
+| Padding | 2 | Empty pixels around each image and the page edges |
+| Max width / height | 2048 | Largest page |
+| Min width / height | 0 | Smallest page |
+| Power of two, square, multiple of 4 | on, off, off | Page size rules |
+| Rotate | off | Turn images 90° when that packs tighter |
+| Scale | 1 | Store images at a fraction of their size (`auto`: just enough to fit one page). Several scales in one pack give one data file + page set each, named with a suffix per scale |
+| Resample | bilinear | Scaled packs: `bilinear`, `bicubic` (the canvas's high-quality smoothing: Skia's cubic in Node and Chrome) or `nearest` |
+| Strip whitespace, polygons | off | See above |
+| Alpha threshold | 0 | Pixels with alpha at or below this count as transparent for trimming, polygons and the blank test |
+| Alias | on | Identical images are stored once |
+| Ignore blank images | on | Fully transparent images get no space (`empty` regions) |
+| Edge padding | on | Repeat each image's edge pixels into half its padding, so filtering never reads the padding or a neighbour |
+| Duplicate padding | on | With edge padding, opaque edge pixels are copied opaque (a hard edge like a loose texture); off copies them as colour only (alpha 0), so opaque edges fade out without a dark fringe |
+| Bleed | on unless premultiplied | Fully transparent pixels take the colour of the nearest visible pixel (alpha stays 0), so filtering and scaling don't pull in black |
+| Premultiplied alpha | off | See above |
+| Page format | PNG | PNG or JPEG (with a quality). JPEG pages are opaque, so transparent art is filled in; a warning says so |
+| Debug | off | Draw a magenta outline around every region (cyan around the white block), for checking a pack |
 
 ## Binary documents (`.obonb`)
 

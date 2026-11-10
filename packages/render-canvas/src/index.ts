@@ -1,4 +1,4 @@
-import { type AtlasData, type AtlasRegion, type OpenBoneDocument, apply, buildSpline, premultipliedTextures, regionPageRect, splinePolyline, unpremultiplyPixels } from "@openbone/core";
+import { type AtlasData, type AtlasRegion, type OpenBoneDocument, type TextureSampling, apply, buildSpline, premultipliedTextures, regionPageRect, splinePolyline, textureSamplings, unpremultiplyPixels } from "@openbone/core";
 import { type ClipRegion, type DrawItem, type Skeleton, type TextContext, drawTextBox, particleDotAlpha } from "@openbone/runtime";
 
 /** Minimal 2D context surface (browser CanvasRenderingContext2D or @napi-rs/canvas SKRSContext2D). */
@@ -81,6 +81,8 @@ export class CanvasRenderer {
   convertPremultiplied = true;
   private pma = new Set<string>();
   private pmaDoc: OpenBoneDocument | null = null;
+  /** Atlas page sampling: a 2D canvas can only switch smoothing off, which it does for nearest magnification. */
+  private sampling = new Map<string, TextureSampling>();
 
   /** The texture to draw for an id: premultiplied pages come back as straight-alpha copies. */
   private source(id: string): CanvasImageSource | null {
@@ -179,6 +181,7 @@ export class CanvasRenderer {
     if (this.pmaDoc !== doc) {
       this.pmaDoc = doc;
       this.pma = premultipliedTextures(doc);
+      this.sampling = textureSamplings(doc);
     }
     const view = opts.view ?? { x: 0, y: 0, zoom: 1 };
     if (opts.clear !== false) {
@@ -222,6 +225,7 @@ export class CanvasRenderer {
   private drawItem(it: DrawItem, wireframe: boolean, zoom: number) {
     const { ctx } = this;
     ctx.globalCompositeOperation = BLEND[it.blend] ?? "source-over";
+    if (it.image) ctx.imageSmoothingEnabled = this.sampling.get((it.texture ?? it.image).id)?.mag !== "nearest";
     if (it.particles) return this.drawParticles(it);
     const v = it.vertices;
     const idx = it.indices;
@@ -489,22 +493,34 @@ export class CanvasRenderer {
   }
 }
 
+/** How scaled images are resampled onto a page: bilinear, bicubic (the canvas's "high" smoothing) or nearest. */
+export type AtlasResample = "bilinear" | "bicubic" | "nearest";
+
 /**
  * Compose one atlas page: draws each packed image into its rect (the trimmed part, when trimmed) and fills the
- * white block. `ctx` should be a fresh `page.width x page.height` canvas. Returns the images that were missing.
+ * white block. Aliases (regions sharing a rect) are drawn once and empty (blank) regions not at all. `ctx` should
+ * be a fresh `page.width x page.height` canvas. Returns the images that were missing. By default edge pixels are
+ * extruded into half the padding (up to 2 px); pass `extrude: 0` to leave that to `padEdges` on the pixel bytes.
  */
-export function drawAtlasPage(ctx: Ctx2D, atlas: AtlasData, pageId: string, images: ImageResolver): string[] {
+export function drawAtlasPage(ctx: Ctx2D, atlas: AtlasData, pageId: string, images: ImageResolver, opts: { extrude?: number; resample?: AtlasResample } = {}): string[] {
   const missing: string[] = [];
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = "source-over";
+  ctx.imageSmoothingEnabled = opts.resample !== "nearest";
+  if (opts.resample !== "nearest") ctx.imageSmoothingQuality = opts.resample === "bicubic" ? "high" : "low";
+  const extrudeBy = opts.extrude ?? Math.min(2, Math.floor(atlas.padding / 2));
+  const drawn = new Set<string>();
   for (const r of atlas.regions) {
-    if (r.page !== pageId) continue;
+    if (r.page !== pageId || r.empty) continue;
+    const key = `${r.x},${r.y}`;
+    if (drawn.has(key)) continue;
     const img = images(r.image) as (CanvasImageSource & ImageSource) | null | undefined;
     if (!img) {
       missing.push(r.image);
       continue;
     }
+    drawn.add(key);
     // Source images may be stored at a different resolution than the asset size; scale the source rect.
     const kx = (img.width || r.originalWidth) / r.originalWidth;
     const ky = (img.height || r.originalHeight) / r.originalHeight;
@@ -515,7 +531,7 @@ export function drawAtlasPage(ctx: Ctx2D, atlas: AtlasData, pageId: string, imag
       ctx.drawImage(img, r.offsetX * kx, r.offsetY * ky, r.width * kx, r.height * ky, 0, 0, r.width, r.height);
       ctx.restore();
     } else ctx.drawImage(img, r.offsetX * kx, r.offsetY * ky, r.width * kx, r.height * ky, r.x, r.y, r.width, r.height);
-    extrude(ctx, regionPageRect(r), Math.min(2, Math.floor(atlas.padding / 2)));
+    extrude(ctx, regionPageRect(r), extrudeBy);
   }
   const w = atlas.white;
   if (w && w.page === pageId) {

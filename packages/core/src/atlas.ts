@@ -2,7 +2,7 @@
  * Texture atlas packing: a MaxRects rectangle packer (pure, no pixels) plus the helpers that map image
  * uvs into atlas page uvs. Composing page pixels is left to whoever has a canvas (editor, MCP, CLI).
  */
-import type { AtlasData, AtlasPage, AtlasRegion, Id, OpenBoneDocument } from "./types.ts";
+import type { AtlasData, AtlasFilter, AtlasPage, AtlasPixelFormat, AtlasRegion, AtlasWrap, Id, OpenBoneDocument } from "./types.ts";
 
 export interface PackInput {
   id: string;
@@ -16,6 +16,11 @@ export interface PackOptions {
   /** Largest page size. Default 2048 x 2048. */
   maxWidth?: number;
   maxHeight?: number;
+  /** Smallest page size (pages are never smaller, even when the images would fit). Default 0 (no minimum). */
+  minWidth?: number;
+  minHeight?: number;
+  /** Round page sizes up to multiples of 4 (block-compressed texture formats need it). Default false. */
+  multipleOf4?: boolean;
   /** Round page sizes up to powers of two. Default true. */
   powerOfTwo?: boolean;
   /** Make pages square. Default false. */
@@ -142,12 +147,15 @@ export function packRects(input: PackInput[], opts: PackOptions = {}): PackedPag
   const maxH = Math.floor(opts.maxHeight ?? 2048);
   const pot = opts.powerOfTwo ?? true;
   const square = opts.square ?? false;
+  const four = !!opts.multipleOf4 && !pot;
   // With power-of-two pages the usable size is the largest power of two that fits the limit.
-  const limW = pot ? 2 ** Math.floor(Math.log2(maxW)) : maxW;
-  const limH = pot ? 2 ** Math.floor(Math.log2(maxH)) : maxH;
+  const limW = pot ? 2 ** Math.floor(Math.log2(maxW)) : four ? Math.max(4, maxW - (maxW % 4)) : maxW;
+  const limH = pot ? 2 ** Math.floor(Math.log2(maxH)) : four ? Math.max(4, maxH - (maxH % 4)) : maxH;
   const limS = Math.min(limW, limH);
   const capW = square ? limS : limW;
   const capH = square ? limS : limH;
+  const minW = Math.min(capW, Math.max(0, Math.floor(opts.minWidth ?? 0)));
+  const minH = Math.min(capH, Math.max(0, Math.floor(opts.minHeight ?? 0)));
 
   const rects = input.map((r) => {
     if (!(r.width > 0 && r.height > 0)) throw new Error(`"${r.id}" has no size (${r.width}x${r.height})`);
@@ -167,7 +175,7 @@ export function packRects(input: PackInput[], opts: PackOptions = {}): PackedPag
   while (remaining.length) {
     const { placed, left } = packInto(remaining, capW, capH, pad, rot);
     if (!placed.length) throw new Error(`"${remaining[0].id}" does not fit in a ${capW}x${capH} page`);
-    pages.push(shrink(placed, { pad, capW, capH, pot, square, rot }));
+    pages.push(shrink(placed, { pad, capW, capH, minW, minH, pot, square, four, rot }));
     remaining = left;
   }
   return pages;
@@ -176,22 +184,33 @@ export function packRects(input: PackInput[], opts: PackOptions = {}): PackedPag
 /** Find the smallest page that still holds every rect of a full page. */
 function shrink(
   rects: PackedRect[],
-  o: { pad: number; capW: number; capH: number; pot: boolean; square: boolean; rot?: { noRotate?: ReadonlySet<string> } },
+  o: { pad: number; capW: number; capH: number; minW: number; minH: number; pot: boolean; square: boolean; four: boolean; rot?: { noRotate?: ReadonlySet<string> } },
 ): PackedPage {
   const { pad, capW, capH } = o;
   const area = rects.reduce((s, r) => s + (r.width + pad) * (r.height + pad), 0);
   // With rotation a rect only needs its shorter side to fit across.
   const turnable = (r: PackedRect) => !!o.rot && !o.rot.noRotate?.has(r.id);
-  const minW = Math.max(...rects.map((r) => (turnable(r) ? Math.min(r.width, r.height) : r.width))) + 2 * pad;
-  const minH = Math.max(...rects.map((r) => (turnable(r) ? Math.min(r.width, r.height) : r.height))) + 2 * pad;
+  const needW = Math.max(o.minW, Math.max(...rects.map((r) => (turnable(r) ? Math.min(r.width, r.height) : r.width))) + 2 * pad);
+  const needH = Math.max(o.minH, Math.max(...rects.map((r) => (turnable(r) ? Math.min(r.width, r.height) : r.height))) + 2 * pad);
+  /** A page size grown to the minimum, multiples of 4 and squareness, never past the cap. */
+  const finish = (w: number, h: number): [number, number] => {
+    w = Math.max(w, o.minW);
+    h = Math.max(h, o.minH);
+    if (o.four) {
+      w = Math.ceil(w / 4) * 4;
+      h = Math.ceil(h / 4) * 4;
+    }
+    if (o.square) w = h = Math.max(w, h);
+    return [Math.min(w, capW), Math.min(h, capH)];
+  };
   const candidates: [number, number][] = [];
   if (o.pot) {
-    for (let w = nextPot(minW); w <= capW; w *= 2) for (let h = nextPot(minH); h <= capH; h *= 2) if (!o.square || w === h) candidates.push([w, h]);
+    for (let w = nextPot(needW); w <= capW; w *= 2) for (let h = nextPot(needH); h <= capH; h *= 2) if (!o.square || w === h) candidates.push([w, h]);
   } else {
     const steps = 24;
     for (let i = 0; i <= steps; i++) {
-      const w = Math.round(minW + ((capW - minW) * i) / steps);
-      if (o.square) candidates.push([Math.max(w, minH), Math.max(w, minH)]);
+      const w = Math.round(Math.min(needW, capW) + ((capW - Math.min(needW, capW)) * i) / steps);
+      if (o.square) candidates.push([Math.max(w, needH), Math.max(w, needH)]);
       else candidates.push([w, capH]);
     }
   }
@@ -199,7 +218,7 @@ function shrink(
   candidates.sort((a, b) => a[0] * a[1] - b[0] * b[1] || Math.abs(a[0] - a[1]) - Math.abs(b[0] - b[1]));
   let best: PackedPage | null = null;
   for (const [w, h] of candidates) {
-    if (w * h < area) continue;
+    if (w * h < area || w > capW || h > capH) continue;
     if (best && w * h >= best.width * best.height && o.pot) break;
     const { placed, left } = packInto(rects, w, h, pad, o.rot);
     if (left.length) continue;
@@ -207,7 +226,8 @@ function shrink(
     if (o.pot) page = { width: w, height: h, rects: placed };
     else {
       const b = bounds(placed, pad);
-      page = o.square ? { width: Math.max(b.w, b.h), height: Math.max(b.w, b.h), rects: placed } : { width: b.w, height: b.h, rects: placed };
+      const [fw, fh] = finish(b.w, b.h);
+      page = { width: fw, height: fh, rects: placed };
     }
     if (!best || page.width * page.height < best.width * best.height) best = page;
     if (o.pot) break;
@@ -215,7 +235,9 @@ function shrink(
   if (best) return best;
   // The rects came from a cap-sized page, so that always fits.
   const b = bounds(rects, pad);
-  return o.pot ? { width: capW, height: capH, rects } : { width: b.w, height: b.h, rects };
+  if (o.pot) return { width: capW, height: capH, rects };
+  const [fw, fh] = finish(b.w, b.h);
+  return { width: fw, height: fh, rects };
 }
 
 // ---------- Document atlas layout ----------
@@ -223,6 +245,7 @@ function shrink(
 /** Size of the solid white block shapes sample from (a few pixels so linear filtering stays pure white). */
 export const ATLAS_WHITE_SIZE = 4;
 const WHITE_ID = "@white";
+const BLANK_ID = "@blank";
 
 export interface AtlasLayoutOptions extends PackOptions {
   /** Add a white block so untextured shapes batch with images. Default true. */
@@ -237,6 +260,16 @@ export interface AtlasLayoutOptions extends PackOptions {
   stripWhitespace?: boolean;
   /** Recorded in the atlas: images carry outline polygons (pass each image's `polygon`). */
   polygons?: boolean;
+  /** Images with the same `alias` key and packed size share one rectangle. Default true. */
+  alias?: boolean;
+  /** Images marked `blank` get no space: their regions point at a shared 1×1 transparent block. Default true. */
+  ignoreBlank?: boolean;
+  /** Recorded in the atlas for runtimes: texture filtering, wrapping and pixel format. */
+  filterMin?: AtlasFilter;
+  filterMag?: AtlasFilter;
+  wrapX?: AtlasWrap;
+  wrapY?: AtlasWrap;
+  pixelFormat?: AtlasPixelFormat;
 }
 
 /** An image to lay out, optionally trimmed to its visible part and with an outline polygon (both in its own pixels). */
@@ -248,6 +281,13 @@ export interface AtlasImage {
   trim?: { x: number; y: number; width: number; height: number };
   /** Convex outline around the visible pixels, flat [x0,y0,...] in image pixels (y-down). */
   polygon?: number[];
+  /**
+   * Pixel identity of the packed part (e.g. the id of the first image with exactly the same trimmed pixels).
+   * Images sharing a key, and the same packed size, are stored once (aliases).
+   */
+  alias?: string;
+  /** Fully transparent: with `ignoreBlank` it takes no space on the page. */
+  blank?: boolean;
 }
 
 /** A polygon is kept only when its area is below this fraction of its packed rect. */
@@ -289,9 +329,37 @@ export function layoutAtlas(images: AtlasImage[], opts: AtlasLayoutOptions = {})
     }
     parts.set(i.id, part);
   }
-  const input: PackInput[] = images.map((i) => ({ id: i.id, width: parts.get(i.id)!.w, height: parts.get(i.id)!.h }));
+  const ignoreBlank = opts.ignoreBlank ?? true;
+  const useAlias = opts.alias ?? true;
+  const blank = new Set(ignoreBlank ? images.filter((i) => i.blank).map((i) => i.id) : []);
+  // Aliases: images with the same pixel key and packed size follow the first one ("leader").
+  const leaderOf = new Map<string, string>();
+  const followers = new Map<string, string[]>();
+  const byKey = new Map<string, string>();
+  for (const i of images) {
+    if (blank.has(i.id)) continue;
+    const part = parts.get(i.id)!;
+    const key = useAlias && i.alias !== undefined ? `${i.alias}|${part.w}x${part.h}` : undefined;
+    const leader = key !== undefined ? byKey.get(key) : undefined;
+    if (leader === undefined) {
+      if (key !== undefined) byKey.set(key, i.id);
+      leaderOf.set(i.id, i.id);
+      followers.set(i.id, []);
+    } else {
+      leaderOf.set(i.id, leader);
+      followers.get(leader)!.push(i.id);
+    }
+  }
+  // A shared rect may only turn when none of the images using it must stay upright.
+  let noRotate = opts.noRotate;
+  if (opts.noRotate?.size) {
+    noRotate = new Set(opts.noRotate);
+    for (const id of opts.noRotate) if (leaderOf.has(id)) (noRotate as Set<string>).add(leaderOf.get(id)!);
+  }
+  const input: PackInput[] = [...followers.keys()].map((id) => ({ id, width: parts.get(id)!.w, height: parts.get(id)!.h }));
+  if (blank.size) input.push({ id: BLANK_ID, width: 1, height: 1 });
   if (input.length && opts.white !== false) input.push({ id: WHITE_ID, width: ATLAS_WHITE_SIZE, height: ATLAS_WHITE_SIZE });
-  const packed = packRects(input, { ...opts, padding });
+  const packed = packRects(input, { ...opts, padding, noRotate });
   const prefix = opts.pageId ?? "atlas_page";
   const atlas: AtlasData = {
     pages: [],
@@ -301,6 +369,7 @@ export function layoutAtlas(images: AtlasImage[], opts: AtlasLayoutOptions = {})
     ...(opts.premultipliedAlpha ? { premultipliedAlpha: true } : {}),
     ...(opts.stripWhitespace ? { stripWhitespace: true } : {}),
     ...(opts.polygons ? { polygons: true } : {}),
+    ...atlasSampling(opts),
   };
   packed.forEach((p, i) => {
     const page: AtlasPage = { id: `${prefix}${i}`, name: `atlas ${i + 1}`, src: "", width: p.width, height: p.height };
@@ -310,25 +379,89 @@ export function layoutAtlas(images: AtlasImage[], opts: AtlasLayoutOptions = {})
         atlas.white = { page: page.id, x: r.x, y: r.y, width: r.width, height: r.height };
         continue;
       }
-      const part = parts.get(r.id)!;
-      atlas.regions.push({
-        image: r.id,
-        page: page.id,
-        x: r.x,
-        y: r.y,
-        width: r.width,
-        height: r.height,
-        offsetX: part.ox,
-        offsetY: part.oy,
-        // Page pixels: with `scale` these are smaller than the image asset's size (uvs only use the ratios).
-        originalWidth: part.ow,
-        originalHeight: part.oh,
-        ...(r.rotated ? { rotated: true } : {}),
-        ...(part.polygon ? { polygon: part.polygon } : {}),
-      });
+      if (r.id === BLANK_ID) {
+        for (const id of blank)
+          atlas.regions.push({ image: id, page: page.id, x: r.x, y: r.y, width: 1, height: 1, offsetX: 0, offsetY: 0, originalWidth: 1, originalHeight: 1, empty: true });
+        continue;
+      }
+      for (const id of [r.id, ...followers.get(r.id)!]) {
+        const part = parts.get(id)!;
+        atlas.regions.push({
+          image: id,
+          page: page.id,
+          x: r.x,
+          y: r.y,
+          width: r.width,
+          height: r.height,
+          offsetX: part.ox,
+          offsetY: part.oy,
+          // Page pixels: with `scale` these are smaller than the image asset's size (uvs only use the ratios).
+          originalWidth: part.ow,
+          originalHeight: part.oh,
+          ...(r.rotated ? { rotated: true } : {}),
+          ...(part.polygon ? { polygon: part.polygon } : {}),
+        });
+      }
     }
   });
   return atlas;
+}
+
+/** The sampling / pixel-format metadata of layout options, leaving out defaults. */
+export function atlasSampling(o: Pick<AtlasData, "filterMin" | "filterMag" | "wrapX" | "wrapY" | "pixelFormat">): Pick<AtlasData, "filterMin" | "filterMag" | "wrapX" | "wrapY" | "pixelFormat"> {
+  return {
+    ...(o.filterMin && o.filterMin !== "linear" ? { filterMin: o.filterMin } : {}),
+    ...(o.filterMag && o.filterMag !== "linear" ? { filterMag: o.filterMag } : {}),
+    ...(o.wrapX && o.wrapX !== "clamp" ? { wrapX: o.wrapX } : {}),
+    ...(o.wrapY && o.wrapY !== "clamp" ? { wrapY: o.wrapY } : {}),
+    ...(o.pixelFormat && o.pixelFormat !== "RGBA8888" ? { pixelFormat: o.pixelFormat } : {}),
+  };
+}
+
+/** How a renderer should sample one texture. */
+export interface TextureSampling {
+  /** Minification filter; the mipmap variants ask for generated mipmaps. */
+  min: AtlasFilter;
+  /** Magnification: only nearest or linear (mipmap variants fall back to their magnification part, linear). */
+  mag: "nearest" | "linear";
+  wrapX: AtlasWrap;
+  wrapY: AtlasWrap;
+  /** True when `min` uses mipmaps. */
+  mipmaps: boolean;
+}
+
+/** Split a mipmap filter into its texel filter and its between-levels filter. */
+export function filterParts(f: AtlasFilter): { texel: "nearest" | "linear"; mip: "none" | "nearest" | "linear" } {
+  switch (f) {
+    case "nearest":
+      return { texel: "nearest", mip: "none" };
+    case "linear":
+      return { texel: "linear", mip: "none" };
+    case "mipmapNearestNearest":
+      return { texel: "nearest", mip: "nearest" };
+    case "mipmapLinearNearest":
+      return { texel: "linear", mip: "nearest" };
+    case "mipmapNearestLinear":
+      return { texel: "nearest", mip: "linear" };
+    default:
+      // "mipmap" and "mipmapLinearLinear": trilinear.
+      return { texel: "linear", mip: "linear" };
+  }
+}
+
+/**
+ * Sampling for every atlas page whose atlas asks for something other than the default (linear, clamp). Loose images
+ * are not listed: renderers keep their own defaults for them.
+ */
+export function textureSamplings(doc: Pick<OpenBoneDocument, "atlas">): Map<Id, TextureSampling> {
+  const a = doc.atlas;
+  const out = new Map<Id, TextureSampling>();
+  if (!a || !(a.filterMin || a.filterMag || a.wrapX || a.wrapY)) return out;
+  const min = a.filterMin ?? "linear";
+  const mag = filterParts(a.filterMag ?? "linear").texel;
+  const s: TextureSampling = { min, mag, wrapX: a.wrapX ?? "clamp", wrapY: a.wrapY ?? "clamp", mipmaps: filterParts(min).mip !== "none" };
+  for (const p of a.pages) out.set(p.id, s);
+  return out;
 }
 
 /**
@@ -623,16 +756,20 @@ export function trimLimits(doc: OpenBoneDocument): Map<Id, false | [number, numb
 
 /**
  * The trim rect and outline polygon to pack for one image, from its RGBA pixels: visible bounds (grown to keep
- * what `limit` asks for), and with `polygons` a convex outline. Undefined fields mean "the whole image".
+ * what `limit` asks for), and with `polygons` a convex outline. Undefined fields mean "the whole image". Pixels
+ * count as visible when their alpha is above `threshold` (0–255, default 0); `blank` is set when none is.
  */
 export function analyzeImageAlpha(
   rgba: ArrayLike<number>,
   width: number,
   height: number,
-  opts: { stripWhitespace?: boolean; polygons?: boolean; limit?: false | [number, number, number, number]; maxVertices?: number },
-): Pick<AtlasImage, "trim" | "polygon"> {
-  if (opts.limit === false || (!opts.stripWhitespace && !opts.polygons)) return {};
-  const vis = alphaBounds(rgba, width, height) ?? { x: 0, y: 0, width: 1, height: 1 };
+  opts: { stripWhitespace?: boolean; polygons?: boolean; limit?: false | [number, number, number, number]; maxVertices?: number; threshold?: number },
+): Pick<AtlasImage, "trim" | "polygon" | "blank"> {
+  const threshold = Math.max(0, Math.min(255, opts.threshold ?? 0));
+  const bounds = alphaBounds(rgba, width, height, threshold);
+  const blank = bounds ? {} : { blank: true as const };
+  if (opts.limit === false || (!opts.stripWhitespace && !opts.polygons)) return blank;
+  const vis = bounds ?? { x: 0, y: 0, width: 1, height: 1 };
   let trim: AtlasImage["trim"];
   if (opts.stripWhitespace) {
     let x0 = vis.x, y0 = vis.y, x1 = vis.x + vis.width, y1 = vis.y + vis.height;
@@ -644,6 +781,151 @@ export function analyzeImageAlpha(
     }
     if (x0 > 0 || y0 > 0 || x1 < width || y1 < height) trim = { x: x0, y: y0, width: x1 - x0, height: y1 - y0 };
   }
-  const polygon = opts.polygons ? (alphaHull(rgba, width, height, { maxVertices: opts.maxVertices }) ?? undefined) : undefined;
-  return { ...(trim ? { trim } : {}), ...(polygon ? { polygon } : {}) };
+  const polygon = opts.polygons ? (alphaHull(rgba, width, height, { maxVertices: opts.maxVertices, threshold }) ?? undefined) : undefined;
+  return { ...blank, ...(trim ? { trim } : {}), ...(polygon ? { polygon } : {}) };
+}
+
+// ---------- Page pixels: aliases, bleed, edge padding, debug outlines ----------
+
+/** FNV-1a hash of a rectangle of RGBA pixels (row-major `stride`-wide buffer), for finding identical images. */
+export function hashPixels(rgba: ArrayLike<number>, stride: number, x: number, y: number, w: number, h: number): string {
+  let a = 0x811c9dc5;
+  let b = 0x01000193 ^ (w * 73856093) ^ (h * 19349663);
+  for (let j = 0; j < h; j++) {
+    const row = ((y + j) * stride + x) * 4;
+    for (let i = 0; i < w * 4; i++) {
+      const v = rgba[row + i];
+      a = Math.imul(a ^ v, 0x01000193);
+      b = Math.imul(b ^ v, 0x5bd1e995) ^ (b >>> 15);
+    }
+  }
+  return `${w}x${h}:${(a >>> 0).toString(36)}${(b >>> 0).toString(36)}`;
+}
+
+/** Copy of a rectangle of RGBA pixels. */
+export function cropPixels(rgba: ArrayLike<number>, stride: number, x: number, y: number, w: number, h: number): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(w * h * 4);
+  for (let j = 0; j < h; j++) {
+    const row = ((y + j) * stride + x) * 4;
+    for (let i = 0; i < w * 4; i++) out[j * w * 4 + i] = rgba[row + i];
+  }
+  return out;
+}
+
+type Box = { x: number; y: number; width: number; height: number };
+
+/**
+ * Bleed: give every fully transparent pixel inside `box` the colour of the nearest pixel that is not fully
+ * transparent (alpha stays 0), so filtering and scaling never pull in black at soft edges. Breadth-first from
+ * the visible pixels; each newly reached pixel averages its already-coloured 8 neighbours. In place.
+ */
+export function bleedPixels(px: Uint8Array | Uint8ClampedArray, stride: number, box: Box): void {
+  const { x: bx, y: by, width: w, height: h } = box;
+  const done = new Uint8Array(w * h);
+  let front: number[] = [];
+  for (let j = 0; j < h; j++)
+    for (let i = 0; i < w; i++)
+      if (px[((by + j) * stride + bx + i) * 4 + 3] > 0) {
+        done[j * w + i] = 1;
+        front.push(j * w + i);
+      }
+  if (!front.length || front.length === w * h) return;
+  while (front.length) {
+    const next: number[] = [];
+    const queued = new Set<number>();
+    for (const k of front) {
+      const fi = k % w;
+      const fj = (k - fi) / w;
+      for (let dj = -1; dj <= 1; dj++)
+        for (let di = -1; di <= 1; di++) {
+          const i = fi + di;
+          const j = fj + dj;
+          if (i < 0 || j < 0 || i >= w || j >= h) continue;
+          const n = j * w + i;
+          if (done[n] || queued.has(n)) continue;
+          queued.add(n);
+          next.push(n);
+        }
+    }
+    // Colour the whole ring from the previous rings only, so the result doesn't depend on visiting order.
+    const colours: number[] = [];
+    for (const n of next) {
+      const i = n % w;
+      const j = (n - i) / w;
+      let r = 0, g = 0, b = 0, c = 0;
+      for (let dj = -1; dj <= 1; dj++)
+        for (let di = -1; di <= 1; di++) {
+          const ii = i + di;
+          const jj = j + dj;
+          if (ii < 0 || jj < 0 || ii >= w || jj >= h || !done[jj * w + ii]) continue;
+          const o = ((by + jj) * stride + bx + ii) * 4;
+          r += px[o];
+          g += px[o + 1];
+          b += px[o + 2];
+          c++;
+        }
+      colours.push(Math.round(r / c), Math.round(g / c), Math.round(b / c));
+    }
+    next.forEach((n, k) => {
+      const i = n % w;
+      const j = (n - i) / w;
+      const o = ((by + j) * stride + bx + i) * 4;
+      px[o] = colours[k * 3];
+      px[o + 1] = colours[k * 3 + 1];
+      px[o + 2] = colours[k * 3 + 2];
+      px[o + 3] = 0;
+      done[n] = 1;
+    });
+    front = next;
+  }
+}
+
+/**
+ * Edge padding: repeat the edge pixels of the packed rect `box` `e` pixels outwards into its padding, so linear
+ * filtering at the rect's border reads the image's own edge instead of transparent padding or a neighbour.
+ * Translucent edge pixels are copied as they are; opaque ones are copied as colour only (alpha 0, a soft edge
+ * like art with a transparent border) unless `duplicate` is set, which copies them opaque too (a hard edge that
+ * matches a loose texture's clamp-to-edge). Clipped to the page. In place.
+ */
+export function padEdges(px: Uint8Array | Uint8ClampedArray, pageW: number, pageH: number, box: Box, e: number, duplicate: boolean): void {
+  if (e <= 0 || box.width <= 0 || box.height <= 0) return;
+  const x0 = Math.max(0, box.x - e), y0 = Math.max(0, box.y - e);
+  const x1 = Math.min(pageW, box.x + box.width + e), y1 = Math.min(pageH, box.y + box.height + e);
+  for (let y = y0; y < y1; y++) {
+    const sy = Math.min(Math.max(y, box.y), box.y + box.height - 1);
+    for (let x = x0; x < x1; x++) {
+      const sx = Math.min(Math.max(x, box.x), box.x + box.width - 1);
+      if (sx === x && sy === y) continue;
+      const d = (y * pageW + x) * 4;
+      const s = (sy * pageW + sx) * 4;
+      px[d] = px[s];
+      px[d + 1] = px[s + 1];
+      px[d + 2] = px[s + 2];
+      px[d + 3] = px[s + 3] === 255 && !duplicate ? 0 : px[s + 3];
+    }
+  }
+}
+
+/** Debug: draw a 1 px outline (opaque magenta by default) just inside each box. In place. */
+export function outlineBoxes(px: Uint8Array | Uint8ClampedArray, pageW: number, pageH: number, boxes: Box[], rgba: [number, number, number, number] = [255, 0, 255, 255]): void {
+  const put = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= pageW || y >= pageH) return;
+    px.set(rgba, (y * pageW + x) * 4);
+  };
+  for (const b of boxes) {
+    for (let x = b.x; x < b.x + b.width; x++) {
+      put(x, b.y);
+      put(x, b.y + b.height - 1);
+    }
+    for (let y = b.y; y < b.y + b.height; y++) {
+      put(b.x, y);
+      put(b.x + b.width - 1, y);
+    }
+  }
+}
+
+/** True when any pixel is not fully opaque (a JPEG page would lose it). */
+export function hasTransparency(px: ArrayLike<number>): boolean {
+  for (let i = 3; i < px.length; i += 4) if (px[i] !== 255) return true;
+  return false;
 }
