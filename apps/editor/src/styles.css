@@ -712,3 +712,15 @@ input.small { width: 90px; }
 .import-report { margin: 0; padding-left: 18px; line-height: 1.6; }
 .import-report.warn { color: #ffc27a; }
 @media (max-width: 560px) { .import-cols { grid-template-columns: 1fr; } }
+
+/* 3D view (View3D.tsx): fills the viewport over its canvas */
+.view3d { position: absolute; inset: 0; z-index: 5; background: #1b1e24; overflow: hidden; }
+.view3d .view3d-canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; z-index: 0; }
+.view3d-bar, .view3d-hint, .view3d-inset-label, .view3d-loading { z-index: 1; }
+.view3d-loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; }
+.view3d-bar { position: absolute; top: 8px; left: 10px; display: flex; align-items: center; gap: 10px; padding: 3px 8px; border-radius: 5px; background: #15171ccc; color: var(--muted); font-size: 11px; }
+.view3d-bar .view3d-title { color: var(--text); font-weight: 600; }
+.view3d-bar label { display: flex; align-items: center; gap: 5px; }
+.view3d-bar input[type="range"] { width: 90px; }
+.view3d-inset-label { position: absolute; right: 18px; bottom: 16px; color: #e6e9ef; font-size: 10px; font-weight: 600; text-shadow: 0 1px 2px #000a; pointer-events: none; }
+.view3d-hint { position: absolute; left: 10px; bottom: 8px; max-width: calc(100% - 300px); color: var(--muted); font-size: 11px; background: #15171ccc; padding: 2px 6px; border-radius: 4px; pointer-events: none; }

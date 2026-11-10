@@ -1,7 +1,9 @@
-import { type Affine, type BoneData, RAD, localFromWorld, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint, textureAssets } from "@openbone/core";
+import { type Affine, type Attachment, type BoneData, RAD, localFromWorld, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint, textureAssets } from "@openbone/core";
 import { toggleBackground } from "../background.ts";
 import { checkerPattern, fillArtboard } from "../checker.ts";
-import { slotOpacity } from "../visibility.ts";
+import { showImages, slotOpacity } from "../visibility.ts";
+import { type ZLayout, view3d, zDropIndex, zHit, zLayout, zMove, zView } from "../zview.ts";
+import { View3D } from "./View3D.tsx";
 import { applySequencePreview } from "../sequence-import.ts";
 import { type Guide, clearGuides, guides, newGuideId, removeGuide, setViewAid, toggleViewAid, upsertGuide, viewAids } from "../guides.ts";
 import { CanvasRenderer } from "@openbone/render-canvas";
@@ -78,6 +80,10 @@ import {
   softSelect,
   setSoftSelect,
   multiBones,
+  multiSlots,
+  selectedSlotIds,
+  setMultiSlots,
+  toggleInSelection,
   setMultiBones,
   softRadius,
   setSoftRadius,
@@ -94,7 +100,9 @@ export const [smInstance, setSmInstance] = createSignal<StateMachineInstance | n
 export const viewportApi: {
   info: (() => { x: number; y: number; zoom: number; w: number; h: number }) | null;
   centerOn: ((ax: number, ay: number) => void) | null;
-} = { info: null, centerOn: null };
+  /** The skeleton the viewport has posed this frame (the 3D view draws it in depth). */
+  skeleton: (() => Skeleton | null) | null;
+} = { info: null, centerOn: null, skeleton: null };
 export const [eventLog, setEventLog] = createSignal<string[]>([]);
 let quickjs: ScriptHost | null = null;
 createQuickJsHost({ timeoutMs: 30 })
@@ -124,7 +132,19 @@ type Drag =
   | { kind: "guide"; guide: Guide; isNew: boolean }
   /** Pose tool: the chain bends so the grabbed point follows the pointer; rotations previewed until release. */
   | { kind: "pose"; chain: Bone[]; local: [number, number]; base: Map<Bone, number>; cur: Map<Bone, number>; target: [number, number] }
-  | { kind: "attachment"; slotId: string; name: string; start: [number, number]; base: [number, number]; cur: [number, number]; inv: ReturnType<typeof invert>; preview: Skeleton | null; startWorld: [number, number] }
+  | {
+      kind: "attachment";
+      slotId: string;
+      name: string;
+      start: [number, number];
+      base: [number, number];
+      cur: [number, number];
+      inv: ReturnType<typeof invert>;
+      preview: Skeleton | null;
+      startWorld: [number, number];
+      /** Other selected parts moving along (multi-selection). */
+      others: { slotId: string; name: string; base: [number, number]; cur: [number, number]; inv: ReturnType<typeof invert> }[];
+    }
   | { kind: "create"; parent: Bone | null; start: [number, number]; end: [number, number] }
   | { kind: "vertex"; t: MeshTarget; start: [number, number]; anchor: number; base: Map<number, [number, number]>; moved: Map<number, [number, number]>; preview: Skeleton | null; soft?: Map<number, { base: [number, number]; f: number }> }
   | { kind: "paint"; t: MeshTarget; table: WeightTable; world: number[]; changed: Set<number>; last: [number, number]; carry: number };
@@ -145,12 +165,18 @@ export function Viewport() {
   let wrap!: HTMLDivElement;
   const view = { x: 0, y: 0, zoom: 1 };
   viewportApi.info = () => ({ ...view, w: wrap?.clientWidth ?? 0, h: wrap?.clientHeight ?? 0 });
+  viewportApi.skeleton = () => sk;
   viewportApi.centerOn = (ax, ay) => {
     view.x = (wrap?.clientWidth ?? 0) / 2 - ax * view.zoom;
     view.y = (wrap?.clientHeight ?? 0) / 2 - ay * view.zoom;
   };
   let fitted = false;
   let drag: Drag | null = null;
+  // Z view: the last layout drawn (for hit testing), a part being dragged to a new column, and the view to restore.
+  let zl: ZLayout | null = null;
+  let zdrag: { from: number; startX: number; x: number; y: number } | null = null;
+  let zFitPending = false;
+  let zSavedView: { x: number; y: number; zoom: number } | null = null;
   let sk: Skeleton | null = null;
   let skRev = -1;
   let raf = 0;
@@ -182,6 +208,34 @@ export function Viewport() {
     view.x = (w - d.width * view.zoom) / 2;
     view.y = (h - d.height * view.zoom) / 2;
   };
+
+  createEffect(
+    on(zView, (on_) => {
+      if (on_) {
+        zSavedView = { ...view };
+        zFitPending = true;
+      } else if (zSavedView) {
+        Object.assign(view, zSavedView);
+        zSavedView = null;
+        zdrag = null;
+      }
+    }, { defer: true }),
+  );
+
+  /** Fit the Z view's columns (plus room for their labels) into the viewport. */
+  function fitZ(L: ZLayout) {
+    const d = store.doc;
+    const w = wrap.clientWidth;
+    const h = wrap.clientHeight;
+    const label = 70;
+    const W = L.maxX - L.minX + 60;
+    const H = L.maxY - L.minY + 60;
+    view.zoom = Math.min(w / W, (h - label) / H, 2);
+    const cx = (L.minX + L.maxX) / 2;
+    const cy = (L.minY + L.maxY) / 2;
+    view.x = w / 2 - (cx + d.originX) * view.zoom;
+    view.y = (h - label) / 2 - (d.originY - cy) * view.zoom;
+  }
 
   function ensureSkeleton() {
     if (skRev !== rev() || !sk) {
@@ -298,9 +352,16 @@ export function Viewport() {
     // Stage: a dark checkerboard (transparent = nothing drawn there), or plain.
     ctx.fillStyle = viewAids().checker ? checkerPattern(ctx, "#202329", "#1a1d22", 12 * dpr) : "#1b1e24";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // The 3D view draws on its own canvas on top; the viewport keeps posing the skeleton it shows.
+    if (view3d()) return;
+    if (zView() && !running()) {
+      drawZView(ctx, dpr, s, w, h);
+      return;
+    }
     // artboard: its background colour, or a light checkerboard when the background is transparent
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    fillArtboard(ctx, d.background, view.x, view.y, d.width * view.zoom, d.height * view.zoom);
+    // With images hidden (H), a dark neutral artboard keeps the bones readable whatever the document's background.
+    fillArtboard(ctx, showImages() ? d.background : "#1d2129", view.x, view.y, d.width * view.zoom, d.height * view.zoom);
     ctx.strokeStyle = "#3a3f4b";
     ctx.strokeRect(view.x, view.y, d.width * view.zoom, d.height * view.zoom);
     if (viewAids().grid) drawGrid(ctx, w, h);
@@ -325,8 +386,8 @@ export function Viewport() {
     });
     // selection outline
     const sel = selection();
-    if (sel?.kind === "slot" && !running() && !meshToolOn()) {
-      const slot = shown.slotById_(sel.id);
+    for (const id of sel?.kind === "slot" && !running() && !meshToolOn() ? selectedSlotIds() : []) {
+      const slot = shown.slotById_(id);
       const poly = slot && shown.hitPolygon(slot);
       if (poly) {
         ctx.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
@@ -360,6 +421,111 @@ export function Viewport() {
       ctx.fillStyle = "#9aa3b2";
       ctx.fillText(hoverInfo, 8 * dpr, canvas.height - 8 * dpr);
     }
+  }
+
+  // ---- Z view: draw order as left-to-right depth (see zview.ts) ----
+  function drawZView(ctx: CanvasRenderingContext2D, dpr: number, s: Skeleton, w: number, h: number) {
+    const d = store.doc;
+    const L = zLayout(s, d.width);
+    zl = L;
+    if (zFitPending && w > 0) {
+      fitZ(L);
+      zFitPending = false;
+    }
+    const v = { x: view.x * dpr, y: view.y * dpr, zoom: view.zoom * dpr };
+    const sx = (x: number) => (view.x + (x + d.originX) * view.zoom) * dpr;
+    const sy = (y: number) => (view.y + (d.originY - y) * view.zoom) * dpr;
+    const resolveImage = (id: string) => {
+      const a = textureAssets(d).find((i) => i.id === id);
+      return a ? imageFor(a) : null;
+    };
+    const r = new CanvasRenderer(ctx, resolveImage);
+    const top = L.maxY + 20;
+    const bottom = L.minY - 14;
+    // Column guides, and "back" / "front" at the ends.
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.lineWidth = dpr;
+    for (const c of L.columns) {
+      ctx.strokeStyle = "rgba(154,163,178,0.18)";
+      ctx.beginPath();
+      ctx.moveTo(Math.round(sx(c.x)) + 0.5, sy(top));
+      ctx.lineTo(Math.round(sx(c.x)) + 0.5, sy(bottom));
+      ctx.stroke();
+    }
+    ctx.font = `600 ${12 * dpr}px system-ui, sans-serif`;
+    ctx.fillStyle = "#9aa3b2";
+    ctx.textBaseline = "bottom";
+    if (L.columns.length) {
+      ctx.textAlign = "left";
+      ctx.fillText("◀ back", sx(L.minX), sy(top) - 4 * dpr);
+      ctx.textAlign = "right";
+      ctx.fillText("front ▶", sx(L.maxX), sy(top) - 4 * dpr);
+    }
+    void h;
+    // Each part on its own, shifted into its column (the dragged one follows the pointer instead).
+    const sel = selection();
+    L.columns.forEach((c, i) => {
+      const dragging = zdrag?.from === i;
+      const dx = dragging ? c.dx + (zdrag!.x - zdrag!.startX) : c.dx;
+      ctx.save();
+      if (dragging) ctx.globalAlpha = 0.85;
+      r.render(s, {
+        view: { x: v.x + dx * v.zoom, y: v.y, zoom: v.zoom },
+        clear: false,
+        bones: false,
+        boundingBoxes: false,
+        wireframe: false,
+        slotAlpha: (id) => (id === c.slot.data.id ? 1 : 0),
+      });
+      ctx.restore();
+      if (sel?.kind === "slot" && sel.id === c.slot.data.id) {
+        // Selected part: a box around what it draws.
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.strokeStyle = "#ffcc00";
+        ctx.lineWidth = 2 * dpr;
+        const x0 = sx(c.minX + dx) - 3 * dpr;
+        const y0 = sy(c.maxY) - 3 * dpr;
+        ctx.strokeRect(x0, y0, sx(c.maxX + dx) - x0 + 3 * dpr, sy(c.minY) - y0 + 3 * dpr);
+      }
+    });
+    // Labels under each column: its place in the draw order and its slot name (slanted so long names fit).
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    L.columns.forEach((c, i) => {
+      const x = sx(c.x);
+      const y = sy(bottom) + 4 * dpr;
+      const selected = sel?.kind === "slot" && sel.id === c.slot.data.id;
+      ctx.fillStyle = selected ? "#ffcc00" : "#c8ceda";
+      ctx.font = `600 ${11 * dpr}px ui-monospace, monospace`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText(String(c.docIndex + 1), x, y);
+      ctx.save();
+      ctx.translate(x, y + 16 * dpr);
+      ctx.rotate(Math.PI / 5);
+      ctx.textAlign = "left";
+      ctx.font = `${11 * dpr}px system-ui, sans-serif`;
+      ctx.fillStyle = selected ? "#ffcc00" : "#9aa3b2";
+      ctx.fillText(c.slot.data.name, 0, 0);
+      ctx.restore();
+      void i;
+    });
+    // Where a dragged part would land.
+    if (zdrag) {
+      const to = zDropIndex(L, L.columns[zdrag.from].x + (zdrag.x - zdrag.startX));
+      const x = sx(L.columns[to].x);
+      ctx.strokeStyle = "#ffcc00";
+      ctx.lineWidth = 2 * dpr;
+      ctx.beginPath();
+      ctx.moveTo(x, sy(top));
+      ctx.lineTo(x, sy(bottom));
+      ctx.stroke();
+    }
+    ctx.font = `${11 * dpr}px system-ui, sans-serif`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillStyle = "#9aa3b2";
+    const note = L.skipped.length ? ` · ${L.skipped.length} background layer${L.skipped.length > 1 ? "s" : ""} not shown` : "";
+    ctx.fillText(`Order view (Z to leave): draw order, back to front. Drag a part left or right to move it.${note}`, 10 * dpr, canvas.height - 8 * dpr);
   }
 
   // ---- origin lines, axis gizmo ----
@@ -1087,6 +1253,14 @@ export function Viewport() {
     }
     if (!running() && guideDown(mx, my)) return;
     const [x, y] = toSkeleton(mx, my);
+    if (zView() && !running()) {
+      const hit = zl ? zHit(zl, x, y) : null;
+      if (hit && zl) {
+        setSelection({ kind: "slot", id: hit.slot.data.id });
+        zdrag = { from: zl.columns.indexOf(hit), startX: x, x, y };
+      } else setSelection(null);
+      return;
+    }
     if (running()) {
       smInstance()?.pointer("down", x, y);
       return;
@@ -1148,11 +1322,19 @@ export function Viewport() {
       setSelection(first ? { kind: "bone", id: first } : null);
       return;
     }
+    if (slot && (e.shiftKey || e.ctrlKey || e.metaKey) && (t === "select" || t === "translate" || t === "scale")) {
+      // Parts too: Shift-click adds a part to the selection (or removes it), Ctrl/⌘-click removes.
+      toggleInSelection("slot", slot.data.id, e);
+      return;
+    }
     if (bone) {
       if (!multi.includes(bone.data.id)) setMultiBones([]);
+      setMultiSlots([]);
       setSelection({ kind: "bone", id: bone.data.id });
     } else if (slot) {
       setMultiBones([]);
+      // Pressing a part that is already in a multi-selection keeps the group (to drag it); any other part replaces it.
+      if (!multiSlots().includes(slot.data.id)) setMultiSlots([]);
       setSelection({ kind: "slot", id: slot.data.id });
     } else {
       if (t === "select" || t === "translate" || t === "scale") {
@@ -1161,13 +1343,22 @@ export function Viewport() {
         return;
       }
       setMultiBones([]);
+      setMultiSlots([]);
       setSelection(null);
       return;
     }
     if (slot && t === "translate" && mode() === "setup") {
       const att = sk!.getAttachment(slot);
-      if (att && (att.type === "region" || att.type === "sequence" || att.type === "shape" || att.type === "point" || att.type === "text")) {
-        drag = { kind: "attachment", slotId: slot.data.id, name: att.name, start: [x, y], base: [att.x, att.y], cur: [att.x, att.y], inv: invert(slot.bone.world), preview: null, startWorld: applyM(slot.bone.world, att.x, att.y) as [number, number] };
+      if (att && movableAttachment(att)) {
+        // The other selected parts move by the same world offset (each converted to its own bone's space).
+        const others = selectedSlotIds()
+          .filter((id) => id !== slot.data.id)
+          .flatMap((id) => {
+            const os = sk!.slotById_(id);
+            const oa = os ? sk!.getAttachment(os) : null;
+            return os && oa && movableAttachment(oa) ? [{ slotId: id, name: oa.name, base: [oa.x, oa.y] as [number, number], cur: [oa.x, oa.y] as [number, number], inv: invert(os.bone.world) }] : [];
+          });
+        drag = { kind: "attachment", slotId: slot.data.id, name: att.name, start: [x, y], base: [att.x, att.y], cur: [att.x, att.y], inv: invert(slot.bone.world), preview: null, startWorld: applyM(slot.bone.world, att.x, att.y) as [number, number], others };
         return;
       }
     }
@@ -1217,6 +1408,11 @@ export function Viewport() {
     const [x, y] = toSkeleton(mx, my);
     hoverInfo = `x ${x.toFixed(1)}  y ${y.toFixed(1)}  zoom ${(view.zoom * 100).toFixed(0)}%`;
     hoverPt = [x, y];
+    if (zdrag) {
+      zdrag.x = x;
+      zdrag.y = y;
+      return;
+    }
     if (meshToolOn() && drag?.kind !== "vertex") {
       const t = meshTarget();
       const hv = t ? pickVertex(setupVertices(t), x, y) : -1;
@@ -1307,6 +1503,17 @@ export function Viewport() {
         att.x = drag.cur[0];
         att.y = drag.cur[1];
       }
+      // Same world offset for the rest of the selection, in each part's own bone space.
+      const wdx = wx - drag.startWorld[0];
+      const wdy = wy - drag.startWorld[1];
+      for (const o of drag.others) {
+        o.cur = [o.base[0] + o.inv.a * wdx + o.inv.b * wdy, o.base[1] + o.inv.c * wdx + o.inv.d * wdy];
+        const oa = ps.getAttachment(ps.slotById_(o.slotId)!, o.name);
+        if (oa && "x" in oa) {
+          oa.x = o.cur[0];
+          oa.y = o.cur[1];
+        }
+      }
     } else if (drag.kind === "marquee") {
       drag.end = [mx, my];
     } else {
@@ -1361,6 +1568,12 @@ export function Viewport() {
   function onUp(e: PointerEvent) {
     const [mx, my] = local(e);
     let [x, y] = toSkeleton(mx, my);
+    if (zdrag) {
+      const z = zdrag;
+      zdrag = null;
+      if (zl) zMove(zl, z.from, zDropIndex(zl, zl.columns[z.from].x + (x - z.startX)));
+      return;
+    }
     if (running() && drag?.kind !== "pan") smInstance()?.pointer("up", x, y);
     const d = drag;
     drag = null;
@@ -1438,7 +1651,14 @@ export function Viewport() {
     } else if (d.kind === "paint") {
       commitWeights(d.t, d.table, d.changed);
     } else if (d.kind === "attachment") {
-      if (d.cur[0] !== d.base[0] || d.cur[1] !== d.base[1]) commitAttachmentMove(d.slotId, d.name, round2(d.cur[0]), round2(d.cur[1]));
+      if (d.cur[0] !== d.base[0] || d.cur[1] !== d.base[1]) {
+        if (!d.others.length) commitAttachmentMove(d.slotId, d.name, round2(d.cur[0]), round2(d.cur[1]));
+        else
+          transaction(`Move ${d.others.length + 1} parts`, () => {
+            commitAttachmentMove(d.slotId, d.name, round2(d.cur[0]), round2(d.cur[1]));
+            for (const o of d.others) commitAttachmentMove(o.slotId, o.name, round2(o.cur[0]), round2(o.cur[1]));
+          });
+      }
     }
   }
 
@@ -1547,7 +1767,7 @@ export function Viewport() {
       <Show when={meshToolOn()}>
         <MeshPanel />
       </Show>
-      <div class="view-bar" onPointerDown={(e) => e.stopPropagation()}>
+      <div class="view-bar" style={{ display: view3d() ? "none" : undefined }} onPointerDown={(e) => e.stopPropagation()}>
         <div class="seg">
           <button classList={{ active: viewAids().grid }} aria-pressed={viewAids().grid} title={tip("Grid", "view.grid")} onClick={() => toggleViewAid("grid")}>
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M1 5.5h14M1 10.5h14M5.5 1v14M10.5 1v14" /></svg>
@@ -1624,7 +1844,10 @@ export function Viewport() {
           ⤢
         </button>
       </div>
-      <div class="viewport-hint">
+      <Show when={view3d()}>
+        <View3D />
+      </Show>
+      <div class="viewport-hint" style={{ display: view3d() ? "none" : undefined }}>
         {running()
           ? "▶ Running state machine — interact with the artboard"
           : `${mode() === "animate" ? `ANIMATE${currentAnimation() ? ` · ${currentAnimation()!.name} @ ${time().toFixed(2)}s` : " · no animation"}` : "SETUP"}${activeSkin() ? ` · SKIN ${activeSkin()!.name}` : ""} · wheel: zoom · alt/right-drag: pan · ${kbd("view.fit")}: fit · ${kbd("help.shortcuts")}: shortcuts`}
@@ -1634,6 +1857,10 @@ export function Viewport() {
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Attachments the move tool can drag (an offset on their bone); meshes move by their vertices instead. */
+export function movableAttachment(a: Attachment): a is Extract<Attachment, { type: "region" | "sequence" | "shape" | "point" | "text" }> {
+  return a.type === "region" || a.type === "sequence" || a.type === "shape" || a.type === "point" || a.type === "text";
+}
 const fmtRuler = (n: number) => String(Math.round(n * 100) / 100);
 const clampInt = (v: string, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(Number(v) || lo)));
 

@@ -1,3 +1,5 @@
+import { setShowImages, showImages } from "../visibility.ts";
+import { setView3d, setZView, view3d, zView } from "../zview.ts";
 import { parseDocument } from "@openbone/core";
 import { confirmDiscard } from "../destructive.ts";
 import { For, Show } from "solid-js";
@@ -177,6 +179,9 @@ export function Toolbar() {
       <div class="group">
         <label class="check" title={tip("Show bones", "view.bones")}><input type="checkbox" disabled={locked()} checked={showBones()} onChange={(e) => setShowBones(e.currentTarget.checked)} /> Bones</label>
         <label class="check" title={tip("Show mesh wireframes", "view.mesh")}><input type="checkbox" disabled={locked()} checked={showMesh()} onChange={(e) => setShowMesh(e.currentTarget.checked)} /> Mesh</label>
+        <label class="check" title={tip("Show attachments (untick to see only the bones)", "view.attachments")}><input type="checkbox" disabled={locked()} checked={showImages()} onChange={(e) => setShowImages(e.currentTarget.checked)} /> Attachments</label>
+        <label class="check" title={tip("Order view: the draw order from back to front, side by side; drag a part to reorder", "view.z")}><input type="checkbox" disabled={locked()} checked={zView()} onChange={(e) => setZView(e.currentTarget.checked)} /> Order</label>
+        <label class="check" title={tip("3D view: every part on its own plane in depth, with the bones; drag to orbit", "view.3d")}><input type="checkbox" disabled={locked()} checked={view3d()} onChange={(e) => setView3d(e.currentTarget.checked)} /> 3D</label>
       </div>
       <div class="spacer" />
       <div class="group">

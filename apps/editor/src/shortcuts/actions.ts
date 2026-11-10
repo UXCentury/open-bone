@@ -37,7 +37,8 @@ import { multiBones,
   setCompensate,
 } from "../state.ts";
 import { saveProject } from "../storage.ts";
-import { reorderSlot } from "../visibility.ts";
+import { reorderSlot, setShowImages, showImages } from "../visibility.ts";
+import { setView3d, setZView, view3d, zView } from "../zview.ts";
 import { redo, undo } from "../panels/Toolbar.tsx";
 import { type Scope, installShortcuts, shortcuts } from "./index.ts";
 
@@ -209,6 +210,13 @@ export function setupShortcuts(): () => void {
     b("view.rulers", () => toggleViewAid("rulers")),
     b("view.bones", () => setShowBones(!showBones())),
     b("view.mesh", () => setShowMesh(!showMesh())),
+    b("view.z", () => setZView(!zView())),
+    b("view.3d", () => setView3d(!view3d())),
+    b("view.attachments", () => {
+      setShowImages(!showImages());
+      // Bones are the point of hiding the images, so make sure they are on.
+      if (!showImages() && !showBones()) setShowBones(true);
+    }),
     b("view.onion", () => {
       if (!enterAnimate()) return;
       setOnionSkin(!onionSkin());

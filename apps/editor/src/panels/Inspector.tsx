@@ -487,6 +487,29 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
   );
 }
 
+/**
+ * Add an attachment from the slot Inspector. A slot shows one attachment at a time, so when this slot already shows
+ * something the new attachment goes into a new slot on the same bone, just in front of this one (the boot keeps its
+ * image and the flames are drawn over it). An empty slot takes it directly. The new slot is selected.
+ */
+function addAttachment(slotId: string, kind: string, op: string, args: Record<string, unknown>) {
+  const d = doc();
+  const index = d.skeleton.slots.findIndex((s) => s.id === slotId);
+  const slot = d.skeleton.slots[index];
+  if (!slot) return;
+  if (!slot.attachment) {
+    apply(op, { slot: slotId, ...args });
+    return;
+  }
+  let added: string | undefined;
+  transaction(`Add ${kind}`, () => {
+    const r = store.apply("addSlot", { bone: slot.bone, name: `${slot.name} ${kind}`, index: index + 1 }) as { id: string };
+    store.apply(op, { slot: r.id, ...args });
+    added = r.id;
+  });
+  if (added) setSelection({ kind: "slot", id: added });
+}
+
 function SlotInspector(p: { id: string; attachment?: string }) {
   const slot = () => doc().skeleton.slots.find((s) => s.id === p.id);
   const atts = () => slotAttachments(doc(), p.id, activeSkin()?.id).map((e) => e.name);
@@ -534,22 +557,22 @@ function SlotInspector(p: { id: string; attachment?: string }) {
           </button>
         </div>
         <div class="btn-row">
-          <button onClick={() => apply("addShape", { slot: p.id, name: `shape${atts().length + 1}`, shape: "ellipse", width: 50, height: 50, fill: "#ff9f43", ...skinArg() })}>+ Shape</button>
+          <button onClick={() => addAttachment(p.id, "shape", "addShape", { name: `shape${atts().length + 1}`, shape: "ellipse", width: 50, height: 50, fill: "#ff9f43", ...skinArg() })}>+ Shape</button>
           <button
             title="Text; {input} or {input:0.00} shows a state machine input"
-            onClick={() => apply("addText", { slot: p.id, name: atts().includes("text") ? `text${atts().length + 1}` : "text", text: "Text", ...skinArg() })}
+            onClick={() => addAttachment(p.id, "text", "addText", { name: atts().includes("text") ? `text${atts().length + 1}` : "text", text: "Text", ...skinArg() })}
           >
             + Text
           </button>
-          <button onClick={() => apply("addBoundingBox", { slot: p.id, width: 100, height: 100, ...skinArg() })}>+ Hit box</button>
-          <button onClick={() => apply("addPoint", { slot: p.id, ...skinArg() })}>+ Point</button>
+          <button onClick={() => addAttachment(p.id, "hit box", "addBoundingBox", { width: 100, height: 100, ...skinArg() })}>+ Hit box</button>
+          <button onClick={() => addAttachment(p.id, "point", "addPoint", { ...skinArg() })}>+ Point</button>
           <button
             title="Add a clipping mask: slots after this one in draw order are drawn only inside its outline"
-            onClick={() => apply("addClipping", { slot: p.id, name: atts().includes("mask") ? `mask${atts().length + 1}` : "mask", width: 120, height: 60, radius: 12, ...skinArg() })}
+            onClick={() => addAttachment(p.id, "mask", "addClipping", { name: atts().includes("mask") ? `mask${atts().length + 1}` : "mask", width: 120, height: 60, radius: 12, ...skinArg() })}
           >
             + Mask
           </button>
-          <button title="Bezier path for path constraints" onClick={() => apply("addPath", { slot: p.id, name: `path${atts().length + 1}`, anchors: [0, 0, 80, 40, 160, 0], ...skinArg() })}>
+          <button title="Bezier path for path constraints" onClick={() => addAttachment(p.id, "path", "addPath", { name: `path${atts().length + 1}`, anchors: [0, 0, 80, 40, 160, 0], ...skinArg() })}>
             + Path
           </button>
           <select
@@ -559,7 +582,7 @@ function SlotInspector(p: { id: string; attachment?: string }) {
             onChange={(e) => {
               const preset = e.currentTarget.value;
               e.currentTarget.value = "";
-              if (preset) apply("addParticles", { slot: p.id, preset, ...skinArg() });
+              if (preset) addAttachment(p.id, "particles", "addParticles", { preset, ...skinArg() });
             }}
           >
             <option value="">+ Particles…</option>

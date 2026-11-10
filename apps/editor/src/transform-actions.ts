@@ -1,6 +1,7 @@
-import { type Attachment, BONE_PROPERTIES, type BoneProperty, getAttachment } from "@openbone/core";
-import { keyBoneProperty } from "./edit.ts";
-import { activeSkin, apply, mode, ownerSkinArg, store, toast, transaction } from "./state.ts";
+import { type Attachment, BONE_PROPERTIES, type BoneProperty, getAttachment, localFromWorld, wrapDeg } from "@openbone/core";
+import { commitBone, keyBoneProperty } from "./edit.ts";
+import { viewportApi } from "./panels/Viewport.tsx";
+import { activeSkin, apply, compensate, mode, ownerSkinArg, store, toast, transaction } from "./state.ts";
 
 /**
  * Quick transforms from the context menu: flip, rotate and reset an attachment (image, shape, sequence, mesh, text),
@@ -94,8 +95,46 @@ export function transformBone(boneId: string, op: BoneTransform) {
     case "resetRS": props.rotation = 0; props.scaleX = 1; props.scaleY = 1; break;
     case "resetSkew": props.shearX = 0; props.shearY = 0; break;
   }
+  const kept = compensate() ? keepChildren(boneId, props) : [];
+  if (kept.length)
+    return transaction(`${op} ${b.name}`, () => {
+      commitBone(boneId, props);
+      for (const k of kept) commitBone(k.id, k.props);
+    });
   if (mode() === "setup") return apply("updateBone", { bone: boneId, ...props });
   transaction(`${op} ${b.name}`, () => {
     for (const [k, v] of Object.entries(props)) if (BONE_PROPERTIES.includes(k as BoneProperty)) keyBoneProperty(boneId, k as BoneProperty, v as number);
   });
+}
+
+/**
+ * With Compensate on: the local transforms that keep the bone's direct children where they are on screen once the
+ * bone gets `props` (so flipping the upper arm flips only the upper arm, not the forearm and hand). Solved on the
+ * viewport's posed skeleton; a mirrored result is written as a negative scale Y rather than a 180° shear.
+ */
+function keepChildren(boneId: string, props: Partial<Record<BoneProperty, number>>): { id: string; props: Record<string, number> }[] {
+  const sk = viewportApi.skeleton?.();
+  const bone = sk?.boneById_(boneId);
+  if (!sk || !bone || !bone.children.length) return [];
+  const before = bone.children.map((c) => ({ c, world: { ...c.world } }));
+  const saved = { x: bone.x, y: bone.y, rotation: bone.rotation, scaleX: bone.scaleX, scaleY: bone.scaleY, shearX: bone.shearX, shearY: bone.shearY };
+  Object.assign(bone, props);
+  sk.updateWorldTransform();
+  const r = (n: number, d = 100) => Math.round(n * d) / d;
+  const out = before.map(({ c, world }) => {
+    const l = localFromWorld(bone.world, world, c.inherit, { x: c.x, y: c.y, rotation: c.rotation, scaleX: c.scaleX, scaleY: c.scaleY, shearX: c.shearX, shearY: c.shearY });
+    let { scaleY, shearY } = l;
+    if (Math.abs(wrapDeg(shearY - 180)) < 1e-6 || Math.abs(wrapDeg(shearY + 180)) < 1e-6) {
+      scaleY = -scaleY;
+      shearY = 0;
+    }
+    const next: Record<string, number> = { x: r(l.x), y: r(l.y), rotation: r(wrapDeg(l.rotation)), scaleX: r(l.scaleX, 1e4), scaleY: r(scaleY, 1e4), shearY: r(wrapDeg(shearY)) };
+    const cur: Record<string, number> = { x: c.x, y: c.y, rotation: c.rotation, scaleX: c.scaleX, scaleY: c.scaleY, shearY: c.shearY };
+    const changed: Record<string, number> = {};
+    for (const k of Object.keys(next)) if (Math.abs(next[k] - cur[k]) > 1e-6) changed[k] = next[k];
+    return { id: c.data.id, props: changed };
+  });
+  Object.assign(bone, saved);
+  sk.updateWorldTransform();
+  return out.filter((o) => Object.keys(o.props).length);
 }

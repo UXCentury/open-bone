@@ -4,6 +4,16 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 
 ## Unreleased
 
+### Editor
+- **Select several parts**: Shift+click adds a part to the selection (or takes it out), Ctrl/⌘+click takes it out, in the viewport, the Skeleton tree and the 3D view (bones worked this way already; in the 3D view Alt+Shift+click adds bones). Every selected part is outlined; dragging one of them with the move tool, or the 3D gizmo, moves them all by the same offset, and the 3D gizmo's Z arrow moves them through the draw order together, each as one undoable edit.
+- **3D view** (View → 3D view, toolbar, `Shift+Z`): the scene as a stack of layers you orbit around, like an engine's scene view. Every part sits on its own outlined plane, spaced by draw order; the bones are solid, lit 3D bones at the depth of the parts they carry; an inset shows the normal front view. A move gizmo sits on the selection: red X and green Y move a part (its image on its bone, Setup mode) or a bone (setup pose, or a key in Animate mode), blue Z moves a part through the draw order; Shift snaps to 10 px. Press a part to select it and drag it through the stack to change its draw order (one undoable edit, previewed live, also in the front inset); drag empty space to orbit; Alt+click selects the bone under a part. Depth spacing, outlines, bones and scenery can be toggled. It follows the live pose in Setup, Animate and Play. three.js loads only when the view opens (needs WebGL).
+- **Order view** (View → Order view, toolbar, `Z`): the character turned to face you, with the draw order as left-to-right depth. Every part stands in its own column at its real height, from the back-most on the left to the front-most on the right, so a part in the wrong layer stands out; drag a part left or right to move it in the draw order (one undoable edit). Backgrounds that span the artboard are left out.
+- **Attachments** toggle (View → Attachments, toolbar, `H`): hide every attachment and show only the bones, on a dark artboard so they stay readable.
+
+### Examples
+- Knight and Walker: limbs are layered the way the art is drawn (upper arm over the forearm's open top, thigh over the shin's top, boots under the shins), the knight's shoulders sit in the breastplate's armholes, his knee guards sit at the knees, the cape hangs from behind the shoulders (no floating clasp), the helmet sits on the shoulders, and the far hand is a mirrored fist so he has a left and a right hand.
+- `openbone render` no longer draws click areas (bounding boxes) into the picture; `--bounding-boxes` shows them.
+
 ### Packages
 - npm: every `@openbone/*` package builds to JavaScript with type definitions, plus the `openbone` CLI (`npx openbone`) and `npx -y @openbone/mcp`.
 - NuGet: `OpenBone.Runtime`, `OpenBone.Scripting.Jint` and `OpenBone.MonoGame`, with symbols and SourceLink.
@@ -18,6 +28,13 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 - MCP server: the editor bridge and the HTTP transport refuse browser requests from pages other than the OpenBone editor, including DNS rebinding. Before, any web page open on the same machine could connect to the bridge and read or change the open project.
 
 ### Fixed
+- Adding particles, a shape, text, a hit box, a point, a mask or a path from the slot Inspector no longer replaces the image the slot shows: when the slot already shows something, the new attachment goes into a new slot on the same bone, just in front of it (one undo removes both).
+- Walker example: easing "speed" now lands exactly on 0 (or 1), so after the walker stops the input settles instead of changing every frame by ever smaller amounts. Play mode shows input numbers rounded (no more 4.5e-13 shown as "4.51944") and updates one log line while a script changes the same input frame after frame.
+- Flipping or rotating a bone from the right-click menu keeps its child bones where they are when Compensate is on (flipping the upper arm no longer flips the forearm and hand), and the menu says which will happen: "Transform bone (children follow)" or "(children stay)". Right-clicking a bone now also offers its part's own transforms ("Transform “walker-arm-upper”"), which flip only the image.
+- Flutter example: its bundled knight is the current one (a test now fails if a sample app's copy of an example goes stale).
+- Walker example: the hoodie is drawn over the jeans (its hem covers the tops of the trousers) instead of the front leg over the body, and a new upper-arm sleeve (rounded shoulder and elbow) replaces the blocky one, with the forearm moved up to close the gap at the elbow.
+- Knight and walker examples: the feet no longer slide when the character stops. The background now follows the planted foot (it moves exactly as far as that foot does each frame) instead of easing at its own speed, and every animation keys the feet and other animated bones at their rest pose, so a cross-fade from walking into idle (or an attack) blends the stride out instead of snapping it at the end.
+- Tail example: the wag is a smooth travelling sine wave. It had an eased key every quarter cycle, so the tail stopped dead four times a cycle and looked like it was skipping frames.
 - MCP: `--project` with a file that can't be read stops with the reason instead of replacing it with an empty project, and `new_project` refuses to replace an existing file unless called with `overwrite: true`.
 - CLI and MCP exports: ZIPs carry the format in their name (`hero-atlas.zip`, `hero-web.zip`, `hero-spritesheet-godot.zip`, …), so exporting several formats into one folder no longer overwrites files.
 - CLI: `openbone <command> --help` prints that command's usage (it was read as a file name); the help lists `--animations` and `--steps`.

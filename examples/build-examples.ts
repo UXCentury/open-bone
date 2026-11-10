@@ -27,11 +27,13 @@ const part = (A: Op, name: string, w: number, h: number): Part => {
 
 /**
  * Place a part so that its image point `anchor` (fractions, y down) sits at bone-local `at`, the image turned by
- * `r` degrees (90 on a bone pointing down keeps the image upright, -90 on a bone pointing up).
+ * `r` degrees (90 on a bone pointing down keeps the image upright, -90 on a bone pointing up). `mirror` flips the
+ * image left to right (the anchor stays on the same feature), e.g. to make one drawing serve as a left and a right hand.
  */
-function pin(A: Op, slot: string, bone: string, p: Part, anchor: Pt, at: Pt, r: number, k: number, o: { color?: string; scale?: number; name?: string } = {}) {
+function pin(A: Op, slot: string, bone: string, p: Part, anchor: Pt, at: Pt, r: number, k: number, o: { color?: string; scale?: number; name?: string; mirror?: boolean } = {}) {
   const s = k * (o.scale ?? 1);
-  const vx = (0.5 - anchor[0]) * p.w * s;
+  const ax = o.mirror ? 1 - anchor[0] : anchor[0];
+  const vx = (0.5 - ax) * p.w * s;
   const vy = (anchor[1] - 0.5) * p.h * s;
   const c = Math.cos((r * Math.PI) / 180);
   const sn = Math.sin((r * Math.PI) / 180);
@@ -43,6 +45,7 @@ function pin(A: Op, slot: string, bone: string, p: Part, anchor: Pt, at: Pt, r: 
     x: Math.round((at[0] + vx * c - vy * sn) * 100) / 100,
     y: Math.round((at[1] + vx * sn + vy * c) * 100) / 100,
     rotation: r,
+    ...(o.mirror ? { scaleX: -1 } : {}),
     width: Math.round(p.w * s * 100) / 100,
     height: Math.round(p.h * s * 100) / 100,
   });
@@ -65,6 +68,15 @@ interface SideRigSpec {
   /** Feet apart at rest (each foot target ±stance/2 from the hip) and how bent the knees are at rest (0..1). */
   stance: number;
   bend: number;
+  /**
+   * Which leg part covers the knee: "shin" when the knee guard is on the shin (armour), "thigh" when the thigh's hem
+   * covers the shin's open top (trousers). Default "shin".
+   */
+  knee?: "shin" | "thigh";
+  /** Height of the ground under the feet, relative to the skeleton origin (default 0; negative stands lower). */
+  ground?: number;
+  /** Draw the torso over the front leg too, when its hem (a hoodie, a coat) covers the tops of the trousers. */
+  torsoOverLegs?: boolean;
   /** Scale of the leg parts relative to the body (parts sheets often draw legs too long for the torso). */
   legScale?: number;
   /** Scale of the arm parts relative to the body. */
@@ -78,7 +90,9 @@ interface SideRigSpec {
 /**
  * Side view (facing right) character rig: hip → torso → head, two arms, two IK legs whose feet (on the foot targets)
  * stay flat on the ground, and an optional cape. Draw order: drape, back arm, back leg, torso, front leg, head,
- * front arm. Returns the measurements the animations need.
+ * front arm (the torso after the front leg with `torsoOverLegs`). Within a limb, the part nearer the body covers the joint: the upper arm's rim hides the forearm's open
+ * top, and the shin (or thigh, see `knee`) hides the other at the knee; the boot goes under the shin. Returns the
+ * measurements the animations need.
  */
 function sideRig(A: Op, r: SideRigSpec) {
   const { k } = r;
@@ -93,10 +107,12 @@ function sideRig(A: Op, r: SideRigSpec) {
   const lk = k * (r.legScale ?? 1);
   const thighLen = span(r.thigh.part, r.thigh.top, r.thigh.bottom, lk);
   const shinLen = span(r.shin.part, r.shin.top, r.shin.bottom, lk);
-  const ankleH = (1 - r.foot.ankle[1]) * r.foot.part.h * lk * 0.92;
+  const g = r.ground ?? 0;
+  const ankleH = g + (1 - r.foot.ankle[1]) * r.foot.part.h * lk * 0.92;
   // Knees slightly bent at rest: the hip sits a little lower than the straight leg.
   const legReach = (thighLen + shinLen) * (1 - r.bend * 0.08);
   const hipY = Math.round(ankleH + Math.sqrt(Math.max(0, legReach ** 2 - (r.stance / 2) ** 2)));
+  // (ankleH and hipY include the ground height, so the animations' foot and hip keys follow it.)
 
   A("addBone", { name: "hip", y: hipY, length: 20, color: "#ff9f43" });
   A("addBone", { name: "torso", parent: "hip", rotation: 90, length: Math.round(neck[0]) });
@@ -119,24 +135,31 @@ function sideRig(A: Op, r: SideRigSpec) {
     A("addMesh", { slot: "drape", name: "drape", image: d.part.image, x: d.length / 2, width: d.length, height: d.width, cols: 6, rows: 2 });
     A("autoWeights", { slot: "drape", attachment: "drape", bones: ["drape1", "drape2", "drape3"], maxInfluences: 2 });
   }
+  // Forearm first, so the upper arm's lower rim (a sleeve hem, an elbow plate) covers the forearm's open top; the
+  // fist goes on top of the forearm's wrist end.
   const arm = (side: "back" | "front", color?: string) => {
-    pin(A, `${side}-upper`, `${side}-arm`, r.upper.part, r.upper.top, [0, 0], 90, ak, { color });
     pin(A, `${side}-fore`, `${side}-forearm`, r.fore.part, r.fore.top, [0, 0], 90, ak, { color });
-    if (r.hand) pin(A, `${side}-fist`, `${side}-hand`, r.hand.part, r.hand.top, [0, 0], 90, ak, { color });
+    pin(A, `${side}-upper`, `${side}-arm`, r.upper.part, r.upper.top, [0, 0], 90, ak, { color });
+    // One fist drawing serves both hands: the far hand is its mirror image, so the two read as a left and a right hand.
+    if (r.hand) pin(A, `${side}-fist`, `${side}-hand`, r.hand.part, r.hand.top, [0, 0], 90, ak, { color, mirror: side === "back" });
   };
-  // Thigh, then the boot, then the shin on top: the knee guard or trouser leg covers the thigh's end and the boot's
-  // top, like real clothing.
+  // The boot goes under the shin (the greave or trouser leg covers the boot's top). At the knee, whichever part
+  // carries the joint's covering goes on top: the shin's knee guard, or the thigh's hem over the shin's open top.
   const leg = (side: "back" | "front", color?: string) => {
-    pin(A, `${side}-thigh`, `${side}-thigh`, r.thigh.part, r.thigh.top, [0, 0], 90, lk, { color });
+    const thigh = () => pin(A, `${side}-thigh`, `${side}-thigh`, r.thigh.part, r.thigh.top, [0, 0], 90, lk, { color });
+    if (r.knee !== "thigh") thigh();
     pin(A, `${side}-boot`, `${side}-foot`, r.foot.part, r.foot.ankle, [0, 0], 0, lk, { color });
     pin(A, `${side}-shin`, `${side}-shin`, r.shin.part, r.shin.top, [0, 0], 90, lk, { color });
+    if (r.knee === "thigh") thigh();
   };
   // Back limbs a shade darker: they are further from the light and the viewer.
   r.backProp?.("back-hand");
   arm("back", r.backTint);
   leg("back", r.backTint);
-  pin(A, "torso", "torso", T.part, T.hip, [0, 0], -90, k);
+  const torso = () => pin(A, "torso", "torso", T.part, T.hip, [0, 0], -90, k);
+  if (!r.torsoOverLegs) torso();
   leg("front");
+  if (r.torsoOverLegs) torso();
   pin(A, "head", "head", r.head.part, r.head.neck, [0, 0], -90, k);
   arm("front");
   r.frontProp?.("front-forearm");
@@ -200,7 +223,7 @@ function knight() {
   // Each layer is its art plus a mirrored copy (seamless when it wraps), drawn 2300 wide.
   const reach = 46;
   const GW = 2300;
-  const scroll = addScrollLayers(A, "knight", "walk", [
+  const scroll = addScrollLayers(A, "knight", [
     { name: "bg-far", image: "knight-bg-far", x: 700, y: 290, w: GW, h: (GW * 429) / 2000, speed: 14 },
     { name: "bg-mid", image: mid.image, x: 700, y: 100, w: GW, h: (GW * mid.h) / mid.w, speed: 55 },
     { name: "bg-ground", image: ground.image, x: 700, y: -21, w: GW, h: (GW * ground.h) / ground.w, speed: reach * 4 },
@@ -209,19 +232,30 @@ function knight() {
   const k = 0.5;
   const m = sideRig(A, {
     k,
-    torso: { part: torso, hip: [0.52, 0.8], neck: [0.5, 0.06], shoulder: [0.42, 0.24] },
-    head: { part: helmet, neck: [0.62, 0.93] },
-    upper: { part: upper, top: [0.5, 0.14], bottom: [0.5, 0.9] },
+    // The shoulder joint sits in the breastplate's armhole and the arm hangs from the middle of its pauldron dome, so
+    // the pauldron covers the whole armhole (checked in the setup pose, where the arm hangs straight down).
+    torso: { part: torso, hip: [0.52, 0.8], neck: [0.5, 0.06], shoulder: [0.14, 0.27] },
+    // Anchored above the gorget's lower rim, so the helmet sits down on the shoulders (no long neck).
+    head: { part: helmet, neck: [0.62, 0.8] },
+    upper: { part: upper, top: [0.48, 0.24], bottom: [0.5, 0.9] },
     fore: { part: fore, top: [0.5, 0.08], wrist: [0.5, 0.9] },
     hand: { part: fist, top: [0.5, 0.14], grip: [0.5, 0.62] },
-    thigh: { part: thigh, top: [0.5, 0.12], bottom: [0.5, 0.8] },
-    shin: { part: shin, top: [0.44, 0.2], bottom: [0.45, 0.86] },
-    foot: { part: boot, ankle: [0.3, 0.28] },
-    drape: { part: cape, length: 150, width: 84, at: [100, 30], rotation: 166 },
+    thigh: { part: thigh, top: [0.5, 0.12], bottom: [0.5, 0.88] },
+    // The knee joint is just above the knee guard: the thigh hides the shin's top tube and the whole guard shows below
+    // the thigh's rim.
+    shin: { part: shin, top: [0.55, 0.2], bottom: [0.45, 0.86] },
+    // The boot's ankle point is its cuff's top, so the greave covers the whole cuff (one rim at the ankle, not two).
+    foot: { part: boot, ankle: [0.25, 0.1] },
+    // Pinned inside the shoulders at the back of the collar: the clasp stays hidden behind the torso and the cape
+    // falls from behind the shoulders.
+    drape: { part: cape, length: 150, width: 84, at: [92, 10], rotation: 166 },
     stance: 30,
     bend: 0.6,
     legScale: 0.82,
     armScale: 0.86,
+    knee: "thigh",
+    // He stands on the near edge of the road, in front of the cobbles.
+    ground: -30,
     backTint: "#c2c6d0",
     // Sword in the back hand (pointing forward and down at rest); shield on the front forearm.
     backProp: (hand) => pin(A, "sword", hand, sword, [0.5, 0.84], [14, 0], -40, k, { scale: 0.9 }),
@@ -324,6 +358,7 @@ function knight() {
   A("addAudioKey", { animation: "attack", sound: "swoosh", time: 0.34 });
   A("addAudioKey", { animation: "attack", sound: "clang", time: 0.47 });
   A("addAudioKey", { animation: "salute", sound: "hail", time: 0.3 });
+  keyRestPose(s);
   return s.doc;
 }
 
@@ -335,7 +370,7 @@ function walker() {
   const P = (n: string, w: number, h: number) => part(A, `walker-${n}`, w, h);
   const torso = P("torso", 194, 277);
   const head = P("head", 279, 257);
-  const upper = P("arm-upper", 102, 227);
+  const upper = P("arm-upper", 84, 227);
   const fore = P("forearm", 95, 290);
   const thigh = P("thigh", 121, 289);
   const shin = P("shin", 87, 254);
@@ -349,7 +384,7 @@ function walker() {
 
   const reach = 36;
   const GW = 2300;
-  const scroll = addScrollLayers(A, "character", "speed", [
+  const scroll = addScrollLayers(A, "character", [
     { name: "bg-far", image: "walker-bg-far", x: 700, y: 240, w: GW, h: (GW * 429) / 2000, speed: 12 },
     { name: "bg-mid", image: mid.image, x: 700, y: 147, w: GW, h: (GW * mid.h) / mid.w, speed: 50 },
     { name: "bg-ground", image: ground.image, x: 700, y: -6, w: GW, h: (GW * ground.h) / ground.w, speed: reach * 4 },
@@ -361,11 +396,15 @@ function walker() {
     torso: { part: torso, hip: [0.56, 0.9], neck: [0.62, 0.1], shoulder: [0.58, 0.3] },
     head: { part: head, neck: [0.5, 0.9] },
     upper: { part: upper, top: [0.5, 0.1], bottom: [0.5, 0.88] },
-    fore: { part: fore, top: [0.47, 0.07], wrist: [0.5, 0.72] },
+    fore: { part: fore, top: [0.47, 0.13], wrist: [0.5, 0.72] },
     thigh: { part: thigh, top: [0.5, 0.1], bottom: [0.5, 0.84] },
     shin: { part: shin, top: [0.5, 0.12], bottom: [0.5, 0.88] },
     foot: { part: shoe, ankle: [0.27, 0.3] },
     drape: { part: scarf, length: 120, width: 38, at: [100, 14], rotation: 160 },
+    // The jeans thigh's hem covers the lower leg's open top.
+    knee: "thigh",
+    // The hoodie's ribbed hem goes over the top of the jeans.
+    torsoOverLegs: true,
     stance: 26,
     bend: 0.5,
     legScale: 0.7,
@@ -449,7 +488,9 @@ function walker() {
 function onUpdate(dt) {
   const target = ob.input("walk") ? 1 : 0;
   const v = Number(ob.input("speed")) || 0;
-  ob.setInput("speed", v + (target - v) * Math.min(1, dt * 4));
+  const next = v + (target - v) * Math.min(1, dt * 4);
+  // Land exactly on the target once close: easing alone only ever gets nearer, so speed would keep changing.
+  ob.setInput("speed", Math.abs(target - next) < 0.001 ? target : next);
 }`,
   });
   A("attachScript", { stateMachine: "character", script: "ease-speed" });
@@ -460,6 +501,7 @@ function onUpdate(dt) {
   A("setEventSound", { event: "footstep", sound: "step" });
   A("setEventSound", { event: "land", sound: "land" });
   A("addAudioKey", { animation: "jump", sound: "jump", time: 0.18 });
+  keyRestPose(s);
   return s.doc;
 }
 
@@ -475,14 +517,35 @@ function sfx(A: Op, name: string, file: string, o: { loop?: boolean; bus?: strin
 }
 
 /**
- * Scrolling parallax for walk cycles: each layer (two copies side by side on one bone) slides left at its own speed
- * times the value of a state-machine input (eased), wrapping every tile width. The ground layer should move at the
- * feet's speed so they don't skate; far layers move slower.
+ * Give every animation a key for each bone property that any other animation animates, holding the setup value.
+ * A state machine cross-fades from one animation into the next; a property the next one doesn't key would keep the
+ * old animation's value for the whole fade and then snap back (the feet kept striding as the walk faded into idle,
+ * then jumped to the stance). Keying it everywhere gives every fade something to blend towards.
+ */
+function keyRestPose(s: DocumentStore) {
+  const doc = s.doc;
+  const keyed = new Map<string, { id: string; property: string }>();
+  for (const a of doc.animations)
+    for (const t of a.timelines) if (t.target === "bone" && t.property !== "inherit" && t.keys.length) keyed.set(`${t.id}:${t.property}`, { id: t.id, property: t.property });
+  for (const a of doc.animations)
+    for (const [key, { id, property }] of keyed) {
+      if (a.timelines.some((t) => t.target === "bone" && `${t.id}:${t.property}` === key && t.keys.length)) continue;
+      const bone = doc.skeleton.bones.find((b) => b.id === id)!;
+      const value = (bone as unknown as Record<string, number>)[property] ?? (property.startsWith("scale") ? 1 : 0);
+      s.apply("setKeys", { animation: a.name, target: "bone", id, property, keys: [{ time: 0, value, curve: "stepped" }] });
+    }
+}
+
+/**
+ * Scrolling parallax for walk cycles: each layer (two copies side by side on one bone) slides left, wrapping every
+ * tile width. The ground is driven by the feet themselves: each frame it moves exactly as far back as the planted foot
+ * (the lower one) moved, so the feet never skate, not even while the walk blends into idle and the steps slow down.
+ * The other layers move in proportion (their speed relative to the fastest layer, the ground). A foot only drives
+ * the ground while it is on it; with both feet in the air (a jump) the ground keeps its last speed.
  */
 function addScrollLayers(
   A: Op,
   stateMachine: string,
-  input: string,
   layers: ReadonlyArray<{ name: string; image: string; x: number; y: number; w: number; h: number; speed: number; parent?: string }>,
 ) {
   for (const l of layers) {
@@ -492,19 +555,49 @@ function addScrollLayers(
       A("addRegion", { slot: `${l.name}-${k}`, image: l.image, x: dx, width: l.w, height: l.h });
     }
   }
+  const ground = Math.max(...layers.map((l) => l.speed));
   return () => {
     A("addScript", {
       name: "scroll",
-      code: `// Parallax scrolling: layers slide at their own speed while "${input}" is on, wrapping every tile width.
-const layers = ${JSON.stringify(layers.map((l) => ({ bone: l.name, x: l.x, y: l.y, w: l.w, speed: l.speed })))};
+      code: `// Parallax scrolling that follows the feet: the ground moves back exactly as far as the planted foot does, so the
+// feet don't slide (also while walking slows into idle). Other layers move in proportion; each wraps every tile width.
+const layers = ${JSON.stringify(layers.map((l) => ({ bone: l.name, x: l.x, y: l.y, w: l.w, rate: Math.round((l.speed / ground) * 1000) / 1000 })))};
+const feet = ["front-foot", "back-foot"];
 const off = layers.map(() => 0);
-let v = 0;
+const last = {};
+let floor = Infinity; // lowest a foot gets: the ground line
+let carry = 0; // ground speed (px/s) kept while both feet are in the air
+let planted = null; // the foot bearing the weight, followed until it lifts
 function onUpdate(dt) {
-  const target = Number(ob.input("${input}")) || 0;
-  v += (target - v) * Math.min(1, dt * 5);
+  if (!(dt > 0)) return;
+  const down = [];
+  const moved = {};
+  for (const name of feet) {
+    const b = ob.bone(name);
+    if (!b) continue;
+    floor = Math.min(floor, b.worldY);
+    const prev = last[name];
+    last[name] = b.worldX;
+    if (prev === undefined) continue;
+    moved[name] = b.worldX - prev;
+    if (b.worldY <= floor + 0.5) down.push(name);
+  }
+  let step;
+  if (planted && down.includes(planted)) step = -moved[planted];
+  else if (down.length === 1) step = -moved[(planted = down[0])];
+  else if (down.length > 1) {
+    // Both down and no foot to follow yet (a step starting from a stand): split the difference.
+    planted = null;
+    step = -down.reduce((s, n) => s + moved[n], 0) / down.length;
+  } else {
+    planted = null;
+    step = carry * dt; // in the air: keep going
+  }
+  if (down.length) carry = step / dt;
+  if (Math.abs(step) < 1e-4) carry = 0;
   for (let i = 0; i < layers.length; i++) {
     const l = layers[i];
-    off[i] = (off[i] - l.speed * v * dt) % l.w;
+    off[i] = (off[i] - step * l.rate) % l.w;
     ob.setBone(l.bone, { x: l.x + off[i], y: l.y });
   }
 }`,
@@ -648,11 +741,14 @@ function tail() {
     A("setKeys", { animation: anim, target, id, property, keys: keys.map(([time, value]) => ({ time, value, curve })) });
   // ---- wag: a travelling wave down the tail's control points ----
   A("createAnimation", { name: "wag", duration: 1.6 });
+  // A sine sampled 48 times per cycle with straight lines between: each point swings fastest through the middle and
+  // slows only at the ends, and each one is a quarter cycle apart from the one before, the same phases as before (eased keys at every quarter would
+  // stop the tail dead four times a cycle, which reads as stutter).
   const wave = (amp: number, phase: number): [number, number][] =>
-    [0, 1, 2, 3, 4].map((i) => [i * 0.4, [0, amp, 0, -amp][(i + phase) % 4]]);
-  K("wag", "bone", "ctrl1", "y", wave(22, 0));
-  K("wag", "bone", "ctrl2", "y", wave(45, 1));
-  K("wag", "bone", "ctrl3", "y", wave(75, 2));
+    Array.from({ length: 49 }, (_, i) => [Math.round(((i * 1.6) / 48) * 1000) / 1000, Math.round(amp * Math.sin(((i / 48) * 4 + phase) * (Math.PI / 2)) * 100) / 100]);
+  K("wag", "bone", "ctrl1", "y", wave(22, 0), "linear");
+  K("wag", "bone", "ctrl2", "y", wave(45, 1), "linear");
+  K("wag", "bone", "ctrl3", "y", wave(75, 2), "linear");
   K("wag", "bone", "body", "y", [[0, 120], [0.4, 123], [0.8, 120], [1.2, 123], [1.6, 120]]);
   K("wag", "bone", "body", "scaleY", [[0, 1], [0.4, 0.98], [0.8, 1], [1.2, 0.98], [1.6, 1]]);
   K("wag", "bone", "head", "rotation", [[0, 0], [0.8, -6], [1.6, 0]]);

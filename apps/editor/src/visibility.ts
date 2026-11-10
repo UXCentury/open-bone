@@ -32,9 +32,20 @@ export function cycleVisTo(id: string, to: Vis) {
 export const anyHidden = () => Object.keys(vis()).length > 0;
 export const showAll = () => setVis({});
 
+/**
+ * View → Attachments (H): hide every attachment in the viewport so only the bones show, to see and work on the rig
+ * itself. Hidden attachments can't be clicked either. Editor-only, like the eye buttons.
+ */
+export const [showImages, setShowImages] = createSignal(true);
+
 const DIM = 0.25;
 /** Opacity the viewport draws a slot at: its own state times its bone chain's (hidden = 0, dimmed = 0.25). */
 export function slotOpacity(slotId: string): number {
+  return showImages() ? eyeOpacity(slotId) : 0;
+}
+
+/** The eye buttons' part of slotOpacity, ignoring View → Attachments (the Z view shows parts even with images off). */
+export function eyeOpacity(slotId: string): number {
   const v = vis();
   if (!Object.keys(v).length) return 1;
   const d = doc();

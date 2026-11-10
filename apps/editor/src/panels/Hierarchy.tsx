@@ -16,6 +16,10 @@ import {
   stateMachineId,
   selectedBoneId,
   multiBones,
+  selectedSlotIds,
+  setMultiBones,
+  setMultiSlots,
+  toggleInSelection,
 } from "../state.ts";
 import { showPanel } from "../layout.ts";
 import { Section } from "./fields.tsx";
@@ -113,6 +117,14 @@ function Name(p: { text: string }) {
 }
 
 /** Keep a selected row visible: scroll it into view when it becomes selected (e.g. picked in the viewport). */
+/** Click a bone or part row: Shift adds it to the selection (or removes it), Ctrl/⌘ removes, a plain click replaces. */
+function pick(kind: "bone" | "slot", id: string, e: MouseEvent) {
+  if (e.shiftKey || e.ctrlKey || e.metaKey) return toggleInSelection(kind, id, e);
+  setMultiBones([]);
+  setMultiSlots([]);
+  setSelection({ kind, id });
+}
+
 function scrollWhenSelected(el: HTMLElement, selected: () => boolean) {
   createEffect(() => {
     if (selected()) queueMicrotask(() => el.isConnected && el.scrollIntoView({ block: "nearest", inline: "nearest" }));
@@ -188,7 +200,7 @@ function BoneNode(p: { bone: BoneData }) {
   const boneSelected = () => (sel()?.kind === "bone" && sel()!.id === p.bone.id) || multiBones().includes(p.bone.id);
   return (
     <div class="tnode">
-      <div class="tree-row" ref={(el) => scrollWhenSelected(el, boneSelected)} classList={{ selected: boneSelected(), "vis-off": visOf(p.bone.id) !== "shown" }} onClick={() => setSelection({ kind: "bone", id: p.bone.id })}>
+      <div class="tree-row" ref={(el) => scrollWhenSelected(el, boneSelected)} classList={{ selected: boneSelected(), "vis-off": visOf(p.bone.id) !== "shown" }} onClick={(e) => pick("bone", p.bone.id, e)}>
         <Twisty id={p.bone.id} has={has()} subtree={() => subtreeIds(p.bone.id)} />
         <span class="icon bone-icon">🦴</span> <Name text={p.bone.name} />
         <EyeBtn id={p.bone.id} name={p.bone.name} />
@@ -218,8 +230,8 @@ function SlotNode(p: { s: SlotData }) {
         {...draggableItem("slot", s.id, s.bone)}
         class="tree-row slot-row"
         ref={(el) => scrollWhenSelected(el, slotSelected)}
-        classList={{ selected: sel()?.kind === "slot" && sel()!.id === s.id, "vis-off": visOf(s.id) !== "shown" }}
-        onClick={() => setSelection({ kind: "slot", id: s.id })}
+        classList={{ selected: selectedSlotIds().includes(s.id), "vis-off": visOf(s.id) !== "shown" }}
+        onClick={(e) => pick("slot", s.id, e)}
       >
         <Twisty id={s.id} has={atts().length + sounds().length > 0} />
         <span class="icon">▣</span> <Name text={s.name} />

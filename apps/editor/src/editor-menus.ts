@@ -7,10 +7,11 @@ import { toggleWatching, watchFolder, watchedFolders, watching } from "./watch.t
 import { toggleViewAid, viewAids } from "./guides.ts";
 import { PANELS, type PanelId, movePanel, resetLayout, showPanel, swapSides, whereIs } from "./layout.ts";
 import type { MenuItem } from "./menu.tsx";
-import { cycleVisTo, visOf } from "./visibility.ts";
+import { cycleVisTo, showImages, visOf } from "./visibility.ts";
+import { view3d, zView } from "./zview.ts";
 import { type AttTransform, type BoneTransform, attTransformsFor, transformAttachment, transformBone } from "./transform-actions.ts";
 import { getAttachment } from "@openbone/core";
-import { activeSkin } from "./state.ts";
+import { activeSkin, compensate } from "./state.ts";
 import { importFromProject } from "./panels/ImportDialog.tsx";
 import { moveToFolder } from "./panels/Folders.tsx";
 
@@ -29,8 +30,10 @@ const ATT_LABELS: Record<AttTransform, string> = {
 /** Transform submenu for a bone: mirror (children follow), rotate, skew, reset. */
 const boneTransformMenu = (boneId: string): MenuItem => {
   const it = (label: string, op: BoneTransform): MenuItem => ({ label, action: () => transformBone(boneId, op) });
+  const hasChildren = store.doc.skeleton.bones.some((x) => x.parent === boneId);
   return {
-    label: "Transform bone",
+    // Say what happens to the child bones (Compensate decides), so flipping an upper arm doesn't surprise anyone.
+    label: !hasChildren ? "Transform bone" : compensate() ? "Transform bone (children stay)" : "Transform bone (children follow)",
     submenu: [
       it("Flip horizontally (mirror)", "flipX"),
       it("Flip vertically", "flipY"),
@@ -49,6 +52,21 @@ const boneTransformMenu = (boneId: string): MenuItem => {
     ],
   };
 };
+/** Transform submenu for one attachment (flip, rotate, skew, reset the image itself; the bone is untouched). */
+function partTransformMenu(slotId: string, attName: string | null | undefined): MenuItem[] {
+  const att = attName ? getAttachment(store.doc, slotId, attName, activeSkin()?.id) : null;
+  const ops = attTransformsFor(att);
+  if (!att || !attName || !ops.length) return [];
+  return [
+    {
+      label: `Transform “${attName}”`,
+      submenu: ops.flatMap((op, i) => [
+        ...((op === "rot90" || op === "skewX+") && i > 0 ? (["sep"] as MenuItem[]) : op === "reset" ? (["sep"] as MenuItem[]) : []),
+        { label: ATT_LABELS[op], action: () => transformAttachment(slotId, attName, op) } as MenuItem,
+      ]),
+    },
+  ];
+}
 import { playActive } from "./play.ts";
 import { setShortcutsOpen } from "./shortcuts/actions.ts";
 import { toast, loadDocument, mode, onionSkin, selection, setSelection, showBones, showMesh, store, apply, tool, setTool, type Tool } from "./state.ts";
@@ -133,6 +151,8 @@ function selectionItems(): MenuItem[] {
           if (res) setSelection({ kind: "bone", id: res.id });
         },
       },
+      // The bone's own parts, to flip or turn an image without touching the bone (or its children).
+      ...d.skeleton.slots.filter((x) => x.bone === b.id).flatMap((x) => partTransformMenu(x.id, x.attachment)),
       boneTransformMenu(b.id),
       "sep",
       { label: "Duplicate", shortcut: "edit.duplicate", disabled: !b.parent },
@@ -157,21 +177,7 @@ function selectionItems(): MenuItem[] {
           { label: "Send to back", shortcut: "edit.sendToBack", disabled: at === 0 },
         ],
       },
-      ...((): MenuItem[] => {
-        const attName = (s as { attachment?: string }).attachment ?? slot.attachment;
-        const att = attName ? getAttachment(d, slot.id, attName, activeSkin()?.id) : null;
-        const ops = attTransformsFor(att);
-        if (!att || !attName || !ops.length) return [];
-        return [
-          {
-            label: `Transform “${attName}”`,
-            submenu: ops.flatMap((op, i) => [
-              ...((op === "rot90" || op === "skewX+") && i > 0 ? (["sep"] as MenuItem[]) : op === "reset" ? (["sep"] as MenuItem[]) : []),
-              { label: ATT_LABELS[op], action: () => transformAttachment(slot.id, attName, op) } as MenuItem,
-            ]),
-          },
-        ];
-      })(),
+      ...partTransformMenu(slot.id, (s as { attachment?: string }).attachment ?? slot.attachment),
       boneTransformMenu(slot.bone),
       { label: visOf(slot.id) === "hidden" ? "Show" : "Hide", action: () => cycleVisTo(slot.id, visOf(slot.id) === "hidden" ? "shown" : "hidden") },
       { label: visOf(slot.id) === "dim" ? "Undim" : "Dim", action: () => cycleVisTo(slot.id, visOf(slot.id) === "dim" ? "shown" : "dim") },
@@ -212,6 +218,9 @@ export function contextItems(target: HTMLElement): MenuItem[] | null {
       "sep",
       { label: "Bones", shortcut: "view.bones", checked: showBones() },
       { label: "Mesh wireframe", shortcut: "view.mesh", checked: showMesh() },
+      { label: "Attachments", shortcut: "view.attachments", checked: showImages() },
+      { label: "Order view (draw order)", shortcut: "view.z", checked: zView() },
+      { label: "3D view (layers in depth)", shortcut: "view.3d", checked: view3d() },
       { label: "Grid", checked: viewAids().grid, action: () => toggleViewAid("grid") },
       { label: "Rulers and guides", checked: viewAids().rulers, action: () => toggleViewAid("rulers") },
       { label: "Onion skin", shortcut: "view.onion", checked: onionSkin() },

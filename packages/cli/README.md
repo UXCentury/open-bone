@@ -62,8 +62,8 @@ openbone render hero.obone --bones --scale 0.5 --out rig.png             # draw 
 openbone render hero.obone --state-machine main --out sm.png             # state machine's first frame
 ```
 
-Options: `--animation`, `--time` (seconds), `--scale` (default 1), `--bones`, `--state-machine`, `--out` (default
-`frame.png`).
+Options: `--animation`, `--time` (seconds), `--scale` (default 1), `--bones`, `--bounding-boxes` (outline click and
+hit areas), `--state-machine`, `--out` (default `frame.png`).
 
 ### gif
 

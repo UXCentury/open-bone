@@ -119,6 +119,41 @@ export const [lockedBones, setLockedBones] = createSignal<string[]>([]);
 export const toggleLockedBone = (id: string) => setLockedBones((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]));
 /** Bones selected together (box select / shift-click), besides the primary `selection`. Empty = just the primary. */
 export const [multiBones, setMultiBones] = createSignal<string[]>([]);
+/** Parts (slots) selected together (Shift-click in the viewport or the 3D view), besides the primary `selection`. */
+export const [multiSlots, setMultiSlots] = createSignal<string[]>([]);
+/** Every selected part: the multi-selection when the primary part is in it, else just the primary (if a part). */
+export const selectedSlotIds = (): string[] => {
+  const s = selection();
+  if (s?.kind !== "slot") return [];
+  const m = multiSlots();
+  return m.includes(s.id) ? m : [s.id];
+};
+/** Every selected bone: the multi-selection when the primary bone is in it, else just the primary (if a bone). */
+export const selectedBoneIds = (): string[] => {
+  const s = selection();
+  if (s?.kind !== "bone") return [];
+  const m = multiBones();
+  return m.includes(s.id) ? m : [s.id];
+};
+/**
+ * Shift-click adds a part or bone to the selection (or takes it out again); Ctrl/⌘-click takes it out. Shared by the
+ * viewport and the 3D view, so both select the same way.
+ */
+export function toggleInSelection(kind: "slot" | "bone", id: string, e: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) {
+  const cur = new Set(kind === "slot" ? selectedSlotIds() : selectedBoneIds());
+  if (cur.has(id)) cur.delete(id);
+  else if (e.shiftKey) cur.add(id);
+  const list = [...cur];
+  if (kind === "slot") {
+    setMultiBones([]);
+    setMultiSlots(list.length > 1 ? list : []);
+  } else {
+    setMultiSlots([]);
+    setMultiBones(list.length > 1 ? list : []);
+  }
+  const first = cur.has(id) ? id : list[0];
+  setSelection(first ? { kind, id: first } : null);
+}
 /** Mesh tool soft selection: dragging vertices also pulls unselected ones within `softRadius` screen px, with falloff. */
 export const [softSelect, setSoftSelect] = createSignal(false);
 export const [softRadius, setSoftRadius] = createSignal(60);

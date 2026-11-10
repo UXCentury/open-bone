@@ -25,10 +25,15 @@ import { baseUrl, doc, store } from "../state.ts";
 import { audio, resolveAudioUrl } from "../audio.ts";
 
 type Value = boolean | number | string;
+/** A number for the inputs panel and the log: at most 4 decimals, never in exponent form (4.5e-13 shows as 0). */
+const shortNumber = (v: number) => String(Math.round(v * 1e4) / 1e4 || 0);
+
 interface LogLine {
   id: number;
   kind: "state" | "event" | "input" | "log" | "error";
   text: string;
+  /** For input lines: which input, so a run of changes to it (a script easing it every frame) updates one line. */
+  input?: string;
 }
 
 /**
@@ -45,7 +50,12 @@ export function PlayStage() {
   const [status, setStatus] = createSignal("");
   const [panelOpen, setPanelOpen] = createSignal(true);
   let logId = 0;
-  const push = (kind: LogLine["kind"], text: string) => setLog((l) => [{ id: ++logId, kind, text }, ...l].slice(0, 200));
+  const push = (kind: LogLine["kind"], text: string, input?: string) =>
+    setLog((l) => {
+      // The newest line is a change to the same input: update it in place instead of adding a line per frame.
+      if (input && l[0]?.input === input) return [{ ...l[0], text }, ...l.slice(1)];
+      return [{ id: ++logId, kind, text, ...(input ? { input } : {}) }, ...l].slice(0, 200);
+    });
 
   const sm = () => {
     const t = playTarget();
@@ -127,7 +137,7 @@ export function PlayStage() {
               setFlash(def.id);
               setTimeout(() => flash() === def.id && setFlash(null), 250);
             }
-            push("input", `✎ ${c.name} = ${JSON.stringify(c.value)}`);
+            push("input", `✎ ${c.name} = ${typeof c.value === "number" ? shortNumber(c.value) : JSON.stringify(c.value)}`, c.name);
             syncValues();
           });
           inst.on("log", (args) => push("log", `📝 ${args.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" ")}`));
@@ -311,7 +321,7 @@ function InputControl(p: { input: InputData; value: Value | undefined; flash: bo
           <span>{p.value ? "true" : "false"}</span>
         </label>
       ) : type() === "number" ? (
-        <input class="num" type="number" step="0.1" value={Number(p.value ?? 0)} onInput={(e) => e.currentTarget.value !== "" && p.onSet(Number(e.currentTarget.value))} />
+        <input class="num" type="number" step="0.1" value={shortNumber(Number(p.value ?? 0))} onInput={(e) => e.currentTarget.value !== "" && p.onSet(Number(e.currentTarget.value))} />
       ) : type() === "trigger" ? (
         <button class="fire" classList={{ flash: p.flash }} onClick={p.onFire}>
           Fire

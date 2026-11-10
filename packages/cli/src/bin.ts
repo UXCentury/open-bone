@@ -11,7 +11,7 @@ const HELP = `openbone — OpenBone command line
 Usage:
   openbone validate <file.obone>
   openbone summary  <file.obone>
-  openbone render   <file.obone> [--animation walk] [--time 0.5] [--scale 1] [--bones] --out frame.png
+  openbone render   <file.obone> [--animation walk] [--time 0.5] [--scale 1] [--bones] [--bounding-boxes] --out frame.png
   openbone gif      <file.obone> (--animation walk | --state-machine ui) [--duration 2] [--fps 20] [--scale 0.5] --out out.gif
   openbone simulate <file.obone> --steps '[{"setInputs":{"speed":1},"advance":1},{"fire":["jump"],"advance":1}]' [--state-machine name]
   openbone export   <file or glob>... --format <format> --out <dir> [options]
@@ -48,7 +48,7 @@ async function session(): Promise<ProjectSession> {
 }
 
 /** Flags that take no value (everything else starting with -- takes the next argument). */
-const SWITCHES = new Set(["bones", "transparent", "sequence", "single-file", "binary", "pack", "no-pot", "rotate", "strip-whitespace", "polygons", "premultiplied", "no-minify"]);
+const SWITCHES = new Set(["bones", "bounding-boxes", "transparent", "sequence", "single-file", "binary", "pack", "no-pot", "rotate", "strip-whitespace", "polygons", "premultiplied", "no-minify"]);
 
 /** Positional arguments after the command (files and globs), skipping option values. */
 function positionals(): string[] {
@@ -169,7 +169,7 @@ async function main() {
       break;
     case "render": {
       const s = await session();
-      const { png } = await renderPng(s, { animation: opt("animation"), time: num("time"), scale: num("scale", 1), showBones: argv.includes("--bones"), stateMachine: opt("state-machine") }, await createQuickJsHost());
+      const { png } = await renderPng(s, { animation: opt("animation"), time: num("time"), scale: num("scale", 1), showBones: argv.includes("--bones"), showBoundingBoxes: argv.includes("--bounding-boxes"), stateMachine: opt("state-machine") }, await createQuickJsHost());
       const out = opt("out") ?? "frame.png";
       await writeFile(out, png);
       console.log(`wrote ${out}`);
