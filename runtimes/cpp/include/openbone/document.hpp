@@ -194,6 +194,14 @@ struct SlotAttachments {
 };
 
 struct SkinData {
+  // Move-only for the same reason as SlotAttachments: MSVC's unordered_map reports itself copyable even when its values
+  // aren't, so std::vector<SkinData> must see a deleted copy to pick the move when it grows.
+  SkinData() = default;
+  SkinData(SkinData&&) = default;
+  SkinData& operator=(SkinData&&) = default;
+  SkinData(const SkinData&) = delete;
+  SkinData& operator=(const SkinData&) = delete;
+
   Id id;
   std::string name;
   std::unordered_map<Id, SlotAttachments> attachments;
