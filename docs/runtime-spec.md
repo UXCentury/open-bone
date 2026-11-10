@@ -260,6 +260,22 @@ Arrays (`sampleArray`) lerp element-wise to the longer length, missing elements 
 `localTime(anim, total, loop)`: `d = animationDuration` (explicit `duration` if > 0, else the max time of every key,
 event key and audio key); `d ≤ 0` ⇒ 0; loop ⇒ `((total % d) + d) % d`; else `clamp(total, 0, d)`.
 
+### 5.1a Mixing out (`applyAnimation(sk, anim, time, alpha, mixOut)`)
+During a cross-fade the outgoing animation is applied with `mixOut = {into, alpha: outAlpha}`, where `into` is the
+list of animations being faded to and `outAlpha` the outgoing weight (`1 − mix`). For each timeline of the outgoing
+animation that **blends** and that **no animation in `into` keys**, `outAlpha` is used instead of `alpha`, so the value
+eases from the outgoing animation's value back to whatever is underneath (the setup pose on the first track / layer,
+the lower tracks' / layers' pose above it) and arrives there as the fade ends, instead of holding and snapping. Like
+Spine: timelines the incoming animation doesn't have are mixed out towards the setup pose.
+- Blends: bone x, y, rotation, scaleX/Y, shearX/Y; slot colour and dark; IK mix and softness; every transform, path and
+  physics property; particle rate; deform offsets.
+- Doesn't (switches, unchanged, applied at `alpha`: the outgoing value holds until the fade ends unless the incoming
+  side keys it and is the stronger side): bone inherit, slot attachment, IK bend/stretch/compress, particle emitting,
+  sequence frame, draw order.
+- "Keys" = `into` has a timeline with at least one key and the same `target`, `id`, `property` and (deform, sequence)
+  `attachment`. Timelines both sides key are unchanged: the outgoing one at full `alpha`, the incoming one lerped over it.
+- A timeline whose resulting alpha is ≤ 0 is skipped. `sk.animationTime` still uses the call's `alpha`.
+
 ### 5.2 Events crossed (`animation.ts:eventsBetween`)
 For total (unwrapped) times `prev` (exclusive) → `next` (inclusive), nothing if `next ≤ prev`. For each event key **in
 array order** whose event exists: not looping or `d ≤ 0` ⇒ fire if `prev < k.time ≤ next`; looping ⇒ for each cycle
@@ -293,9 +309,11 @@ mixTime, mixDuration, completedLoops = 0}`.
   ```
   The mixed-out entry fires no events or audio.
 - `apply()`: tracks in index order (higher tracks lerp over lower ones):
-  `mixingFrom` ⇒ `applyAnimation(from, from.localTime, alpha)` then
-  `applyAnimation(entry, entry.localTime, alpha·min(1, mixTime / (mixDuration ‖ 1)))`; else `applyAnimation(entry, localTime, alpha)`.
-  The outgoing animation is applied at full alpha and the incoming one lerped over it.
+  `mixingFrom` ⇒ `mix = min(1, mixTime / (mixDuration ‖ 1))`;
+  `applyAnimation(from, from.localTime, alpha, {into: [entry.animation], alpha: alpha·(1 − mix)})` then
+  `applyAnimation(entry, entry.localTime, alpha·mix)`; else `applyAnimation(entry, localTime, alpha)`.
+  The outgoing animation is applied at full alpha and the incoming one lerped over it; what only the outgoing one keys
+  is mixed out towards the pose underneath (§5.1a).
 
 ## 7. Constraints
 
@@ -658,7 +676,8 @@ Also emitted (not compared by the suite): font, size, weight, align, box size, f
              if from: mixTime += dt; if mixTime ≥ mixDuration: from = null
 8  skeleton.setToSetupPose()
    per layer: mixA = mixDuration > 0 ? min(1, mixTime/mixDuration) : 1
-              if from: applyState(from, exited ? 1 − mixA : 1)
+              if from: current ? applyState(from, 1, into = animations(current), outAlpha = 1 − mixA)   // §5.1a
+                               : applyState(from, exited ? 1 − mixA : 1)
               if current: applyState(current, from ? mixA : 1)
 9  script overrides: bone props (Object.assign onto the local pose), slot colour (parseHex) and attachment
 10 every number input → skeleton.inputValues;  emitter overrides → particleValues[slot].emitting
@@ -701,6 +720,9 @@ Transitions use state time from *before* this frame's increment.
 entries sorted by value (stable); `v ≥ last` ⇒ `lo = hi = last, t = 0`; else the first `i` with
 `e[i] ≤ v ≤ e[i+1]` gives `lo, hi`, `t = (v − lo)/((hi − lo) ‖ 1)`; below the first ⇒ `lo = hi = first`. Apply `lo` at
 `alpha`, then `hi` at `alpha·t` if it is a different animation and `t > 0` (each with its own `localTime`).
+When the state is being faded out to another one (`into` given), each call also passes `mixOut = {into, alpha:
+outAlpha}` (`outAlpha·t` for `hi`). `animations(state)`: `[anim]` for an animation state (none if missing), the
+blend pair `[lo, hi]` (missing ones left out; `hi` included even when `t = 0` or `hi == lo`) for blend1d, none otherwise.
 `collectEvents(current)` (only the current state; for blend1d only `t ≥ 0.5 ? hi : lo`): audio keys crossed
 `(prevTime, time]` (owner = state instance), then each event crossed: play its audio (owner = state instance) and
 queue it for step 13.

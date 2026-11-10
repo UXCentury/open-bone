@@ -66,16 +66,41 @@ Inherit inheritOf(const Value& v) {
 
 std::string keyColor(const Key& k) { return k.value.isString() ? k.value.s : std::string(); }
 
+/** True for timelines whose values blend (a mix fades them); false for the ones that switch at keys. */
+bool blends(const Timeline& tl) {
+  switch (tl.target) {
+    case TimelineTarget::Bone: return tl.property != "inherit";
+    case TimelineTarget::Slot: return tl.property == "color" || tl.property == "dark";
+    case TimelineTarget::Ik: return tl.property != "bend" && tl.property != "stretch" && tl.property != "compress";
+    case TimelineTarget::Transform:
+    case TimelineTarget::Path:
+    case TimelineTarget::Physics:
+    case TimelineTarget::Deform: return true;
+    case TimelineTarget::Particles: return tl.property == "rate";
+    default: return false;
+  }
+}
+
+/** Whether any of `anims` has a keyed timeline for the same value as `tl` (same target, id, property and attachment). */
+bool keyedBy(const std::vector<const AnimationData*>& anims, const Timeline& tl) {
+  for (const AnimationData* a : anims)
+    for (const Timeline& o : a->timelines)
+      if (!o.keys.empty() && o.target == tl.target && o.id == tl.id && o.property == tl.property && o.attachment == tl.attachment) return true;
+  return false;
+}
+
 }  // namespace
 
 /** filter: 0 = every timeline, 1 = bone timelines only, 2 = everything but bone timelines. */
-void applyTimelines(Skeleton& sk, const AnimationData& anim, double time, double alpha, int filter) {
-  if (alpha <= 0) return;
-  if (alpha >= 0.5 || !sk.animationTime) sk.animationTime = time;
+void applyTimelines(Skeleton& sk, const AnimationData& anim, double time, double full, int filter, const MixOut* mixOut) {
+  if (full <= 0) return;
+  if (full >= 0.5 || !sk.animationTime) sk.animationTime = time;
   for (const Timeline& tl : anim.timelines) {
     if (tl.keys.empty()) continue;
     if (filter == 1 && tl.target != TimelineTarget::Bone) continue;
     if (filter == 2 && tl.target == TimelineTarget::Bone) continue;
+    const double alpha = mixOut && blends(tl) && !keyedBy(mixOut->into, tl) ? mixOut->alpha : full;
+    if (alpha <= 0) continue;
     switch (tl.target) {
       case TimelineTarget::Bone: {
         Bone* bone = sk.boneById(tl.id);
@@ -175,7 +200,10 @@ void applyTimelines(Skeleton& sk, const AnimationData& anim, double time, double
   }
 }
 
-void applyAnimation(Skeleton& sk, const AnimationData& anim, double time, double alpha) { applyTimelines(sk, anim, time, alpha, 0); }
+void applyAnimation(Skeleton& sk, const AnimationData& anim, double time, double alpha) { applyTimelines(sk, anim, time, alpha, 0, nullptr); }
+void applyAnimation(Skeleton& sk, const AnimationData& anim, double time, double alpha, const MixOut& mixOut) {
+  applyTimelines(sk, anim, time, alpha, 0, &mixOut);
+}
 
 double localTime(const AnimationData& anim, double total, bool loop) {
   const double d = anim.computedDuration;
@@ -490,8 +518,11 @@ void AnimationState::apply(Skeleton& sk) {
   for (const auto& e : tracks) {
     if (!e) continue;
     if (e->mixingFrom) {
-      applyAnimation(sk, *e->mixingFrom->animation, e->mixingFrom->localTime(), e->alpha);
-      applyAnimation(sk, *e->animation, e->localTime(), e->alpha * std::min(1.0, e->mixTime / orNum(e->mixDuration, 1)));
+      const double mix = std::min(1.0, e->mixTime / orNum(e->mixDuration, 1));
+      // What the new animation doesn't key fades from the old one's value to the pose underneath.
+      const std::vector<const AnimationData*> into{e->animation};
+      applyAnimation(sk, *e->mixingFrom->animation, e->mixingFrom->localTime(), e->alpha, MixOut{into, e->alpha * (1 - mix)});
+      applyAnimation(sk, *e->animation, e->localTime(), e->alpha * mix);
     } else
       applyAnimation(sk, *e->animation, e->localTime(), e->alpha);
   }

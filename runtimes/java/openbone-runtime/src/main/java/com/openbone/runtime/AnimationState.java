@@ -177,9 +177,12 @@ public final class AnimationState {
     for (TrackEntry e : tracks) {
       if (e == null) continue;
       if (e.mixingFrom != null) {
-        Animations.apply(sk, e.mixingFrom.animation, e.mixingFrom.localTime(), e.alpha);
         double md = e.mixDuration == 0 || Double.isNaN(e.mixDuration) ? 1 : e.mixDuration;
-        Animations.apply(sk, e.animation, e.localTime(), e.alpha * Math.min(1, e.mixTime / md));
+        double mix = Math.min(1, e.mixTime / md);
+        // What the new animation doesn't key fades from the old one's value to the pose underneath.
+        Animations.apply(sk, e.mixingFrom.animation, e.mixingFrom.localTime(), e.alpha,
+            new MixOut(java.util.Collections.singletonList(e.animation), e.alpha * (1 - mix)));
+        Animations.apply(sk, e.animation, e.localTime(), e.alpha * mix);
       } else Animations.apply(sk, e.animation, e.localTime(), e.alpha);
     }
   }

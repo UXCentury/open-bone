@@ -31,6 +31,17 @@ namespace OpenBone
         }
     }
 
+    /// <summary>
+    /// How an animation being faded out is applied during a cross-fade: its blending timelines that none of <see cref="Into"/>
+    /// key use <see cref="Alpha"/> (the outgoing weight, 1 - mix) instead of the full weight, so they ease back to the pose
+    /// underneath (the setup pose on the first track / layer) instead of holding and snapping when the fade ends.
+    /// </summary>
+    public sealed class MixOut
+    {
+        public IReadOnlyList<AnimationData> Into;
+        public double Alpha;
+    }
+
     /// <summary>runtime/animation.ts: timeline sampling and application.</summary>
     public static class Animations
     {
@@ -91,16 +102,45 @@ namespace OpenBone
             return Math.Min(Math.Max(total, 0), d);
         }
 
-        public static void Apply(Skeleton sk, AnimationData anim, double time, double alpha = 1) => Apply(sk, anim, anim.Timelines, time, alpha);
+        public static void Apply(Skeleton sk, AnimationData anim, double time, double alpha = 1, MixOut mixOut = null) => Apply(sk, anim, anim.Timelines, time, alpha, mixOut);
 
-        /// <summary>Pose the skeleton with an animation's timelines at local time, blended over the current pose by alpha (§5).</summary>
-        public static void Apply(Skeleton sk, AnimationData anim, List<Timeline> timelines, double time, double alpha)
+        /// <summary>True for timelines whose values blend (a mix fades them); false for the ones that switch at keys.</summary>
+        static bool Blends(Timeline tl)
         {
-            if (alpha <= 0) return;
-            if (alpha >= 0.5 || sk.AnimationTime == null) sk.AnimationTime = time;
+            switch (tl.Target)
+            {
+                case "bone": return tl.Property != "inherit";
+                case "slot": return tl.Property == "color" || tl.Property == "dark";
+                case "ik": return tl.Property != "bend" && tl.Property != "stretch" && tl.Property != "compress";
+                case "transform":
+                case "path":
+                case "physics":
+                case "deform": return true;
+                case "particles": return tl.Property == "rate";
+                default: return false;
+            }
+        }
+
+        /// <summary>Whether any of <paramref name="anims"/> has a keyed timeline for the same value as <paramref name="tl"/> (same target, id, property and attachment).</summary>
+        public static bool KeyedBy(IReadOnlyList<AnimationData> anims, Timeline tl)
+        {
+            foreach (var a in anims)
+                foreach (var o in a.Timelines)
+                    if (o.Keys.Count > 0 && o.Target == tl.Target && o.Id == tl.Id && o.Property == tl.Property && o.Attachment == tl.Attachment) return true;
+            return false;
+        }
+
+        /// <summary>Pose the skeleton with an animation's timelines at local time, blended over the current pose by alpha (§5).
+        /// With <paramref name="mixOut"/> (an animation being faded out), blending timelines none of its <c>Into</c> key use its alpha (§5.1a).</summary>
+        public static void Apply(Skeleton sk, AnimationData anim, List<Timeline> timelines, double time, double full, MixOut mixOut = null)
+        {
+            if (full <= 0) return;
+            if (full >= 0.5 || sk.AnimationTime == null) sk.AnimationTime = time;
             foreach (var tl in timelines)
             {
                 if (tl.Keys.Count == 0) continue;
+                double alpha = mixOut != null && Blends(tl) && !KeyedBy(mixOut.Into, tl) ? mixOut.Alpha : full;
+                if (alpha <= 0) continue;
                 switch (tl.Target)
                 {
                     case "bone":

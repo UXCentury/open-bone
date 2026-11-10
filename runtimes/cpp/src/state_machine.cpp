@@ -535,15 +535,40 @@ struct StateMachineInstance::Impl {
   }
 
   // ---------- apply ----------
-  void applyState(const StateInstance& s, double alpha) {
+  /** The animations a state is playing now (a blend state's current pair). */
+  std::vector<const AnimationData*> stateAnimations(const StateInstance& s) {
+    const StateData& d = *s.data;
+    std::vector<const AnimationData*> out;
+    if (d.type == StateType::Animation) {
+      if (const AnimationData* a = anim(d.animation)) out.push_back(a);
+    } else if (d.type == StateType::Blend1d) {
+      if (auto pair = blendPair(d)) {
+        if (pair->lo) out.push_back(pair->lo);
+        if (pair->hi) out.push_back(pair->hi);
+      }
+    }
+    return out;
+  }
+
+  void applyOne(const AnimationData& a, double time, double alpha, const std::vector<const AnimationData*>* into, double outAlpha) {
+    if (into) applyAnimation(sm.skeleton, a, time, alpha, MixOut{*into, outAlpha});
+    else applyAnimation(sm.skeleton, a, time, alpha);
+  }
+
+  /**
+   * Pose a state at weight `alpha`. With `into` (the state being faded to) and its outgoing weight `outAlpha`, the
+   * blending values none of `into` key are applied at `outAlpha` instead, so they fade towards the pose underneath.
+   */
+  void applyState(const StateInstance& s, double alpha, const std::vector<const AnimationData*>* into = nullptr, double outAlpha = 0) {
     const StateData& d = *s.data;
     if (d.type == StateType::Animation) {
-      if (const AnimationData* a = anim(d.animation)) applyAnimation(sm.skeleton, *a, localTime(*a, s.time, d.loop), alpha);
+      if (const AnimationData* a = anim(d.animation)) applyOne(*a, localTime(*a, s.time, d.loop), alpha, into, outAlpha);
     } else if (d.type == StateType::Blend1d) {
       auto pair = blendPair(d);
       if (!pair) return;
-      if (pair->lo) applyAnimation(sm.skeleton, *pair->lo, localTime(*pair->lo, s.time, d.loop), alpha);
-      if (pair->hi && pair->hi != pair->lo && pair->t > 0) applyAnimation(sm.skeleton, *pair->hi, localTime(*pair->hi, s.time, d.loop), alpha * pair->t);
+      if (pair->lo) applyOne(*pair->lo, localTime(*pair->lo, s.time, d.loop), alpha, into, outAlpha);
+      if (pair->hi && pair->hi != pair->lo && pair->t > 0)
+        applyOne(*pair->hi, localTime(*pair->hi, s.time, d.loop), alpha * pair->t, into, outAlpha * pair->t);
     }
   }
 
@@ -605,7 +630,14 @@ struct StateMachineInstance::Impl {
     sk.setToSetupPose();
     for (auto& l : layers) {
       const double mixA = l.mixDuration > 0 ? std::min(1.0, l.mixTime / l.mixDuration) : 1;
-      if (l.from) applyState(*l.from, l.exited ? 1 - mixA : 1);
+      if (l.from) {
+        // Fading to a state: what it doesn't key fades from the old state's value to the pose underneath.
+        if (l.current) {
+          const auto into = stateAnimations(*l.current);
+          applyState(*l.from, 1, &into, 1 - mixA);
+        } else
+          applyState(*l.from, l.exited ? 1 - mixA : 1);
+      }
       if (l.current) applyState(*l.current, l.from ? mixA : 1);
     }
     static const BoneProp props[7] = {BoneProp::X, BoneProp::Y, BoneProp::Rotation, BoneProp::ScaleX, BoneProp::ScaleY, BoneProp::ShearX, BoneProp::ShearY};

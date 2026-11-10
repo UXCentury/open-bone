@@ -1,0 +1,444 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "mixing",
+  "width": 400,
+  "height": 400,
+  "originX": 200,
+  "originY": 300,
+  "background": null,
+  "fps": 30,
+  "images": [
+    {
+      "id": "img_part",
+      "name": "part",
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==",
+      "width": 30,
+      "height": 12
+    }
+  ],
+  "skeleton": {
+    "bones": [
+      {
+        "id": "bone_x1kro2s",
+        "name": "root",
+        "parent": null,
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_8sqfe2t",
+        "name": "hip",
+        "parent": "bone_x1kro2s",
+        "length": 40,
+        "x": 0,
+        "y": 100,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_opr232u",
+        "name": "foot",
+        "parent": "bone_8sqfe2t",
+        "length": 20,
+        "x": 0,
+        "y": -100,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_i32d12v",
+        "name": "arm",
+        "parent": "bone_8sqfe2t",
+        "length": 30,
+        "x": 30,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_g2g472w",
+        "name": "sway",
+        "parent": "bone_x1kro2s",
+        "length": 30,
+        "x": 100,
+        "y": 80,
+        "rotation": 30,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot_g6bpp2y",
+        "name": "hip",
+        "bone": "bone_8sqfe2t",
+        "color": "#ffffff",
+        "attachment": "part",
+        "blend": "normal",
+        "dark": "#000000"
+      },
+      {
+        "id": "slot_3sikx2z",
+        "name": "foot",
+        "bone": "bone_opr232u",
+        "color": "#ffffff",
+        "attachment": "part",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_vi9wc30",
+        "name": "arm",
+        "bone": "bone_i32d12v",
+        "color": "#ffffff",
+        "attachment": "part",
+        "blend": "normal"
+      }
+    ],
+    "skins": [
+      {
+        "id": "skin_default",
+        "name": "default",
+        "attachments": {
+          "slot_g6bpp2y": {
+            "part": {
+              "type": "region",
+              "name": "part",
+              "image": "img_part",
+              "x": 15,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 30,
+              "height": 12,
+              "color": "#ffffff"
+            }
+          },
+          "slot_3sikx2z": {
+            "part": {
+              "type": "region",
+              "name": "part",
+              "image": "img_part",
+              "x": 15,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 30,
+              "height": 12,
+              "color": "#ffffff"
+            },
+            "step": {
+              "type": "region",
+              "name": "step",
+              "image": "img_part",
+              "x": 0,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 30,
+              "height": 12,
+              "color": "#ffffff"
+            }
+          },
+          "slot_vi9wc30": {
+            "part": {
+              "type": "region",
+              "name": "part",
+              "image": "img_part",
+              "x": 15,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 30,
+              "height": 12,
+              "color": "#ffffff"
+            }
+          }
+        }
+      }
+    ],
+    "ik": [],
+    "transform": [
+      {
+        "id": "tc_497hj2x",
+        "name": "swing",
+        "bones": [
+          "bone_i32d12v"
+        ],
+        "target": "bone_g2g472w",
+        "mixRotate": 0,
+        "mixTranslate": 1,
+        "mixScale": 0,
+        "mixShear": 0,
+        "offsetRotation": 0,
+        "offsetX": 0,
+        "offsetY": 0,
+        "offsetScaleX": 0,
+        "offsetScaleY": 0,
+        "offsetShear": 0,
+        "local": false,
+        "relative": false
+      }
+    ],
+    "path": [],
+    "physics": []
+  },
+  "events": [],
+  "animations": [
+    {
+      "id": "anim_mifc531",
+      "name": "idle",
+      "duration": 1,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_8sqfe2t",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 100,
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": 96,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": 100,
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    },
+    {
+      "id": "anim_fvu6u32",
+      "name": "walk",
+      "duration": 1,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_8sqfe2t",
+          "property": "y",
+          "keys": [
+            {
+              "time": 0,
+              "value": 104,
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": 108,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": 104,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_opr232u",
+          "property": "x",
+          "keys": [
+            {
+              "time": 0,
+              "value": -60,
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": 60,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": -60,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_opr232u",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": -170,
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": 170,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": -170,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_g6bpp2y",
+          "property": "color",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#ff4020ff",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_g6bpp2y",
+          "property": "dark",
+          "keys": [
+            {
+              "time": 0,
+              "value": "#4080ff",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_3sikx2z",
+          "property": "attachment",
+          "keys": [
+            {
+              "time": 0,
+              "value": "step",
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "transform",
+          "id": "tc_497hj2x",
+          "property": "mixRotate",
+          "keys": [
+            {
+              "time": 0,
+              "value": 1,
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    }
+  ],
+  "stateMachines": [
+    {
+      "id": "sm_eo5og33",
+      "name": "walker",
+      "inputs": [
+        {
+          "id": "in_i376j34",
+          "name": "walking",
+          "type": "bool",
+          "default": true
+        }
+      ],
+      "bindings": [],
+      "layers": [
+        {
+          "id": "sm_eo5og33_layer1",
+          "name": "Layer 1",
+          "entry": "st_cs95y35",
+          "states": [
+            {
+              "id": "st_cs95y35",
+              "name": "walk",
+              "type": "animation",
+              "animation": "anim_fvu6u32",
+              "loop": true,
+              "speed": 1,
+              "x": 160,
+              "y": 80
+            },
+            {
+              "id": "st_hvuqq36",
+              "name": "idle",
+              "type": "animation",
+              "animation": "anim_mifc531",
+              "loop": true,
+              "speed": 1,
+              "x": 340,
+              "y": 80
+            }
+          ],
+          "transitions": [
+            {
+              "id": "tr_8tfn237",
+              "from": "st_cs95y35",
+              "to": "st_hvuqq36",
+              "conditions": [
+                {
+                  "input": "in_i376j34",
+                  "op": "==",
+                  "value": false
+                }
+              ],
+              "duration": 0.5,
+              "exitTime": null
+            },
+            {
+              "id": "tr_rej5z38",
+              "from": "st_hvuqq36",
+              "to": "st_cs95y35",
+              "conditions": [
+                {
+                  "input": "in_i376j34",
+                  "op": "==",
+                  "value": true
+                }
+              ],
+              "duration": 0.5,
+              "exitTime": null
+            }
+          ]
+        }
+      ],
+      "listeners": [],
+      "scripts": []
+    }
+  ],
+  "scripts": []
+}

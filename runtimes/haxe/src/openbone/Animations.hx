@@ -86,17 +86,41 @@ class Animations {
 	}
 
 	/** Pose the skeleton with an animation at local time `time`, mixed over the current pose by `alpha`. */
-	public static function apply(sk:Skeleton, anim:AnimationData, time:Float, alpha:Float):Void {
-		applyTimelines(sk, anim, anim.timelines, time, alpha);
+	public static function apply(sk:Skeleton, anim:AnimationData, time:Float, alpha:Float, ?mixOut:MixOut):Void {
+		applyTimelines(sk, anim, anim.timelines, time, alpha, mixOut);
 	}
 
-	public static function applyTimelines(sk:Skeleton, anim:AnimationData, timelines:Array<Timeline>, time:Float, alpha:Float):Void {
-		if (alpha <= 0)
+	/** True for timelines whose values blend (a mix fades them); false for the ones that switch at keys. */
+	static function blends(tl:Timeline):Bool {
+		return switch (tl.target) {
+			case "bone": tl.property != "inherit";
+			case "slot": tl.property == "color" || tl.property == "dark";
+			case "ik": tl.property != "bend" && tl.property != "stretch" && tl.property != "compress";
+			case "transform" | "path" | "physics" | "deform": true;
+			case "particles": tl.property == "rate";
+			default: false;
+		}
+	}
+
+	/** Whether any of `anims` has a keyed timeline for the same value as `tl` (same target, id, property and attachment). */
+	public static function keyedBy(anims:Array<AnimationData>, tl:Timeline):Bool {
+		for (a in anims)
+			for (o in a.timelines)
+				if (o.keys.length > 0 && o.target == tl.target && o.id == tl.id && o.property == tl.property && o.attachment == tl.attachment)
+					return true;
+		return false;
+	}
+
+	public static function applyTimelines(sk:Skeleton, anim:AnimationData, timelines:Array<Timeline>, time:Float, full:Float, ?mixOut:MixOut):Void {
+		if (full <= 0)
 			return;
-		if (alpha >= 0.5 || sk.animationTime == null)
+		if (full >= 0.5 || sk.animationTime == null)
 			sk.animationTime = time;
 		for (tl in timelines) {
 			if (tl.keys.length == 0)
+				continue;
+			var alpha = mixOut != null && blends(tl) && !keyedBy(mixOut.into, tl) ? mixOut.alpha : full;
+			if (alpha <= 0)
 				continue;
 			switch (tl.target) {
 				case "bone":

@@ -146,8 +146,10 @@ export class AnimationState extends Emitter<Events> {
     for (const e of this.tracks) {
       if (!e) continue;
       if (e.mixingFrom) {
-        applyAnimation(sk, e.mixingFrom.animation, e.mixingFrom.localTime, e.alpha);
-        applyAnimation(sk, e.animation, e.localTime, e.alpha * Math.min(1, e.mixTime / (e.mixDuration || 1)));
+        const mix = Math.min(1, e.mixTime / (e.mixDuration || 1));
+        // What the new animation doesn't key fades from the old one's value to the pose underneath.
+        applyAnimation(sk, e.mixingFrom.animation, e.mixingFrom.localTime, e.alpha, { into: [e.animation], alpha: e.alpha * (1 - mix) });
+        applyAnimation(sk, e.animation, e.localTime, e.alpha * mix);
       } else applyAnimation(sk, e.animation, e.localTime, e.alpha);
     }
   }

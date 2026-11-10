@@ -24,6 +24,7 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 - `<openbone-player>`: setting `src` after the element is on the page loads it, and changing any attribute reloads the player; `background` accepts any CSS colour under WebGL too (short hex such as `#fff` was drawn wrong).
 - Runtime: a document whose scripts would be skipped because no `scriptHost` was given prints a warning once; pass `scriptHost: null` to opt out on purpose. `scriptTimeoutMs`, which nothing read, is deprecated.
 - Editor: the Preview panel runs document scripts, like the viewport.
+- Runtimes: cross-fades (state-machine transitions and `AnimationState` mixes) no longer hold a value only the outgoing animation keys and snap it when the fade ends. Like Spine, bone transforms, slot colour / dark colour, constraint mixes, particle rate and deform offsets that the incoming animation doesn't key now ease from the outgoing value back to the pose underneath (the setup pose on the first layer / track); attachment, draw-order, inherit and other switching keys stay as they were. Walking into idle no longer keeps the stride for the length of the fade and then jumps the feet into the stance. The rule is in `docs/runtime-spec.md` §5.1a, and every runtime (TypeScript, C++ with Swift and Flutter on top, C#, Java, Haxe) follows it; a new `mixing` conformance fixture covers it.
 
 ### Changed
 - QuickJS (quickjs-ng 0.10.1) is vendored in `runtimes/cpp/third_party`, so no build downloads it.

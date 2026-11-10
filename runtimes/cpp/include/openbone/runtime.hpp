@@ -280,8 +280,20 @@ class Skeleton {
 
 // ---------------- Animation ----------------
 
+/**
+ * How an animation being faded out is applied during a cross-fade: its blending timelines that none of `into` key
+ * use `alpha` (the outgoing weight, 1 - mix) instead of the full weight, so they ease back to the pose underneath
+ * (the setup pose on the first track / layer) instead of holding and snapping when the fade ends.
+ */
+struct MixOut {
+  const std::vector<const AnimationData*>& into;
+  double alpha;
+};
+
 /** Pose `sk` with `anim` at local time `time`, blended over the current pose by `alpha`. */
 void applyAnimation(Skeleton& sk, const AnimationData& anim, double time, double alpha = 1);
+/** The same, for an animation being faded out (see MixOut). */
+void applyAnimation(Skeleton& sk, const AnimationData& anim, double time, double alpha, const MixOut& mixOut);
 double localTime(const AnimationData& anim, double total, bool loop);
 std::vector<FiredEvent> eventsBetween(const Document& doc, const AnimationData& anim, double prev, double next, bool loop);
 

@@ -195,4 +195,40 @@ function rigging(): OpenBoneDocument {
   return s.doc;
 }
 
-export const FIXTURES: Record<string, () => OpenBoneDocument> = { transforms, constraints, meshes, dynamics, interactive, rigging };
+/**
+ * Cross-fades where only the outgoing state keys a value: walk keys the foot, a colour, a dark colour and a
+ * transform-constraint mix that idle doesn't, so over walk → idle they fade back to the setup pose.
+ */
+function mixing(): OpenBoneDocument {
+  const s = store("mixing");
+  image(s, "part", 30, 12);
+  s.apply("addBone", { name: "hip", y: 100, length: 40 });
+  s.apply("addBone", { name: "foot", parent: "hip", y: -100, length: 20 });
+  s.apply("addBone", { name: "arm", parent: "hip", x: 30, length: 30 });
+  s.apply("addBone", { name: "sway", x: 100, y: 80, rotation: 30, length: 30 });
+  s.apply("addTransformConstraint", { name: "swing", bones: ["arm"], target: "sway", mixRotate: 0 });
+  for (const b of ["hip", "foot", "arm"]) {
+    s.apply("addSlot", { name: b, bone: b, ...(b === "hip" ? { dark: "#000000" } : {}) });
+    s.apply("addRegion", { slot: b, image: "part", x: 15 });
+  }
+  s.apply("addRegion", { slot: "foot", image: "part", name: "step", activate: false });
+  s.apply("createAnimation", { name: "idle", duration: 1 });
+  s.apply("setKeys", { animation: "idle", target: "bone", id: "hip", property: "y", keys: [{ time: 0, value: 100 }, { time: 0.5, value: 96 }, { time: 1, value: 100 }] });
+  s.apply("createAnimation", { name: "walk", duration: 1 });
+  s.apply("setKeys", { animation: "walk", target: "bone", id: "hip", property: "y", keys: [{ time: 0, value: 104 }, { time: 0.5, value: 108 }, { time: 1, value: 104 }] });
+  s.apply("setKeys", { animation: "walk", target: "bone", id: "foot", property: "x", keys: [{ time: 0, value: -60 }, { time: 0.5, value: 60 }, { time: 1, value: -60 }] });
+  s.apply("setKeys", { animation: "walk", target: "bone", id: "foot", property: "rotation", keys: [{ time: 0, value: -170 }, { time: 0.5, value: 170 }, { time: 1, value: -170 }] });
+  s.apply("setKeys", { animation: "walk", target: "slot", id: "hip", property: "color", keys: [{ time: 0, value: "#ff4020ff" }] });
+  s.apply("setKeys", { animation: "walk", target: "slot", id: "hip", property: "dark", keys: [{ time: 0, value: "#4080ff" }] });
+  s.apply("setKeys", { animation: "walk", target: "slot", id: "foot", property: "attachment", keys: [{ time: 0, value: "step" }] });
+  s.apply("setKeys", { animation: "walk", target: "transform", id: "swing", property: "mixRotate", keys: [{ time: 0, value: 1 }] });
+  s.apply("createStateMachine", { name: "walker" });
+  s.apply("addInput", { stateMachine: "walker", name: "walking", type: "bool", default: true });
+  s.apply("addState", { stateMachine: "walker", name: "walk", animation: "walk" });
+  s.apply("addState", { stateMachine: "walker", name: "idle", animation: "idle" });
+  s.apply("addTransition", { stateMachine: "walker", from: "walk", to: "idle", duration: 0.5, conditions: [{ input: "walking", op: "==", value: false }] });
+  s.apply("addTransition", { stateMachine: "walker", from: "idle", to: "walk", duration: 0.5, conditions: [{ input: "walking", op: "==", value: true }] });
+  return s.doc;
+}
+
+export const FIXTURES: Record<string, () => OpenBoneDocument> = { transforms, constraints, meshes, dynamics, interactive, rigging, mixing };

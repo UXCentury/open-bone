@@ -4,6 +4,7 @@ import {
   type EventKey,
   type Key,
   type OpenBoneDocument,
+  type Timeline,
   IK_STEP_PROPERTIES,
   animationDuration,
   evalCurve,
@@ -72,16 +73,66 @@ export function localTime(anim: AnimationData, total: number, loop: boolean): nu
   return Math.min(Math.max(total, 0), d);
 }
 
+/** True for timelines whose values blend (a mix fades them); false for the ones that switch at keys. */
+function blends(tl: Timeline): boolean {
+  switch (tl.target) {
+    case "bone":
+      return tl.property !== "inherit";
+    case "slot":
+      return tl.property === "color" || tl.property === "dark";
+    case "ik":
+      return !(IK_STEP_PROPERTIES as string[]).includes(tl.property);
+    case "transform":
+    case "path":
+    case "physics":
+    case "deform":
+      return true;
+    case "particles":
+      return tl.property === "rate";
+    default:
+      return false;
+  }
+}
+
+/** Whether any of `anims` has a keyed timeline for the same value as `tl` (same target, id, property and attachment). */
+export function keyedBy(anims: readonly AnimationData[], tl: Timeline): boolean {
+  const att = "attachment" in tl ? tl.attachment : undefined;
+  for (const a of anims)
+    for (const o of a.timelines)
+      if (
+        o.keys.length &&
+        o.target === tl.target &&
+        o.id === tl.id &&
+        o.property === tl.property &&
+        ("attachment" in o ? o.attachment : undefined) === att
+      )
+        return true;
+  return false;
+}
+
+/**
+ * How an animation being faded out is applied during a cross-fade: its blending timelines that none of `into` key
+ * use `alpha` (the outgoing weight, `1 - mix`) instead of the full weight, so they ease back to the pose underneath
+ * (the setup pose on the first track / layer) instead of holding and snapping when the fade ends.
+ */
+export interface MixOut {
+  into: readonly AnimationData[];
+  alpha: number;
+}
+
 /**
  * Pose the skeleton with an animation at local time `time`, blended over the current pose by `alpha`.
  * Values are absolute (not relative to setup), so un-keyed properties keep whatever is underneath.
  */
-export function applyAnimation(sk: Skeleton, anim: AnimationData, time: number, alpha = 1) {
+export function applyAnimation(sk: Skeleton, anim: AnimationData, time: number, alpha = 1, mixOut?: MixOut) {
   if (alpha <= 0) return;
   // Sequences follow the dominant animation's time.
   if (alpha >= 0.5 || sk.animationTime === null) sk.animationTime = time;
+  const full = alpha;
   for (const tl of anim.timelines) {
     if (!tl.keys.length) continue;
+    alpha = mixOut && blends(tl) && !keyedBy(mixOut.into, tl) ? mixOut.alpha : full;
+    if (alpha <= 0) continue;
     switch (tl.target) {
       case "bone": {
         const bone = sk.boneById_(tl.id);
