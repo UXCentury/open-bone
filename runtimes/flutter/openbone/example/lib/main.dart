@@ -1,5 +1,5 @@
 // OpenBone Flutter example: pick a document, play its animations or drive its state machine (inputs, triggers,
-// pointer), and watch events and audio commands. Assets are copies of examples/knight.obone and examples/button.obone.
+// pointer), and watch events and audio commands. Assets are copies of examples/knight.obone, examples/button.obone and examples/windswept.obone.
 //
 //   flutter run -d linux        (or macos / windows / an Android or iOS device)
 // SPDX-License-Identifier: MIT
@@ -37,6 +37,7 @@ class _ExamplePageState extends State<ExamplePage> {
   static const documents = {
     'Knight (animations)': 'assets/openbone/knight.obone',
     'Button (state machine)': 'assets/openbone/button.obone',
+    'Windswept (state machine, sound)': 'assets/openbone/windswept.obone',
   };
 
   String _document = documents.values.last;
