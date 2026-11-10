@@ -99,6 +99,11 @@ import {
 
 export const [smInstance, setSmInstance] = createSignal<StateMachineInstance | null>(null);
 /** For the Outline panel: the main view (artboard px → screen: x + ax·zoom) and a way to centre it on a point. */
+/** Crosshair with a plus badge (hotspot at the crosshair's centre), for "click adds a point". Falls back to `copy`. */
+const ADD_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><g stroke="#000" stroke-width="3" stroke-linecap="round"><path d="M8 1v14M1 8h14"/><path d="M18 13v8M14 17h8"/></g><g stroke="#fff" stroke-width="1.4" stroke-linecap="round"><path d="M8 1v14M1 8h14"/><path d="M18 13v8M14 17h8"/></g></svg>',
+)}") 8 8, copy`;
+
 export const viewportApi: {
   info: (() => { x: number; y: number; zoom: number; w: number; h: number }) | null;
   centerOn: ((ax: number, ay: number) => void) | null;
@@ -189,6 +194,14 @@ export function Viewport() {
   let snapLines: SnapLine[] = [];
   const [aidsOpen, setAidsOpen] = createSignal(false);
   const [cursorHint, setCursorHint] = createSignal<string | null>(null);
+  /** Ctrl/⌘ held: with the Mesh tool, a click adds a vertex, so the cursor shows a plus. */
+  const [addKey, setAddKey] = createSignal(false);
+  /** Mesh tool cursors: a plus to add a vertex (Ctrl/⌘ away from the existing ones), a move cursor over a vertex. */
+  const meshCursor = (): string | null => {
+    if (tool() !== "mesh" || mode() !== "setup" || running() || !meshTarget() || meshTarget()!.att.linked) return null;
+    if (hoverVertex() !== -1) return "move";
+    return addKey() ? ADD_CURSOR : null;
+  };
   let ghost: Skeleton | null = null;
   let ghostRev = -1;
   let ghostCanvas: HTMLCanvasElement | null = null;
@@ -1439,6 +1452,7 @@ export function Viewport() {
       zdrag.y = y;
       return;
     }
+    if (addKey() !== (e.ctrlKey || e.metaKey)) setAddKey(e.ctrlKey || e.metaKey);
     if (meshToolOn() && drag?.kind !== "vertex") {
       const t = meshTarget();
       const hv = t ? pickVertex(setupVertices(t), x, y) : -1;
@@ -1723,11 +1737,16 @@ export function Viewport() {
   let spaceDown = false;
   const kd = (e: KeyboardEvent) => {
     if (e.code === "Space" && !isTypingTarget(e.target as HTMLElement)) spaceDown = true;
+    setAddKey(e.ctrlKey || e.metaKey);
   };
   const ku = (e: KeyboardEvent) => {
     if (e.code === "Space") spaceDown = false;
+    setAddKey(e.ctrlKey || e.metaKey);
   };
-  const blur = () => (spaceDown = false);
+  const blur = () => {
+    spaceDown = false;
+    setAddKey(false);
+  };
 
   onMount(() => {
     setImageReadyCallback(() => {});
@@ -1787,10 +1806,11 @@ export function Viewport() {
         ref={canvas}
         onPointerDown={onDown}
         onPointerMove={onMove}
+        onPointerLeave={() => hoverVertex() !== -1 && !drag && setHoverVertex(-1)}
         onPointerUp={onUp}
         onWheel={onWheel}
         onContextMenu={(e) => e.preventDefault()}
-        style={{ cursor: running() ? "pointer" : (cursorHint() ?? (tool() === "bone" || tool() === "weights" || tool() === "pen" ? "crosshair" : "default")) }}
+        style={{ cursor: running() ? "pointer" : (cursorHint() ?? meshCursor() ?? (tool() === "bone" || tool() === "weights" || tool() === "pen" ? "crosshair" : "default")) }}
       />
       <Show when={meshToolOn()}>
         <MeshPanel />
