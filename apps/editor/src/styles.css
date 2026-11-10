@@ -46,7 +46,7 @@ input.tiny { width: 52px; }
 .segmented button:last-child { border-radius: 0 5px 5px 0; }
 .check { display: inline-flex; gap: 4px; align-items: center; color: var(--muted); }
 .spacer { flex: 1; }
-.filename { color: var(--muted); }
+.filename { color: var(--muted); min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .main { flex: 1; display: flex; min-height: 0; }
 .panel { height: 100%; background: var(--panel); overflow: auto; }
 .center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
@@ -771,3 +771,11 @@ button.link { background: none; border: none; padding: 0; color: var(--accent, #
 .weight-pct { margin-left: 5px; font-variant-numeric: tabular-nums; color: #ffe08a; }
 
 .dialog-select { width: 100%; margin-top: 4px; }
+
+/* Toolbar drop-downs (Pick, View) */
+.tb-dropdown { position: relative; }
+.tb-dropdown > button.warn { color: #ffd27a; }
+.tb-pop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 60; display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; min-width: 150px; background: var(--panel); border: 1px solid var(--line); border-radius: 7px; box-shadow: 0 10px 30px #0008; }
+.tb-pop .check { color: var(--text, #e6e8ee); white-space: nowrap; }
+.tb-pop-buttons { display: flex; flex-direction: column; gap: 4px; }
+.tb-pop-buttons button { text-align: left; }

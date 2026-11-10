@@ -19,7 +19,7 @@
 
 ![The OpenBone editor in Animate mode: the painted Knight mid-salute with his sword raised, the skeleton tree, the dopesheet with the voice line's waveform, and the bone Inspector](docs/editor.webp)
 
-- **Rig like Spine**: bones, weighted meshes, IK, transform, path and physics constraints, skins, clipping, two-colour tint, texture atlases.
+- **Rig like Spine**: bones, weighted meshes with free-form deformation, IK, transform, path and physics constraints, skins, clipping, two-colour tint, texture atlases.
 - **Make it interactive like Rive**: state machines with inputs, pointer listeners, live text, input bindings and sandboxed scripts.
 - **Sound built in**: sounds on the timeline, events and states, a mixer with buses, and lip sync from a voice recording.
 - **Play it anywhere**: web (WebGL, Canvas, PixiJS, Phaser, Three.js, CanvasKit) and native runtimes for C/C++ (Godot, Unreal, Cocos2d-x, SDL2, SFML, OpenGL), C# (Unity, MonoGame), Java (libGDX, Android), Swift, Flutter and Haxe, all checked against one conformance suite.
@@ -79,7 +79,7 @@ pnpm test
 
 | Platform | Package | Engines | Notes |
 |---|---|---|---|
-| TypeScript | `@openbone/runtime` | any | The reference runtime: posing, constraints, mixing, state machines, listeners, particles, text, audio commands |
+| TypeScript | `@openbone/runtime` | any | The reference runtime: posing, constraints, mixing, state machines, listeners, particles, text, audio commands, bounding-box queries |
 | Web player | `@openbone/player` | browser | `<openbone-player>` element and `Player` class, WebGL2 or Canvas2D, Web Audio |
 | Web renderers | `@openbone/render-webgl`, `@openbone/render-canvas` | browser, Node | Batched WebGL2 with stencil clipping; Canvas2D for the editor and headless PNG/GIF |
 | Web engines | [`@openbone/pixi`](packages/pixi), [`phaser`](packages/phaser), [`three`](packages/three), [`canvaskit`](packages/canvaskit) | PixiJS v8, Phaser 3, Three.js r160+, CanvasKit | Same batches as the WebGL renderer, checked frame for frame; engine pointer events |
@@ -176,7 +176,7 @@ covers the installers, releases and code signing.
 - **Constraints**, applied in a default or custom order:
   - **IK**: 1- and 2-bone, mix, bend direction, softness, stretch, compress and uniform scaling.
   - **Transform**: rotate/translate/scale/shear mixes, world or local space, absolute or relative.
-  - **Path**: place and rotate a bone chain along a bezier path, with position, spacing and rotate modes.
+  - **Path**: place and rotate a bone chain along a bezier path, with position, spacing and rotate modes, and constant speed (bones evenly spaced along uneven curves).
   - **Physics**: secondary motion (hair, cloth, tails) with inertia, strength, damping, gravity and wind; deterministic. Gravity, wind and IK softness follow the rig's **reference scale**.
   - **Sliders**: a bone's property or a number input scrubs an animation (corrective shapes, shadows, dials).
 
@@ -185,14 +185,14 @@ covers the installers, releases and code signing.
 <details>
 <summary><b>Attachments</b>: images, meshes, clipping, sequences, particles, text, atlases</summary>
 
-- **Regions** (images), **vector shapes** (rect, rounded rect, ellipse, polygon with fill and stroke), **points** and **bounding boxes** (hit areas).
-- **Meshes**: deformable, weighted to bones, with deform keys. **Linked meshes** reuse a mesh's geometry and weights with another image and can follow its deform keys. **Trace mesh** builds a mesh from an image's visible pixels.
+- **Regions** (images), **vector shapes** (rect, rounded rect, ellipse, polygon with fill and stroke), **points** and **bounding boxes** (hit areas, optionally weighted to bones). Game code can ask which boxes contain a point, cross a segment or overlap a rectangle or another skeleton, in every runtime.
+- **Meshes**: deformable, weighted to bones, with deform keys (**free-form deformation**: drag vertices in Animate mode). **Linked meshes** reuse a mesh's geometry and weights with another image and can follow its deform keys. **Trace mesh** builds a mesh from an image's visible pixels, and re-tracing a weighted mesh binds it to the same bones again.
 - **Clipping masks**: slots after the mask, up to an end slot, are drawn only inside its outline.
-- **Bezier paths** for path constraints, optionally weighted to bones.
+- **Bezier paths** for path constraints, drawn and edited with the **Pen tool** (smooth, mirrored or broken handles), optionally bound to bones.
 - **Sprite sequences** from numbered images, sprite sheets (grid, TexturePacker or Aseprite JSON) or a ZIP of frames: own fps, loop / once / ping-pong / hold-last, driven by time, keys or a number input.
-- **Particle emitters** on any slot: rate and bursts, shapes, world or local space, lifetime, speed, gravity, drag, size, rotation and colour over life, presets (fire, smoke, sparks, confetti, exhaust, coins). Seeded, so previews and exports match.
+- **Particle emitters** on any slot: rate and bursts, shapes, world or local space, lifetime, speed, gravity, drag, size, rotation and colour over life, dots, squares, sparks or **any image** as the particle. Presets (fire, smoke, sparks, confetti, exhaust, coins) plus **your own presets**, saved once and usable in every project. Seeded, so previews and exports match.
 - **Text attachments** (font, size, weight, colour, alignment, outline) whose content can be a live template bound to inputs.
-- **Texture atlas packing**: rotation, scaling, whitespace stripping, polygon outlines and premultiplied alpha.
+- **Texture atlas packing**: rotation, scaling (several scales in one pack), whitespace stripping, polygon outlines, alias (identical images stored once), blank-image skipping, edge padding and bleed, page size rules, PNG or JPEG pages, premultiplied alpha, and filter, wrap and pixel format for the runtimes.
 
 </details>
 
@@ -203,7 +203,8 @@ covers the installers, releases and code signing.
 - **Key editing**: multi-select (Shift/Ctrl-click, box, Ctrl/⌘+A), drag and nudge, **copy and paste** across animations, **scale** in time, change curves or delete together.
 - Linear, stepped and bezier curves; a **Graph view** for value curves and bezier handles.
 - **Dopesheet** grouped by bone, slot and constraint, with **● Rec**, auto-key, hold bars, events (int/float/string payloads) and an audio lane with waveforms.
-- Per-animation export switch and colour; track mixing and cross-fades; **onion skin**.
+- **Free-form deformation**: with the Mesh tool in Animate mode, dragging vertices keys a deform at the playhead (weighted meshes and soft selection included).
+- Per-animation export switch and colour; track mixing and cross-fades (values only the outgoing animation keys ease back to the setup pose); **onion skin**.
 
 </details>
 
@@ -230,13 +231,15 @@ covers the installers, releases and code signing.
 <details>
 <summary><b>Editor</b>: tools, workspace, import</summary>
 
-- **Tools**: select, rotate, translate, scale, **Pose** (drag a bone and its parents bend to follow), create bone, mesh editing with soft selection, and **weights** (brush, direct values, lock bones, Smooth, Auto, Prune, Swap).
-- **Setup and Animate modes**, undo/redo for every change, **Compensate** (move a bone while its children stay put), box selection of bones.
+- **Tools**: select, rotate, translate, scale, **Pose** (drag a bone and its parents bend to follow), create bone, **Pen** (paths and bounding boxes), mesh editing with soft selection, and **weights** (brush or direct values, lock bones, Smooth, Auto, Prune, Swap) with Spine-style **bone colours, a weight overlay and vertex pies**.
+- **Bones or parts**: the **Bone | Part** switch decides whether dragging a picture moves its bone or the picture itself; parts get their own move, rotate and scale gizmos, and rotating shows the angle live. A **hover preview** outlines what a click will grab, and a **pick filter** rules out bones or parts.
+- **Setup and Animate modes**, undo/redo for every change, **Compensate** (move a bone while its children stay put), **multi-selection** of bones and parts (Shift/Ctrl-click, box), flip and rotate parts or bones from the right-click menu.
+- **Views**: **3D view** (every part on its own layer in depth, with 3D bones, to check the stacking), **Order view** (the draw order side by side), bones only, mesh wireframes; **lock** and **show only selected** for parts and bones.
 - **Photoshop import**: every layer becomes an image, slot and region in place; groups can become bones.
 - **Folders** for slots, skins, animations, events, constraints and state machines; **Import from project…** to copy animations, skins or a whole skeleton from another file.
-- **Skeleton tree** with search; viewport grid, rulers, guides and **smart snapping**.
-- **Dockable workspace**, **Play mode** (run it as shipped, with inputs and logs), **Preview**, **Outline** and **Stats** panels.
-- **Live art reloading** from your paint or audio app, rebindable **keyboard shortcuts** (⌘ on macOS, Ctrl elsewhere), and a live MCP connection.
+- **Skeleton tree** with search, eyes and locks; viewport grid, rulers, guides and **smart snapping**.
+- **Dockable workspace** with **your own saved layouts**, **Play mode** (run it as shipped, with inputs and logs), **Preview**, **Outline** and **Stats** panels; eyes, locks and the camera are remembered per project.
+- **Command palette** (Ctrl/⌘+K) to find any action by name, tool hints in the status line, **live art reloading** from your paint or audio app, rebindable **keyboard shortcuts** (⌘ on macOS, Ctrl elsewhere), and a live MCP connection.
 
 </details>
 
@@ -274,7 +277,7 @@ covers the installers, releases and code signing.
 | `packages/export` | Image, video, ZIP, sprite-sheet and engine-pack exporters |
 | `packages/mcp`, `packages/cli` | MCP server (stdio and HTTP, live bridge to the editor) and the `openbone` CLI |
 | `apps/editor`, `apps/desktop` | The SolidJS editor and its Tauri 2 desktop shell |
-| `runtimes/cpp`, `csharp`, `java`, `swift`, `flutter` | Native runtimes and their engine integrations |
+| `runtimes/cpp`, `csharp`, `java`, `swift`, `flutter`, `haxe` | Native runtimes and their engine integrations |
 | `conformance` | Reference results every runtime is tested against |
 | `examples` | The example projects, their art and sound, and the script that builds them |
 

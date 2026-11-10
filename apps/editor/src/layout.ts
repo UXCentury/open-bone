@@ -201,3 +201,62 @@ export function swapSides() {
 
 /** Panel currently being dragged (for drop-zone highlighting). */
 export const [draggingPanel, setDraggingPanel] = createSignal<PanelId | null>(null);
+
+// ---- named layouts: your own workspace arrangements, saved by name and switched in one click ----
+const SAVED_KEY = "openbone.layouts.v1";
+const readSaved = (): Record<string, Layout> => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(SAVED_KEY) ?? "{}") as Record<string, unknown>;
+    const out: Record<string, Layout> = {};
+    for (const [name, l] of Object.entries(raw ?? {})) {
+      const ok = sanitize(l);
+      if (ok) out[name] = ok;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+};
+const [savedLayouts, setSavedRaw] = createSignal<Record<string, Layout>>(readSaved());
+export { savedLayouts };
+const writeSaved = (next: Record<string, Layout>) => {
+  setSavedRaw(next);
+  try {
+    localStorage.setItem(SAVED_KEY, JSON.stringify(next));
+  } catch {
+    /* storage unavailable: saved layouts last for this session */
+  }
+};
+export const savedLayoutNames = () => Object.keys(savedLayouts()).sort((a, b) => a.localeCompare(b));
+
+/** Keep the current arrangement (docks, tabs, splits, sizes) under a name (replacing one of the same name). */
+export function saveLayoutAs(name: string) {
+  writeSaved({ ...savedLayouts(), [name]: clone(layout()) });
+}
+/** Switch to a saved layout. */
+export function applyLayout(name: string): boolean {
+  const l = savedLayouts()[name];
+  if (!l) return false;
+  setLayout(clone(l));
+  return true;
+}
+export function deleteLayout(name: string) {
+  const next = { ...savedLayouts() };
+  delete next[name];
+  writeSaved(next);
+}
+export function renameLayout(from: string, to: string) {
+  const all = savedLayouts();
+  if (!all[from] || from === to) return;
+  const next: Record<string, Layout> = {};
+  for (const [n, l] of Object.entries(all)) next[n === from ? to : n] = l;
+  writeSaved(next);
+}
+/** Whether the current arrangement is the saved one (same panels in the same places; sizes may differ). */
+export function isCurrentLayout(name: string): boolean {
+  const l = savedLayouts()[name];
+  if (!l) return false;
+  const cur = layout();
+  const shape = (x: Layout) => JSON.stringify(DOCKS.map((d) => [x[d].panels, x[d].split?.panels ?? null]));
+  return shape(l) === shape(cur);
+}

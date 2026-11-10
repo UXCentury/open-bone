@@ -1,5 +1,5 @@
 import { For, Show, createMemo, createSignal, onMount } from "solid-js";
-import { selectionItems } from "../editor-menus.ts";
+import { layoutItems, selectionItems } from "../editor-menus.ts";
 import { type MenuItem, runShortcut } from "../menu.tsx";
 import { DEFAULT_SHORTCUTS } from "../shortcuts/defaults.ts";
 import { kbd, shortcuts } from "../shortcuts/index.ts";
@@ -18,7 +18,7 @@ interface Command {
   run: () => void;
 }
 
-function selectionCommands(): Command[] {
+function menuCommands(items: MenuItem[], group: string, prefix: string[] = []): Command[] {
   const out: Command[] = [];
   const walk = (items: MenuItem[], path: string[]) => {
     for (const it of items) {
@@ -27,11 +27,11 @@ function selectionCommands(): Command[] {
       else if (it.action || it.shortcut) {
         const sc = it.shortcut;
         const act = it.action;
-        out.push({ label: [...path, it.label].join(" › "), group: "Selection", keys: sc ? kbd(sc) : "", run: () => (act ? void act() : runShortcut(sc!)) });
+        out.push({ label: [...path, it.label].join(" › "), group, keys: sc ? kbd(sc) : "", run: () => (act ? void act() : runShortcut(sc!)) });
       }
     }
   };
-  walk(selectionItems(), []);
+  walk(items, prefix);
   return out;
 }
 
@@ -42,7 +42,7 @@ function allCommands(): Command[] {
     keys: kbd(d.id),
     run: () => runShortcut(d.id),
   }));
-  return [...selectionCommands(), ...registry];
+  return [...menuCommands(selectionItems(), "Selection"), ...menuCommands(layoutItems(), "Layout", ["Layout"]), ...registry];
 }
 
 export function CommandPalette() {

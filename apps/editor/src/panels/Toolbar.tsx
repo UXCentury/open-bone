@@ -2,7 +2,7 @@ import { setShowImages, showImages } from "../visibility.ts";
 import { setView3d, setZView, view3d, zView } from "../zview.ts";
 import { parseDocument } from "@openbone/core";
 import { confirmDiscard } from "../destructive.ts";
-import { For, Show } from "solid-js";
+import { For, type JSX, Show, createEffect, createSignal, onCleanup } from "solid-js";
 import { bridgeStatus, connectBridge, disconnectBridge, bridgeUndo, bridgeRedo } from "../bridge.ts";
 import { imageSize, readFileAsDataUrl } from "../images.ts";
 import { closeMenu, menuOpen, menuOwner, openMenu } from "../menu.tsx";
@@ -80,7 +80,44 @@ export async function importImages(files: FileList | File[]) {
   }
 }
 
+/** A compact toolbar button that opens a small panel of options below it (closes on an outside click or Escape). */
+function Dropdown(p: { label: () => string; title: string; warn?: () => boolean; disabled?: () => boolean; children: JSX.Element }) {
+  const [open, setOpen] = createSignal(false);
+  let root!: HTMLDivElement;
+  const away = (e: PointerEvent) => !root.contains(e.target as Node) && setOpen(false);
+  const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+  createEffect(() => {
+    if (!open()) return;
+    document.addEventListener("pointerdown", away, true);
+    document.addEventListener("keydown", esc, true);
+    onCleanup(() => {
+      document.removeEventListener("pointerdown", away, true);
+      document.removeEventListener("keydown", esc, true);
+    });
+  });
+  return (
+    <div class="group tb-dropdown" ref={root}>
+      <button disabled={p.disabled?.()} classList={{ active: open(), warn: !!p.warn?.() }} aria-expanded={open()} title={p.title} onClick={() => setOpen(!open())}>
+        {p.label()} ▾
+      </button>
+      <Show when={open()}>
+        <div class="tb-pop" role="dialog" aria-label={p.title}>
+          {p.children}
+        </div>
+      </Show>
+    </div>
+  );
+}
+
 export function Toolbar() {
+  // Window width decides how compact the toolbar is (so it stays on one row).
+  const [width, setWidth] = createSignal(typeof window === "undefined" ? 1920 : window.innerWidth);
+  const onResize = () => setWidth(window.innerWidth);
+  window.addEventListener("resize", onResize);
+  onCleanup(() => window.removeEventListener("resize", onResize));
+  const narrow = () => width() < 1680;
+  // Narrower still: the file name, the ⌨ button (? and Ctrl/⌘+K still work) and the "Comp" label go.
+  const veryNarrow = () => width() < 1400;
   let fileInput!: HTMLInputElement;
   let menuBtn!: HTMLButtonElement;
   let imageInput!: HTMLInputElement;
@@ -157,7 +194,7 @@ export function Toolbar() {
           title={tip(compensate() ? "Compensate is on: moving, rotating or scaling a bone leaves its child bones where they are. Click to turn off." : "Compensate: move, rotate or scale a bone without moving its child bones", "tool.compensate")}
           onClick={() => setCompensate(!compensate())}
         >
-          ⇲ Comp
+          {veryNarrow() ? "⇲" : "⇲ Comp"}
         </button>
       </div>
       <div class="group seg-toggle" role="group" aria-label="What dragging a picture transforms">
@@ -180,20 +217,26 @@ export function Toolbar() {
           Part
         </button>
       </div>
-      <div class="group pick-filter" role="group" aria-label="What viewport clicks can pick">
-        <span class="muted small">Pick</span>
-        <label class="check" title={pickBones() ? "Bones can be clicked in the viewport. Untick to click through them to the pictures" : "Bones can't be clicked in the viewport (select them in the Skeleton tree)"}>
-          <input type="checkbox" disabled={locked()} checked={pickBones()} onChange={(e) => setPick("bones", e.currentTarget.checked)} /> Bones
+      <Dropdown
+        label={() => (pickBones() && pickParts() ? "Pick: All" : pickBones() ? "Pick: Bones" : pickParts() ? "Pick: Parts" : "Pick: None")}
+        title="What viewport clicks can pick: bones, parts (pictures), or both"
+        warn={() => !pickBones() || !pickParts()}
+        disabled={locked}
+      >
+        <label class="check" title="Bones can be clicked in the viewport. Untick to click through them to the pictures">
+          <input type="checkbox" checked={pickBones()} onChange={(e) => setPick("bones", e.currentTarget.checked)} /> Bones
         </label>
-        <label class="check" title={pickParts() ? "Pictures can be clicked in the viewport. Untick to click only bones" : "Pictures can't be clicked in the viewport (select them in the Skeleton tree)"}>
-          <input type="checkbox" disabled={locked()} checked={pickParts()} onChange={(e) => setPick("parts", e.currentTarget.checked)} /> Parts
+        <label class="check" title="Pictures can be clicked in the viewport. Untick to click only bones">
+          <input type="checkbox" checked={pickParts()} onChange={(e) => setPick("parts", e.currentTarget.checked)} /> Parts
         </label>
-      </div>
-      <div class="group">
+      </Dropdown>
+      {/* Below ~1680 px the add buttons fold into one drop-down so the toolbar stays on one row. */}
+      <Show
+        when={narrow()}
+        fallback={
+          <div class="group">
         <button disabled={locked()} onClick={() => imageInput.click()} title="Import PNG/JPG as a new slot on the selected bone, or a Photoshop PSD (each layer becomes a slot, groups can become bones)">+ Image</button>
-        <input ref={imageInput} type="file" accept="image/*,.psd" multiple hidden onChange={(e) => { const f = e.currentTarget.files; if (f) void importFiles(Array.from(f), importImages); e.currentTarget.value = ""; }} />
         <button disabled={locked()} onClick={() => sequenceInput.click()} title="Import a frame sequence: numbered images (fire_0001.png …), a sprite sheet (grid or TexturePacker/Aseprite JSON + image), or a ZIP of frames">+ Sequence</button>
-        <input ref={sequenceInput} type="file" accept="image/*,.json,.zip,application/json,application/zip" multiple hidden onChange={(e) => { const f = e.currentTarget.files; if (f) void importFiles(Array.from(f), importImages, { sheet: true }); e.currentTarget.value = ""; }} />
         <button
           disabled={locked()}
           title="Add a vector shape slot on the selected bone"
@@ -209,34 +252,71 @@ export function Toolbar() {
           + Shape
         </button>
         <button onClick={pickAudio} title="Import WAV / MP3 / OGG sounds (or drop them on the viewport)">+ Audio</button>
+          </div>
+        }
+      >
+        <Dropdown label={() => "+ Add"} title="Add an image, a frame sequence, a shape or a sound" disabled={locked}>
+          <div class="tb-pop-buttons">
+        <button disabled={locked()} onClick={() => imageInput.click()} title="Import PNG/JPG as a new slot on the selected bone, or a Photoshop PSD (each layer becomes a slot, groups can become bones)">+ Image</button>
+        <button disabled={locked()} onClick={() => sequenceInput.click()} title="Import a frame sequence: numbered images (fire_0001.png …), a sprite sheet (grid or TexturePacker/Aseprite JSON + image), or a ZIP of frames">+ Sequence</button>
+        <button
+          disabled={locked()}
+          title="Add a vector shape slot on the selected bone"
+          onClick={() =>
+            transaction("add shape", () => {
+              const bone = selectedBoneId() ?? store.doc.skeleton.bones[0].id;
+              const slot = store.apply("addSlot", { bone, name: "shape" }) as { id: string };
+              store.apply("addShape", { slot: slot.id, shape: "rect", width: 80, height: 40, radius: 8, fill: "#7c9cff", ...skinArg() });
+              setSelection({ kind: "slot", id: slot.id });
+            })
+          }
+        >
+          + Shape
+        </button>
+        <button onClick={pickAudio} title="Import WAV / MP3 / OGG sounds (or drop them on the viewport)">+ Audio</button>
+          </div>
+        </Dropdown>
+      </Show>
+      <div class="group">
+        <input ref={imageInput} type="file" accept="image/*,.psd" multiple hidden onChange={(e) => { const f = e.currentTarget.files; if (f) void importFiles(Array.from(f), importImages); e.currentTarget.value = ""; }} />
+        <input ref={sequenceInput} type="file" accept="image/*,.json,.zip,application/json,application/zip" multiple hidden onChange={(e) => { const f = e.currentTarget.files; if (f) void importFiles(Array.from(f), importImages, { sheet: true }); e.currentTarget.value = ""; }} />
         <MuteButton />
       </div>
-      <div class="group">
-        <label class="check" title={tip("Show bones", "view.bones")}><input type="checkbox" disabled={locked()} checked={showBones()} onChange={(e) => setShowBones(e.currentTarget.checked)} /> Bones</label>
-        <label class="check" title={tip("Show mesh wireframes", "view.mesh")}><input type="checkbox" disabled={locked()} checked={showMesh()} onChange={(e) => setShowMesh(e.currentTarget.checked)} /> Mesh</label>
-        <label class="check" title={tip("Show attachments (untick to see only the bones)", "view.attachments")}><input type="checkbox" disabled={locked()} checked={showImages()} onChange={(e) => setShowImages(e.currentTarget.checked)} /> Attachments</label>
-        <label class="check" title={tip("Order view: the draw order from back to front, side by side; drag a part to reorder", "view.z")}><input type="checkbox" disabled={locked()} checked={zView()} onChange={(e) => setZView(e.currentTarget.checked)} /> Order</label>
-        <label class="check" title={tip("3D view: every part on its own plane in depth, with the bones; drag to orbit", "view.3d")}><input type="checkbox" disabled={locked()} checked={view3d()} onChange={(e) => setView3d(e.currentTarget.checked)} /> 3D</label>
-      </div>
+      <Dropdown
+        label={() => (view3d() ? "View: 3D" : zView() ? "View: Order" : !showImages() ? "View: Bones only" : "View")}
+        title="What the viewport shows: bones, mesh wireframes, attachments, the order view or the 3D view"
+        warn={() => view3d() || zView() || !showImages()}
+        disabled={locked}
+      >
+        <label class="check" title={tip("Show bones", "view.bones")}><input type="checkbox" checked={showBones()} onChange={(e) => setShowBones(e.currentTarget.checked)} /> Bones</label>
+        <label class="check" title={tip("Show mesh wireframes", "view.mesh")}><input type="checkbox" checked={showMesh()} onChange={(e) => setShowMesh(e.currentTarget.checked)} /> Mesh</label>
+        <label class="check" title={tip("Show attachments (untick to see only the bones)", "view.attachments")}><input type="checkbox" checked={showImages()} onChange={(e) => setShowImages(e.currentTarget.checked)} /> Attachments</label>
+        <label class="check" title={tip("Order view: the draw order from back to front, side by side; drag a part to reorder", "view.z")}><input type="checkbox" checked={zView()} onChange={(e) => setZView(e.currentTarget.checked)} /> Order</label>
+        <label class="check" title={tip("3D view: every part on its own plane in depth, with the bones; drag to orbit", "view.3d")}><input type="checkbox" checked={view3d()} onChange={(e) => setView3d(e.currentTarget.checked)} /> 3D</label>
+      </Dropdown>
       <div class="spacer" />
-      <div class="group">
-        <button class="help-btn" title={tip("Keyboard shortcuts", "help.shortcuts")} aria-label="Keyboard shortcuts" onClick={() => setShortcutsOpen(true)}>
-          ⌨
-        </button>
-      </div>
+      <Show when={!veryNarrow()}>
+        <div class="group">
+          <button class="help-btn" title={tip("Keyboard shortcuts", "help.shortcuts")} aria-label="Keyboard shortcuts" onClick={() => setShortcutsOpen(true)}>
+            ⌨
+          </button>
+        </div>
+      </Show>
       <div class="group">
         <Show
           when={bridgeStatus() === "connected"}
           fallback={
             <button title="Connect to a running OpenBone MCP server (live agent editing)" onClick={() => connectBridge()}>
-              {bridgeStatus() === "connecting" ? "Connecting…" : "⚡ Connect MCP"}
+              {bridgeStatus() === "connecting" ? "Connecting…" : narrow() ? "⚡ MCP" : "⚡ Connect MCP"}
             </button>
           }
         >
           <button class="live" onClick={disconnectBridge} title="Live-synced with the MCP server. Click to disconnect.">● Live MCP</button>
         </Show>
       </div>
-      <span class="filename">{fileName()}</span>
+      <Show when={!veryNarrow()}>
+        <span class="filename" title={fileName()}>{fileName()}</span>
+      </Show>
     </header>
   );
   void apply;

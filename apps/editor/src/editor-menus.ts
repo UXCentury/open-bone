@@ -5,7 +5,8 @@ import { bridgeStatus } from "./bridge.ts";
 import { saveProjectToFolder } from "./storage.ts";
 import { toggleWatching, watchFolder, watchedFolders, watching } from "./watch.ts";
 import { toggleViewAid, viewAids } from "./guides.ts";
-import { PANELS, type PanelId, movePanel, resetLayout, showPanel, swapSides, whereIs } from "./layout.ts";
+import { PANELS, type PanelId, applyLayout, deleteLayout, isCurrentLayout, movePanel, renameLayout, resetLayout, saveLayoutAs, savedLayoutNames, showPanel, swapSides, whereIs } from "./layout.ts";
+import { askForm } from "./dialogs.tsx";
 import type { MenuItem } from "./menu.tsx";
 import { anyLocked, cycleVisTo, isIsolated, isLocked, showImages, toggleLock, unlockAll, visOf } from "./visibility.ts";
 import { view3d, zView } from "./zview.ts";
@@ -97,7 +98,17 @@ export async function newProject() {
   if (await confirmDiscard("Starting a new project")) loadDocument(createDocument("Untitled"), "untitled.obone");
 }
 
-const layoutItems = (): MenuItem[] => [
+export const layoutItems = (): MenuItem[] => [
+  ...savedLayoutNames().map((n) => ({ label: n, checked: isCurrentLayout(n), action: () => applyLayout(n) }) as MenuItem),
+  ...(savedLayoutNames().length ? (["sep"] as MenuItem[]) : []),
+  { label: "Save current layout as…", action: () => void saveLayoutAsk() },
+  ...(savedLayoutNames().length
+    ? ([
+        { label: "Rename a layout…", action: () => void renameLayoutAsk() },
+        { label: "Delete a layout…", action: () => void deleteLayoutAsk() },
+      ] as MenuItem[])
+    : []),
+  "sep",
   { label: "Swap left and right panels", action: swapSides },
   {
     label: "Preview under the Inspector (split)",
@@ -109,6 +120,41 @@ const layoutItems = (): MenuItem[] => [
   "sep",
   { label: "Reset to default layout", action: resetLayout },
 ];
+
+async function saveLayoutAsk() {
+  const r = await askForm({
+    title: "Save layout",
+    message: "Keeps where every panel is docked, its tabs, splits and sizes. Your layouts are in Menu → Layout in every project; saving under an existing name replaces it.",
+    fields: [{ key: "name", label: "Name", type: "text", value: "", placeholder: "e.g. Animating, Rigging", validate: (v) => (v.trim() ? null : "Give it a name") }],
+    confirmLabel: "Save",
+  });
+  if (!r?.name) return;
+  const name = String(r.name).trim();
+  saveLayoutAs(name);
+  toast(`Layout “${name}” saved: switch to it from Menu → Layout`, "info");
+}
+async function renameLayoutAsk() {
+  const names = savedLayoutNames();
+  const r = await askForm({
+    title: "Rename layout",
+    fields: [
+      { key: "from", label: "Layout", type: "choice", compact: true, value: names[0], options: names.map((n) => ({ value: n, label: n })) },
+      { key: "to", label: "New name", type: "text", value: "", validate: (v) => (v.trim() ? null : "Give it a name") },
+    ],
+    confirmLabel: "Rename",
+  });
+  if (r?.from && r.to) renameLayout(String(r.from), String(r.to).trim());
+}
+async function deleteLayoutAsk() {
+  const names = savedLayoutNames();
+  const r = await askForm({
+    title: "Delete layout",
+    fields: [{ key: "name", label: "Layout", type: "choice", compact: true, value: names[0], options: names.map((n) => ({ value: n, label: n })) }],
+    confirmLabel: "Delete",
+    danger: true,
+  });
+  if (r?.name) deleteLayout(String(r.name));
+}
 
 const panelItems = (): MenuItem[] => (Object.keys(PANELS) as PanelId[]).map((id) => ({ label: PANELS[id].title, action: () => showPanel(id) }));
 
