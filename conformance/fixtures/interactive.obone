@@ -300,7 +300,7 @@
       ],
       "bindings": [
         {
-          "id": "bind_2sbos29",
+          "id": "bind_dnko52a",
           "input": "in_2di0d1z",
           "target": "bone",
           "object": "bone_knc5l1o",
@@ -394,16 +394,39 @@
               "event": "evt_ra49o1v"
             }
           ]
+        },
+        {
+          "id": "lis_2sbos29",
+          "name": "up",
+          "slot": "slot_eighg1p",
+          "event": "up",
+          "actions": [
+            {
+              "type": "setMute",
+              "bus": "bus_music",
+              "muted": "toggle"
+            },
+            {
+              "type": "setMute",
+              "bus": "bus_music",
+              "muted": "toggle"
+            },
+            {
+              "type": "setMute",
+              "bus": null,
+              "muted": true
+            }
+          ]
         }
       ],
       "scripts": [
-        "scr_dnko52a"
+        "scr_4vv3o2b"
       ]
     }
   ],
   "scripts": [
     {
-      "id": "scr_dnko52a",
+      "id": "scr_4vv3o2b",
       "name": "counter",
       "code": "let n = 0;\nfunction onEvent(e) { if (e.name === 'click') { n++; ob.setInput('count', n); ob.setInput('status', n > 1 ? 'busy' : 'ready'); } }"
     }

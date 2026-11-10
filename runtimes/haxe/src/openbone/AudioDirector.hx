@@ -59,14 +59,14 @@ class FiredEvent {
 }
 
 /**
- * A sound command for an audio backend: `play`, `stop` or `fade`. The runtime never plays audio; it emits these
- * (apply the document's bus and master volumes yourself).
+ * A sound command for an audio backend: `play`, `stop`, `fade` or `mix`. The runtime never plays audio; it emits these
+ * (apply the document's bus and master volumes yourself, and `mix` mutes on top of them).
  */
 class AudioCommand {
-	/** "play", "stop" or "fade". */
+	/** "play", "stop", "fade" or "mix". */
 	public final type:String;
 
-	/** Playing instance id; stop/fade refer to the id of an earlier play. */
+	/** Playing instance id; stop/fade refer to the id of an earlier play. Null for mix. */
 	public final id:String;
 
 	// play
@@ -82,6 +82,8 @@ class AudioCommand {
 	public var fade = 0.0;
 	// fade (volume above is the target)
 	public var duration = 0.0;
+	// mix: `bus` above (null = the master) muted or unmuted by a setMute action
+	public var muted = false;
 
 	public function new(type:String, id:String) {
 		this.type = type;
@@ -92,6 +94,11 @@ class AudioCommand {
 	public function toObject():JObject {
 		var m = new JObject();
 		m.set("type", type);
+		if (type == "mix") {
+			m.set("bus", bus);
+			m.set("muted", muted);
+			return m;
+		}
 		m.set("id", id);
 		switch (type) {
 			case "play":
@@ -161,6 +168,9 @@ class AudioDirector {
 
 	final doc:OpenBoneDocument;
 	final out:AudioCommand->Void;
+
+	/** Mutes set while playing (bus id, "" = master), on top of the document's mix. */
+	final mutes:Map<String, Bool> = new Map();
 
 	public function new(doc:OpenBoneDocument, out:AudioCommand->Void) {
 		this.doc = doc;
@@ -272,6 +282,32 @@ class AudioDirector {
 	public function stopAll(fade:Float):Void {
 		for (id in playing.keys.copy())
 			stop(id, fade);
+	}
+
+	/** Whether a bus (null = the master) is muted now: a setMute override, else the document's flag. */
+	public function isMuted(bus:String):Bool {
+		var key = bus != null ? bus : "";
+		if (mutes.exists(key))
+			return mutes.get(key);
+		if (doc.audio == null)
+			return false;
+		if (bus == null)
+			return doc.audio.muted;
+		for (b in doc.audio.buses)
+			if (b.id == bus)
+				return b.muted;
+		return false;
+	}
+
+	/** Mute, unmute or toggle (muted null) a bus (null = the master); emits a "mix" command. Returns the new state. */
+	public function setMute(bus:String, muted:Null<Bool>):Bool {
+		var next:Bool = muted != null ? (muted : Bool) : !isMuted(bus);
+		mutes.set(bus != null ? bus : "", next);
+		var c = new AudioCommand("mix", null);
+		c.bus = bus;
+		c.muted = next;
+		out(c);
+		return next;
 	}
 
 	/** Audio keys crossed from total time prev (exclusive) to next (inclusive): their key indices. */

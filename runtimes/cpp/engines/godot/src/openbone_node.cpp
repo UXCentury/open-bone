@@ -85,14 +85,24 @@ void OpenBoneSprite::stop_all_audio() {
 
 void OpenBoneSprite::_exit_tree() { stop_all_audio(); }
 
+bool OpenBoneSprite::is_muted(const std::optional<std::string>& bus) const {
+  auto it = mutes.find(bus.value_or(""));
+  if (it != mutes.end()) return it->second;
+  if (!doc || !doc->audio) return false;
+  if (!bus) return doc->audio->muted;
+  for (const auto& b : doc->audio->buses)
+    if (b.id == *bus) return b.muted;
+  return false;
+}
+
 double OpenBoneSprite::bus_gain(const std::optional<std::string>& bus) const {
+  if (is_muted(std::nullopt)) return 0;
   if (!doc || !doc->audio) return 1;
   const ob::AudioData& a = *doc->audio;
-  if (a.muted) return 0;
   double g = a.master;
   if (bus)
     for (const auto& b : a.buses)
-      if (b.id == *bus) g *= b.muted ? 0 : b.volume;
+      if (b.id == *bus) g *= is_muted(bus) ? 0 : b.volume;
   return g;
 }
 
@@ -132,6 +142,18 @@ Ref<AudioStream> OpenBoneSprite::stream_for(const std::string& asset_id) {
 }
 
 void OpenBoneSprite::handle_audio(const ob::AudioCommand& c) {
+  if (c.type == ob::AudioCommand::Type::Mix) {
+    // A mute button: remember it (also for sounds started later) and re-gain what is playing on that bus.
+    mutes[c.bus.value_or("")] = c.muted;
+    for (auto& [id, p] : voices) {
+      if (!p) continue;
+      const String bus = p->get_meta("openbone_bus", "");
+      const std::optional<std::string> b = bus.is_empty() ? std::nullopt : std::optional<std::string>(bus.utf8().get_data());
+      const double vol = p->get_meta("openbone_volume", 1.0);
+      p->set_volume_linear((float)(vol * bus_gain(b)));
+    }
+    return;
+  }
   if (!audio_enabled || !is_inside_tree()) return;
   if (c.type == ob::AudioCommand::Type::Play) {
     Ref<AudioStream> stream = stream_for(c.asset);
@@ -143,6 +165,8 @@ void OpenBoneSprite::handle_audio(const ob::AudioCommand& c) {
     const float target = (float)(c.volume * bus_gain(c.bus));
     p->set_volume_linear(c.fadeIn > 0 ? 0.f : target);
     p->set_meta("openbone_loop", c.loop);
+    p->set_meta("openbone_bus", c.bus ? S(*c.bus) : String());
+    p->set_meta("openbone_volume", c.volume);
     add_child(p);
     p->connect("finished", callable_mp(this, &OpenBoneSprite::_on_voice_finished).bind(S(c.id)));
     p->play();
@@ -168,6 +192,7 @@ void OpenBoneSprite::handle_audio(const ob::AudioCommand& c) {
       for (const auto& snd : doc->audio->sounds)
         if (snd.id == c.sound) sound = &snd;
     const float target = (float)(c.volume * bus_gain(sound ? sound->bus : std::nullopt));
+    p->set_meta("openbone_volume", c.volume);
     p->create_tween()->tween_property(p, "volume_linear", target, std::max(0.0, c.duration));
   }
 }

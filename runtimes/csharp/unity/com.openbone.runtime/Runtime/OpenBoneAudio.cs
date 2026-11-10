@@ -5,7 +5,8 @@ namespace OpenBone.Unity
 {
     /// <summary>
     /// Plays the audio commands of an OpenBone component through pooled AudioSources: play (with fade-in, loop, pitch =
-    /// rate), stop (with fade-out) and fade, at master × bus × sound × play volume from the document's mixer.
+    /// rate), stop (with fade-out), fade and mix (setMute: mute or unmute a bus or the master), at master × bus × sound ×
+    /// play volume from the document's mixer.
     /// Clips come from the asset (referenced AudioClips, or WAVs embedded in the document).
     /// </summary>
     [AddComponentMenu("OpenBone/OpenBone Audio")]
@@ -33,6 +34,8 @@ namespace OpenBone.Unity
         OpenBoneBehaviour _owner;
         readonly List<Voice> _voices = new List<Voice>();
         readonly Dictionary<string, Voice> _byId = new Dictionary<string, Voice>();
+        // "mix" overrides (bus id, "" = master) on top of the document's mute flags.
+        readonly Dictionary<string, bool> _mutes = new Dictionary<string, bool>();
 
         void OnEnable()
         {
@@ -47,16 +50,30 @@ namespace OpenBone.Unity
             _byId.Clear();
         }
 
-        /// <summary>Master × bus gain (0 when muted; a missing bus counts as 1).</summary>
+        /// <summary>
+        /// Master × bus gain (0 when muted; a missing bus counts as 1). Mutes from "mix" commands (setMute listener actions)
+        /// override the document's flags; unmuting a bus the document mutes plays it at its volume.
+        /// </summary>
         float BusGain(string busId)
         {
             var audio = _owner != null && _owner.asset != null ? _owner.asset.Document.Audio : null;
+            if (IsMuted(null)) return 0;
             if (audio == null) return 1;
-            if (audio.Muted) return 0;
             AudioBus bus = null;
             if (busId != null) foreach (var b in audio.Buses) if (b.Id == busId) { bus = b; break; }
-            if (bus != null && bus.Muted) return 0;
+            if (bus != null && IsMuted(bus.Id)) return 0;
             return (float)(audio.Master * (bus != null ? bus.Volume : 1));
+        }
+
+        /// <summary>Whether a bus (null = the master) is muted: by a setMute action, else by the document.</summary>
+        public bool IsMuted(string busId)
+        {
+            if (_mutes.TryGetValue(busId ?? "", out var m)) return m;
+            var audio = _owner != null && _owner.asset != null ? _owner.asset.Document.Audio : null;
+            if (audio == null) return false;
+            if (busId == null) return audio.Muted;
+            foreach (var b in audio.Buses) if (b.Id == busId) return b.Muted;
+            return false;
         }
 
         void OnCommand(AudioCommand c)
@@ -74,6 +91,10 @@ namespace OpenBone.Unity
                     break;
                 case "fade":
                     if (_byId.TryGetValue(c.Id, out var f) && f.Gain > 0) Ramp(f, (float)c.Volume / f.Gain, (float)c.Duration, false);
+                    break;
+                case "mix":
+                    _mutes[c.Bus ?? ""] = c.Muted;
+                    foreach (var voice in _voices) if (voice.Source != null && voice.Source.isPlaying) Apply(voice);
                     break;
             }
         }

@@ -50,8 +50,20 @@ class Mixer {
   Mixer(std::shared_ptr<const Document> doc, Output& output) : doc_(std::move(doc)), out_(output) {}
 
   double master() const {
+    if (muted(std::nullopt)) return 0;
     if (!doc_ || !doc_->audio) return 1;
-    return doc_->audio->muted ? 0 : doc_->audio->master;
+    return doc_->audio->master;
+  }
+
+  /** Whether a bus (nullopt = the master) is muted: by a Mix command (mute button), else by the document. */
+  bool muted(const std::optional<Id>& bus) const {
+    auto it = mutes_.find(bus.value_or(""));
+    if (it != mutes_.end()) return it->second;
+    if (!doc_ || !doc_->audio) return false;
+    if (!bus) return doc_->audio->muted;
+    for (const AudioBus& b : doc_->audio->buses)
+      if (b.id == *bus) return b.muted;
+    return false;
   }
 
   /** master × bus volume × volume (0 for a muted bus; an unknown or missing bus counts as 1). */
@@ -60,7 +72,7 @@ class Mixer {
     if (bus && doc_ && doc_->audio)
       for (const AudioBus& b : doc_->audio->buses)
         if (b.id == *bus) {
-          gain *= b.muted ? 0 : b.volume;
+          gain *= muted(bus) ? 0 : b.volume;
           break;
         }
     return gain;
@@ -70,6 +82,11 @@ class Mixer {
   /** Extra gain on everything this mixer plays; applies to the playing voices at once. */
   void setVolume(double v) {
     volume_ = v;
+    regain();
+  }
+
+  /** Give every playing voice its gain again (after the volume or a mute changed). */
+  void regain() {
     for (auto& [id, voice] : voices_) {
       const double target = voice.soundVolume * busGain(voice.bus);
       if (voice.ramping()) voice.to = target;
@@ -86,6 +103,11 @@ class Mixer {
 
   void handle(const AudioCommand& c) {
     if (c.type == AudioCommand::Type::Play) return play(c);
+    if (c.type == AudioCommand::Type::Mix) {
+      mutes_[c.bus.value_or("")] = c.muted;
+      regain();
+      return;
+    }
     auto it = voices_.find(c.id);
     if (it == voices_.end()) return;
     Voice& v = it->second;
@@ -201,6 +223,7 @@ class Mixer {
   std::vector<Voice> stopping_;
   int next_ = 1;
   double volume_ = 1;
+  std::map<std::string, bool> mutes_;  // Mix overrides: bus id, "" = master
 };
 
 }  // namespace openbone::audio

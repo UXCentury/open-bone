@@ -18,7 +18,8 @@ import java.util.Map;
 /**
  * Plays a document's sounds with libGDX ({@code Gdx.audio} {@link Sound}s): each file is loaded once (a {@code data:}
  * URL or a path relative to the document's folder), voices follow the command's volume × bus × master, rate (as pitch,
- * libGDX's 0.5…2 range), looping and fade-in, stop fades and fades (stepped in {@link #update(float)}).
+ * libGDX's 0.5…2 range), looping and fade-in, stop fades and fades (stepped in {@link #update(float)}), and {@code mix}
+ * commands (setMute actions) that mute or unmute a bus or the master on top of the document's mix.
  *
  * <pre>
  * OpenBoneAudio audio = new OpenBoneAudio(doc, Gdx.files.internal("button"));

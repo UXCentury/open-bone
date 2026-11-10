@@ -215,7 +215,10 @@ ob_instance* ob_instance_create(ob_document* d, int flags) {
     o->inst->onAudio = [o](const AudioCommand& c) {
       if (!o->audioFn) return;
       ob_audio_command ac{};
-      ac.type = c.type == AudioCommand::Type::Play ? OB_AUDIO_PLAY : c.type == AudioCommand::Type::Stop ? OB_AUDIO_STOP : OB_AUDIO_FADE;
+      ac.type = c.type == AudioCommand::Type::Play   ? OB_AUDIO_PLAY
+                : c.type == AudioCommand::Type::Stop ? OB_AUDIO_STOP
+                : c.type == AudioCommand::Type::Mix  ? OB_AUDIO_MIX
+                                                     : OB_AUDIO_FADE;
       ac.id = c.id.c_str();
       ac.sound = c.sound.c_str();
       ac.asset = c.asset.c_str();
@@ -227,6 +230,7 @@ ob_instance* ob_instance_create(ob_document* d, int flags) {
       ac.source = c.source.c_str();
       ac.fade = c.fade;
       ac.duration = c.duration;
+      ac.muted = c.muted ? 1 : 0;
       o->audioFn(o->audioUser, &ac);
     };
     o->inst->onStateChange = [o](const std::string& layer, const std::string* from, const std::string& to) {

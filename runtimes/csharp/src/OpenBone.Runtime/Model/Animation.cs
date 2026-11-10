@@ -189,13 +189,17 @@ namespace OpenBone
 
     public sealed class ListenerAction
     {
-        /// <summary>setInput, toggleInput, fireTrigger, reportEvent, runScript, playSound, stopSound, setEmitter, emitParticles.</summary>
+        /// <summary>setInput, toggleInput, fireTrigger, reportEvent, runScript, playSound, stopSound, setEmitter, emitParticles, setMute.</summary>
         public string Type;
         public string Input, Event, Script, Fn, Sound, Slot;
         public object Value;
         public double? Volume, Fade;
         public bool Emitting;
         public double Count;
+        /// <summary>setMute: the bus id (null = the master).</summary>
+        public string Bus;
+        /// <summary>setMute: true / false, or null to toggle.</summary>
+        public bool? Muted;
     }
 
     public sealed class ListenerData

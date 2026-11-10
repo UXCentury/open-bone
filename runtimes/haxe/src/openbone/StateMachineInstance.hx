@@ -310,6 +310,8 @@ class StateMachineInstance implements ScriptApi {
 					setEmitter(a.slot, a.emitting);
 				case "emitParticles":
 					skeleton.emitParticles(a.slot, a.count);
+				case "setMute":
+					audio.setMute(a.bus, a.muted);
 				default:
 			}
 		}

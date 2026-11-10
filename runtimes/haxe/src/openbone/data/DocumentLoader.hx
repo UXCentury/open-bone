@@ -643,6 +643,11 @@ class DocumentLoader {
 				ac.fade = optNum(a, "fade");
 				ac.emitting = bool(a, "emitting", false);
 				ac.count = num(a, "count", 0);
+				if (ac.type == "setMute") {
+					ac.bus = str(a, "bus", null);
+					var mu:Dynamic = a.get("muted");
+					ac.muted = Std.isOfType(mu, Bool) ? (mu : Bool) : null; // otherwise "toggle"
+				}
 				li.actions.push(ac);
 			}
 			sm.listeners.push(li);

@@ -69,6 +69,7 @@ final class SampleModel: ObservableObject {
                 self?.append("audio play \(sound) [\(id)] bus=\(bus ?? "master") vol=\(volume)\(loop ? " loop" : "")")
             case let .stop(id, fade): self?.append("audio stop [\(id)] fade=\(fade)")
             case let .fade(id, volume, duration): self?.append("audio fade [\(id)] → \(volume) in \(duration)s")
+            case let .mix(bus, muted): self?.append("audio \(muted ? "mute" : "unmute") \(bus ?? "everything")")
             }
         }
         inst.onStateChange = { [weak self] layer, _, to in self?.append("\(layer) → \(to)") }

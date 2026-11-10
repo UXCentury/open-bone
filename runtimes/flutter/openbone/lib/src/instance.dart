@@ -93,6 +93,7 @@ class OpenBoneInstance {
         source: r.source.dart,
         fade: r.fade,
         duration: r.duration,
+        muted: r.muted != 0,
       ));
     })
       ..keepIsolateAlive = false;

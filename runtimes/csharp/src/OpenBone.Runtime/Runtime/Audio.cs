@@ -10,11 +10,11 @@ namespace OpenBone
     /// </summary>
     public sealed class AudioCommand
     {
-        /// <summary>play, stop or fade.</summary>
+        /// <summary>play, stop, fade or mix.</summary>
         public string Type;
-        /// <summary>Unique id of the playing instance.</summary>
+        /// <summary>Unique id of the playing instance (null for mix).</summary>
         public string Id;
-        // play
+        // play (Bus also for mix: the bus muted or unmuted, null = the master)
         public string Sound, Asset, Bus, Source;
         public double Volume, Rate, FadeIn;
         public bool Loop;
@@ -22,6 +22,8 @@ namespace OpenBone
         public double Fade;
         // fade (Volume is the target)
         public double Duration;
+        /// <summary>mix: a setMute action muted (true) or unmuted <see cref="Bus"/> (null = the master) on top of the document's mix.</summary>
+        public bool Muted;
     }
 
     public sealed class PlayOptions
@@ -50,6 +52,8 @@ namespace OpenBone
         readonly Action<AudioCommand> _out;
         // Insertion-ordered (JavaScript Map semantics).
         readonly List<PlayingSound> _playing = new List<PlayingSound>();
+        // Mutes set while playing (bus id, "" = master), on top of the document's mix.
+        readonly Dictionary<string, bool> _mutes = new Dictionary<string, bool>();
         public double Time;
 
         public AudioDirector(Document doc, Action<AudioCommand> output)
@@ -157,6 +161,26 @@ namespace OpenBone
         public void StopAll(double fade = 0)
         {
             foreach (var p in _playing.ToArray()) Stop(p.Id, fade);
+        }
+
+        /// <summary>Whether a bus (null = the master) is muted right now: a setMute override, else the document's flag.</summary>
+        public bool IsMuted(string bus)
+        {
+            if (_mutes.TryGetValue(bus ?? "", out var m)) return m;
+            var a = _doc.Audio;
+            if (a == null) return false;
+            if (bus == null) return a.Muted;
+            foreach (var b in a.Buses) if (b.Id == bus) return b.Muted;
+            return false;
+        }
+
+        /// <summary>Mute, unmute or toggle (null) a bus (null = the master); emits a "mix" command. Returns the new state.</summary>
+        public bool SetMute(string bus, bool? muted)
+        {
+            bool next = muted ?? !IsMuted(bus);
+            _mutes[bus ?? ""] = next;
+            _out(new AudioCommand { Type = "mix", Bus = bus, Muted = next });
+            return next;
         }
 
         /// <summary>Audio keys crossed between two total times, with their index (same rule as events).</summary>

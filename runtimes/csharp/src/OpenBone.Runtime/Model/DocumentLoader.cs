@@ -627,6 +627,9 @@ namespace OpenBone
             {
                 var l = new ListenerData { Id = S(li, "id"), Name = S(li, "name"), Slot = S(li, "slot"), Event = S(li, "event") };
                 foreach (var a in li.Arr("actions"))
+                {
+                    var bus = a.Get("bus");
+                    var muted = a.Get("muted");
                     l.Actions.Add(new ListenerAction
                     {
                         Type = S(a, "type"),
@@ -641,7 +644,10 @@ namespace OpenBone
                         Fade = a.NumOpt("fade"),
                         Emitting = a.Bool("emitting"),
                         Count = a.Num("count"),
+                        Bus = bus != null && bus.IsString ? bus.AsString : null,
+                        Muted = muted != null && muted.IsBool ? muted.AsBool : (bool?)null, // otherwise "toggle"
                     });
+                }
                 r.Listeners.Add(l);
             }
             return r;

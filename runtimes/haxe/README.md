@@ -93,7 +93,9 @@ is still found by arc length but the point inside it is at the raw bezier parame
 are short (Spine's "constant speed" off).
 
 Audio: the runtime never plays sound. It emits `AudioCommand`s (`play` with sound, asset, bus, volume, rate, loop,
-fade-in; `stop` with a fade; `fade`); feed them to your audio API and apply `doc.audio` bus and master volumes.
+fade-in; `stop` with a fade; `fade`; `mix` with `bus` (null = the master) and `muted`, from a `setMute` listener
+action); feed them to your audio API and apply `doc.audio` bus and master volumes, with `mix` mutes on top
+(`inst.stateMachine.audio.isMuted(bus)` gives the current state).
 
 ## Porting notes
 

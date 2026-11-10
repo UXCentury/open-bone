@@ -368,6 +368,27 @@ void AudioDirector::stopAll(double fade) {
   for (const auto& id : ids) stop(id, fade);
 }
 
+bool AudioDirector::isMuted(const std::optional<Id>& bus) const {
+  auto it = mutes.find(bus.value_or(""));
+  if (it != mutes.end()) return it->second;
+  if (!doc.audio) return false;
+  if (!bus) return doc.audio->muted;
+  for (const auto& b : doc.audio->buses)
+    if (b.id == *bus) return b.muted;
+  return false;
+}
+
+bool AudioDirector::setMute(const std::optional<Id>& bus, std::optional<bool> muted) {
+  const bool next = muted ? *muted : !isMuted(bus);
+  mutes[bus.value_or("")] = next;
+  AudioCommand c;
+  c.type = AudioCommand::Type::Mix;
+  c.bus = bus;
+  c.muted = next;
+  out(c);
+  return next;
+}
+
 void playAudioKeys(AudioDirector& dir, const AnimationData& anim, double prev, double next, bool loop, const std::string& owner) {
   if (anim.audio.empty() || next <= prev) return;
   const double d = anim.computedDuration;

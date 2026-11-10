@@ -17,15 +17,26 @@ namespace OpenBone.MonoGame
         }
 
         /// <summary>Master × bus volume from the document's mixer (0 when either is muted; a missing bus counts as 1).</summary>
-        public static double BusGain(AudioData audio, string busId)
+        public static double BusGain(AudioData audio, string busId) => BusGain(audio, busId, null);
+
+        /// <summary>
+        /// Master × bus volume, with <paramref name="mutes"/> (from "mix" commands: bus id, "" = master) overriding the
+        /// document's muted flags: a muted bus or master gives 0; unmuting a bus the document mutes plays it at its volume.
+        /// </summary>
+        public static double BusGain(AudioData audio, string busId, IReadOnlyDictionary<string, bool> mutes)
         {
+            bool masterMuted = mutes != null && mutes.TryGetValue("", out var mm) ? mm : audio != null && audio.Muted;
+            if (masterMuted) return 0;
             if (audio == null) return 1;
-            if (audio.Muted) return 0;
             AudioBus bus = null;
             if (busId != null)
                 foreach (var b in audio.Buses)
                     if (b.Id == busId || b.Name == busId) { bus = b; break; }
-            if (bus != null && bus.Muted) return 0;
+            if (bus != null)
+            {
+                bool busMuted = mutes != null && bus.Id != null && mutes.TryGetValue(bus.Id, out var bm) ? bm : bus.Muted;
+                if (busMuted) return 0;
+            }
             return audio.Master * (bus != null ? bus.Volume : 1);
         }
 
@@ -58,7 +69,8 @@ namespace OpenBone.MonoGame
     }
 
     /// <summary>
-    /// Plays OpenBone audio commands (play with fade-in, loop and rate; stop with fade-out; fade to a volume) on voices
+    /// Plays OpenBone audio commands (play with fade-in, loop and rate; stop with fade-out; fade to a volume; mix = mute or
+    /// unmute a bus or the master on top of the document's mix) on voices
     /// from a factory, stepping fades every <see cref="Update"/>. Independent of MonoGame, so it can be tested.
     /// </summary>
     public sealed class AudioMixer : IDisposable
@@ -76,6 +88,8 @@ namespace OpenBone.MonoGame
         readonly Func<string, ISoundVoice> _create;
         readonly List<Voice> _voices = new List<Voice>();
         readonly Dictionary<string, Voice> _byId = new Dictionary<string, Voice>();
+        // "mix" overrides (bus id, "" = master) on top of the document's mute flags.
+        readonly Dictionary<string, bool> _mutes = new Dictionary<string, bool>();
 
         /// <summary>The document's mixer (master, buses, mute); null = everything at 1.</summary>
         public AudioData Audio;
@@ -95,6 +109,16 @@ namespace OpenBone.MonoGame
         /// <summary>Voices playing or fading out.</summary>
         public int ActiveVoices => _voices.Count;
 
+        /// <summary>Whether a bus (null = the master) is muted: by a "mix" command (mute button), else by the document.</summary>
+        public bool IsMuted(string bus)
+        {
+            if (_mutes.TryGetValue(bus ?? "", out var m)) return m;
+            if (Audio == null) return false;
+            if (bus == null) return Audio.Muted;
+            foreach (var b in Audio.Buses) if (b.Id == bus) return b.Muted;
+            return false;
+        }
+
         public void Handle(AudioCommand c)
         {
             switch (c.Type)
@@ -110,6 +134,10 @@ namespace OpenBone.MonoGame
                     break;
                 case "fade":
                     if (c.Id != null && _byId.TryGetValue(c.Id, out var f) && f.Gain > 0) Ramp(f, c.Volume / f.Gain, c.Duration, false);
+                    break;
+                case "mix":
+                    _mutes[c.Bus ?? ""] = c.Muted;
+                    foreach (var voice in _voices) Apply(voice);
                     break;
             }
         }
@@ -142,7 +170,7 @@ namespace OpenBone.MonoGame
             v.StopWhenFaded = stop;
         }
 
-        void Apply(Voice v) => v.Sound.Volume = AudioMath.Volume(v.Gain, v.Level, AudioMath.BusGain(Audio, v.Bus), Volume);
+        void Apply(Voice v) => v.Sound.Volume = AudioMath.Volume(v.Gain, v.Level, AudioMath.BusGain(Audio, v.Bus, _mutes), Volume);
 
         void Remove(Voice v)
         {

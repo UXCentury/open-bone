@@ -49,10 +49,12 @@ public final class ConformanceRunner {
 
     @Override
     public void audio(AudioCommand c) {
-      String id = ids.get(c.id);
-      if (id == null) ids.put(c.id, id = "p" + (ids.size() + 1));
       Map<String, Object> m = c.toMap();
-      m.put("id", id);
+      if (c.id != null) { // mix commands have no play id
+        String id = ids.get(c.id);
+        if (id == null) ids.put(c.id, id = "p" + (ids.size() + 1));
+        m.put("id", id);
+      }
       audio.add(m);
     }
   }

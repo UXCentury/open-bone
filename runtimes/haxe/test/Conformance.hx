@@ -22,6 +22,10 @@ private class Recorder extends InstanceListener {
 	}
 
 	override public function audio(c:AudioCommand):Void {
+		if (c.type == "mix") { // no play instance: {type, bus, muted}
+			commands.push(c.toObject());
+			return;
+		}
 		var id = ids.get(c.id);
 		if (id == null) {
 			id = "p" + (++count);

@@ -102,4 +102,14 @@ describe("openbone export", () => {
     await run(process.execPath, ["--import", "tsx", path.join(root, "packages/cli/src/bin.ts"), "export", "examples/button.obone", "--format", "json", "--out", out], { cwd: root });
     expect(Buffer.compare(readFileSync(path.join(out, "button.json")), Buffer.from(r.bytes))).toBe(0);
   }, 60_000);
+
+  it("--embed writes a self-contained project", async () => {
+    const out = mkdtempSync(path.join(tmpdir(), "ob-cli-"));
+    const { stdout } = await run(process.execPath, ["--import", "tsx", path.join(root, "packages/cli/src/bin.ts"), "export", "examples/button.obone", "--format", "obone", "--embed", "--out", out], { cwd: root });
+    expect(stdout).toMatch(/images and audio embedded/);
+    const doc = deserialize(readFileSync(path.join(out, "button.obone"), "utf8"));
+    expect(doc.images.length).toBeGreaterThan(0);
+    expect(doc.images.every((i) => i.src.startsWith("data:image/"))).toBe(true);
+    expect(doc.audio!.assets.every((a) => a.src.startsWith("data:audio/"))).toBe(true);
+  }, 60_000);
 });

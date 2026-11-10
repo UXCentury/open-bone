@@ -4,14 +4,14 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * A sound command for an audio backend: {@code play}, {@code stop} or {@code fade}. The runtime never plays audio; it
- * emits these. {@link AudioMixer} applies the document's bus and master volumes and fades for an engine's output
+ * A sound command for an audio backend: {@code play}, {@code stop}, {@code fade} or {@code mix}. The runtime never
+ * plays audio; it emits these. {@link AudioMixer} applies the document's bus and master volumes and fades for an engine's output
  * (the libGDX and Android modules play them through it).
  */
 public final class AudioCommand {
-  /** "play", "stop" or "fade". */
+  /** "play", "stop", "fade" or "mix". */
   public final String type;
-  /** Playing instance id; stop/fade refer to the id of an earlier play. */
+  /** Playing instance id; stop/fade refer to the id of an earlier play. Null for mix. */
   public final String id;
   // play
   public String sound, asset, bus, source;
@@ -21,6 +21,8 @@ public final class AudioCommand {
   public double fade;
   // fade (volume above is the target)
   public double duration;
+  // mix: {@code bus} above (null = the master) muted or unmuted by a setMute action
+  public boolean muted;
 
   AudioCommand(String type, String id) {
     this.type = type;
@@ -56,10 +58,23 @@ public final class AudioCommand {
     return c;
   }
 
+  /** A {@code mix} command: mute or unmute a bus (null = the master) on top of the document's mix. */
+  public static AudioCommand mix(String bus, boolean muted) {
+    AudioCommand c = new AudioCommand("mix", null);
+    c.bus = bus;
+    c.muted = muted;
+    return c;
+  }
+
   /** Same fields as the TypeScript AudioCommand object. */
   public Map<String, Object> toMap() {
     Map<String, Object> m = new LinkedHashMap<>();
     m.put("type", type);
+    if (type.equals("mix")) {
+      m.put("bus", bus);
+      m.put("muted", muted);
+      return m;
+    }
     m.put("id", id);
     switch (type) {
       case "play":

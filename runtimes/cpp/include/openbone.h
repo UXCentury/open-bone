@@ -58,7 +58,9 @@ typedef enum ob_item_kind {
   OB_ITEM_PARTICLES = 5
 } ob_item_kind;
 
-typedef enum ob_audio_type { OB_AUDIO_PLAY = 0, OB_AUDIO_STOP = 1, OB_AUDIO_FADE = 2 } ob_audio_type;
+/* OB_AUDIO_MIX: a setMute listener action muted (muted = 1) or unmuted `bus` (NULL = the master) on top of the
+ * document's mix; apply it to that bus's gain (or every sound for the master). */
+typedef enum ob_audio_type { OB_AUDIO_PLAY = 0, OB_AUDIO_STOP = 1, OB_AUDIO_FADE = 2, OB_AUDIO_MIX = 3 } ob_audio_type;
 
 /** Instance creation flags. */
 #define OB_INSTANCE_SCRIPTS 1 /* run document scripts in the embedded QuickJS sandbox (ignored when built without) */
@@ -165,6 +167,8 @@ typedef struct ob_audio_command {
   const char* source;
   /* stop: fade-out seconds; fade: target volume (volume) over duration */
   double fade, duration;
+  /* mix: 1 = `bus` (NULL = master) muted, 0 = unmuted. Appended last so older callers keep their layout. */
+  int muted;
 } ob_audio_command;
 
 typedef struct ob_value {

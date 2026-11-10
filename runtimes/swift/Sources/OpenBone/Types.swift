@@ -178,6 +178,8 @@ public enum OpenBoneAudioCommand: Equatable {
     case stop(id: String, fade: Double)
     /// Fade a playing instance to `volume` over `duration` seconds.
     case fade(id: String, volume: Double, duration: Double)
+    /// A mute button (`setMute` listener action): `bus` (nil = everything) muted or unmuted on top of the document's mix.
+    case mix(bus: String?, muted: Bool)
 
     init(_ c: ob_audio_command) {
         let id = optionalString(c.id) ?? ""
@@ -188,6 +190,8 @@ public enum OpenBoneAudioCommand: Equatable {
                          fadeIn: c.fade_in, source: optionalString(c.source) ?? "")
         case OB_AUDIO_STOP:
             self = .stop(id: id, fade: c.fade)
+        case OB_AUDIO_MIX:
+            self = .mix(bus: optionalString(c.bus), muted: c.muted != 0)
         default:
             self = .fade(id: id, volume: c.volume, duration: c.duration)
         }
@@ -196,6 +200,7 @@ public enum OpenBoneAudioCommand: Equatable {
     public var id: String {
         switch self {
         case let .play(id, _, _, _, _, _, _, _, _), let .stop(id, _), let .fade(id, _, _): return id
+        case .mix: return ""
         }
     }
 }

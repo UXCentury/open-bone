@@ -45,6 +45,11 @@ namespace OpenBone.Tests
                 inst.Event += e => Events.Add(e);
                 inst.AudioCommand += c =>
                 {
+                    if (c.Type == "mix")
+                    {
+                        Audio.Add(new Dictionary<string, object> { ["type"] = "mix", ["bus"] = c.Bus, ["muted"] = c.Muted });
+                        return;
+                    }
                     if (!_ids.TryGetValue(c.Id, out var id)) _ids[c.Id] = id = "p" + (_ids.Count + 1);
                     var d = new Dictionary<string, object> { ["type"] = c.Type, ["id"] = id };
                     switch (c.Type)
@@ -403,7 +408,7 @@ namespace OpenBone.Tests
                 }
             var audio = e.GetProperty("audio").EnumerateArray().ToList();
             if (audio.Count != s.Audio.Count)
-                errors.Add($"{where}: {s.Audio.Count} audio commands, expected {audio.Count}: mine [{string.Join(", ", s.Audio.Select(a => a["type"] + ":" + a["id"]))}] vs {e.GetProperty("audio")}");
+                errors.Add($"{where}: {s.Audio.Count} audio commands, expected {audio.Count}: mine [{string.Join(", ", s.Audio.Select(a => a["type"] + ":" + (a.TryGetValue("id", out var aid) ? aid : a["bus"])))}] vs {e.GetProperty("audio")}");
             else
                 for (int i = 0; i < audio.Count; i++)
                 {

@@ -268,6 +268,7 @@ namespace OpenBone
                         }
                     case "setEmitter": SetEmitter(a.Slot, a.Emitting); break;
                     case "emitParticles": Skeleton.EmitParticles(a.Slot, a.Count); break;
+                    case "setMute": Audio.SetMute(a.Bus, a.Muted); break;
                 }
             }
         }

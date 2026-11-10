@@ -1072,5 +1072,10 @@ class SmAction {
 	public var emitting = false;
 	public var count = 0.0;
 
+	/** setMute: bus id (null = the master) and the new state (null = "toggle"). */
+	public var bus:String;
+
+	public var muted:Null<Bool>;
+
 	public function new() {}
 }

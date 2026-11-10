@@ -26,6 +26,7 @@ class OpenBoneAudio {
   final Map<String, Future<AudioSource?>> _sources = {};
   final Map<String, SoundHandle> _voices = {};
   final Map<String, String?> _voiceBus = {};
+  final Map<String, double> _voiceVolume = {};
   final Set<String> _loading = {}, _cancelled = {};
   bool _disposed = false;
 
@@ -41,11 +42,15 @@ class OpenBoneAudio {
     });
   }
 
+  /// Mutes set by mix commands (mute buttons): bus id, '' = everything. They win over the document's flags.
+  final Map<String, bool> _mutes = {};
+
   double _busGain(String? busId) {
+    if (_mutes[''] == true) return 0;
     var gain = document.audioMaster * volume;
     if (busId != null) {
       for (final b in document.audioBuses) {
-        if (b.id == busId) gain *= b.muted ? 0 : b.volume;
+        if (b.id == busId) gain *= (_mutes[busId] ?? b.muted) ? 0 : b.volume;
       }
     }
     return gain;
@@ -86,10 +91,12 @@ class OpenBoneAudio {
         if (c.fadeIn > 0) s.fadeVolume(h, target, _seconds(c.fadeIn));
         _voices[c.id] = h;
         _voiceBus[c.id] = c.bus;
+        _voiceVolume[c.id] = c.volume;
       case OpenBoneAudioType.stop:
         if (_loading.contains(c.id)) _cancelled.add(c.id);
         final h = _voices.remove(c.id);
         _voiceBus.remove(c.id);
+        _voiceVolume.remove(c.id);
         if (h == null || !SoLoud.instance.isInitialized) return;
         if (c.fade > 0) {
           SoLoud.instance.fadeVolume(h, 0, _seconds(c.fade));
@@ -100,7 +107,14 @@ class OpenBoneAudio {
       case OpenBoneAudioType.fade:
         final h = _voices[c.id];
         if (h == null || !SoLoud.instance.isInitialized) return;
+        _voiceVolume[c.id] = c.volume;
         SoLoud.instance.fadeVolume(h, c.volume * _busGain(_voiceBus[c.id]), _seconds(c.duration));
+      case OpenBoneAudioType.mix:
+        _mutes[c.bus ?? ''] = c.muted;
+        if (!SoLoud.instance.isInitialized) return;
+        for (final e in _voices.entries) {
+          SoLoud.instance.setVolume(e.value, (_voiceVolume[e.key] ?? 1) * _busGain(_voiceBus[e.key]));
+        }
     }
   }
 
@@ -109,6 +123,7 @@ class OpenBoneAudio {
     final handles = _voices.values.toList();
     _voices.clear();
     _voiceBus.clear();
+    _voiceVolume.clear();
     if (!SoLoud.instance.isInitialized) return;
     for (final h in handles) {
       await SoLoud.instance.stop(h);

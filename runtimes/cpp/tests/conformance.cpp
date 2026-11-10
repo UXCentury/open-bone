@@ -77,6 +77,10 @@ struct Recorder {
       events.push_back({{"name", e.name}, {"time", r4(e.time)}, {"int", e.intValue}, {"float", r4(e.floatValue)}, {"string", e.stringValue}});
     };
     inst.onAudio = [this](const AudioCommand& c) {
+      if (c.type == AudioCommand::Type::Mix) {
+        audio.push_back({{"type", "mix"}, {"bus", c.bus ? json(*c.bus) : json(nullptr)}, {"muted", c.muted}});
+        return;
+      }
       auto it = ids.find(c.id);
       std::string id = it != ids.end() ? it->second : "p" + std::to_string(ids.size() + 1);
       ids[c.id] = id;

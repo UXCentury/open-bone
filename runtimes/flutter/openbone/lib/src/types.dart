@@ -10,7 +10,8 @@ enum OpenBonePointerType { down, up, move }
 
 enum OpenBoneInputType { boolean, number, string, trigger }
 
-enum OpenBoneAudioType { play, stop, fade }
+/// play / stop / fade a sound; mix: a mute button muted or unmuted a bus (`bus` null = everything, see `muted`).
+enum OpenBoneAudioType { play, stop, fade, mix }
 
 /// The texture id of the runtime's built-in soft particle sprite (no image file; see `ob_particle_dot_alpha`).
 const String openBoneParticleDotTexture = '@openbone/particle-dot';
@@ -117,6 +118,7 @@ class OpenBoneAudioCommand {
     this.source = '',
     this.fade = 0,
     this.duration = 0,
+    this.muted = false,
   });
   final OpenBoneAudioType type;
 
@@ -138,6 +140,9 @@ class OpenBoneAudioCommand {
 
   /// fade: seconds.
   final double duration;
+
+  /// mix: whether `bus` (null = everything) is now muted.
+  final bool muted;
   @override
   String toString() => 'OpenBoneAudioCommand(${type.name} $id $sound)';
 }

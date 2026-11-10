@@ -191,6 +191,61 @@ namespace OpenBone.MonoGame.Tests
         }
 
         [Fact]
+        public void MixCommandsMuteBusesAndMaster()
+        {
+            var audio = new AudioData { Master = 1, Buses = { new AudioBus { Id = "sfx", Volume = 0.5 }, new AudioBus { Id = "music", Volume = 0.8 } } };
+            var m = Make(audio);
+            m.Handle(Play("p1"));                                                            // sfx
+            m.Handle(new AudioCommand { Type = "play", Id = "p2", Asset = "aud", Bus = "music", Volume = 1, Rate = 1 });
+            var sfx = _voices[0];
+            var music = _voices[1];
+            Assert.Equal(0.5f, sfx.Vol, 5);
+            Assert.Equal(0.8f, music.Vol, 5);
+
+            // Muting a bus silences its playing voices at once; others keep their gain.
+            m.Handle(new AudioCommand { Type = "mix", Bus = "music", Muted = true });
+            Assert.True(m.IsMuted("music"));
+            Assert.Equal(0f, music.Vol);
+            Assert.Equal(0.5f, sfx.Vol, 5);
+            m.Update(0.016);
+            Assert.Equal(0f, music.Vol);
+
+            // Unmuting restores it.
+            m.Handle(new AudioCommand { Type = "mix", Bus = "music", Muted = false });
+            Assert.False(m.IsMuted("music"));
+            Assert.Equal(0.8f, music.Vol, 5);
+
+            // The master mutes everything, including sounds started afterwards.
+            m.Handle(new AudioCommand { Type = "mix", Bus = null, Muted = true });
+            Assert.True(m.IsMuted(null));
+            Assert.Equal(0f, sfx.Vol);
+            Assert.Equal(0f, music.Vol);
+            m.Handle(Play("p3"));
+            Assert.Equal(0f, _voices[2].Vol);
+            m.Update(0.016);
+            Assert.All(_voices, v => Assert.Equal(0f, v.Vol));
+
+            m.Handle(new AudioCommand { Type = "mix", Bus = null, Muted = false });
+            Assert.Equal(0.5f, sfx.Vol, 5);
+            Assert.Equal(0.5f, _voices[2].Vol, 5);
+        }
+
+        [Fact]
+        public void MixCommandUnmutesABusTheDocumentMutes()
+        {
+            var audio = new AudioData { Master = 0.5, Muted = true, Buses = { new AudioBus { Id = "sfx", Volume = 0.8, Muted = true } } };
+            var m = Make(audio);
+            m.Handle(Play("p1"));
+            Assert.Equal(0f, _voices[0].Vol);
+            m.Handle(new AudioCommand { Type = "mix", Bus = "sfx", Muted = false });
+            Assert.Equal(0f, _voices[0].Vol);                                               // the document's master is still muted
+            m.Handle(new AudioCommand { Type = "mix", Bus = null, Muted = false });
+            Assert.Equal(0.4f, _voices[0].Vol, 5);                                          // master × bus.volume
+            Assert.False(m.IsMuted("sfx"));
+            Assert.Equal(0, AudioMath.BusGain(audio, "sfx"));                               // the document is untouched
+        }
+
+        [Fact]
         public void KnightAttackPlaysSounds()
         {
             var doc = DocumentLoader.Load(System.IO.File.ReadAllBytes(TestPaths.Example("knight.obone")));

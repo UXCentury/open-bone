@@ -270,6 +270,12 @@ void UOpenBoneComponent::HandleEvent(void* User, const ob_event* E)
 void UOpenBoneComponent::HandleAudio(void* User, const ob_audio_command* C)
 {
 	auto* Self = static_cast<UOpenBoneComponent*>(User);
+	if (C->type == OB_AUDIO_MIX)
+	{
+		// A mute button: Sound is the bus id ("" = everything), Volume 0 = muted, 1 = unmuted.
+		Self->OnAudio.Broadcast(TEXT("mix"), C->bus ? Str(C->bus) : FString(), C->muted ? 0.f : 1.f);
+		return;
+	}
 	const TCHAR* Type = C->type == OB_AUDIO_PLAY ? TEXT("play") : C->type == OB_AUDIO_STOP ? TEXT("stop") : TEXT("fade");
 	Self->OnAudio.Broadcast(Type, Str(C->sound), (float)C->volume);
 }

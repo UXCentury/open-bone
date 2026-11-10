@@ -87,6 +87,8 @@ class OpenBoneSprite : public Node2D {
   String audio_bus = "Master";
   std::unordered_map<std::string, Ref<AudioStream>> streams;           // by audio asset id
   std::unordered_map<std::string, AudioStreamPlayer*> voices;           // by play id
+  std::unordered_map<std::string, bool> mutes;                          // setMute overrides: bus id, "" = master
+  bool is_muted(const std::optional<std::string>& bus) const;
   void handle_audio(const openbone::AudioCommand& c);
   Ref<AudioStream> stream_for(const std::string& asset_id);
   double bus_gain(const std::optional<std::string>& bus) const;

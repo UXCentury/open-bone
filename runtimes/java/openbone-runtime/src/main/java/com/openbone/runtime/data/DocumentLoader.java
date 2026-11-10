@@ -653,6 +653,8 @@ public final class DocumentLoader {
         ac.fade = optNum(a, "fade");
         ac.emitting = bool(a, "emitting", false);
         ac.count = num(a, "count", 0);
+        ac.bus = str(a, "bus", null);
+        ac.muted = a.get("muted") instanceof Boolean ? (Boolean) a.get("muted") : null; // otherwise "toggle"
         li.actions.add(ac);
       }
       sm.listeners.add(li);

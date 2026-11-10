@@ -87,7 +87,7 @@ OpenBoneInstance inst = new OpenBoneInstance(doc, new QuickJsScriptHost()); // n
 inst.addListener(new OpenBoneInstance.Listener() {
   @Override public void event(FiredEvent e) { System.out.println(e.name); }
   @Override public void stateChange(String layer, String from, String to) { }
-  @Override public void audio(AudioCommand c) { mixer.handle(c); } // play / stop / fade (see AudioMixer)
+  @Override public void audio(AudioCommand c) { mixer.handle(c); } // play / stop / fade / mix (see AudioMixer)
 });
 
 StateMachineInstance sm = inst.useStateMachine("knight"); // or inst.play("walk", true)
@@ -129,9 +129,10 @@ Path constraints read `constantSpeed` (default true: points are placed by arc le
 parameter, so bones bunch up where the handles are short (Spine's "constant speed" off).
 
 Audio: the runtime itself never plays sound. It emits `AudioCommand`s (`play` with sound, asset, bus, volume, rate,
-loop, fade-in; `stop` with a fade; `fade`). `AudioMixer` (in `openbone-runtime`, no dependencies) turns them into calls
-on an `AudioMixer.Output` that makes the noise: gain `command volume × bus volume (0 if muted) × master (0 if the
-document is muted)`, voice bookkeeping, fade-in, stop fades and `fade` commands (the sound's new volume, keeping the
+loop, fade-in; `stop` with a fade; `fade`; `mix` with a bus, null for the master, and `muted`, from a `setMute`
+listener action). `AudioMixer` (in `openbone-runtime`, no dependencies) turns them into calls on an `AudioMixer.Output`
+that makes the noise: gain `command volume × bus volume (0 if muted) × master (0 if muted)`, where a `mix` command
+overrides the document's mute flag for its bus or the master (playing voices and later sounds), voice bookkeeping, fade-in, stop fades and `fade` commands (the sound's new volume, keeping the
 voice's bus and master gain) stepped in `update(seconds)`, and one-shots released after their asset's duration. The
 libGDX and Android players below are built on it; implement `Output` for any other engine.
 

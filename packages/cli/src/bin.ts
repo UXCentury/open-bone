@@ -22,6 +22,7 @@ Usage:
                --transparent  --sequence (png/jpeg: every frame, ZIP)
                --engine unity|godot|flutter|generic (spritesheet)  --single-file (web)  --binary
                --pack (json/obonb/web: embed an atlas)
+               --embed (obone/json/obonb: put every image and sound inside the file, so it opens on its own)
       atlas packing (atlas, and --pack):
                --padding 2  --max-size 2048 (or --max-width / --max-height)  --min-width 0 --min-height 0
                --no-pot  --square  --multiple-of-4  --rotate  --atlas-scale 0.5|auto
@@ -62,7 +63,7 @@ async function session(): Promise<ProjectSession> {
 
 /** Flags that take no value (everything else starting with -- takes the next argument). */
 const SWITCHES = new Set([
-  "bones", "bounding-boxes", "transparent", "sequence", "single-file", "binary", "pack", "no-pot", "rotate", "strip-whitespace", "polygons", "premultiplied", "no-minify",
+  "bones", "bounding-boxes", "transparent", "sequence", "single-file", "binary", "pack", "embed", "no-pot", "rotate", "strip-whitespace", "polygons", "premultiplied", "no-minify",
   "square", "multiple-of-4", "no-alias", "keep-blank", "no-edge-padding", "no-duplicate-padding", "bleed", "no-bleed", "debug",
 ]);
 
@@ -173,6 +174,7 @@ async function exportCommand() {
           minify: !flag("no-minify"),
           binary: flag("binary") ? true : undefined,
           pack: flag("pack"),
+          embed: flag("embed"),
           atlas,
         },
         host,

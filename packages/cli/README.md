@@ -136,7 +136,7 @@ The options are those of [`@openbone/mcp`](https://github.com/UXCentury/open-bon
 
 | Format | Output |
 |---|---|
-| `obone` | The whole project as an `.obone` file |
+| `obone` | The whole project as an `.obone` file (`--embed` puts every image and sound inside it, so it opens on its own anywhere) |
 | `json` | Runtime data as JSON: the animations and state machines marked for export (`--pack` embeds a texture atlas) |
 | `obonb` | The same runtime data in the binary format (`--pack` embeds a texture atlas) |
 | `atlas` | ZIP: runtime data (JSON, or `.obonb` with `--binary`) plus the atlas pages as PNG (or JPEG) files; with `--scales`, one data file and page set per scale (`hero.json` + `hero.png`, `hero@0.5x.json` + `hero@0.5x.png`) |
@@ -164,6 +164,7 @@ Frames come from `--animation` (default: the first animation) or from a state ma
 | `--single-file`, `--no-minify` | `web` |
 | `--binary` | `atlas` |
 | `--pack` | `json`, `obonb`, `web` |
+| `--embed` | `obone`, `json`, `obonb` |
 | `--padding 2`, `--max-size 2048`, `--no-pot`, `--rotate`, `--atlas-scale 0.5\|auto`, `--strip-whitespace`, `--polygons`, `--premultiplied` | atlas packing (`atlas`, and `--pack`) |
 | `--scales 1,0.5 --suffixes ,@0.5x` | `atlas`: several scales in one pack (suffixes default to `""` for 1 and `@<scale>x` otherwise) |
 

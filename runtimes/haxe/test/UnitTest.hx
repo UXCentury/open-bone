@@ -1,3 +1,4 @@
+import openbone.AudioDirector;
 import openbone.Earcut;
 import openbone.JsNum;
 import openbone.Json;
@@ -19,6 +20,7 @@ class UnitTest {
 		earcutSquareAndConcave();
 		angles();
 		binaryDocumentsDecodeLikeTypeScript();
+		setMuteOverridesTheDocumentMix();
 		for (f in failures)
 			Platform.println("  FAIL " + f);
 		Platform.println("Haxe (" + Platform.target() + ") unit tests: " + (checks - failures.length) + "/" + checks + " passed");
@@ -116,6 +118,33 @@ class UnitTest {
 				inst.advance(1 / 60.0);
 			eq(name + " draws", inst.drawList().length > 0, true);
 		}
+	}
+
+	/** setMute listener actions: parsing (null bus = master, missing muted = toggle) and AudioDirector overrides. */
+	static function setMuteOverridesTheDocumentMix() {
+		var doc = DocumentLoader.fromJson('{"format":"openbone","version":1,"skeleton":{"bones":[],"slots":[]},'
+			+ '"audio":{"master":1,"muted":false,"assets":[],"sounds":[],"buses":[{"id":"bus_a","name":"A","volume":0.5,"muted":true}]},'
+			+ '"stateMachines":[{"id":"sm","name":"sm","inputs":[],"layers":[],"listeners":[{"id":"l","name":"l","event":"click","actions":['
+			+ '{"type":"setMute","bus":"bus_a","muted":false},{"type":"setMute","bus":null,"muted":"toggle"},{"type":"setMute"},{"type":"futureThing"}]}]}]}');
+		var acts = doc.stateMachines[0].listeners[0].actions;
+		eq("setMute actions parsed", acts.length, 4);
+		eq("setMute bus", acts[0].bus, "bus_a");
+		eq("setMute muted false", acts[0].muted, false);
+		eq("setMute null bus = master", acts[1].bus, null);
+		eq("setMute \"toggle\" = null", acts[1].muted, null);
+		eq("setMute missing muted = null", acts[2].muted, null);
+		eq("unknown action kept as its type", acts[3].type, "futureThing");
+		var got:Array<String> = [];
+		var dir = new AudioDirector(doc, c -> got.push(Json.stringify(c.toObject())));
+		eq("document-muted bus", dir.isMuted("bus_a"), true);
+		eq("master from document", dir.isMuted(null), false);
+		eq("unknown bus", dir.isMuted("nope"), false);
+		eq("toggle a document-muted bus", dir.setMute("bus_a", null), false);
+		eq("override wins", dir.isMuted("bus_a"), false);
+		eq("mute master", dir.setMute(null, true), true);
+		eq("toggle master", dir.setMute(null, null), false);
+		eq("mix commands", got.join(","),
+			'{"type":"mix","bus":"bus_a","muted":false},{"type":"mix","bus":null,"muted":true},{"type":"mix","bus":null,"muted":false}');
 	}
 
 	static function sameTree(path:String, mine:Dynamic, ts:Dynamic):Int {

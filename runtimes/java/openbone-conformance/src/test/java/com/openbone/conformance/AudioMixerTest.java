@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.openbone.runtime.AudioCommand;
+import com.openbone.runtime.AudioDirector;
 import com.openbone.runtime.AudioMixer;
 import com.openbone.runtime.OpenBoneInstance;
 import com.openbone.runtime.data.AudioData;
@@ -84,6 +85,49 @@ class AudioMixerTest {
     assertEquals(List.of("start 1 a 0.2 1.5 loop"), out.calls);
     m.setVolume(0.5);
     assertEquals("gain 1 0.1", out.calls.get(1));
+  }
+
+  @Test
+  void mixMutesBusesAndMaster() {
+    Recorder out = new Recorder();
+    AudioMixer m = new AudioMixer(audio(1, false), out);
+    m.handle(AudioCommand.play("p", "b", "sfx", 1, 1, true, 0));
+    m.handle(AudioCommand.play("q", "b", null, 1, 1, true, 0));
+    // Muting a bus silences its playing voices and later sounds; other buses keep playing.
+    m.handle(AudioCommand.mix("sfx", true));
+    assertTrue(m.muted("sfx"));
+    assertEquals(0, m.busGain("sfx"));
+    m.handle(AudioCommand.play("r", "b", "sfx", 1, 1, true, 0));
+    m.handle(AudioCommand.mix("sfx", false));
+    // Unmuting a bus the document marks muted makes it audible at its volume.
+    assertEquals(0, m.busGain("off"));
+    m.handle(AudioCommand.mix("off", false));
+    assertFalse(m.muted("off"));
+    assertEquals(1, m.busGain("off"), 1e-12);
+    // The master mutes everything; unmuting restores the document's mix.
+    m.handle(AudioCommand.mix(null, true));
+    assertTrue(m.muted(null));
+    assertEquals(0, m.master());
+    m.handle(AudioCommand.mix(null, false));
+    assertEquals(List.of("start 1 b 0.5 1.0 loop", "start 2 b 1.0 1.0 loop", "gain 1 0.0", "start 3 b 0.0 1.0 loop",
+        "gain 1 0.5", "gain 3 0.5", "gain 1 0.0", "gain 2 0.0", "gain 3 0.0", "gain 1 0.5", "gain 2 1.0", "gain 3 0.5"),
+        out.calls);
+    // A document-muted master can be unmuted too.
+    AudioMixer muted = new AudioMixer(audio(0.8, true), new Recorder());
+    assertEquals(0, muted.busGain(null));
+    muted.handle(AudioCommand.mix(null, false));
+    assertEquals(0.8, muted.busGain(null), 1e-12);
+  }
+
+  @Test
+  void mixDuringAFadeRetargetsTheRamp() {
+    Recorder out = new Recorder();
+    AudioMixer m = new AudioMixer(audio(1, false), out);
+    m.handle(AudioCommand.play("p", "b", null, 1, 1, true, 1));
+    m.update(0.5);
+    m.handle(AudioCommand.mix(null, true));
+    m.update(0.5);
+    assertEquals(0, m.voice("p").gain, 1e-12);
   }
 
   @Test
@@ -176,5 +220,25 @@ class AudioMixerTest {
     }
     for (int i = 0; i < 120; i++) mixer.update(1 / 60.0);
     assertEquals(0, mixer.voiceCount(), "one-shots are released after their duration");
+  }
+
+  @Test
+  void setMuteOverridesTheDocumentAndEmitsMix() throws Exception {
+    Path repo = Path.of(System.getProperty("openbone.repo", "../.."));
+    OpenBoneDocument doc = DocumentLoader.load(Files.readAllBytes(repo.resolve("conformance/fixtures/interactive.obone")));
+    doc.audio.buses.stream().filter(b -> b.id.equals("bus_ui")).findFirst().orElseThrow().muted = true;
+    List<String> cmds = new ArrayList<>();
+    AudioDirector dir = new AudioDirector(doc, c -> cmds.add(c.toMap().toString()));
+    assertTrue(dir.isMuted("bus_ui"), "the document's flag");
+    assertFalse(dir.isMuted("bus_music"));
+    assertFalse(dir.isMuted(null));
+    assertFalse(dir.setMute("bus_ui", null), "toggle unmutes a document-muted bus");
+    assertFalse(dir.isMuted("bus_ui"));
+    assertTrue(dir.setMute("bus_music", true));
+    assertTrue(dir.setMute("bus_music", true), "explicit state, not a toggle");
+    assertTrue(dir.setMute(null, null));
+    assertTrue(dir.isMuted(null));
+    assertEquals(List.of("{type=mix, bus=bus_ui, muted=false}", "{type=mix, bus=bus_music, muted=true}",
+        "{type=mix, bus=bus_music, muted=true}", "{type=mix, bus=null, muted=true}"), cmds);
   }
 }

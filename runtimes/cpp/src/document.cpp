@@ -391,6 +391,7 @@ ListenerAction action(const json& a) {
          : t == "stopSound" ? T::StopSound
          : t == "setEmitter" ? T::SetEmitter
          : t == "emitParticles" ? T::EmitParticles
+         : t == "setMute" ? T::SetMute
                                  : T::Unknown;
   x.input = str(a, "input");
   x.event = str(a, "event");
@@ -403,6 +404,10 @@ ListenerAction action(const json& a) {
   x.fade = optNum(a, "fade");
   x.emitting = boolean(a, "emitting");
   x.count = num(a, "count");
+  if (x.type == T::SetMute) {
+    if (a.contains("bus") && a["bus"].is_string()) x.bus = a["bus"].get<std::string>();
+    if (a.contains("muted") && a["muted"].is_boolean()) x.muted = a["muted"].get<bool>();  // otherwise "toggle"
+  }
   return x;
 }
 

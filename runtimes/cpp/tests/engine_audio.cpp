@@ -171,6 +171,32 @@ int main(int argc, char** argv) {
     for (int i = 0; i < 120; i++) m.update(1.0 / 60);
     CHECK(m.voiceCount() == 0);
   }
-  std::printf(failures ? "engine audio FAILED (%d)\n" : "engine audio OK\n", failures);
+  {
+    // Mute buttons (Mix commands): a bus goes silent and comes back; muting the master silences everything, also
+    // sounds started afterwards; unmuting a bus the document mutes overrides it.
+    Recorder out;
+    ob::audio::Mixer m(doc(0.8, false), out);
+    m.handle(play("p1", "a", std::string("sfx"), 0.5, 1, true, 0));
+    m.handle(play("p2", "b", std::nullopt, 1, 1, true, 0));
+    ob::AudioCommand mix;
+    mix.type = ob::AudioCommand::Type::Mix;
+    mix.bus = std::string("sfx");
+    mix.muted = true;
+    m.handle(mix);
+    CHECK(m.muted(std::string("sfx")));
+    mix.muted = false;
+    m.handle(mix);
+    mix.bus = std::nullopt;
+    mix.muted = true;
+    m.handle(mix);
+    m.handle(play("p3", "c", std::nullopt, 1, 1, false, 0));
+    mix.bus = std::string("off");
+    mix.muted = false;
+    m.handle(mix);
+    CHECK(same(out.calls, {"start 1 a 0.2 1 loop", "start 2 b 0.8 1 loop", "gain 1 0", "gain 1 0.2", "gain 1 0", "gain 2 0",
+                           "start 3 c 0 1"}));
+    CHECK(m.busGain(std::string("off")) == 0);  // the master is still muted
+  }
+    std::printf(failures ? "engine audio FAILED (%d)\n" : "engine audio OK\n", failures);
   return failures ? 1 : 0;
 }

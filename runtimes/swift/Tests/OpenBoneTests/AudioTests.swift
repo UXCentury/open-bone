@@ -92,6 +92,28 @@ final class AudioTests: XCTestCase {
         XCTAssertEqual(out.calls, [.gain(voice: 1, gain: 0.125, duration: 0)])
     }
 
+    func testMuteButtons() {
+        // mix commands (setMute listener actions): a bus goes silent and comes back; muting everything silences all,
+        // also sounds started afterwards; a bus the document mutes can be unmuted. (Voices re-gain in any order.)
+        let out = RecordingOutput()
+        let m = OpenBoneAudioMixer(assets: assets, buses: buses, master: 0.8, output: out)
+        m.handle(play("p1", volume: 0.5, loop: true))
+        m.handle(play("p2", asset: "b", bus: nil, loop: true))
+        func step(_ c: OpenBoneAudioCommand, _ want: [RecordingOutput.Call]) {
+            out.calls = []
+            m.handle(c)
+            XCTAssertEqual(Set(out.calls.map { "\($0)" }), Set(want.map { "\($0)" }), "\(c)")
+        }
+        step(.mix(bus: "sfx", muted: true), [.gain(voice: 1, gain: 0, duration: 0), .gain(voice: 2, gain: 0.8, duration: 0)])
+        step(.mix(bus: "sfx", muted: false), [.gain(voice: 1, gain: 0.2, duration: 0), .gain(voice: 2, gain: 0.8, duration: 0)])
+        step(.mix(bus: nil, muted: true), [.gain(voice: 1, gain: 0, duration: 0), .gain(voice: 2, gain: 0, duration: 0)])
+        step(play("p3", bus: nil), [.start(voice: 3, asset: "a", gain: 0, rate: 1, loop: false)])
+        m.handle(.mix(bus: nil, muted: false))
+        m.handle(.mix(bus: "muted", muted: false))
+        XCTAssertEqual(m.busGain("muted"), 0.8, accuracy: 1e-12)
+        XCTAssertEqual(OpenBoneAudioCommand.mix(bus: "sfx", muted: true).id, "")
+    }
+
     func testVoiceBookkeeping() {
         let out = RecordingOutput()
         out.failing = ["b"]

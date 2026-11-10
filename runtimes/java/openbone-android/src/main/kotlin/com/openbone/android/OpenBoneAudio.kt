@@ -15,7 +15,8 @@ import java.io.File
  * Plays a document's sounds: short ones through a [SoundPool], long ones (over [longSound] seconds) through a
  * [MediaPlayer] each. Every file is read once through [sounds] and cached in the app's cache folder; voices follow the
  * command's volume × bus × master, rate (0.5…2), looping and fade-in, stop fades and fades ([AudioMixer], stepped in
- * [update]). A play that arrives while its sound is still loading starts when it is ready, unless a stop came first.
+ * [update]), and `mix` commands (setMute actions) that mute or unmute a bus or the master on top of the document's
+ * mix. A play that arrives while its sound is still loading starts when it is ready, unless a stop came first.
  *
  * [OpenBoneView] makes one for each document it loads ([OpenBoneView.isAudioEnabled]). Use it directly with an
  * instance of your own:

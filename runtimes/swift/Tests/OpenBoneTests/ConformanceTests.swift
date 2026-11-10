@@ -35,6 +35,10 @@ private final class Recorder {
                                    "float": .number(r4(e.floatValue)), "string": .string(e.stringValue)]))
         }
         inst.onAudio = { [unowned self] c in
+            if case let .mix(bus, muted) = c {
+                audio.append(.object(["type": .string("mix"), "bus": .opt(bus), "muted": .bool(muted)]))
+                return
+            }
             let id = ids[c.id] ?? "p\(ids.count + 1)"
             ids[c.id] = id
             switch c {
@@ -48,6 +52,8 @@ private final class Recorder {
             case let .fade(_, volume, duration):
                 audio.append(.object(["type": .string("fade"), "id": .string(id), "volume": .number(r4(volume)),
                                       "duration": .number(r4(duration))]))
+            case .mix:
+                break
             }
         }
     }

@@ -20,7 +20,7 @@
   "skeleton": {
     "bones": [
       {
-        "id": "bone_34kak2b",
+        "id": "bone_34kak2c",
         "name": "root",
         "parent": null,
         "length": 0,
@@ -34,9 +34,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_i6hnj2c",
+        "id": "bone_i6hnj2d",
         "name": "spine",
-        "parent": "bone_34kak2b",
+        "parent": "bone_34kak2c",
         "length": 60,
         "x": 0,
         "y": 100,
@@ -48,9 +48,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_efs1o2d",
+        "id": "bone_efs1o2e",
         "name": "head",
-        "parent": "bone_i6hnj2c",
+        "parent": "bone_i6hnj2d",
         "length": 30,
         "x": 60,
         "y": 0,
@@ -62,9 +62,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_xzqt52e",
+        "id": "bone_xzqt52f",
         "name": "cape",
-        "parent": "bone_i6hnj2c",
+        "parent": "bone_i6hnj2d",
         "length": 50,
         "x": 50,
         "y": 0,
@@ -76,9 +76,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_514s92f",
+        "id": "bone_514s92g",
         "name": "cape-tip",
-        "parent": "bone_xzqt52e",
+        "parent": "bone_xzqt52f",
         "length": 30,
         "x": 50,
         "y": 0,
@@ -90,9 +90,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_8c73v2g",
+        "id": "bone_8c73v2h",
         "name": "aim",
-        "parent": "bone_34kak2b",
+        "parent": "bone_34kak2c",
         "length": 50,
         "x": 80,
         "y": 60,
@@ -104,9 +104,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_vym832h",
+        "id": "bone_vym832i",
         "name": "copy",
-        "parent": "bone_34kak2b",
+        "parent": "bone_34kak2c",
         "length": 30,
         "x": -80,
         "y": 150,
@@ -120,41 +120,41 @@
     ],
     "slots": [
       {
-        "id": "slot_u2q9p2i",
+        "id": "slot_u2q9p2j",
         "name": "spine",
-        "bone": "bone_i6hnj2c",
+        "bone": "bone_i6hnj2d",
         "color": "#ffffff",
         "attachment": "part",
         "blend": "normal"
       },
       {
-        "id": "slot_ud3a42j",
+        "id": "slot_ud3a42k",
         "name": "head",
-        "bone": "bone_efs1o2d",
+        "bone": "bone_efs1o2e",
         "color": "#ffffff",
         "attachment": "part",
         "blend": "normal"
       },
       {
-        "id": "slot_8258l2k",
+        "id": "slot_8258l2l",
         "name": "cape",
-        "bone": "bone_xzqt52e",
+        "bone": "bone_xzqt52f",
         "color": "#ffffff",
         "attachment": "part",
         "blend": "normal"
       },
       {
-        "id": "slot_9y6sl2l",
+        "id": "slot_9y6sl2m",
         "name": "cape-tip",
-        "bone": "bone_514s92f",
+        "bone": "bone_514s92g",
         "color": "#ffffff",
         "attachment": "part",
         "blend": "normal"
       },
       {
-        "id": "slot_9vabd2m",
+        "id": "slot_9vabd2n",
         "name": "copy",
-        "bone": "bone_vym832h",
+        "bone": "bone_vym832i",
         "color": "#ffffff",
         "attachment": "part",
         "blend": "normal"
@@ -165,7 +165,7 @@
         "id": "skin_default",
         "name": "default",
         "attachments": {
-          "slot_u2q9p2i": {
+          "slot_u2q9p2j": {
             "part": {
               "type": "region",
               "name": "part",
@@ -180,7 +180,7 @@
               "color": "#ffffff"
             }
           },
-          "slot_ud3a42j": {
+          "slot_ud3a42k": {
             "part": {
               "type": "region",
               "name": "part",
@@ -195,7 +195,7 @@
               "color": "#ffffff"
             }
           },
-          "slot_8258l2k": {
+          "slot_8258l2l": {
             "part": {
               "type": "region",
               "name": "part",
@@ -210,7 +210,7 @@
               "color": "#ffffff"
             }
           },
-          "slot_9y6sl2l": {
+          "slot_9y6sl2m": {
             "part": {
               "type": "region",
               "name": "part",
@@ -225,7 +225,7 @@
               "color": "#ffffff"
             }
           },
-          "slot_9vabd2m": {
+          "slot_9vabd2n": {
             "part": {
               "type": "region",
               "name": "part",
@@ -243,27 +243,27 @@
         }
       },
       {
-        "id": "skin_aot0i2q",
+        "id": "skin_aot0i2r",
         "name": "hero",
         "attachments": {},
         "bones": [
-          "bone_xzqt52e"
+          "bone_xzqt52f"
         ],
         "constraints": [
-          "ik_d8tdm2n",
-          "phys_q3r242o"
+          "ik_d8tdm2o",
+          "phys_q3r242p"
         ]
       }
     ],
     "ik": [
       {
-        "id": "ik_d8tdm2n",
+        "id": "ik_d8tdm2o",
         "name": "cape-reach",
         "bones": [
-          "bone_xzqt52e",
-          "bone_514s92f"
+          "bone_xzqt52f",
+          "bone_514s92g"
         ],
-        "target": "bone_8c73v2g",
+        "target": "bone_8c73v2h",
         "mix": 1,
         "bendPositive": true,
         "softness": 20,
@@ -274,12 +274,12 @@
     ],
     "transform": [
       {
-        "id": "tc_0xw2k2p",
+        "id": "tc_0xw2k2q",
         "name": "follow-head",
         "bones": [
-          "bone_vym832h"
+          "bone_vym832i"
         ],
-        "target": "bone_efs1o2d",
+        "target": "bone_efs1o2e",
         "mixRotate": 1,
         "mixTranslate": 0.5,
         "mixScale": 0,
@@ -298,9 +298,9 @@
     "path": [],
     "physics": [
       {
-        "id": "phys_q3r242o",
+        "id": "phys_q3r242p",
         "name": "tip-sway",
-        "bone": "bone_514s92f",
+        "bone": "bone_514s92g",
         "x": 0,
         "y": 0,
         "rotate": 1,
@@ -321,13 +321,13 @@
   "events": [],
   "animations": [
     {
-      "id": "anim_bx5862r",
+      "id": "anim_bx5862s",
       "name": "turn",
       "duration": 0,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_i6hnj2c",
+          "id": "bone_i6hnj2d",
           "property": "rotation",
           "keys": [
             {
@@ -349,7 +349,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_efs1o2d",
+          "id": "bone_efs1o2e",
           "property": "inherit",
           "keys": [
             {
@@ -371,7 +371,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_8c73v2g",
+          "id": "bone_8c73v2h",
           "property": "y",
           "keys": [
             {

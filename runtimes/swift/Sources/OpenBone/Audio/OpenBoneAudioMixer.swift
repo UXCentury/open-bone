@@ -36,9 +36,14 @@ public final class OpenBoneAudioMixer {
 
     /// Extra gain on everything this mixer plays; changing it applies to the playing voices at once.
     public var volume: Double = 1 {
-        didSet {
-            for v in voices.values { output.setVoiceGain(v.handle, to: v.soundVolume * busGain(v.bus), duration: 0) }
-        }
+        didSet { regain() }
+    }
+
+    /// Mutes set by `mix` commands (mute buttons): bus id, "" = everything. They win over the document's flags.
+    public private(set) var mutes: [String: Bool] = [:]
+
+    private func regain() {
+        for v in voices.values { output.setVoiceGain(v.handle, to: v.soundVolume * busGain(v.bus), duration: 0) }
     }
 
     /// Playing voices by command id.
@@ -59,8 +64,9 @@ public final class OpenBoneAudioMixer {
 
     /// `master × bus volume × volume` (0 when the bus is muted; an unknown or nil bus counts as 1).
     public func busGain(_ bus: String?) -> Double {
+        if mutes[""] == true { return 0 }
         var gain = master * volume
-        if let bus, let b = buses.first(where: { $0.id == bus }) { gain *= b.isMuted ? 0 : b.volume }
+        if let bus, let b = buses.first(where: { $0.id == bus }) { gain *= (mutes[bus] ?? b.isMuted) ? 0 : b.volume }
         return gain
     }
 
@@ -85,6 +91,9 @@ public final class OpenBoneAudioMixer {
             v.soundVolume = volume
             voices[id] = v
             output.setVoiceGain(v.handle, to: volume * busGain(v.bus), duration: max(0, duration))
+        case let .mix(bus, muted):
+            mutes[bus ?? ""] = muted
+            regain()
         }
     }
 

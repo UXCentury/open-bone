@@ -4,6 +4,7 @@
 #pragma once
 
 #include <functional>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -139,7 +140,7 @@ struct FiredEvent {
 };
 
 struct AudioCommand {
-  enum class Type : uint8_t { Play, Stop, Fade } type = Type::Play;
+  enum class Type : uint8_t { Play, Stop, Fade, Mix } type = Type::Play;
   std::string id;
   // play
   Id sound, asset;
@@ -149,6 +150,8 @@ struct AudioCommand {
   std::string source;
   // stop: fade seconds; fade: duration
   double fade = 0, duration = 0;
+  // mix: `bus` (nullopt = the master) muted or unmuted by a setMute action
+  bool muted = false;
 };
 
 struct EmitterValues {
@@ -367,6 +370,10 @@ class AudioDirector {
   void stopOwner(const std::string& owner, double fade = 0, bool all = false);
   void fade(const std::string& id, double volume, double duration);
   void stopAll(double fade = 0);
+  /** Whether a bus (nullopt = the master) is muted now: a setMute override, else the document's flag. */
+  bool isMuted(const std::optional<Id>& bus) const;
+  /** Mute, unmute or toggle (nullopt) a bus or the master; emits a Mix command. Returns the new state. */
+  bool setMute(const std::optional<Id>& bus, std::optional<bool> muted);
   double time = 0;
 
  private:
@@ -380,6 +387,7 @@ class AudioDirector {
   const Document& doc;
   std::function<void(const AudioCommand&)> out;
   std::vector<Playing> playing;
+  std::map<std::string, bool> mutes;  // bus id, "" = master
 };
 
 void playAudioKeys(AudioDirector& dir, const AnimationData& anim, double prev, double next, bool loop, const std::string& owner);

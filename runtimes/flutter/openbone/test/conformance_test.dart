@@ -115,6 +115,10 @@ class Recorder {
           'string': e.stringValue,
         }));
     inst.audioCommands.listen((c) {
+      if (c.type == OpenBoneAudioType.mix) {
+        audio.add({'type': 'mix', 'bus': c.bus, 'muted': c.muted});
+        return;
+      }
       final id = ids.putIfAbsent(c.id, () => 'p${ids.length + 1}');
       audio.add(switch (c.type) {
         OpenBoneAudioType.play => {
@@ -131,6 +135,7 @@ class Recorder {
           },
         OpenBoneAudioType.stop => {'type': 'stop', 'id': id, 'fade': r4(c.fade)},
         OpenBoneAudioType.fade => {'type': 'fade', 'id': id, 'volume': r4(c.volume), 'duration': r4(c.duration)},
+        OpenBoneAudioType.mix => const <String, Object?>{},
       });
     });
   }

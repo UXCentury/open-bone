@@ -13,8 +13,9 @@ import java.util.Map;
  * the noise (libGDX {@code Sound}, Android {@code SoundPool}, …), with the document's bus and master gain, voice
  * bookkeeping and fades stepped in {@link #update(double)} (call it every frame with real seconds).
  *
- * <p>The gain of a voice is {@code command volume × bus volume (0 if muted) × master (0 if the document is muted) ×
- * volume}. A {@code fade} command gives the sound's new volume; the voice keeps its bus and master gain. One-shots are
+ * <p>The gain of a voice is {@code command volume × bus volume (0 if muted) × master (0 if muted) × volume}. A bus or the
+ * master is muted by the last {@code mix} command for it (a setMute action, e.g. a mute button), else by the document;
+ * a mix applies to the playing voices at once and to later sounds. A {@code fade} command gives the sound's new volume; the voice keeps its bus and master gain. One-shots are
  * released after the asset's duration (÷ rate, plus a quarter second), or when the output reports {@link #voiceFinished(int)}.
  *
  * <p>Not thread-safe: use it from the thread that advances the instance.
@@ -69,6 +70,8 @@ public final class AudioMixer {
   static final double EXPIRY_SLACK = 0.25;
   private int nextHandle = 1;
   private double volume = 1;
+  /** Mix overrides: bus id ("" = master) → muted. */
+  private final Map<String, Boolean> mutes = new LinkedHashMap<>();
 
   public AudioMixer(AudioData audio, Output output) {
     this.audio = audio;
@@ -79,9 +82,20 @@ public final class AudioMixer {
     this(doc.audio, output);
   }
 
-  /** The document's master volume: 0 when its audio is muted, 1 when it has no audio settings. */
+  /** The document's master volume: 0 when the master is muted, 1 when the document has no audio settings. */
   public double master() {
-    return audio == null ? 1 : audio.muted ? 0 : audio.master;
+    if (muted(null)) return 0;
+    return audio == null ? 1 : audio.master;
+  }
+
+  /** Whether a bus (null = the master) is muted: by a {@code mix} command, else by the document. */
+  public boolean muted(String bus) {
+    Boolean m = mutes.get(bus != null ? bus : "");
+    if (m != null) return m;
+    if (audio == null) return false;
+    if (bus == null) return audio.muted;
+    for (AudioData.Bus b : audio.buses) if (b.id.equals(bus)) return b.muted;
+    return false;
   }
 
   /** {@code master × bus volume × volume} (0 when the bus is muted; an unknown or null bus counts as 1). */
@@ -90,7 +104,7 @@ public final class AudioMixer {
     if (bus != null && audio != null)
       for (AudioData.Bus b : audio.buses)
         if (b.id.equals(bus)) {
-          gain *= b.muted ? 0 : b.volume;
+          gain *= muted(bus) ? 0 : b.volume;
           break;
         }
     return gain;
@@ -103,6 +117,11 @@ public final class AudioMixer {
   /** Extra gain on everything this mixer plays; applies to the playing voices at once. */
   public void setVolume(double v) {
     volume = v;
+    regain();
+  }
+
+  /** Give every playing voice its gain again (after the volume or a mute changed). */
+  private void regain() {
     for (Voice voice : voices.values()) {
       double target = voice.soundVolume * busGain(voice.bus);
       if (voice.ramping()) voice.to = target;
@@ -146,6 +165,10 @@ public final class AudioMixer {
         }
         break;
       }
+      case "mix":
+        mutes.put(c.bus != null ? c.bus : "", c.muted);
+        regain();
+        break;
       default: break;
     }
   }

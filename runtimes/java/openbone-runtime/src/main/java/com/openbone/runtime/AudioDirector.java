@@ -47,6 +47,8 @@ public final class AudioDirector {
   public double time;
   private final OpenBoneDocument doc;
   private final Consumer<AudioCommand> out;
+  /** Mutes set while playing (bus id, "" = master), on top of the document's mix. */
+  private final Map<String, Boolean> mutes = new LinkedHashMap<>();
 
   public AudioDirector(OpenBoneDocument doc, Consumer<AudioCommand> out) {
     this.doc = doc;
@@ -130,6 +132,24 @@ public final class AudioDirector {
 
   public void stopAll(double fade) {
     for (String id : new ArrayList<>(playing.keySet())) stop(id, fade);
+  }
+
+  /** Whether a bus (null = the master) is muted now: a setMute override, else the document's flag. */
+  public boolean isMuted(String bus) {
+    Boolean m = mutes.get(bus != null ? bus : "");
+    if (m != null) return m;
+    if (doc.audio == null) return false;
+    if (bus == null) return doc.audio.muted;
+    for (AudioData.Bus b : doc.audio.buses) if (b.id.equals(bus)) return b.muted;
+    return false;
+  }
+
+  /** Mute, unmute or toggle ({@code muted} null) a bus (null = the master); emits a {@code mix} command. Returns the new state. */
+  public boolean setMute(String bus, Boolean muted) {
+    boolean next = muted != null ? muted : !isMuted(bus);
+    mutes.put(bus != null ? bus : "", next);
+    out.accept(AudioCommand.mix(bus, next));
+    return next;
   }
 
   /** Audio keys crossed from total time prev (exclusive) to next (inclusive), with their key index. */

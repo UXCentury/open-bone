@@ -100,5 +100,9 @@ public class StateMachineData {
     public Double volume, fade;
     public boolean emitting;
     public double count;
+    /** setMute: the bus id (null = the master). */
+    public String bus;
+    /** setMute: true / false, or null to toggle. */
+    public Boolean muted;
   }
 }

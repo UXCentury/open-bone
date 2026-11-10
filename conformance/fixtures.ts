@@ -159,6 +159,8 @@ function interactive(): OpenBoneDocument {
   s.apply("addTransition", { stateMachine: "main", from: "@any", to: "press", conditions: [{ input: "pressed" }], duration: 0.1 });
   s.apply("addTransition", { stateMachine: "main", from: "press", to: "locomotion", exitTime: 1, duration: 0.2 });
   s.apply("addListener", { stateMachine: "main", slot: "button", event: "down", actions: [{ type: "fireTrigger", input: "pressed" }, { type: "reportEvent", event: "click" }] });
+  // Mute buttons: toggle a bus twice (on, then off again), then mute everything. Each emits a "mix" audio command.
+  s.apply("addListener", { stateMachine: "main", slot: "button", event: "up", actions: [{ type: "setMute", bus: "music", muted: "toggle" }, { type: "setMute", bus: "music", muted: "toggle" }, { type: "setMute", bus: null, muted: true }] });
   s.apply("addBinding", { stateMachine: "main", input: "speed", target: "bone", object: "body", property: "scaleX", inMin: 0, inMax: 1, outMin: 1, outMax: 1.5 });
   s.apply("addScript", { name: "counter", code: "let n = 0;\nfunction onEvent(e) { if (e.name === 'click') { n++; ob.setInput('count', n); ob.setInput('status', n > 1 ? 'busy' : 'ready'); } }" });
   s.apply("attachScript", { stateMachine: "main", script: "counter" });

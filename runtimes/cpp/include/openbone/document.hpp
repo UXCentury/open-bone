@@ -414,7 +414,7 @@ struct LayerData {
 enum class PointerEvent : uint8_t { Down, Up, Enter, Exit, Move, Click };
 
 struct ListenerAction {
-  enum class Type : uint8_t { SetInput, ToggleInput, FireTrigger, ReportEvent, RunScript, PlaySound, StopSound, SetEmitter, EmitParticles, Unknown };
+  enum class Type : uint8_t { SetInput, ToggleInput, FireTrigger, ReportEvent, RunScript, PlaySound, StopSound, SetEmitter, EmitParticles, SetMute, Unknown };
   Type type = Type::Unknown;
   Id input, event, script, sound, slot;
   std::string fn;
@@ -422,6 +422,9 @@ struct ListenerAction {
   std::optional<double> volume, fade;
   bool emitting = false;
   double count = 0;
+  // setMute: bus id (nullopt = the master); muted: nullopt = toggle
+  std::optional<Id> bus;
+  std::optional<bool> muted;
 };
 
 struct ListenerData {

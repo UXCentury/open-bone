@@ -302,6 +302,9 @@ public final class StateMachineInstance {
         case "emitParticles":
           skeleton.emitParticles(a.slot, a.count);
           break;
+        case "setMute":
+          audio.setMute(a.bus, a.muted);
+          break;
         default:
           break;
       }

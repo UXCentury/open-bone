@@ -526,6 +526,7 @@ struct StateMachineInstance::Impl {
           }
           case T::SetEmitter: sm.setEmitter(a.slot, a.emitting); break;
           case T::EmitParticles: sm.skeleton.emitParticles(a.slot, a.count); break;
+          case T::SetMute: sm.audio.setMute(a.bus, a.muted); break;
           default: break;
         }
       } catch (const std::exception& e) {

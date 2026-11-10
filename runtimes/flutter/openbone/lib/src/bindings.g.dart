@@ -1554,6 +1554,10 @@ final class ob_audio_command extends ffi.Struct {
   @ffi.Double()
   external double duration;
 
+  /// mix: 1 = `bus` (NULL = master) muted, 0 = unmuted. Appended last so older callers keep their layout.
+  @ffi.Int()
+  external int muted;
+
   static ffi.Pointer<ob_audio_command> $allocate(
     ffi.Allocator $allocator, {
     required ob_audio_type type,
@@ -1568,6 +1572,7 @@ final class ob_audio_command extends ffi.Struct {
     required ffi.Pointer<ffi.Char> source,
     required double fade,
     required double duration,
+    int muted = 0,
   }) => $allocator<ob_audio_command>()
     ..ref.type = type
     ..ref.id = id
@@ -1580,7 +1585,8 @@ final class ob_audio_command extends ffi.Struct {
     ..ref.loop = loop
     ..ref.source = source
     ..ref.fade = fade
-    ..ref.duration = duration;
+    ..ref.duration = duration
+    ..ref.muted = muted;
 }
 
 typedef ob_audio_fn = ffi.Pointer<ffi.NativeFunction<ob_audio_fnFunction>>;
@@ -1598,7 +1604,8 @@ typedef Dartob_audio_fnFunction =
 enum ob_audio_type {
   OB_AUDIO_PLAY(0),
   OB_AUDIO_STOP(1),
-  OB_AUDIO_FADE(2);
+  OB_AUDIO_FADE(2),
+  OB_AUDIO_MIX(3);
 
   final int value;
   const ob_audio_type(this.value);
@@ -1607,6 +1614,7 @@ enum ob_audio_type {
     0 => OB_AUDIO_PLAY,
     1 => OB_AUDIO_STOP,
     2 => OB_AUDIO_FADE,
+    3 => OB_AUDIO_MIX,
     _ => throw ArgumentError('Unknown value for ob_audio_type: $value'),
   };
 }
