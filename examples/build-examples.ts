@@ -77,6 +77,8 @@ interface SideRigSpec {
   ground?: number;
   /** Draw the torso over the front leg too, when its hem (a hoodie, a coat) covers the tops of the trousers. */
   torsoOverLegs?: boolean;
+  /** Draw the forearm over the upper arm (its elbow plate covers the upper arm's lower rim) instead of under it. */
+  foreOverUpper?: boolean;
   /** Scale of the leg parts relative to the body (parts sheets often draw legs too long for the torso). */
   legScale?: number;
   /** Scale of the arm parts relative to the body. */
@@ -138,8 +140,15 @@ function sideRig(A: Op, r: SideRigSpec) {
   // Forearm first, so the upper arm's lower rim (a sleeve hem, an elbow plate) covers the forearm's open top; the
   // fist goes on top of the forearm's wrist end.
   const arm = (side: "back" | "front", color?: string) => {
-    pin(A, `${side}-fore`, `${side}-forearm`, r.fore.part, r.fore.top, [0, 0], 90, ak, { color });
-    pin(A, `${side}-upper`, `${side}-arm`, r.upper.part, r.upper.top, [0, 0], 90, ak, { color });
+    const fore = () => pin(A, `${side}-fore`, `${side}-forearm`, r.fore.part, r.fore.top, [0, 0], 90, ak, { color });
+    const upper = () => pin(A, `${side}-upper`, `${side}-arm`, r.upper.part, r.upper.top, [0, 0], 90, ak, { color });
+    if (r.foreOverUpper) {
+      upper();
+      fore();
+    } else {
+      fore();
+      upper();
+    }
     // One fist drawing serves both hands: the far hand is its mirror image, so the two read as a left and a right hand.
     if (r.hand) pin(A, `${side}-fist`, `${side}-hand`, r.hand.part, r.hand.top, [0, 0], 90, ak, { color, mirror: side === "back" });
   };
@@ -226,7 +235,8 @@ function knight() {
   const scroll = addScrollLayers(A, "knight", [
     { name: "bg-far", image: "knight-bg-far", x: 700, y: 290, w: GW, h: (GW * 429) / 2000, speed: 14 },
     { name: "bg-mid", image: mid.image, x: 700, y: 100, w: GW, h: (GW * mid.h) / mid.w, speed: 55 },
-    { name: "bg-ground", image: ground.image, x: 700, y: -21, w: GW, h: (GW * ground.h) / ground.w, speed: reach * 4 },
+    // Lowered so the road's near edge meets his feet (both tiles move together).
+    { name: "bg-ground", image: ground.image, x: 700, y: -61.36, w: GW, h: (GW * ground.h) / ground.w, speed: reach * 4 },
   ]);
 
   const k = 0.5;
@@ -255,6 +265,9 @@ function knight() {
     legScale: 0.82,
     armScale: 0.86,
     knee: "thigh",
+    // The breastplate's skirt goes over the front thigh, and each vambrace's elbow plate over the upper arm's rim.
+    torsoOverLegs: true,
+    foreOverUpper: true,
     // He stands on the near edge of the road, in front of the cobbles.
     ground: -30,
     backTint: "#c2c6d0",
@@ -262,6 +275,28 @@ function knight() {
     backProp: (hand) => pin(A, "sword", hand, sword, [0.5, 0.84], [14, 0], -40, k, { scale: 0.9 }),
     frontProp: (forearm) => pin(A, "shield", forearm, shield, [0.5, 0.5], [40, -6], 90, k, { scale: 0.62 }),
   });
+  // Hand alignment by the project owner in the editor (setup pose), kept here so rebuilding the example keeps it:
+  // the back arm hangs forward of the front one (a three-quarter look), the front forearm is bent to hold the
+  // shield up, and the parts sit where the art lines up best.
+  const setBone = (name: string, props: Record<string, number>) => A("updateBone", { bone: name, ...props });
+  setBone("torso", { x: 5.8 });
+  setBone("back-arm", { y: -3.59 });
+  setBone("back-forearm", { y: 7.27 });
+  setBone("front-arm", { x: 69.69, y: 34.19 });
+  setBone("front-forearm", { x: 56, y: -9.87, rotation: 50.09 });
+  setBone("front-shin", { x: 64.36, y: -0.95 });
+  setBone("back-foot", { rotation: -14.91 });
+  const setPart = (slot: string, attachment: string, props: Record<string, number>) => A("updateAttachment", { slot, attachment, props });
+  setPart("sword", "knight-sword", { x: 57.22, y: 49.21 });
+  setPart("back-fore", "knight-forearm", { x: 23.3 });
+  setPart("back-upper", "knight-arm-upper", { x: 20, y: -1, scaleX: -1 });
+  setPart("back-fist", "knight-fist", { x: 15.31 });
+  setPart("back-boot", "knight-boot", { x: 10.44, y: 2.78 });
+  setPart("back-shin", "knight-shin", { x: 15.58, y: -9.4 });
+  setPart("front-boot", "knight-boot", { x: 9.01, y: 0 });
+  setPart("front-shin", "knight-shin", { x: 22.39, y: -7.64 });
+  setPart("head", "knight-helmet", { x: 47.21, y: 12.56 });
+  setPart("front-fore", "knight-forearm", { x: 28.45, y: -0.28 });
   A("addBoundingBox", { slot: "torso", name: "body-hit", x: 40, width: 150, height: 110 });
   A("addBoundingBox", { slot: "head", name: "head-hit", x: 40, width: 90, height: 90 });
   // Click the road to start or stop walking.
