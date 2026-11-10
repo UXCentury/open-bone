@@ -8,7 +8,14 @@
 
 #if OPENBONE_WITH_SCRIPTS
 extern "C" {
+// QuickJS's header trips MSVC conversion warnings (C4244); they are upstream's, so hide them for this include.
+#if defined(_MSC_VER)
+#pragma warning(push, 0)
+#endif
 #include "quickjs.h"
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
 }
 #endif
 

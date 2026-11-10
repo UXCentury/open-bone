@@ -19,7 +19,7 @@ public class OpenBone : ModuleRules
 		string Lib = Path.Combine(Root, "lib");
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
-			PublicAdditionalLibraries.Add(Path.Combine(Lib, "openbone.lib"));
+			PublicAdditionalLibraries.Add(Path.Combine(Lib, "openbone_static.lib"));  // MSVC: static lib, kept apart from the DLL import lib
 			PublicAdditionalLibraries.Add(Path.Combine(Lib, "openbone_quickjs.lib"));
 		}
 		else

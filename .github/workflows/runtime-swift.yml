@@ -33,7 +33,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       # The Swift image has no curl (fetch-quickjs.sh) or zstd (actions/cache compression).
-      - run: apt-get update && apt-get install -y --no-install-recommends curl ca-certificates zstd
+      - run: |
+          for i in 1 2 3; do apt-get -o Acquire::Retries=3 update && break; sleep 10; done
+          apt-get install -y --no-install-recommends curl ca-certificates zstd
       - uses: actions/cache@v6
         with:
           path: runtimes/swift/Sources/CQuickJS/vendor

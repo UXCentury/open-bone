@@ -36,7 +36,8 @@ if(OPENBONE_WITH_SCRIPTS)
     ${OPENBONE_QUICKJS_DIR}/libunicode.c
     ${OPENBONE_QUICKJS_DIR}/quickjs.c
     ${OPENBONE_QUICKJS_DIR}/xsum.c)
-  target_include_directories(openbone_quickjs PUBLIC ${OPENBONE_QUICKJS_DIR})
+  # SYSTEM: warnings inside quickjs.h are QuickJS's, not ours (GCC/Clang -isystem, MSVC /external:I).
+  target_include_directories(openbone_quickjs SYSTEM PUBLIC ${OPENBONE_QUICKJS_DIR})
   target_compile_definitions(openbone_quickjs PRIVATE _GNU_SOURCE)
   if(WIN32)
     target_compile_definitions(openbone_quickjs PRIVATE WIN32_LEAN_AND_MEAN _WIN32_WINNT=0x0601)
@@ -91,6 +92,10 @@ if(OPENBONE_BUILD_STATIC OR OPENBONE_BUILD_TESTS)
   add_library(openbone STATIC ${OPENBONE_SOURCES})
   openbone_configure(openbone)
   target_compile_definitions(openbone PUBLIC OPENBONE_STATIC)
+  if(MSVC)
+    # MSVC names both the static library and the DLL's import library openbone.lib; keep them apart.
+    set_target_properties(openbone PROPERTIES OUTPUT_NAME openbone_static)
+  endif()
   add_library(openbone::openbone ALIAS openbone)
   if(OPENBONE_INSTALL)
     install(TARGETS openbone EXPORT openboneTargets ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
