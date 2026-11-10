@@ -52,7 +52,9 @@ release for the current app version instead.
 ## Code signing
 
 Unsigned installers work, but macOS Gatekeeper and Windows SmartScreen warn the first time they are opened. Signing is
-optional and switched on by repository secrets (**Settings → Secrets and variables → Actions**).
+optional and switched on by secrets on the **`release` environment** (**Settings → Environments → release**). The
+workflow's job runs in that environment, so add yourself as a *required reviewer* there: a run then waits for your
+approval before it can read the certificate. (Repository secrets with the same names also work, but are not gated.)
 
 ### macOS (Developer ID + notarization)
 

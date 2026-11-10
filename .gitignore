@@ -6,3 +6,9 @@ apps/desktop/src-tauri/target
 out/
 apps/desktop/src-tauri/gen
 apps/editor/dist
+
+# Signing keys and certificates: never commit
+*.p12
+*.p8
+*.cer
+*.mobileprovision

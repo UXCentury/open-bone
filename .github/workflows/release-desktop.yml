@@ -45,6 +45,9 @@ jobs:
             args: ""
     name: ${{ matrix.label }}
     runs-on: ${{ matrix.os }}
+    # Signing secrets live on the protected "release" environment (Settings → Environments), so a run can only read
+    # them after a required reviewer approves it.
+    environment: release
     steps:
       - uses: actions/checkout@v7
 
@@ -90,6 +93,8 @@ jobs:
       - name: Release notes
         id: notes
         shell: bash
+        env:
+          MAC_SIGNED: ${{ secrets.APPLE_CERTIFICATE != '' && '1' || '' }}
         run: |
           node -e '
             const fs = require("fs");
@@ -97,10 +102,13 @@ jobs:
             const log = fs.readFileSync("CHANGELOG.md", "utf8");
             const m = log.match(new RegExp("^## " + v.replace(/\./g, "\\.") + "\\b[^\\n]*\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))", "m"));
             const notes = m ? m[1].trim() : "See CHANGELOG.md for what changed.";
+            const signed = !!process.env.MAC_SIGNED;
             const install = [
               "### Installing",
-              "Download the installer for your system below. These builds are not code-signed yet:",
-              "- **macOS**: if Apple \"could not verify\" OpenBone, click Done, then in **System Settings → Privacy & Security** click **Open Anyway** next to OpenBone. Or run `xattr -dr com.apple.quarantine /Applications/OpenBone.app`.",
+              signed
+                ? "Download the installer for your system below. The macOS app is signed and notarized; the others are not code-signed yet:"
+                : "Download the installer for your system below. These builds are not code-signed yet:",
+              ...(signed ? [] : ["- **macOS**: if Apple \"could not verify\" OpenBone, click Done, then in **System Settings → Privacy & Security** click **Open Anyway** next to OpenBone. Or run `xattr -dr com.apple.quarantine /Applications/OpenBone.app`."]),
               "- **Windows**: if SmartScreen appears, choose **More info** then **Run anyway**.",
               "- **Linux AppImage**: on newer Ubuntu install `libfuse2`, or run it with `--appimage-extract-and-run`.",
             ].join("\n");
