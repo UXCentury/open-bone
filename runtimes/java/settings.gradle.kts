@@ -8,6 +8,8 @@ pluginManagement {
     kotlin("jvm") version "2.4.21"
     kotlin("android") version "2.4.21"
     id("com.android.library") version "9.5.1"
+    // Maven Central (Sonatype Central Portal) publishing, Apache-2.0: https://github.com/vanniktech/gradle-maven-publish-plugin
+    id("com.vanniktech.maven.publish") version "0.37.0"
   }
 }
 

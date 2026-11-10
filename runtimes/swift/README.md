@@ -11,54 +11,53 @@ over the [C++ runtime](../cpp) — SwiftPM compiles the C++ sources directly and
 | Platforms | iOS 15+, macOS 12+ (tvOS 15+ for the runtime and views; untested); the runtime part also builds on Linux |
 | Swift | 5.9+ (swift-tools-version 5.9; checked with Swift 6.0.3) |
 | Products | `OpenBone` (one library: runtime API + Metal views + SwiftUI wrapper) |
-| Targets | `COpenBone` (C++17 runtime, C API), `CQuickJS` (quickjs-ng 0.10.1, only when fetched), `OpenBone` (Swift), `OpenBoneTests` |
-| Dependencies | none at build time beyond the C++ runtime's own: nlohmann/json (MIT, vendored in `runtimes/cpp`), [QuickJS-ng](https://github.com/quickjs-ng/quickjs) (MIT, downloaded by a script) |
+| Targets | `COpenBone` (C++17 runtime, C API), `CQuickJS` (quickjs-ng 0.10.1), `OpenBone` (Swift), `OpenBoneTests` |
+| Dependencies | none at build time beyond the C++ runtime's own: nlohmann/json (MIT, vendored in `runtimes/cpp`), [QuickJS-ng](https://github.com/quickjs-ng/quickjs) (MIT, vendored in `runtimes/cpp/third_party/quickjs`) |
 | Licence | MIT |
 
 ## Install
 
-The package lives inside this repository and compiles `runtimes/cpp` through the symlinks in
-`Sources/COpenBone` (`src`, `cpp-include`, `third_party`, `include/openbone.h`), so use it from a checkout:
+The package manifest is at the **repository root** (`Package.swift`), so add the repository URL and a release version:
 
-1. Fetch QuickJS (document scripts; same release and SHA-256 as the C++ CMake build). Without it the package still
-   builds, with scripts disabled (`OpenBoneRuntime.hasScripts == false`):
+- Xcode: *File → Add Package Dependencies…*, enter `https://github.com/UXCentury/open-bone`, pick *Up to Next Major
+  Version* from `0.2.0`, and add the `OpenBone` library to your target.
+- `Package.swift`:
 
-   ```bash
-   runtimes/swift/scripts/fetch-quickjs.sh
-   ```
+  ```swift
+  dependencies: [.package(url: "https://github.com/UXCentury/open-bone", from: "0.2.0")],
+  targets: [.target(name: "MyApp", dependencies: [.product(name: "OpenBone", package: "open-bone")])]
+  ```
 
-   SwiftPM caches what `Package.swift` decided, so if you fetch QuickJS after a first build, delete
-   `runtimes/swift/.build` (or *Product → Clean Build Folder* in Xcode) so the package is rebuilt with scripts on.
+Releases are the repository's `v0.2.0`-style tags (SwiftPM reads a leading `v` as part of the tag, not the version).
+SwiftPM clones the whole repository, but builds only the Swift package's targets.
 
-2. Add the package as a **local** dependency — in Xcode *File → Add Package Dependencies… → Add Local…* and pick
-   `runtimes/swift`, or in a `Package.swift`:
+SwiftPM compiles `runtimes/cpp` from source through the symlinks in `Sources/COpenBone` (`src`, `cpp-include`,
+`third_party`, `include/openbone.h`) and QuickJS ([quickjs-ng](https://github.com/quickjs-ng/quickjs) 0.10.1, MIT,
+vendored in `runtimes/cpp/third_party/quickjs`) through `Sources/CQuickJS/vendor`, so document scripts are always on.
+The manifest uses no *unsafe flags* (which SwiftPM refuses in packages used by version): bit-exact results without
+fused multiply-add come from `#pragma STDC FP_CONTRACT OFF` in `runtimes/cpp/src/exact_math.h` (included first by every
+runtime source) and in the `Sources/CQuickJS/*.c` wrappers, rather than `-ffp-contract=off`.
 
-   ```swift
-   dependencies: [.package(name: "OpenBone", path: "../open-bone/runtimes/swift")],
-   targets: [.target(name: "MyApp", dependencies: [.product(name: "OpenBone", package: "OpenBone")])]
-   ```
-
-The C++ code is compiled with `-ffp-contract=off` (no fused multiply-add, so results match the reference on ARM64);
-SwiftPM calls that an *unsafe flag*, which it accepts for root and local packages but not for packages pulled by
-version from a URL. Distributing it as a remote package would need a `Package.swift` at the repository root or a
-prebuilt `libopenbone` XCFramework (`binaryTarget`) — not done yet.
+To work on a local checkout instead, use a path dependency on the repository root:
+`.package(name: "OpenBone", path: "../open-bone")`, or *Add Local…* in Xcode.
 
 ## Build and test
 
+From the repository root (SwiftPM also finds the root manifest from `runtimes/swift`):
+
 ```bash
-cd runtimes/swift && swift build
+swift build
 ```
 
 ```bash
-cd runtimes/swift && swift test
+swift test
 ```
 
 `swift test` runs every case of `conformance/expected/*.json` through the Swift API (`ConformanceTests`, one test
 per reference file, with the suite's tolerances and the C++ runner's comparison rules), API tests (loading and errors,
 `.obonb` = `.obone`, inputs and triggers, pointer → listener events, skins, queueing, clips, text, lifetimes) and
 tests of the platform-neutral renderer geometry (framing, mesh building and batching) and sound logic (`AudioTests`:
-the document's audio listings, `OpenBoneAudioMixer` gain, fades and voices with a recording output). Set
-`OPENBONE_NO_SCRIPTS=1` to build without QuickJS even when it is fetched.
+the document's audio listings, `OpenBoneAudioMixer` gain, fades and voices with a recording output).
 
 ## Usage
 
@@ -154,7 +153,7 @@ state changes and script logs.
 cd runtimes/swift/Examples/OpenBoneSample && swift run
 ```
 
-That runs it on macOS. For iOS, create an iOS App target in Xcode, add `runtimes/swift` as a local package and the
+That runs it on macOS. For iOS, create an iOS App target in Xcode, add the repository root as a local package and the
 two files in `Sources/OpenBoneSample` to the target (bundle the documents and their `assets/` folder, or use *Open…*).
 
 ## API
@@ -186,7 +185,8 @@ Tested here (Linux x86_64, Swift 6.0.3, Ubuntu 22.04):
 - `swift test --sanitize=address`: no errors; LeakSanitizer reports only allocations made inside the Swift runtime /
   XCTest themselves (none from the C / C++ runtime or this package's objects); `testLifetimes` checks documents and
   instances are released;
-- the build without QuickJS (`OPENBONE_NO_SCRIPTS=1`), and that the sample package resolves and compiles (on Linux
+- use as a versioned dependency: a consumer package depending on a tagged clone by URL resolves `v0.2.0` and builds
+  with no unsafe-flags error (CI repeats this on Linux), and that the sample package resolves and compiles (on Linux
   it compiles to a stub, as SwiftUI is missing).
 
 **Not tested: everything that needs Apple frameworks.** `MetalRenderer.swift`, `OpenBoneView.swift`,

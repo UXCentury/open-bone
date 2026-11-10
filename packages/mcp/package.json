@@ -1,15 +1,62 @@
 {
   "name": "@openbone/mcp",
   "version": "0.2.0",
+  "description": "MCP server for OpenBone: let AI agents rig, animate and wire up interactive skeletal animations",
+  "keywords": [
+    "openbone",
+    "skeletal-animation",
+    "2d-animation",
+    "animation",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "agent"
+  ],
+  "homepage": "https://github.com/UXCentury/open-bone/tree/main/packages/mcp#readme",
+  "bugs": {
+    "url": "https://github.com/UXCentury/open-bone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UXCentury/open-bone.git",
+    "directory": "packages/mcp"
+  },
   "license": "MIT",
   "type": "module",
-  "description": "MCP server for OpenBone: let AI agents rig, animate and wire up interactive skeletal animations",
   "exports": {
     ".": "./src/index.ts",
     "./bin": "./src/bin.ts"
   },
   "bin": {
     "openbone-mcp": "./src/bin.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./bin": {
+        "types": "./dist/bin.d.ts",
+        "default": "./dist/bin.js"
+      }
+    },
+    "bin": {
+      "openbone-mcp": "./dist/bin.js"
+    }
+  },
+  "scripts": {
+    "build": "node ../build.mjs",
+    "prepack": "node ../build.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.2",
@@ -20,6 +67,7 @@
     "@openbone/render-canvas": "workspace:*",
     "@openbone/runtime": "workspace:*",
     "@openbone/scripting": "workspace:*",
+    "esbuild": "^0.28.2",
     "gifenc": "^1.0.3",
     "ws": "^8.18.0",
     "zod": "^4.1.0"

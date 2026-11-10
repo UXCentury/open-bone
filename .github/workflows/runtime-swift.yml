@@ -1,22 +1,27 @@
-# Swift package: conformance suite on Linux and macOS; on macOS the Metal / AppKit / SwiftUI views compile, and the
-# package is also built for iOS.
+# Swift package (manifest at the repository root, sources in runtimes/swift): conformance suite on Linux and macOS; on
+# macOS the Metal / AppKit / SwiftUI views compile, and the package is also built for iOS. On Linux a consumer package
+# also uses it as a versioned dependency by URL, the way apps do, which fails if the manifest gains unsafe flags.
 name: Swift runtime
 
 on:
   push:
     branches: [main]
     paths:
+      - "Package.swift"
       - "runtimes/swift/**"
       - "runtimes/cpp/include/**"
       - "runtimes/cpp/src/**"
+      - "runtimes/cpp/third_party/**"
       - "conformance/**"
       - "examples/**/*.obone"
       - ".github/workflows/runtime-swift.yml"
   pull_request:
     paths:
+      - "Package.swift"
       - "runtimes/swift/**"
       - "runtimes/cpp/include/**"
       - "runtimes/cpp/src/**"
+      - "runtimes/cpp/third_party/**"
       - "conformance/**"
       - "examples/**/*.obone"
       - ".github/workflows/runtime-swift.yml"
@@ -31,20 +36,40 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-      # The Ubuntu runner image ships Swift (and curl, zstd), so no container or apt-get step is needed.
+      # The Ubuntu runner image ships Swift, so no container or apt-get step is needed.
       - run: swift --version
       - uses: actions/cache@v6
         with:
-          path: runtimes/swift/Sources/CQuickJS/vendor
-          key: quickjs-${{ hashFiles('runtimes/swift/scripts/fetch-quickjs.sh') }}
-      - uses: actions/cache@v6
-        with:
-          path: runtimes/swift/.build
-          key: swiftpm-linux-runner-${{ hashFiles('runtimes/swift/Package.swift', 'runtimes/swift/Sources/**', 'runtimes/cpp/src/**', 'runtimes/cpp/include/**') }}
+          path: .build
+          key: swiftpm-linux-runner-${{ hashFiles('Package.swift', 'runtimes/swift/Sources/**', 'runtimes/cpp/src/**', 'runtimes/cpp/include/**', 'runtimes/cpp/third_party/**') }}
           restore-keys: swiftpm-linux-runner-
-      - run: test -f runtimes/swift/Sources/CQuickJS/vendor/quickjs.c || runtimes/swift/scripts/fetch-quickjs.sh
       - run: swift test
-        working-directory: runtimes/swift
+      - name: Use the package as a versioned dependency
+        # SwiftPM refuses unsafe flags only in packages resolved by version, so tag this checkout (locally, never
+        # pushed) and build a consumer that depends on it by URL, like an app depending on a release.
+        run: |
+          git tag 999.0.0
+          consumer="$RUNNER_TEMP/consumer"
+          mkdir -p "$consumer/Sources/Consumer"
+          identity=$(basename "$GITHUB_WORKSPACE" | tr '[:upper:]' '[:lower:]')
+          cat > "$consumer/Package.swift" <<EOF
+          // swift-tools-version:5.9
+          import PackageDescription
+          let package = Package(
+              name: "Consumer",
+              dependencies: [.package(url: "file://$GITHUB_WORKSPACE", exact: "999.0.0")],
+              targets: [.executableTarget(name: "Consumer", dependencies: [.product(name: "OpenBone", package: "$identity")])]
+          )
+          EOF
+          cat > "$consumer/Sources/Consumer/main.swift" <<EOF
+          import Foundation
+          import OpenBone
+          precondition(OpenBoneRuntime.hasScripts)
+          let doc = try OpenBoneDocument(contentsOf: URL(fileURLWithPath: "$GITHUB_WORKSPACE/examples/knight.obone"))
+          print("OpenBone \(OpenBoneRuntime.version): \(doc.animations.count) animations")
+          EOF
+          cd "$consumer"
+          swift run Consumer
 
   macos:
     runs-on: macos-15
@@ -52,16 +77,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/cache@v6
         with:
-          path: runtimes/swift/Sources/CQuickJS/vendor
-          key: quickjs-${{ hashFiles('runtimes/swift/scripts/fetch-quickjs.sh') }}
-      - uses: actions/cache@v6
-        with:
-          path: runtimes/swift/.build
-          key: swiftpm-macos-${{ hashFiles('runtimes/swift/Package.swift', 'runtimes/swift/Sources/**', 'runtimes/cpp/src/**', 'runtimes/cpp/include/**') }}
+          path: .build
+          key: swiftpm-macos-${{ hashFiles('Package.swift', 'runtimes/swift/Sources/**', 'runtimes/cpp/src/**', 'runtimes/cpp/include/**', 'runtimes/cpp/third_party/**') }}
           restore-keys: swiftpm-macos-
-      - run: test -f runtimes/swift/Sources/CQuickJS/vendor/quickjs.c || runtimes/swift/scripts/fetch-quickjs.sh
       - run: swift test
-        working-directory: runtimes/swift
       - name: Build for iOS
-        working-directory: runtimes/swift
         run: xcodebuild build -scheme OpenBone -destination 'generic/platform=iOS' -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO

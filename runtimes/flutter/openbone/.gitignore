@@ -31,7 +31,6 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 /build/
 /coverage/
-/third_party/
 
 # Swift Package Manager (darwin/openbone)
 /darwin/openbone/.build/

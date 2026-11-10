@@ -238,6 +238,9 @@ importers:
       '@openbone/scripting':
         specifier: workspace:*
         version: link:../scripting
+      esbuild:
+        specifier: ^0.28.2
+        version: 0.28.2
       gifenc:
         specifier: ^1.0.3
         version: 1.0.3
@@ -251,6 +254,12 @@ importers:
       '@types/ws':
         specifier: ^8.18.1
         version: 8.18.2
+
+  packages/openbone:
+    dependencies:
+      '@openbone/cli':
+        specifier: workspace:*
+        version: link:../cli
 
   packages/phaser:
     dependencies:

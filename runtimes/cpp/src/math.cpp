@@ -1,5 +1,7 @@
 // core/math.ts, core/template.ts, core/particles.ts helpers.
 // SPDX-License-Identifier: MIT
+#include "exact_math.h"  // first: no FMA contraction (bit-exact results)
+
 #include <algorithm>
 #include <cmath>
 

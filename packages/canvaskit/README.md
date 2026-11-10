@@ -1,6 +1,6 @@
 # @openbone/canvaskit
 
-[OpenBone](../../README.md) runtime for **CanvasKit** (Skia compiled to WebAssembly): a renderer for any CanvasKit canvas (browser WebGL or software surfaces, or headless in Node) and a small player with state machines, pointer listeners, events, skins and sound.
+[OpenBone](https://github.com/UXCentury/open-bone#readme) runtime for **CanvasKit** (Skia compiled to WebAssembly): a renderer for any CanvasKit canvas (browser WebGL or software surfaces, or headless in Node) and a small player with state machines, pointer listeners, events, skins and sound.
 
 ## Install
 

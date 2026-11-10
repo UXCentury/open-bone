@@ -1,9 +1,49 @@
 {
   "name": "@openbone/scripting",
   "version": "0.2.0",
+  "description": "Sandboxed scripting for OpenBone state machines, powered by QuickJS (WebAssembly)",
+  "keywords": [
+    "openbone",
+    "skeletal-animation",
+    "2d-animation",
+    "animation",
+    "scripting",
+    "quickjs",
+    "sandbox"
+  ],
+  "homepage": "https://github.com/UXCentury/open-bone/tree/main/packages/scripting#readme",
+  "bugs": {
+    "url": "https://github.com/UXCentury/open-bone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UXCentury/open-bone.git",
+    "directory": "packages/scripting"
+  },
   "license": "MIT",
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "node ../build.mjs",
+    "prepack": "node ../build.mjs"
+  },
   "dependencies": {
     "@openbone/core": "workspace:*",
     "@openbone/runtime": "workspace:*",

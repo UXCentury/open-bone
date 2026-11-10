@@ -1,6 +1,7 @@
 plugins {
   id("com.android.library")
   kotlin("android")
+  id("com.vanniktech.maven.publish")
 }
 
 android {
@@ -56,3 +57,11 @@ val conformanceAssets = tasks.register<Sync>("conformanceAssets") {
   from(repo.resolve("examples")) { include("*.obone"); into("examples") }
 }
 tasks.matching { it.name.startsWith("merge") && it.name.contains("AndroidTestAssets") }.configureEach { dependsOn(conformanceAssets) }
+
+mavenPublishing {
+  coordinates(artifactId = "openbone-android")
+  pom {
+    name.set("OpenBone Android")
+    description.set("Android View for OpenBone skeletons and state machines with a Kotlin API: inputs, triggers, events, touch listeners, audio.")
+  }
+}

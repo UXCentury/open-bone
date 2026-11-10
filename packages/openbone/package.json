@@ -1,0 +1,39 @@
+{
+  "name": "openbone",
+  "version": "0.2.0",
+  "description": "OpenBone command line (npx openbone): validate, render, export and edit 2D skeletal animations, and start the MCP server",
+  "keywords": [
+    "openbone",
+    "skeletal-animation",
+    "2d-animation",
+    "animation",
+    "cli",
+    "mcp"
+  ],
+  "homepage": "https://github.com/UXCentury/open-bone#readme",
+  "bugs": {
+    "url": "https://github.com/UXCentury/open-bone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UXCentury/open-bone.git",
+    "directory": "packages/openbone"
+  },
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "openbone": "./bin.js"
+  },
+  "files": [
+    "bin.js"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@openbone/cli": "workspace:*"
+  }
+}

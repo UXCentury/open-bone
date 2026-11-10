@@ -1,0 +1,136 @@
+# Publishes the Flutter plugin (runtimes/flutter/openbone) to pub.dev.
+#
+# pub.dev packages cannot reach outside their folder, so every job publishes or checks the copy staged by
+# runtimes/flutter/openbone/tool/bundle.sh (the C++ runtime bundled into cpp/, symlinks replaced by files).
+#
+# - Pull requests touching the plugin or the C++ runtime, and manual runs: stage the package, `flutter pub publish
+#   --dry-run`, `flutter analyze`, and build the example against the staged copy (Linux; plus macOS/iOS through Swift
+#   Package Manager and Windows on manual runs). Nothing is published.
+# - A version tag (git tag v0.2.0 && git push origin v0.2.0, or a GitHub release that creates the tag): the same checks
+#   on all platforms, then publishing with pub.dev's automated publishing (OpenID Connect, no secret). pub.dev only
+#   accepts tokens from workflows started by a tag push, so publishing a GitHub release is not a trigger of its own.
+#
+# One-time setup (see docs/releasing.md): publish the first version by hand, then on
+# https://pub.dev/packages/openbone/admin enable "Automated publishing" from GitHub Actions with repository
+# UXCentury/open-bone, tag pattern v{{version}}, and "Require GitHub Actions environment" = pub.dev.
+name: Publish to pub.dev
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "runtimes/flutter/openbone/**"
+      - "runtimes/cpp/CMakeLists.txt"
+      - "runtimes/cpp/include/**"
+      - "runtimes/cpp/src/**"
+      - "runtimes/cpp/third_party/**"
+      - ".github/workflows/publish-pub.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: 3.47.9
+  # Outside the checkout (relative to it), so the repository's .gitignore files do not apply to the staged copy.
+  STAGED: ../openbone-pub/openbone
+
+jobs:
+  # Stage, validate and build the example against the staged copy on Linux.
+  package:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: awalsh128/cache-apt-pkgs-action@v1.6.3
+        with:
+          packages: ninja-build libgtk-3-dev
+          version: 1
+      - name: Check the tag matches the package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(sed -n 's/^version: *//p' runtimes/flutter/openbone/pubspec.yaml)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match runtimes/flutter/openbone/pubspec.yaml version $version"
+            exit 1
+          fi
+      - name: Stage the package
+        run: runtimes/flutter/openbone/tool/bundle.sh "$STAGED"
+      - name: Validate (dry run)
+        working-directory: ${{ env.STAGED }}
+        run: |
+          flutter pub get
+          flutter analyze
+          flutter pub publish --dry-run
+      - name: Build the example against the staged package (Linux)
+        working-directory: ${{ env.STAGED }}/example
+        run: flutter build linux
+
+  # The Apple (Swift Package Manager) and Windows builds of the staged copy: before publishing, and on manual runs.
+  staged-builds:
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Stage the package
+        shell: bash
+        run: runtimes/flutter/openbone/tool/bundle.sh "$STAGED"
+      - name: Build the example (macOS, iOS) with Swift Package Manager
+        if: runner.os == 'macOS'
+        working-directory: ${{ env.STAGED }}/example
+        shell: bash  # -eo pipefail: a failed build fails the step despite tee
+        run: |
+          flutter config --enable-swift-package-manager
+          flutter build macos 2>&1 | tee build-macos.log
+          flutter build ios --no-codesign 2>&1 | tee build-ios.log
+          if grep -q "do not support Swift Package Manager" build-macos.log build-ios.log; then
+            echo "::error::openbone fell back to CocoaPods"; exit 1
+          fi
+      - name: Build the example (Windows)
+        if: runner.os == 'Windows'
+        working-directory: ${{ env.STAGED }}/example
+        run: flutter build windows
+
+  publish:
+    needs: [package, staged-builds]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && github.repository == 'UXCentury/open-bone'
+    runs-on: ubuntu-24.04
+    # Must match "Require GitHub Actions environment" on pub.dev; add protection rules (reviewers) to it in
+    # Settings → Environments if every release should wait for an approval.
+    environment: pub.dev
+    permissions:
+      contents: read
+      id-token: write  # the OpenID Connect token pub.dev accepts instead of a secret
+    steps:
+      - uses: actions/checkout@v7
+      - uses: subosito/flutter-action@v2.23.0
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - name: Stage the package
+        run: runtimes/flutter/openbone/tool/bundle.sh "$STAGED"
+      - name: Resolve
+        working-directory: ${{ env.STAGED }}
+        run: flutter pub get
+      # Last before publishing: setup-dart requests the short-lived pub.dev token (id-token: write) and registers it
+      # with pub (`dart pub token add https://pub.dev`), which Flutter's pub reads too.
+      - uses: dart-lang/setup-dart@v1.8.1
+      - name: Publish
+        working-directory: ${{ env.STAGED }}
+        run: flutter pub publish --force

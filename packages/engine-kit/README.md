@@ -1,6 +1,6 @@
 # @openbone/engine-kit
 
-Shared plumbing for the OpenBone game-engine runtimes ([`@openbone/pixi`](../pixi), [`@openbone/phaser`](../phaser), [`@openbone/three`](../three), [`@openbone/canvaskit`](../canvaskit)). You only need it directly to write a runtime for another engine.
+Shared plumbing for the OpenBone game-engine runtimes ([`@openbone/pixi`](https://www.npmjs.com/package/@openbone/pixi), [`@openbone/phaser`](https://www.npmjs.com/package/@openbone/phaser), [`@openbone/three`](https://www.npmjs.com/package/@openbone/three), [`@openbone/canvaskit`](https://www.npmjs.com/package/@openbone/canvaskit)). You only need it directly to write a runtime for another engine.
 
 - **`loadDocument(src, { baseUrl, fetch })`**: fetch and parse a `.obone` (JSON) or `.obonb` (binary) document, or take bytes / a parsed document. Returns the document and the folder its relative image and audio paths resolve against.
 - **`textureRequests(doc, baseUrl)` / `loadTextures(doc, baseUrl, { load })`**: the textures to load (atlas pages when the document is packed, otherwise each image with a source), with URLs resolved.

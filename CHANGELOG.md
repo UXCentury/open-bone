@@ -4,6 +4,21 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 
 ## Unreleased
 
+### Packages
+- npm: every `@openbone/*` package builds to JavaScript with type definitions, plus the `openbone` CLI (`npx openbone`) and `npx -y @openbone/mcp`.
+- NuGet: `OpenBone.Runtime`, `OpenBone.Scripting.Jint` and `OpenBone.MonoGame`, with symbols and SourceLink.
+- Unity: the package installs from git (`https://github.com/UXCentury/open-bone.git#upm`) and OpenUPM, with the DLLs built in.
+- Maven Central: `com.uxcentury:openbone-runtime`, `openbone-scripting`, `openbone-gdx` and `openbone-android`.
+- Swift: `Package.swift` moved to the repository root, so SwiftPM installs the package from the repository URL.
+- Flutter: the plugin can be published to pub.dev with the C++ sources bundled.
+- Godot: a ready-to-install `addons/openbone` with Windows, macOS, Linux (x86_64, arm64) and Android libraries.
+- Publish workflows for each registry, run by the GitHub release (pub.dev and Swift: by the tag).
+
+### Changed
+- QuickJS (quickjs-ng 0.10.1) is vendored in `runtimes/cpp/third_party`, so no build downloads it.
+- No fused multiply-add: a source pragma (`exact_math.h`) replaces the compiler flag where clang builds the runtime.
+- The MCP server reports the real version.
+
 ## 0.2.0 (2026-11-10)
 
 Native runtimes for C++ (Godot, Cocos2d-x, SDL2, SFML, OpenGL, Unreal), C# (Unity, MonoGame), Java (libGDX, Android), Swift, Flutter and Haxe, all checked against a shared conformance suite; sound in the engine integrations; desktop installers for Windows, macOS and Linux; WebM video export; and the rest of the Spine-style rigging tools.

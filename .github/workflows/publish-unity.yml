@@ -1,0 +1,144 @@
+# Publishes the Unity package (com.openbone.runtime) with its prebuilt DLLs, so it installs without building anything:
+#
+# - assembles the full package (sources, Plugins/*.dll, every .meta) with runtimes/csharp/unity/build-package.py --out,
+# - commits it to the `upm` branch (package at the branch root; history only, main is never touched) and tags that
+#   commit `upm/v<version>`,
+# - attaches com.openbone.runtime-<version>.tgz to the GitHub release (Package Manager → Add package from tarball).
+#
+# Users install https://github.com/UXCentury/open-bone.git#upm (latest) or ...#upm/v<version> (pinned), or from OpenUPM,
+# which builds every `upm/v*` tag (gitTagPrefix "upm/").
+#
+# - On a published GitHub release (tag v<version>, matching runtimes/csharp/unity/com.openbone.runtime/package.json).
+# - Run it by hand for a dry run: assemble, verify and commit locally, show what would change, upload the package as a
+#   workflow artifact, push nothing. Untick "dry-run" to push the branch and tag from the selected ref.
+#
+# Safe to re-run: an unchanged package makes no new commit, the branch is only fast-forwarded (never force-pushed), and
+# an existing upm/v<version> tag is left alone when it already holds the same package (the run fails if it differs).
+name: Publish Unity package
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Dry run: assemble and verify only, do not push the upm branch or tag"
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  upm:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # push the upm branch and tag, upload the release asset
+    env:
+      DRY_RUN: ${{ github.event_name != 'release' && inputs.dry-run != false }}
+      TAG: ${{ github.event.release.tag_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('runtimes/csharp/**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Check the version
+        id: version
+        run: |
+          version=$(jq -r .version runtimes/csharp/unity/com.openbone.runtime/package.json)
+          if [ -n "$TAG" ] && [ "$TAG" != "v$version" ]; then
+            echo "::error::Release tag $TAG does not match package.json version $version (expected v$version)"; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Unity package $version (dry run: $DRY_RUN)"
+      - name: Test the runtime and compile-check the package
+        working-directory: runtimes/csharp
+        run: |
+          dotnet test -c Release
+          dotnet build unity/compile-check
+      - name: Assemble the package
+        run: python3 runtimes/csharp/unity/build-package.py --out "$RUNNER_TEMP/upm/package" --pack
+      - uses: actions/upload-artifact@v7
+        with:
+          name: com.openbone.runtime-${{ steps.version.outputs.version }}
+          path: |
+            ${{ runner.temp }}/upm/package
+            ${{ runner.temp }}/upm/*.tgz
+          if-no-files-found: error
+      - name: Commit to the upm branch
+        id: commit
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          W="$RUNNER_TEMP/upm-branch"
+          if git ls-remote --exit-code --heads origin upm >/dev/null; then
+            git fetch --no-tags --depth=1 origin +refs/heads/upm:refs/remotes/origin/upm
+            git worktree add -B upm "$W" origin/upm
+          else
+            echo "No upm branch yet: starting it (orphan, no history shared with main)"
+            git branch -D upm 2>/dev/null || true
+            git worktree add --orphan -b upm "$W"
+          fi
+          find "$W" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "$RUNNER_TEMP/upm/package/." "$W/"
+          cd "$W"
+          git add -A
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --cached --quiet && git rev-parse -q --verify HEAD >/dev/null; then
+            echo "Package unchanged on the upm branch: no new commit"
+          else
+            git diff --cached --stat | tail -n 25
+            git commit -q -m "com.openbone.runtime $VERSION" -m "Built from ${GITHUB_SHA} (${GITHUB_REF_NAME}) by ${GITHUB_WORKFLOW} run ${GITHUB_RUN_ID}."
+          fi
+          echo "dir=$W" >> "$GITHUB_OUTPUT"
+          echo "tree=$(git rev-parse 'HEAD^{tree}')" >> "$GITHUB_OUTPUT"
+      - name: Push the upm branch and tag
+        working-directory: ${{ steps.commit.outputs.dir }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TREE: ${{ steps.commit.outputs.tree }}
+        run: |
+          set -euo pipefail
+          tag="upm/v$VERSION"
+          existing=""
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            git fetch --no-tags --depth=1 origin "+refs/tags/$tag:refs/tags/$tag"
+            existing=$(git rev-parse "refs/tags/$tag^{tree}")
+            if [ "$existing" != "$TREE" ]; then
+              echo "::error title=Tag $tag already exists with different content::Published versions are immutable for Package Manager and OpenUPM caches. Bump the version (scripts/version.ts) and release again, or delete the tag by hand if it was never used."
+              exit 1
+            fi
+            echo "Tag $tag already holds this package"
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            if [ -n "$existing" ]; then note="(tag $tag already exists)"; else note="and tag it $tag"; fi
+            echo "Dry run: would push $(git rev-parse --short HEAD) to upm $note"
+            exit 0
+          fi
+          git push origin HEAD:refs/heads/upm
+          if [ -z "$existing" ]; then
+            git tag -a "$tag" -m "com.openbone.runtime $VERSION"
+            git push origin "refs/tags/$tag"
+          fi
+          {
+            echo "### Unity package $VERSION"
+            echo "- Branch \`upm\` at $(git rev-parse --short HEAD), tag \`$tag\`"
+            echo "- Package Manager → Add package from git URL: \`https://github.com/${GITHUB_REPOSITORY}.git#$tag\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Attach the tarball to the release
+        if: github.event_name == 'release'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: gh release upload "$TAG" "$RUNNER_TEMP/upm/com.openbone.runtime-$VERSION.tgz" --clobber --repo "$GITHUB_REPOSITORY"

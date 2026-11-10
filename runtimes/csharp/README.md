@@ -16,6 +16,17 @@ and state-machine states, frame by frame, within the suite's tolerances.
 | `monogame/sample/OpenBone.MonoGame.Sample` | net8.0 | DesktopGL sample: the knight example with its state machine. |
 | `monogame/tests/OpenBone.MonoGame.Tests` | net8.0 | xUnit, no window: meshing, render states, view transform, pointer, audio maths, effect container. |
 
+## Install
+
+```bash
+dotnet add package OpenBone.Runtime
+dotnet add package OpenBone.Scripting.Jint   # state-machine scripts
+dotnet add package OpenBone.MonoGame         # MonoGame DesktopGL integration (brings the other two)
+```
+
+Unity: Package Manager → Add package from git URL → `https://github.com/UXCentury/open-bone.git#upm` (or OpenUPM:
+`openupm add com.openbone.runtime`); see the [Unity package README](unity/com.openbone.runtime/README.md#install).
+
 ## Build and test
 
 Needs the [.NET 8 SDK](https://dot.net) (a user-local install works: `./dotnet-install.sh --channel 8.0`).
@@ -29,6 +40,11 @@ dotnet build unity/compile-check    # Unity package against the Unity API stub
 The conformance tests find `conformance/expected/*.json` by walking up from the test binaries, so run them inside the
 repository. A failure lists the case, sample time and the first differing value (bone, slot, draw item field, event,
 audio command or state).
+
+Packages: `dotnet pack OpenBone.sln -c Release -o out` and `dotnet pack monogame/src/OpenBone.MonoGame -c Release -o out`
+make the three `.nupkg` / `.snupkg` pairs (shared metadata in `Directory.Build.props`, a README per package next to its
+`.csproj`). Releases publish them with `.github/workflows/publish-dotnet.yml` and the Unity package with
+`publish-unity.yml` (see [docs/releasing.md](../../docs/releasing.md)).
 
 ## Use
 

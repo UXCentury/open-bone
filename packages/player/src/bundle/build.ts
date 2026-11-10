@@ -14,7 +14,10 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-export const BUNDLE_ENTRY = path.join(here, "webview.ts");
+// ".ts" when run from the sources (monorepo), ".js" when run from the compiled npm package (dist/bundle).
+const ext = path.extname(fileURLToPath(import.meta.url)) || ".js";
+const entry = (name: string) => path.join(here, `${name}${ext}`);
+export const BUNDLE_ENTRY = entry("webview");
 /** Folder whose changes invalidate the bundle (player, runtime, renderers, core, scripting sources). */
 export const BUNDLE_SOURCES = path.resolve(here, "../../..");
 
@@ -46,7 +49,7 @@ export async function buildPlayerBundle(opts: { minify?: boolean } = {}): Promis
       {
         name: "openbone-quickjs-wasm",
         setup(b) {
-          b.onResolve({ filter: /^@openbone\/core$/ }, () => ({ path: path.join(here, "core-lite.ts") }));
+          b.onResolve({ filter: /^@openbone\/core$/ }, () => ({ path: entry("core-lite") }));
           b.onResolve({ filter: /^openbone:quickjs-wasm$/ }, () => ({ path: wasm, namespace: "openbone-wasm" }));
           b.onLoad({ filter: /.*/, namespace: "openbone-wasm" }, () => ({ contents: fs.readFileSync(wasm), loader: "binary" }));
         },
@@ -85,9 +88,9 @@ export async function buildWebBundle(opts: WebBundleOptions = {}): Promise<strin
   const format = opts.format ?? "iife";
   const scripts = opts.scripts ?? true;
   const minify = opts.minify ?? true;
-  const sandbox = scripts === "lazy" ? "sandbox-lazy.ts" : scripts ? "sandbox-quickjs.ts" : "sandbox-none.ts";
+  const sandbox = scripts === "lazy" ? "sandbox-lazy" : scripts ? "sandbox-quickjs" : "sandbox-none";
   const result = await build({
-    entryPoints: [path.join(here, "web.ts")],
+    entryPoints: [entry("web")],
     bundle: true,
     write: false,
     format,
@@ -109,9 +112,9 @@ export async function buildWebBundle(opts: WebBundleOptions = {}): Promise<strin
       {
         name: "openbone-web",
         setup(b) {
-          b.onResolve({ filter: /^@openbone\/core$/ }, () => ({ path: path.join(here, "core-lite.ts") }));
-          b.onResolve({ filter: /^openbone:script-sandbox$/ }, () => ({ path: path.join(here, sandbox) }));
-          if (scripts !== true) b.onResolve({ filter: /^@openbone\/scripting$/ }, () => ({ path: path.join(here, "scripting-stub.ts") }));
+          b.onResolve({ filter: /^@openbone\/core$/ }, () => ({ path: entry("core-lite") }));
+          b.onResolve({ filter: /^openbone:script-sandbox$/ }, () => ({ path: entry(sandbox) }));
+          if (scripts !== true) b.onResolve({ filter: /^@openbone\/scripting$/ }, () => ({ path: entry("scripting-stub") }));
           b.onResolve({ filter: /^openbone:quickjs-wasm$/ }, () => ({ path: quickJsWasmPath(), namespace: "openbone-wasm" }));
           b.onLoad({ filter: /.*/, namespace: "openbone-wasm" }, () => ({ contents: fs.readFileSync(quickJsWasmPath()), loader: "binary" }));
         },
@@ -127,7 +130,7 @@ export async function buildWebBundle(opts: WebBundleOptions = {}): Promise<strin
  */
 export async function buildScriptsAddon(opts: { minify?: boolean } = {}): Promise<string> {
   const result = await build({
-    entryPoints: [path.join(here, "scripts-addon.ts")],
+    entryPoints: [entry("scripts-addon")],
     bundle: true,
     write: false,
     format: "iife",
@@ -142,7 +145,7 @@ export async function buildScriptsAddon(opts: { minify?: boolean } = {}): Promis
       {
         name: "openbone-scripts",
         setup(b) {
-          b.onResolve({ filter: /^@openbone\/core$/ }, () => ({ path: path.join(here, "core-lite.ts") }));
+          b.onResolve({ filter: /^@openbone\/core$/ }, () => ({ path: entry("core-lite") }));
         },
       },
     ],

@@ -27,6 +27,25 @@
 
 Everything in this repository is **MIT** and built only on permissively licensed open-source dependencies.
 
+## Releases
+
+Download the desktop app for Windows, macOS or Linux from the [**latest release**](https://github.com/UXCentury/open-bone/releases/latest)
+([all releases](https://github.com/UXCentury/open-bone/releases)). What changed in each version is in
+[CHANGELOG.md](CHANGELOG.md); the runtimes and packages for each engine are listed under [Install](#install).
+Security fixes, the latest audit and how to report a vulnerability: [SECURITY.md](SECURITY.md).
+
+## A word from UXCentury
+
+We built OpenBone because 2D animation tools shouldn't lock artists and developers into one vendor's editor, file
+format or runtime licence. Rigging, interactivity and playback in every major engine belong in the open, so OpenBone
+is MIT from the editor down to the last runtime, and it stays that way.
+
+It is also built for how people work now: every edit is a tool an AI agent can use, and you watch it happen live in the
+editor. Try it, break it, and tell us what you make: [issues](https://github.com/UXCentury/open-bone/issues) and pull
+requests are welcome.
+
+— The [UXCentury](https://uxcentury.com) team
+
 ## Quick start
 
 ```bash
@@ -73,6 +92,21 @@ pnpm test
 
 Every native runtime implements [docs/runtime-spec.md](docs/runtime-spec.md) and passes the [conformance suite](conformance): the same poses, draw lists, events, audio commands and state-machine steps as the TypeScript runtime, for every example. CI runs each one on Linux, macOS and Windows where it applies. Demos of the knight in each web engine: `pnpm --filter @openbone/examples engines`, then http://localhost:5190.
 
+### Install
+
+Packages are published from each release (from 0.2.1 on; see [docs/releasing.md](docs/releasing.md#packages)).
+
+| Platform | Install |
+|---|---|
+| Web / Node | `npm install @openbone/player` (or `runtime`, `pixi`, `phaser`, `three`, `canvaskit`, …); CLI: `npx openbone --help`; MCP server: `npx -y @openbone/mcp` |
+| .NET / MonoGame | `dotnet add package OpenBone.Runtime` (+ `OpenBone.Scripting.Jint` for scripts, `OpenBone.MonoGame`) |
+| Unity 2021.3+ | Package Manager → Add package from git URL: `https://github.com/UXCentury/open-bone.git#upm`, or `openupm add com.openbone.runtime` |
+| Java / Android | `implementation("com.uxcentury:openbone-runtime:0.2.1")` (+ `openbone-scripting`, `openbone-gdx`, `openbone-android`) from Maven Central |
+| Swift | Xcode → Add Package Dependencies → `https://github.com/UXCentury/open-bone`, product `OpenBone` |
+| Flutter | `flutter pub add openbone` |
+| Godot 4.4+ | AssetLib tab → *OpenBone*, or unzip `openbone-godot-<version>.zip` from the [releases](https://github.com/UXCentury/open-bone/releases) into your project |
+| C / C++ | `add_subdirectory(runtimes/cpp)` from a checkout (QuickJS and nlohmann/json are vendored) |
+
 ## Tools
 
 ### Let an agent animate (MCP)
@@ -80,8 +114,10 @@ Every native runtime implements [docs/runtime-spec.md](docs/runtime-spec.md) and
 This repo ships `.mcp.json`, so Claude Code picks up the `openbone` server automatically. For other clients:
 
 ```json
-{ "mcpServers": { "openbone": { "command": "pnpm", "args": ["exec", "tsx", "/path/to/OpenBone/packages/mcp/src/bin.ts"] } } }
+{ "mcpServers": { "openbone": { "command": "npx", "args": ["-y", "@openbone/mcp"] } } }
 ```
+
+From a checkout instead of npm: `"command": "pnpm", "args": ["exec", "tsx", "/path/to/OpenBone/packages/mcp/src/bin.ts"]`.
 
 Then ask: *"Create a project at ~/anim/robot.obone: a robot with IK arms, an idle and a wave animation, and a state machine that waves when clicked."* Click **⚡ Connect MCP** in the editor to watch it happen live. See [docs/mcp.md](docs/mcp.md).
 

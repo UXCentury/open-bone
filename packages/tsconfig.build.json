@@ -1,0 +1,13 @@
+{
+  "//": "Compiles a package's src/ to dist/ (JavaScript + .d.ts) for npm. Each package's tsconfig.build.json extends this.",
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "rewriteRelativeImportExtensions": true,
+    "rootDir": "${configDir}/src",
+    "outDir": "${configDir}/dist",
+    "types": ["node"]
+  },
+  "include": ["${configDir}/src"]
+}

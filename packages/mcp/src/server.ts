@@ -37,7 +37,7 @@ export function createServer(opts: ServerOptions = {}) {
   const scriptHost = async () => (host ??= await createQuickJsHost({ timeoutMs: 50 }));
 
   const server = new McpServer(
-    { name: "openbone", version: "0.1.0" },
+    { name: "openbone", version: "0.2.0" },
     {
       instructions:
         "OpenBone: 2D skeletal animation + interactive state machines. Read the openbone://guide resource (or call get_guide) first. Start with new_project or open_project; edit with the add_*/update_*/set_keys tools; verify with render_frame and simulate_state_machine.",

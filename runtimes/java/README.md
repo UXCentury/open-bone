@@ -18,6 +18,26 @@ on the JVM and on an Android emulator.
 | `openbone-android` | Kotlin, Android library | `OpenBoneView`: a `View` with a Kotlin API (inputs, triggers, events as lambdas, touch → pointer listeners) |
 | `openbone-conformance` | Java tests | JUnit runner for `conformance/expected/*.json`, plus unit tests for the porting traps |
 
+## Install
+
+The libraries are on Maven Central under the `com.uxcentury` group (the Java/Kotlin packages are `com.openbone.*`):
+
+```kotlin
+// build.gradle.kts
+repositories { mavenCentral() }
+
+dependencies {
+  implementation("com.uxcentury:openbone-runtime:0.2.0")   // the runtime, no dependencies
+  implementation("com.uxcentury:openbone-scripting:0.2.0") // state machine scripts (QuickJS)
+  implementation("com.uxcentury:openbone-gdx:0.2.0")       // libGDX renderer (brings openbone-runtime)
+  implementation("com.uxcentury:openbone-android:0.2.0")   // Android OpenBoneView AAR (brings runtime + scripting)
+}
+```
+
+Use Gradle (or a Maven build that reads Gradle module metadata) for Android: `openbone-scripting` depends on
+`io.github.dokar3:quickjs-kt`, and Gradle picks its Android variant (`quickjs-kt-android`) automatically; the plain POM
+names the JVM one.
+
 ## Build and test
 
 Java 17+ to run Gradle (the libraries target Java 11). The Gradle wrapper fetches Gradle and the Kotlin plugin.
@@ -38,6 +58,13 @@ an SDK the build skips `:openbone-android` and says so. It needs SDK platform 36
 ```bash
 ./gradlew :openbone-android:assembleRelease
 ./gradlew :openbone-android:connectedDebugAndroidTest   # all conformance cases + the view, on a device or emulator
+```
+
+Publishing (see [docs/releasing.md](../../docs/releasing.md) and `.github/workflows/publish-maven.yml`) uses
+[gradle-maven-publish-plugin](https://github.com/vanniktech/gradle-maven-publish-plugin). Try it locally, unsigned:
+
+```bash
+./gradlew publishToMavenLocal   # ~/.m2/repository/com/uxcentury/openbone-*/<version>/
 ```
 
 The libGDX sample:
@@ -183,5 +210,6 @@ find a slot's first bounding box.
 | LWJGL 3 | BSD-3-Clause | sample |
 | earcut 3.2.4 (ported) | ISC | runtime (`Earcut.java`) |
 | JUnit, androidx.test | EPL-2.0 / EPL-1.0, Apache-2.0 | tests only, not shipped |
+| gradle-maven-publish-plugin | Apache-2.0 | build only (Maven Central publishing), not shipped |
 
 `openbone-runtime` itself has no dependencies.

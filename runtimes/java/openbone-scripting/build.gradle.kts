@@ -1,6 +1,7 @@
 plugins {
   kotlin("jvm")
   `java-library`
+  id("com.vanniktech.maven.publish")
 }
 
 dependencies {
@@ -18,5 +19,13 @@ java {
 kotlin {
   compilerOptions {
     jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+  }
+}
+
+mavenPublishing {
+  coordinates(artifactId = "openbone-scripting")
+  pom {
+    name.set("OpenBone Scripting")
+    description.set("QuickJS script host for OpenBone state machine scripts on the JVM and Android (via quickjs-kt).")
   }
 }

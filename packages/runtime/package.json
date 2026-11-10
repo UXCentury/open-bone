@@ -1,8 +1,49 @@
 {
   "name": "@openbone/runtime",
   "version": "0.2.0",
+  "description": "OpenBone runtime: skeletons, animation mixing, state machines, constraints and particles, renderer-agnostic",
+  "keywords": [
+    "openbone",
+    "skeletal-animation",
+    "2d-animation",
+    "animation",
+    "runtime",
+    "state-machine"
+  ],
+  "homepage": "https://github.com/UXCentury/open-bone/tree/main/packages/runtime#readme",
+  "bugs": {
+    "url": "https://github.com/UXCentury/open-bone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UXCentury/open-bone.git",
+    "directory": "packages/runtime"
+  },
   "license": "MIT",
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
-  "dependencies": { "@openbone/core": "workspace:*" }
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "node ../build.mjs",
+    "prepack": "node ../build.mjs"
+  },
+  "dependencies": {
+    "@openbone/core": "workspace:*"
+  }
 }

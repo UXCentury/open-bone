@@ -1,8 +1,50 @@
 {
   "name": "@openbone/render-canvas",
   "version": "0.2.0",
+  "description": "Canvas 2D renderer for OpenBone skeletal animations",
+  "keywords": [
+    "openbone",
+    "skeletal-animation",
+    "2d-animation",
+    "animation",
+    "canvas",
+    "renderer"
+  ],
+  "homepage": "https://github.com/UXCentury/open-bone/tree/main/packages/render-canvas#readme",
+  "bugs": {
+    "url": "https://github.com/UXCentury/open-bone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UXCentury/open-bone.git",
+    "directory": "packages/render-canvas"
+  },
   "license": "MIT",
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
-  "dependencies": { "@openbone/core": "workspace:*", "@openbone/runtime": "workspace:*" }
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "node ../build.mjs",
+    "prepack": "node ../build.mjs"
+  },
+  "dependencies": {
+    "@openbone/core": "workspace:*",
+    "@openbone/runtime": "workspace:*"
+  }
 }

@@ -3,8 +3,8 @@
 `openbone` is a Flutter FFI plugin that plays OpenBone documents (`.obone` JSON and `.obonb` binary): skeletal
 animation, meshes, constraints, physics, particles, text, and Rive-style state machines with inputs, pointer listeners,
 events, audio commands and scripts. It is a thin `dart:ffi` wrapper over the native C++ runtime
-([`runtimes/cpp`](../../cpp), C API [`openbone.h`](../../cpp/include/openbone.h)), so it poses and reacts exactly like the
-other runtimes: `flutter test` runs all 82 cases of the [conformance suite](../../../conformance/README.md) through the
+([`runtimes/cpp`](https://github.com/UXCentury/open-bone/tree/main/runtimes/cpp), C API [`openbone.h`](https://github.com/UXCentury/open-bone/blob/main/runtimes/cpp/include/openbone.h)), so it poses and reacts exactly like the
+other runtimes: `flutter test` runs all 82 cases of the [conformance suite](https://github.com/UXCentury/open-bone/blob/main/conformance/README.md) through the
 Dart API.
 
 | | |
@@ -17,7 +17,19 @@ Dart API.
 
 ## Use it
 
-The plugin builds from this repository (it compiles `runtimes/cpp`), so depend on it by path or git:
+```sh
+flutter pub add openbone
+```
+
+```yaml
+flutter:
+  assets:
+    - assets/hero/            # hero.obone and the images it references (relative paths)
+```
+
+The package carries the C++ runtime's sources (in `cpp/`, with nlohmann/json and QuickJS) and compiles them with each
+app's native build, so there is nothing else to install. To track the repository instead of a release, depend on it by
+git:
 
 ```yaml
 dependencies:
@@ -25,9 +37,6 @@ dependencies:
     git:
       url: https://github.com/UXCentury/open-bone
       path: runtimes/flutter/openbone
-flutter:
-  assets:
-    - assets/hero/            # hero.obone and the images it references (relative paths)
 ```
 
 ```dart
@@ -121,12 +130,24 @@ cd example && flutter run -d linux       # the example app (knight + button)
 Tests find the library through `OPENBONE_LIBRARY=/path/to/libopenbone.so` or `.dart_tool/openbone_native/`. The
 golden (`test/goldens/knight_idle.png`) is compared on Linux only; `flutter test --update-goldens` regenerates it.
 
-Scripts need QuickJS. CMake downloads quickjs-ng 0.10.1 at configure time; for iOS/macOS (Swift Package Manager and CocoaPods cannot download)
-or offline builds run `tool/fetch_quickjs.sh` once, which puts it in `third_party/quickjs` (ignored by git) where all
-builds pick it up. Without it the Apple builds compile with scripts off (`OpenBoneNative.hasScripts == false`;
-document scripts are skipped, everything else works).
+Scripts run in QuickJS (quickjs-ng 0.10.1, MIT), vendored in `runtimes/cpp/third_party/quickjs`, so every build has
+them (`OpenBoneNative.hasScripts`).
 
-Builds use `-ffp-contract=off` like `runtimes/cpp`, so ARM64 devices match the reference bit for bit.
+Builds use `-ffp-contract=off` like `runtimes/cpp` (and the runtime sources disable contraction with a pragma too), so
+ARM64 devices match the reference bit for bit.
+
+### Publishing
+
+pub.dev packages cannot reach outside their folder, and this one compiles `runtimes/cpp` through relative paths and
+symlinks, so it is published from a staged copy (`publish_to: none` here keeps this folder from being published):
+
+```sh
+tool/bundle.sh /tmp/openbone-pub/openbone   # copies runtimes/cpp into cpp/, replaces symlinks, appends licences
+cd /tmp/openbone-pub/openbone && flutter pub publish --dry-run
+```
+
+`src/CMakeLists.txt` and `darwin/openbone.podspec` use `cpp/` when it is there and `runtimes/cpp` otherwise. The
+*Publish to pub.dev* workflow (`.github/workflows/publish-pub.yml`) does this on a version tag.
 
 ### What has been checked
 

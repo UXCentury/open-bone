@@ -1,5 +1,5 @@
 {
-  "name": "openbone",
+  "name": "openbone-monorepo",
   "private": true,
   "version": "0.2.0",
   "description": "Open-source 2D skeletal animation with interactive state machines and an MCP server",
@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "pnpm --filter @openbone/editor dev",
     "build": "pnpm --filter @openbone/editor build",
+    "build:packages": "pnpm -r --filter \"./packages/*\" build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/editor/tsconfig.json --noEmit",
     "mcp": "tsx packages/mcp/src/bin.ts",

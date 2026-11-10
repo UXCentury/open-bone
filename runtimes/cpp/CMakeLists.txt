@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.18)
 project(openbone_runtime VERSION 0.2.0 LANGUAGES C CXX)
 
-# OpenBone C++ runtime: C++17, no engine dependencies. nlohmann/json is vendored (third_party/), QuickJS (quickjs-ng)
-# is fetched at configure time unless OPENBONE_QUICKJS_DIR points at a source tree.
+# OpenBone C++ runtime: C++17, no engine dependencies. nlohmann/json and QuickJS (quickjs-ng v0.10.1, MIT) are
+# vendored in third_party/; OPENBONE_QUICKJS_DIR can point at another quickjs-ng source tree.
 
 option(OPENBONE_WITH_SCRIPTS "Run document scripts in embedded QuickJS" ON)
 option(OPENBONE_BUILD_SHARED "Build libopenbone (shared, C API) for FFI" ON)
@@ -10,12 +10,15 @@ option(OPENBONE_BUILD_STATIC "Build the static library (needed by the tests)" ON
 option(OPENBONE_INSTALL "Generate install rules (off when embedded, e.g. by the Flutter plugin)" ON)
 option(OPENBONE_BUILD_TESTS "Build the conformance runner (CTest)" ${PROJECT_IS_TOP_LEVEL})
 option(OPENBONE_BUILD_EXAMPLES "Build the C example" ${PROJECT_IS_TOP_LEVEL})
-set(OPENBONE_QUICKJS_DIR "" CACHE PATH "quickjs-ng source tree (empty = download v0.10.1)")
+set(OPENBONE_QUICKJS_DIR "" CACHE PATH "quickjs-ng source tree (empty = the vendored third_party/quickjs, or download v0.10.1)")
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(GNUInstallDirs)
 
 if(OPENBONE_WITH_SCRIPTS)
+  if(OPENBONE_QUICKJS_DIR STREQUAL "" AND EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/third_party/quickjs/quickjs.c)
+    set(OPENBONE_QUICKJS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/quickjs)
+  endif()
   if(OPENBONE_QUICKJS_DIR STREQUAL "")
     include(FetchContent)
     # Extracted files get the extraction time (CMake 3.24+ policy); spelled as a policy, not the

@@ -1,5 +1,7 @@
 // Port of packages/runtime/src/skeleton.ts. Section numbers refer to docs/runtime-spec.md.
 // SPDX-License-Identifier: MIT
+#include "exact_math.h"  // first: no FMA contraction (bit-exact results)
+
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>

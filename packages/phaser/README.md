@@ -1,6 +1,6 @@
 # @openbone/phaser
 
-[OpenBone](../../README.md) runtime for **Phaser 3** (3.60 or later): a scene plugin with a loader file type and a GameObject that plays OpenBone documents, with state machines, pointer listeners, events, skins and sound.
+[OpenBone](https://github.com/UXCentury/open-bone#readme) runtime for **Phaser 3** (3.60 or later): a scene plugin with a loader file type and a GameObject that plays OpenBone documents, with state machines, pointer listeners, events, skins and sound.
 
 ## Install
 

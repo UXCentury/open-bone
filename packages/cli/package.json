@@ -1,9 +1,53 @@
 {
   "name": "@openbone/cli",
   "version": "0.2.0",
+  "description": "OpenBone command line: validate, render, export and edit .obone files, and start the MCP server",
+  "keywords": [
+    "openbone",
+    "skeletal-animation",
+    "2d-animation",
+    "animation",
+    "cli"
+  ],
+  "homepage": "https://github.com/UXCentury/open-bone/tree/main/packages/cli#readme",
+  "bugs": {
+    "url": "https://github.com/UXCentury/open-bone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UXCentury/open-bone.git",
+    "directory": "packages/cli"
+  },
   "license": "MIT",
   "type": "module",
-  "bin": { "openbone": "./src/bin.ts" },
+  "exports": {
+    "./bin": "./src/bin.ts"
+  },
+  "bin": {
+    "openbone": "./src/bin.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "exports": {
+      "./bin": {
+        "types": "./dist/bin.d.ts",
+        "default": "./dist/bin.js"
+      }
+    },
+    "bin": {
+      "openbone": "./dist/bin.js"
+    }
+  },
+  "scripts": {
+    "build": "node ../build.mjs",
+    "prepack": "node ../build.mjs"
+  },
   "dependencies": {
     "@openbone/core": "workspace:*",
     "@openbone/mcp": "workspace:*",

@@ -1,19 +1,47 @@
 {
   "name": "@openbone/pixi",
   "version": "0.2.0",
+  "description": "OpenBone runtime for PixiJS v8: a Container that plays OpenBone documents",
+  "keywords": [
+    "openbone",
+    "skeletal-animation",
+    "2d-animation",
+    "animation",
+    "pixi",
+    "pixijs"
+  ],
+  "homepage": "https://github.com/UXCentury/open-bone/tree/main/packages/pixi#readme",
+  "bugs": {
+    "url": "https://github.com/UXCentury/open-bone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UXCentury/open-bone.git",
+    "directory": "packages/pixi"
+  },
   "license": "MIT",
   "type": "module",
-  "description": "OpenBone runtime for PixiJS v8: a Container that plays OpenBone documents",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
   "files": [
-    "src",
-    "dist",
-    "README.md"
+    "dist"
   ],
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --format=esm --platform=browser --packages=external --sourcemap --outfile=dist/index.js"
+    "build": "node ../build.mjs",
+    "prepack": "node ../build.mjs"
   },
   "dependencies": {
     "@openbone/core": "workspace:*",

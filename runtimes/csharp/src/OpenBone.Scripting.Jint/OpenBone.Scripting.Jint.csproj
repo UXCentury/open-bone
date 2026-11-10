@@ -5,9 +5,15 @@
     <Nullable>disable</Nullable>
     <RootNamespace>OpenBone.Scripting</RootNamespace>
     <Version>0.2.0</Version>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Description>Script host for OpenBone state machines, running the document's JavaScript in Jint.</Description>
+    <IsPackable>true</IsPackable>
+    <PackageId>OpenBone.Scripting.Jint</PackageId>
+    <Description>Script host for OpenBone state machines: runs the document's JavaScript in Jint (BSD-2-Clause) with the same ob API, hooks and CPU / memory limits as the reference QuickJS host.</Description>
+    <PackageTags>$(PackageTags);javascript;jint;scripting</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../OpenBone.Runtime/OpenBone.Runtime.csproj" />
     <PackageReference Include="Jint" Version="3.1.6" />

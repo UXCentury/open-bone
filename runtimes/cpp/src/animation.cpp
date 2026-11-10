@@ -1,5 +1,7 @@
 // Ports of animation.ts, audio.ts and animation-state.ts.
 // SPDX-License-Identifier: MIT
+#include "exact_math.h"  // first: no FMA contraction (bit-exact results)
+
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>

@@ -1,5 +1,7 @@
 // Port of packages/runtime/src/state-machine.ts and instance.ts.
 // SPDX-License-Identifier: MIT
+#include "exact_math.h"  // first: no FMA contraction (bit-exact results)
+
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>

@@ -1,6 +1,6 @@
 # @openbone/pixi
 
-[OpenBone](../../README.md) runtime for **PixiJS v8**: an OpenBone document as a Pixi `Container`, with state machines, pointer listeners, events, skins and sound.
+[OpenBone](https://github.com/UXCentury/open-bone#readme) runtime for **PixiJS v8**: an OpenBone document as a Pixi `Container`, with state machines, pointer listeners, events, skins and sound.
 
 ## Install
 

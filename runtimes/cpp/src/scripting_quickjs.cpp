@@ -1,6 +1,8 @@
 // Script host on embedded QuickJS (quickjs-ng, MIT): the same sandbox as packages/scripting (one runtime per script,
 // memory cap, CPU deadline per call, JSON across the boundary, only the `ob` global).
 // SPDX-License-Identifier: MIT
+#include "exact_math.h"  // first: no FMA contraction (bit-exact results)
+
 #include <chrono>
 #include <stdexcept>
 

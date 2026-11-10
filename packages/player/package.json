@@ -1,12 +1,62 @@
 {
   "name": "@openbone/player",
   "version": "0.2.0",
+  "description": "Drop-in <openbone-player> web component and JS API for OpenBone animations",
+  "keywords": [
+    "openbone",
+    "skeletal-animation",
+    "2d-animation",
+    "animation",
+    "player",
+    "web-component",
+    "custom-element"
+  ],
+  "homepage": "https://github.com/UXCentury/open-bone/tree/main/packages/player#readme",
+  "bugs": {
+    "url": "https://github.com/UXCentury/open-bone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UXCentury/open-bone.git",
+    "directory": "packages/player"
+  },
   "license": "MIT",
   "type": "module",
-  "description": "Drop-in <openbone-player> web component and JS API for OpenBone animations",
+  "sideEffects": [
+    "./src/bundle/*",
+    "./dist/bundle/*"
+  ],
   "exports": {
     ".": "./src/index.ts",
-    "./audio": "./src/audio.ts"
+    "./audio": "./src/audio.ts",
+    "./bundle": "./src/bundle/build.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./audio": {
+        "types": "./dist/audio.d.ts",
+        "default": "./dist/audio.js"
+      },
+      "./bundle": {
+        "types": "./dist/bundle/build.d.ts",
+        "default": "./dist/bundle/build.js"
+      }
+    }
+  },
+  "scripts": {
+    "build:bundle": "tsx src/bundle/build.ts",
+    "build": "node ../build.mjs",
+    "prepack": "node ../build.mjs"
   },
   "dependencies": {
     "@openbone/core": "workspace:*",
@@ -16,10 +66,15 @@
     "@openbone/scripting": "workspace:*",
     "quickjs-emscripten": "^0.32.0"
   },
+  "peerDependencies": {
+    "esbuild": ">=0.25.0"
+  },
+  "peerDependenciesMeta": {
+    "esbuild": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "esbuild": "^0.28.2"
-  },
-  "scripts": {
-    "build:bundle": "tsx src/bundle/build.ts"
   }
 }

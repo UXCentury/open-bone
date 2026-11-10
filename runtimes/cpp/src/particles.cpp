@@ -1,5 +1,7 @@
 // Port of packages/runtime/src/particles.ts (mulberry32 RNG, fixed-step emitter, quads).
 // SPDX-License-Identifier: MIT
+#include "exact_math.h"  // first: no FMA contraction (bit-exact results)
+
 #include <algorithm>
 #include <cmath>
 

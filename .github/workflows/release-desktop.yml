@@ -6,8 +6,8 @@
 # - Or run it by hand (Actions → Desktop installers → Run workflow): without "Create a draft release" it only builds,
 #   and the installers are kept as workflow artifacts for a few days.
 #
-# Code signing is optional: add the secrets listed in docs/releasing.md to sign and notarize the macOS app and sign the
-# Windows installers. Without them the installers work, but macOS Gatekeeper and Windows SmartScreen warn on first open.
+# Code signing is optional: add the secrets listed in docs/releasing.md to sign and notarize the macOS app (Apple
+# Developer ID) and sign the Windows app and installers (SSL.com OV certificate through eSigner). Without them the installers work, but macOS Gatekeeper and Windows SmartScreen warn on first open.
 name: Desktop installers
 
 on:
@@ -89,12 +89,46 @@ jobs:
             fi
           done
 
-      # Release notes: this version's section of CHANGELOG.md, then how to open the unsigned installers.
+      # Windows: sign with an SSL.com OV certificate through eSigner when its secrets exist (docs/releasing.md). Tauri runs
+      # scripts/sign-windows.ps1 for the app .exe, the setup .exe and the .msi via a signCommand passed with --config.
+      - name: Windows signing (optional)
+        id: winsign
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          ES_USERNAME: ${{ secrets.ES_USERNAME }}
+          ES_PASSWORD: ${{ secrets.ES_PASSWORD }}
+          ES_CREDENTIAL_ID: ${{ secrets.ES_CREDENTIAL_ID }}
+          ES_TOTP_SECRET: ${{ secrets.ES_TOTP_SECRET }}
+        run: |
+          if [ -z "$ES_USERNAME" ] || [ -z "$ES_PASSWORD" ] || [ -z "$ES_CREDENTIAL_ID" ] || [ -z "$ES_TOTP_SECRET" ]; then
+            echo "No ES_* secrets: the Windows installers are not signed."
+            exit 0
+          fi
+          # SSL.com CodeSignTool, pinned by version and checksum.
+          curl -sSfL -o "$RUNNER_TEMP/cst.zip" https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.2/CodeSignTool-v1.3.2-windows.zip
+          echo "4afc32e8b7f79bbe1de7e4e7049aaad4e0f754357613b9bbec0e3052f06fd36b  $RUNNER_TEMP/cst.zip" | sha256sum -c -
+          tool="$RUNNER_TEMP/CodeSignTool"
+          unzip -q "$RUNNER_TEMP/cst.zip" -d "$tool"
+          script=$(cygpath -w "$GITHUB_WORKSPACE/apps/desktop/src-tauri/scripts/sign-windows.ps1")
+          node -e '
+            const [script, out] = process.argv.slice(1);
+            const cmd = { cmd: "powershell", args: ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "%1"] };
+            require("fs").writeFileSync(out, JSON.stringify({ bundle: { windows: { signCommand: cmd } } }));
+          ' "$script" "$RUNNER_TEMP/sign.conf.json"
+          {
+            echo "CODE_SIGN_TOOL_PATH=$(cygpath -w "$tool")"
+            for v in ES_USERNAME ES_PASSWORD ES_CREDENTIAL_ID ES_TOTP_SECRET; do echo "$v=${!v}"; done
+          } >> "$GITHUB_ENV"
+          echo "args=--config $(cygpath -w "$RUNNER_TEMP/sign.conf.json")" >> "$GITHUB_OUTPUT"
+
+      # Release notes: this version's section of CHANGELOG.md, then how to open installers that are not signed.
       - name: Release notes
         id: notes
         shell: bash
         env:
-          MAC_SIGNED: ${{ secrets.APPLE_CERTIFICATE != '' && '1' || '' }}
+          MAC_SIGNED: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_ID != '' }}
+          WIN_SIGNED: ${{ secrets.ES_USERNAME != '' && secrets.ES_TOTP_SECRET != '' }}
         run: |
           node -e '
             const fs = require("fs");
@@ -102,14 +136,16 @@ jobs:
             const log = fs.readFileSync("CHANGELOG.md", "utf8");
             const m = log.match(new RegExp("^## " + v.replace(/\./g, "\\.") + "\\b[^\\n]*\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))", "m"));
             const notes = m ? m[1].trim() : "See CHANGELOG.md for what changed.";
-            const signed = !!process.env.MAC_SIGNED;
+            const mac = process.env.MAC_SIGNED === "true", win = process.env.WIN_SIGNED === "true";
             const install = [
               "### Installing",
-              signed
-                ? "Download the installer for your system below. The macOS app is signed and notarized; the others are not code-signed yet:"
-                : "Download the installer for your system below. These builds are not code-signed yet:",
-              ...(signed ? [] : ["- **macOS**: if Apple \"could not verify\" OpenBone, click Done, then in **System Settings → Privacy & Security** click **Open Anyway** next to OpenBone. Or run `xattr -dr com.apple.quarantine /Applications/OpenBone.app`."]),
-              "- **Windows**: if SmartScreen appears, choose **More info** then **Run anyway**.",
+              "Download the installer for your system below.",
+              mac
+                ? "- **macOS**: signed and notarized by Apple; open the .dmg and drag OpenBone to Applications."
+                : "- **macOS**: not signed yet. If Apple \"could not verify\" OpenBone, click Done, then in **System Settings → Privacy & Security** click **Open Anyway** next to OpenBone. Or run `xattr -dr com.apple.quarantine /Applications/OpenBone.app`.",
+              win
+                ? "- **Windows**: signed. A new certificate may still show SmartScreen until it has built up reputation: choose **More info** then **Run anyway**."
+                : "- **Windows**: not signed yet. If SmartScreen appears, choose **More info** then **Run anyway**.",
               "- **Linux AppImage**: on newer Ubuntu install `libfuse2`, or run it with `--appimage-extract-and-run`.",
             ].join("\n");
             fs.writeFileSync(process.env.RUNNER_TEMP + "/notes.md", notes + "\n\n" + install + "\n");
@@ -123,7 +159,7 @@ jobs:
         with:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args }} ${{ steps.winsign.outputs.args }}
           # A release only for tags, or when asked for on a manual run; otherwise just build and keep artifacts.
           tagName: ${{ (startsWith(github.ref, 'refs/tags/v') || inputs.release) && 'v__VERSION__' || '' }}
           releaseName: "OpenBone v__VERSION__"

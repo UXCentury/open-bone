@@ -1,8 +1,58 @@
 {
   "name": "@openbone/core",
   "version": "0.2.0",
+  "description": "OpenBone core: the document model, edit ops, validation and the binary format for 2D skeletal animation",
+  "keywords": [
+    "openbone",
+    "skeletal-animation",
+    "2d-animation",
+    "animation",
+    "document",
+    "format"
+  ],
+  "homepage": "https://github.com/UXCentury/open-bone/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/UXCentury/open-bone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UXCentury/open-bone.git",
+    "directory": "packages/core"
+  },
   "license": "MIT",
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
-  "dependencies": { "earcut": "^3.0.1", "zod": "^4.1.0" }
+  "sideEffects": [
+    "./src/ops/*.ts",
+    "./dist/ops/*.js"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./lite": "./src/lite.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./lite": {
+        "types": "./dist/lite.d.ts",
+        "default": "./dist/lite.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "node ../build.mjs",
+    "prepack": "node ../build.mjs"
+  },
+  "dependencies": {
+    "earcut": "^3.0.1",
+    "zod": "^4.1.0"
+  }
 }

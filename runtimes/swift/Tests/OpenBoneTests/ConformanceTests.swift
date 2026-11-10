@@ -267,7 +267,7 @@ final class ConformanceTests: XCTestCase {
 
     func testScriptsAvailable() {
         // The interactive fixture counts clicks with a script; without QuickJS it cannot match.
-        XCTAssertTrue(OpenBoneRuntime.hasScripts, "built without QuickJS: run ./scripts/fetch-quickjs.sh")
+        XCTAssertTrue(OpenBoneRuntime.hasScripts, "built without QuickJS (runtimes/cpp/third_party/quickjs)")
     }
 
     /// Runs one reference file; returns (passed, total) cases.

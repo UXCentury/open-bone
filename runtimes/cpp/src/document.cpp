@@ -1,5 +1,7 @@
 // Loading .obone (JSON) and .obonb (binary) documents into the C++ model, normalised like core/document.ts.
 // SPDX-License-Identifier: MIT
+#include "exact_math.h"  // first: no FMA contraction (bit-exact results)
+
 #include <algorithm>
 #include <cstring>
 #include <fstream>

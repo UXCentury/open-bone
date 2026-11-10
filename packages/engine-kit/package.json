@@ -1,19 +1,46 @@
 {
   "name": "@openbone/engine-kit",
   "version": "0.2.0",
+  "description": "Shared loading, playback and draw batching for the OpenBone game-engine runtimes",
+  "keywords": [
+    "openbone",
+    "skeletal-animation",
+    "2d-animation",
+    "animation",
+    "game-engine"
+  ],
+  "homepage": "https://github.com/UXCentury/open-bone/tree/main/packages/engine-kit#readme",
+  "bugs": {
+    "url": "https://github.com/UXCentury/open-bone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UXCentury/open-bone.git",
+    "directory": "packages/engine-kit"
+  },
   "license": "MIT",
   "type": "module",
-  "description": "Shared loading, playback and draw batching for the OpenBone game-engine runtimes",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
   },
   "files": [
-    "src",
-    "dist",
-    "README.md"
+    "dist"
   ],
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
-    "build": "esbuild src/index.ts --bundle --format=esm --platform=browser --packages=external --sourcemap --outfile=dist/index.js"
+    "build": "node ../build.mjs",
+    "prepack": "node ../build.mjs"
   },
   "dependencies": {
     "@openbone/core": "workspace:*",

@@ -10,6 +10,7 @@ on:
       - "runtimes/cpp/include/**"
       - "runtimes/cpp/src/**"
       - "runtimes/cpp/CMakeLists.txt"
+      - "runtimes/cpp/third_party/**"
       - "conformance/**"
       - "examples/**/*.obone"
       - ".github/workflows/runtime-flutter.yml"
@@ -19,6 +20,7 @@ on:
       - "runtimes/cpp/include/**"
       - "runtimes/cpp/src/**"
       - "runtimes/cpp/CMakeLists.txt"
+      - "runtimes/cpp/third_party/**"
       - "conformance/**"
       - "examples/**/*.obone"
       - ".github/workflows/runtime-flutter.yml"
@@ -82,7 +84,6 @@ jobs:
         shell: bash  # -eo pipefail: a failed build fails the step despite tee
         run: |
           flutter config --enable-swift-package-manager
-          ../tool/fetch_quickjs.sh
           flutter build macos 2>&1 | tee build-macos.log
           flutter build ios --no-codesign 2>&1 | tee build-ios.log
           # The plugin must build through its Package.swift, not fall back to CocoaPods.

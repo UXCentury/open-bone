@@ -42,6 +42,7 @@ export function versionFiles(): { file: string; get: (s: string) => string | nul
     set: (s: string, v: string) => s.replace(re, (_m, before: string, _old: string, after: string) => `${before}${v}${after}`),
   });
   const native = [
+    pattern("packages/mcp/src/server.ts", /(\{ name: "openbone", version: ")([^"]+)(")/),
     pattern("runtimes/cpp/CMakeLists.txt", /(project\(openbone_runtime VERSION )([^\s)]+)( )/),
     pattern("runtimes/cpp/src/c_api.cpp", /(ob_version\(void\) \{ return ")([^"]+)(";)/),
     pattern("runtimes/java/build.gradle.kts", /(^\s*version = ")([^"]+)(")/m),

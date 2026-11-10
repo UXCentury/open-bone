@@ -1,2 +1,2 @@
-/* Forwards to the quickjs-ng header fetched by tool/fetch_quickjs.sh (runtimes/flutter/openbone/third_party/quickjs). */
+/* Forwards to quickjs-ng's header in Sources/openbone_quickjs/vendor (the runtime's cpp/third_party/quickjs). */
 #include "../vendor/quickjs.h"

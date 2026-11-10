@@ -1,0 +1,36 @@
+<Project>
+  <!--
+    Shared settings for every project under runtimes/csharp (runtime, Jint host, MonoGame, tests, Unity compile check).
+    Only projects that set <IsPackable>true</IsPackable> produce NuGet packages (dotnet pack -c Release -o out):
+    OpenBone.Runtime, OpenBone.Scripting.Jint and OpenBone.MonoGame. <Version> stays in each .csproj (scripts/version.ts).
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <Authors>OpenBone contributors</Authors>
+    <Company>UXCentury</Company>
+    <Copyright>Copyright (c) OpenBone contributors</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/UXCentury/open-bone</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/UXCentury/open-bone</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageTags>openbone;animation;skeletal-animation;2d;state-machine;gamedev</PackageTags>
+    <PackageReleaseNotes>https://github.com/UXCentury/open-bone/blob/main/CHANGELOG.md</PackageReleaseNotes>
+
+    <!-- Symbols (.snupkg) and SourceLink (built into the .NET 8 SDK; Microsoft.SourceLink is MIT). -->
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <!-- Normalised paths in PDBs and SourceLink on CI builds (local builds keep local paths for debugging). -->
+  <PropertyGroup Condition="'$(GITHUB_ACTIONS)' == 'true' Or '$(CI)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' == 'true'">
+    <None Include="$(MSBuildThisFileDirectory)icon.png" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+</Project>

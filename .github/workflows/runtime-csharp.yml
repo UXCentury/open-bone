@@ -1,5 +1,6 @@
-# C# runtime: conformance suite (dotnet test), the Unity package compiled against the Unity API stub, and the MonoGame
-# integration (library, sample and its window-less tests).
+# C# runtime: conformance suite (dotnet test), the Unity package compiled against the Unity API stub, the MonoGame
+# integration (library, sample and its window-less tests), and on Linux the NuGet packages and the assembled Unity
+# package that publish-dotnet.yml / publish-unity.yml release.
 name: C# runtime
 
 on:
@@ -45,3 +46,10 @@ jobs:
       - run: dotnet test
       - run: dotnet build unity/compile-check
       - run: dotnet test monogame/OpenBone.MonoGame.sln
+      - name: Pack NuGet packages and assemble the Unity package
+        if: runner.os == 'Linux'
+        run: |
+          dotnet pack OpenBone.sln -c Release -o "$RUNNER_TEMP/nupkgs"
+          dotnet pack monogame/src/OpenBone.MonoGame -c Release -o "$RUNNER_TEMP/nupkgs"
+          test "$(ls "$RUNNER_TEMP"/nupkgs/*.nupkg | wc -l)" -eq 3
+          python3 unity/build-package.py --out "$RUNNER_TEMP/upm/package"

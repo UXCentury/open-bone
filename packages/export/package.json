@@ -1,11 +1,50 @@
 {
   "name": "@openbone/export",
   "version": "0.2.0",
+  "description": "Image and video encoders for OpenBone exports: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP, plus sprite sheets and engine packs (Unity, Godot, Flutter, generic)",
+  "keywords": [
+    "openbone",
+    "skeletal-animation",
+    "2d-animation",
+    "animation",
+    "export",
+    "gif",
+    "apng",
+    "sprite-sheet",
+    "psd"
+  ],
+  "homepage": "https://github.com/UXCentury/open-bone/tree/main/packages/export#readme",
+  "bugs": {
+    "url": "https://github.com/UXCentury/open-bone/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/UXCentury/open-bone.git",
+    "directory": "packages/export"
+  },
   "license": "MIT",
   "type": "module",
-  "description": "Image and video encoders for OpenBone exports: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP, plus sprite sheets and engine packs (Unity, Godot, Flutter, generic)",
+  "sideEffects": false,
   "exports": {
     ".": "./src/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
+  },
+  "scripts": {
+    "build": "node ../build.mjs",
+    "prepack": "node ../build.mjs"
   },
   "dependencies": {
     "@openbone/core": "workspace:*",

@@ -1,5 +1,7 @@
 // Shape outlines, earcut (mapbox earcut 3.2.4, ISC — ported for exact index parity, no-holes path) and path splines.
 // SPDX-License-Identifier: MIT AND ISC
+#include "exact_math.h"  // first: no FMA contraction (bit-exact results)
+
 #include <algorithm>
 #include <cmath>
 #include <deque>

@@ -1,6 +1,6 @@
 # @openbone/three
 
-[OpenBone](../../README.md) runtime for **Three.js**: an OpenBone document as an `Object3D` (a `Group` of meshes in its XY plane), with one material per atlas page, state machines, raycast pointer listeners, events, skins and sound.
+[OpenBone](https://github.com/UXCentury/open-bone#readme) runtime for **Three.js**: an OpenBone document as an `Object3D` (a `Group` of meshes in its XY plane), with one material per atlas page, state machines, raycast pointer listeners, events, skins and sound.
 
 ## Install
 

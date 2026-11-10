@@ -1,5 +1,7 @@
 // JavaScript number <-> string semantics the reference depends on (String(n), toFixed, toPrecision, Number(s)).
 // SPDX-License-Identifier: MIT
+#include "exact_math.h"  // first: no FMA contraction (bit-exact results)
+
 #include <charconv>
 #include <cmath>
 #include <cstdio>

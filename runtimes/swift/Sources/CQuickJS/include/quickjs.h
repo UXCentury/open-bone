@@ -1,2 +1,2 @@
-/* Forwards to the quickjs-ng header fetched by scripts/fetch-quickjs.sh (Sources/CQuickJS/vendor). */
+/* Forwards to quickjs-ng's header (Sources/CQuickJS/vendor -> runtimes/cpp/third_party/quickjs, vendored). */
 #include "../vendor/quickjs.h"

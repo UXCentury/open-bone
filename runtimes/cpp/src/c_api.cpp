@@ -1,5 +1,7 @@
 // C API (include/openbone.h) over the C++ runtime.
 // SPDX-License-Identifier: MIT
+#include "exact_math.h"  // first: no FMA contraction (bit-exact results)
+
 #include "openbone.h"
 
 #include <cstring>

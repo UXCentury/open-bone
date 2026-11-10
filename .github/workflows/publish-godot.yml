@@ -1,0 +1,175 @@
+# Godot addon: the OpenBone GDExtension (runtimes/cpp/engines/godot) prebuilt for every desktop platform plus Android,
+# assembled as addons/openbone/ (see runtimes/cpp/engines/godot/package.sh).
+#
+# - Run by hand (Actions → Godot addon → Run workflow): builds and tests the addon and keeps it as a workflow artifact.
+# - When a GitHub Release is published (release-desktop.yml creates it as a draft; publishing it is a manual step), also
+#   attaches openbone-godot-<version>.zip to that release and updates the orphan branch `godot-addon`, whose root holds
+#   only addons/openbone (+ README, LICENSE, icon). The Godot Asset Library downloads GitHub's archive of a commit on
+#   that branch; the job summary prints the commit hash and icon URL to enter there. Safe to re-run.
+name: Godot addon
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  # Releases share one group so two of them never push the godot-addon branch at the same time.
+  group: ${{ github.workflow }}-${{ github.event_name == 'release' && 'release' || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: 4.4.1
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Ubuntu 22.04 links against an older glibc (2.35), so the .so loads on more distributions.
+          - name: linux-x86_64
+            os: ubuntu-22.04
+            cmake: ""
+          - name: linux-arm64
+            os: ubuntu-22.04-arm
+            cmake: ""
+          - name: windows-x86_64
+            os: windows-2022
+            cmake: ""
+          # One universal dylib (Apple Silicon + Intel).
+          - name: macos-universal
+            os: macos-15
+            cmake: '"-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15'
+          # Cross-compiled with the runner's Android NDK; API 21 is godot-cpp's minimum.
+          - name: android-arm64
+            os: ubuntu-22.04
+            cmake: '-DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-21'
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build tools (Linux arm64 image)
+        if: matrix.name == 'linux-arm64'
+        run: command -v cmake >/dev/null && command -v g++ >/dev/null || { sudo apt-get update && sudo apt-get install -y cmake g++; }
+      # godot-cpp (built twice: template_debug and template_release) is most of the compile time; ccache keeps it
+      # between runs. MSVC builds without it.
+      - uses: hendrikmuhs/ccache-action@v1.2.24
+        if: runner.os != 'Windows'
+        with:
+          key: godot-addon-${{ matrix.name }}
+          max-size: 1G
+      - name: Configure
+        run: >-
+          cmake -S runtimes/cpp/engines/godot -B build-godot -DCMAKE_BUILD_TYPE=Release
+          -DOPENBONE_GODOT_ADDON=ON -DOPENBONE_GODOT_OUT="$GITHUB_WORKSPACE/godot-bin"
+          ${{ runner.os != 'Windows' && '-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache' || '' }}
+          ${{ matrix.cmake }}
+      - name: Build
+        run: cmake --build build-godot --config Release --parallel 4
+      - name: Check (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          for f in godot-bin/*.dylib; do
+            lipo "$f" -verify_arch arm64 x86_64
+            codesign --force --sign - "$f"   # ad-hoc; Godot's macOS export re-signs with the game
+          done
+      - run: ls -l godot-bin
+      - uses: actions/upload-artifact@v7
+        with:
+          name: godot-bin-${{ matrix.name }}
+          path: |
+            godot-bin/*.so
+            godot-bin/*.dll
+            godot-bin/*.dylib
+          if-no-files-found: error
+
+  addon:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write # release asset + godot-addon branch (release events only)
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: godot-bin-*
+          path: godot-bin
+      - name: Version
+        id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [ -n "$TAG" ]; then v="${TAG#v}"; else v="$(node -p 'require("./package.json").version')"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: Assemble
+        run: runtimes/cpp/engines/godot/package.sh --strict --zip "dist/openbone-godot-${{ steps.version.outputs.version }}.zip" dist/addon godot-bin
+
+      - uses: actions/cache@v6
+        with:
+          path: godot
+          key: godot-${{ env.GODOT_VERSION }}-linux
+      - name: Test the assembled addon in headless Godot
+        run: |
+          if [ ! -d godot ]; then
+            curl -sSfL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+            unzip -q godot.zip -d godot
+          fi
+          runtimes/cpp/engines/godot/test_addon.sh dist/addon "$(ls "$PWD"/godot/Godot_v*)" examples/knight.obone torso "$RUNNER_TEMP/addon-test"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: openbone-godot-${{ steps.version.outputs.version }}
+          path: dist/addon
+          if-no-files-found: error
+
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" "dist/openbone-godot-${{ steps.version.outputs.version }}.zip" --clobber --repo "$GITHUB_REPOSITORY"
+
+      - name: Update the godot-addon branch
+        if: github.event_name == 'release'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          wt="$RUNNER_TEMP/godot-addon"
+          if git ls-remote --exit-code --heads origin godot-addon >/dev/null; then
+            git fetch --depth=1 origin godot-addon
+            git worktree add --detach "$wt" FETCH_HEAD
+          else
+            git worktree add --detach "$wt"
+            git -C "$wt" checkout --orphan godot-addon
+          fi
+          # Start from an empty tree so files dropped from the addon disappear from the branch too.
+          git -C "$wt" rm -r -q -f --ignore-unmatch .
+          git -C "$wt" clean -q -f -d -x
+          runtimes/cpp/engines/godot/package.sh --strict --branch "$wt" godot-bin
+          git -C "$wt" add -A
+          if git -C "$wt" diff --cached --quiet; then
+            echo "godot-addon branch unchanged"
+          else
+            git -C "$wt" commit -q -m "OpenBone Godot addon $VERSION" -m "Built from $GITHUB_SHA by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          fi
+          git -C "$wt" push origin HEAD:refs/heads/godot-addon
+          commit="$(git -C "$wt" rev-parse HEAD)"
+          {
+            echo "### Godot Asset Library"
+            echo ""
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Version | $VERSION |"
+            echo "| Repository URL | $GITHUB_SERVER_URL/$GITHUB_REPOSITORY |"
+            echo "| Download commit (branch \`godot-addon\`) | \`$commit\` |"
+            echo "| Icon URL | https://raw.githubusercontent.com/$GITHUB_REPOSITORY/godot-addon/icon.png |"
+          } >> "$GITHUB_STEP_SUMMARY"

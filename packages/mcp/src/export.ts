@@ -251,7 +251,7 @@ export async function exportFile(session: ProjectSession, a: ExportRequest, scri
     return done(createZip(files), ` · ${at.pages.length} page(s) ${at.pages.map((p) => `${p.width}×${p.height}`).join(", ")}${flags.length ? ` (${flags.join(", ")})` : ""}`);
   }
   if (a.format === "web") {
-    const { buildWebBundle } = await import("../../player/src/bundle/build.ts");
+    const { buildWebBundle } = await import("@openbone/player/bundle");
     const minify = a.minify ?? true;
     const binary = a.binary ?? true;
     let rd = exportDocument(doc, { pruneUnused: true, nonessential: false }).doc;
@@ -264,7 +264,7 @@ export async function exportFile(session: ProjectSession, a: ExportRequest, scri
     const playerCode = await buildWebBundle({ format: "iife", minify, scripts: lazy ? "lazy" : hasScripts });
     let scriptsAddon: { code: string; wasm: Uint8Array } | undefined;
     if (lazy) {
-      const { buildScriptsAddon, quickJsWasmBytes } = await import("../../player/src/bundle/build.ts");
+      const { buildScriptsAddon, quickJsWasmBytes } = await import("@openbone/player/bundle");
       scriptsAddon = { code: await buildScriptsAddon({ minify }), wasm: quickJsWasmBytes() };
     }
     const pack = {

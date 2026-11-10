@@ -26,8 +26,16 @@ editing op in `packages/core` is a tool automatically, so the agent can do anyth
 The repository ships `.mcp.json`, so Claude Code picks up the `openbone` server automatically. For other clients:
 
 ```json
+{ "mcpServers": { "openbone": { "command": "npx", "args": ["-y", "@openbone/mcp"] } } }
+```
+
+From a checkout instead of npm:
+
+```json
 { "mcpServers": { "openbone": { "command": "pnpm", "args": ["exec", "tsx", "/path/to/OpenBone/packages/mcp/src/bin.ts"] } } }
 ```
+
+`npx -y @openbone/mcp --http 7718` and the other options above work the same way.
 
 Then ask, for example: *"Create a project at ~/anim/robot.obone: a robot with IK arms, an idle and a wave animation,
 and a state machine that waves when clicked."*

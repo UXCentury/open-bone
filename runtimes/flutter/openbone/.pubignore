@@ -1,0 +1,20 @@
+# Files left out of the pub.dev package. Pub reads this file instead of .gitignore in this folder, so it repeats the
+# build outputs. Publish the staged copy made by tool/bundle.sh, never this folder (see tool/bundle.sh).
+.dart_tool/
+build/
+/pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+*.log
+.DS_Store
+.idea/
+*.iml
+.build/
+.swiftpm/
+/coverage/
+/doc/api/
+
+# Development only: tests and tools need the rest of the repository (conformance suite, runtimes/cpp paths).
+/test/
+/tool/
+/ffigen.yaml

@@ -1,0 +1,136 @@
+# Publishes the C# runtime's NuGet packages (OpenBone.Runtime, OpenBone.Scripting.Jint, OpenBone.MonoGame) with their
+# symbol packages (.snupkg) to nuget.org.
+#
+# - On a published GitHub release (tag v<version>, matching the <Version> in the .csproj files) it tests, packs and pushes.
+# - Run it by hand (Actions → Publish .NET packages → Run workflow) for a dry run: test, pack and upload the packages as a
+#   workflow artifact without pushing. Untick "dry-run" to push the packages built from the selected ref.
+#
+# Credentials (see docs/releasing.md):
+# - Trusted publishing (preferred, no long-lived key): a nuget.org trusted publishing policy for this repository and
+#   workflow file (publish-dotnet.yml), and a repository variable NUGET_USER = the nuget.org profile name (not e-mail).
+# - Or an API key: repository secret NUGET_API_KEY (scope "Push", glob pattern "OpenBone.*").
+# Pushes use --skip-duplicate, so re-running for a version that is already on nuget.org is harmless.
+name: Publish .NET packages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Dry run: build and pack only, do not push to nuget.org"
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: runtimes/csharp
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('runtimes/csharp/**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+      - name: Check the version
+        id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(dotnet msbuild src/OpenBone.Runtime -getProperty:Version)
+          for p in src/OpenBone.Scripting.Jint monogame/src/OpenBone.MonoGame; do
+            v=$(dotnet msbuild "$p" -getProperty:Version)
+            if [ "$v" != "$version" ]; then
+              echo "::error::$p has Version $v but OpenBone.Runtime has $version (run scripts/version.ts)"; exit 1
+            fi
+          done
+          if [ -n "$TAG" ] && [ "$TAG" != "v$version" ]; then
+            echo "::error::Release tag $TAG does not match the package version $version (expected v$version)"; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Packing version $version"
+      - run: dotnet test -c Release
+      - run: dotnet test monogame/OpenBone.MonoGame.sln -c Release
+      - name: Pack
+        run: |
+          dotnet pack OpenBone.sln -c Release -o "$RUNNER_TEMP/nupkgs"
+          dotnet pack monogame/src/OpenBone.MonoGame -c Release -o "$RUNNER_TEMP/nupkgs"
+          ls -l "$RUNNER_TEMP/nupkgs"
+          test "$(ls "$RUNNER_TEMP"/nupkgs/*.nupkg | wc -l)" -eq 3 || { echo "::error::expected 3 .nupkg files"; exit 1; }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nupkgs-${{ steps.version.outputs.version }}
+          path: ${{ runner.temp }}/nupkgs/*
+          if-no-files-found: error
+
+  push:
+    needs: pack
+    if: github.event_name == 'release' || inputs.dry-run == false
+    runs-on: ubuntu-24.04
+    # Credentials live on the protected "release" environment (Settings → Environments), like the desktop signing
+    # secrets: a run reads them only after a required reviewer approves it.
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # trusted publishing: GitHub OIDC token exchanged for a short-lived nuget.org key
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: nupkgs-${{ needs.pack.outputs.version }}
+          path: nupkgs
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - name: Check credentials
+        id: creds
+        env:
+          NUGET_USER: ${{ vars.NUGET_USER || secrets.NUGET_USER }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -n "$NUGET_USER" ]; then
+            echo "Using nuget.org trusted publishing as $NUGET_USER"
+            echo "mode=oidc" >> "$GITHUB_OUTPUT"
+          elif [ -n "$NUGET_API_KEY" ]; then
+            echo "Using the NUGET_API_KEY secret"
+            echo "mode=key" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error title=No nuget.org credentials::Set the repository variable NUGET_USER (nuget.org profile name, with a trusted publishing policy for workflow publish-dotnet.yml) or the secret NUGET_API_KEY, or run with dry-run ticked. See docs/releasing.md."
+            exit 1
+          fi
+      - name: NuGet login (OIDC)
+        id: login
+        if: steps.creds.outputs.mode == 'oidc'
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER || secrets.NUGET_USER }}
+      - name: Push to nuget.org
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY || secrets.NUGET_API_KEY }}
+        # .snupkg files next to the .nupkg files are pushed to the symbol server automatically.
+        run: |
+          for p in OpenBone.Runtime OpenBone.Scripting.Jint OpenBone.MonoGame; do
+            dotnet nuget push "nupkgs/$p.${{ needs.pack.outputs.version }}.nupkg" \
+              --api-key "$NUGET_API_KEY" --source https://api.nuget.org/v3/index.json --skip-duplicate
+          done
+          {
+            echo "### Pushed to nuget.org"
+            for p in OpenBone.Runtime OpenBone.Scripting.Jint OpenBone.MonoGame; do
+              echo "- [$p ${{ needs.pack.outputs.version }}](https://www.nuget.org/packages/$p/${{ needs.pack.outputs.version }})"
+            done
+            echo "New versions take a few minutes to be validated and indexed."
+          } >> "$GITHUB_STEP_SUMMARY"

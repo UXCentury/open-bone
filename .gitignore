@@ -12,3 +12,8 @@ apps/editor/dist
 *.p8
 *.cer
 *.mobileprovision
+
+# Swift package (Package.swift at the root, sources in runtimes/swift)
+/.build/
+/.swiftpm/
+/Package.resolved

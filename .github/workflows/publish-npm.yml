@@ -1,0 +1,92 @@
+# Publish the JavaScript packages (packages/*: @openbone/* and the unscoped `openbone` CLI) to npm.
+#
+# - Publishing a GitHub Release (tag v<version>, see docs/releasing.md) publishes every package whose version is not
+#   on npm yet. Versions already on npm are skipped, so re-running is safe.
+# - Or run it by hand (Actions → Publish to npm → Run workflow). "Dry run" (on by default) builds and packs everything
+#   and prints what would be published, without publishing.
+#
+# Credentials: an npm token in the NPM_TOKEN secret (needed for the first publish of a new package), or npm trusted
+# publishing (OIDC) once it is configured for each package on npmjs.com; then set the repository variable
+# NPM_TRUSTED_PUBLISHING to "true" and the token can be removed. Either way the packages get npm provenance.
+name: Publish to npm
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Dry run: build and pack, but do not publish"
+        type: boolean
+        default: true
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # npm provenance and trusted publishing (OIDC)
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    # Credentials live on the protected "release" environment (Settings → Environments), like the desktop signing
+    # secrets: a run reads them only after a required reviewer approves it.
+    environment: release
+    env:
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run && 'true' || 'false' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or newer (pnpm hands the upload to npm).
+      - name: Update npm
+        run: npm install -g npm@^11.5.1 && npm --version
+
+      - name: Check credentials and version
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TRUSTED_PUBLISHING: ${{ vars.NPM_TRUSTED_PUBLISHING }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(node -p 'require("./package.json").version')
+          echo "Version: $version (dry run: $DRY_RUN)"
+          if [ -n "$RELEASE_TAG" ] && [ "$RELEASE_TAG" != "v$version" ]; then
+            echo "::error::Release tag $RELEASE_TAG does not match the package version v$version. Set it with pnpm version:set and tag again."
+            exit 1
+          fi
+          if [ "$DRY_RUN" != "true" ] && [ -z "$NPM_TOKEN" ] && [ "$TRUSTED_PUBLISHING" != "true" ]; then
+            echo "::error::No npm credentials. Add an npm granular access token with read and write access to the @openbone scope and the openbone package as the NPM_TOKEN repository secret (Settings → Secrets and variables → Actions), or configure trusted publishing on npmjs.com for every package and set the repository variable NPM_TRUSTED_PUBLISHING=true. See docs/releasing.md."
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm version:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build:packages
+
+      # pnpm publishes in dependency order, replaces workspace:* with the real versions and skips versions that are
+      # already on npm.
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            pnpm -r --filter "./packages/*" publish --access public --no-git-checks --dry-run
+          else
+            NPM_CONFIG_PROVENANCE=true pnpm -r --filter "./packages/*" publish --access public --no-git-checks --report-summary
+            node -e '
+              const s = require("./pnpm-publish-summary.json").publishedPackages ?? [];
+              const lines = s.length ? s.map((p) => `- ${p.name}@${p.version}`) : ["Nothing new to publish: every version is already on npm."];
+              require("fs").appendFileSync(process.env.GITHUB_STEP_SUMMARY, ["### Published to npm", ...lines, ""].join("\n"));
+              console.log(lines.join("\n"));
+            '
+          fi

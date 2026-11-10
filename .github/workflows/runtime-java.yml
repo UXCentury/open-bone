@@ -36,3 +36,5 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6
       # The runner's ANDROID_HOME makes settings.gradle.kts include :openbone-android, so `build` covers it too.
       - run: ./gradlew build --no-daemon
+      # Keeps the Maven Central publishing setup (POMs, sources/javadoc jars, the AAR) working; see publish-maven.yml.
+      - run: ./gradlew publishToMavenLocal --no-daemon

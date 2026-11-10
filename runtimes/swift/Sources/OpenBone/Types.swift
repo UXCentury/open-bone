@@ -30,7 +30,7 @@ public enum OpenBoneRuntime {
     /// `OB_API_VERSION` of the linked C API.
     public static var apiVersion: Int { Int(ob_api_version()) }
     public static var version: String { String(cString: ob_version()) }
-    /// True when built with the QuickJS script host (see `scripts/fetch-quickjs.sh`).
+    /// True when built with the QuickJS script host (always, in this package; other builds of libopenbone may omit it).
     public static var hasScripts: Bool { ob_has_scripts() != 0 }
 }
 

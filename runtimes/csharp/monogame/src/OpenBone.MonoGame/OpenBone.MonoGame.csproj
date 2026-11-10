@@ -6,9 +6,11 @@
     <RootNamespace>OpenBone.MonoGame</RootNamespace>
     <AssemblyName>OpenBone.MonoGame</AssemblyName>
     <Version>0.2.0</Version>
-    <Authors>OpenBone contributors</Authors>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Description>MonoGame (DesktopGL) renderer, player and sound bridge for the OpenBone C# runtime.</Description>
+    <IsPackable>true</IsPackable>
+    <PackageId>OpenBone.MonoGame</PackageId>
+    <Description>MonoGame (DesktopGL) integration for the OpenBone C# runtime: renderer (blend modes, clipping, two-colour tint), player component with pointer input, and a SoundEffect bridge for audio commands.</Description>
+    <PackageTags>$(PackageTags);monogame</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
@@ -23,5 +25,6 @@
   <ItemGroup>
     <!-- HLSL source of the two-colour tint effect (for mgfxc / DirectX builds); the OpenGL effect is built in code. -->
     <None Include="Shaders/OpenBoneTint.fx" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>

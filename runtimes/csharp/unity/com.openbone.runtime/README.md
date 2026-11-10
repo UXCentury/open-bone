@@ -14,7 +14,25 @@ The posing, constraints, particles, text templates, state machines and audio com
 
 ## Install
 
-The package needs four DLLs in `Plugins/` that are built from source (they are not committed):
+**Package Manager → + → Add package from git URL…**, then one of:
+
+```
+https://github.com/UXCentury/open-bone.git#upm            # latest release
+https://github.com/UXCentury/open-bone.git#upm/v0.2.0     # a specific version
+```
+
+or add it to `Packages/manifest.json`:
+
+```json
+"com.openbone.runtime": "https://github.com/UXCentury/open-bone.git#upm/v0.2.0"
+```
+
+The `upm` branch holds the released package with its prebuilt DLLs (CI builds it from `runtimes/csharp` for every
+release). The package is also on [OpenUPM](https://openupm.com/packages/com.openbone.runtime/)
+(`openupm add com.openbone.runtime`), and each GitHub release has `com.openbone.runtime-<version>.tgz` attached
+(**Add package from tarball…**).
+
+The DLLs in `Plugins/`:
 
 | DLL | What | Licence |
 |---|---|---|
@@ -23,7 +41,11 @@ The package needs four DLLs in `Plugins/` that are built from source (they are n
 | `Jint.dll` | JavaScript interpreter | BSD-2-Clause |
 | `Esprima.dll` | JavaScript parser used by Jint | BSD-3-Clause |
 
-1. Install the [.NET 8 SDK](https://dot.net) (only needed to build the plugins).
+### From source
+
+The package folder in the repository (`runtimes/csharp/unity/com.openbone.runtime`) has no DLLs; build them first:
+
+1. Install the [.NET 8 SDK](https://dot.net).
 2. From the repository root:
 
    ```bash
@@ -31,6 +53,7 @@ The package needs four DLLs in `Plugins/` that are built from source (they are n
    ```
 
    This builds the DLLs into `runtimes/csharp/unity/com.openbone.runtime/Plugins/`, writes the `.meta` files and creates `runtimes/csharp/unity/com.openbone.runtime-<version>.tgz`.
+   (`--out DIR` assembles the complete package into `DIR` instead, leaving the source tree untouched: what CI publishes.)
 3. In Unity: **Window → Package Manager → + → Add package from tarball…** and pick the `.tgz` (or **Add package from disk…** and pick `com.openbone.runtime/package.json` to work on the package in place).
 
 ## Use
