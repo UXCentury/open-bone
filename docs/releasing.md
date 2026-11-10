@@ -100,7 +100,7 @@ Installers for the current platform land in `apps/desktop/src-tauri/target/relea
 
 | Platform | First launch |
 |---|---|
-| **macOS** | Right-click (or Control-click) OpenBone in Applications → **Open** → **Open**. Or allow it in **System Settings → Privacy & Security** |
+| **macOS** | macOS says Apple "could not verify OpenBone is free of malware". Click **Done**, then open **System Settings → Privacy & Security**, and next to "OpenBone was blocked" click **Open Anyway** (macOS 15 and later no longer offer right-click → Open for this). Or in Terminal: `xattr -dr com.apple.quarantine /Applications/OpenBone.app` |
 | **Windows** | SmartScreen shows "Windows protected your PC": **More info** → **Run anyway** |
 | **Linux AppImage** | `chmod +x OpenBone_*.AppImage` and run it. Newer Ubuntu needs `sudo apt install libfuse2`, or run it with `--appimage-extract-and-run` |
 | **Linux .deb / .rpm** | `sudo apt install ./OpenBone_*.deb` or `sudo dnf install ./OpenBone-*.rpm` (pulls in WebKitGTK) |

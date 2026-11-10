@@ -100,7 +100,7 @@ jobs:
             const install = [
               "### Installing",
               "Download the installer for your system below. These builds are not code-signed yet:",
-              "- **macOS**: right-click OpenBone in Applications and choose **Open** the first time.",
+              "- **macOS**: if Apple \"could not verify\" OpenBone, click Done, then in **System Settings → Privacy & Security** click **Open Anyway** next to OpenBone. Or run `xattr -dr com.apple.quarantine /Applications/OpenBone.app`.",
               "- **Windows**: if SmartScreen appears, choose **More info** then **Run anyway**.",
               "- **Linux AppImage**: on newer Ubuntu install `libfuse2`, or run it with `--appimage-extract-and-run`.",
             ].join("\n");
