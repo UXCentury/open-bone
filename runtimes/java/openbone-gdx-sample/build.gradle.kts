@@ -2,7 +2,7 @@ plugins {
   application
 }
 
-val gdxVersion: String by rootProject.extra
+val gdxVersion = rootProject.extra["gdxVersion"] as String
 
 dependencies {
   implementation(project(":openbone-gdx"))

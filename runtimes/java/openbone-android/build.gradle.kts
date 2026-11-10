@@ -18,7 +18,8 @@ android {
   sourceSets["main"].java.srcDirs("src/main/kotlin")
   // The instrumented test replays the whole conformance suite on the device with the shared runner.
   sourceSets["androidTest"].java.srcDirs("src/androidTest/kotlin", "../openbone-conformance/src/runner/java")
-  sourceSets["androidTest"].assets.srcDir(layout.buildDirectory.dir("conformance-assets"))
+  // A plain directory (AGP 9 rejects Providers here); conformanceAssets below fills it before the assets merge.
+  sourceSets["androidTest"].assets.srcDir(layout.buildDirectory.dir("conformance-assets").get().asFile)
   testOptions.unitTests.isReturnDefaultValues = true
 }
 
@@ -47,7 +48,7 @@ dependencies {
 }
 
 // conformance/expected, conformance/fixtures and the example documents, packed into the test APK's assets.
-val conformanceAssets by tasks.registering(Sync::class) {
+val conformanceAssets = tasks.register<Sync>("conformanceAssets") {
   val repo = rootProject.projectDir.resolve("../..")
   into(layout.buildDirectory.dir("conformance-assets"))
   from(repo.resolve("conformance/expected")) { into("conformance/expected") }

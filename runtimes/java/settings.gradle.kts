@@ -7,7 +7,7 @@ pluginManagement {
   plugins {
     kotlin("jvm") version "2.4.21"
     kotlin("android") version "2.4.21"
-    id("com.android.library") version "8.13.1"
+    id("com.android.library") version "9.5.1"
   }
 }
 
