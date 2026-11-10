@@ -115,7 +115,8 @@ struct ContentView: View {
         VStack(spacing: 0) {
             stage.frame(maxHeight: .infinity)
             Divider()
-            ScrollView { controls }.frame(maxHeight: 320)
+            // Form scrolls by itself; inside a ScrollView it would collapse to zero height.
+            controls.frame(height: 320)
         }
         #endif
     }
