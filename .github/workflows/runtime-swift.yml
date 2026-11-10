@@ -32,6 +32,8 @@ jobs:
     container: swift:6.0-jammy
     steps:
       - uses: actions/checkout@v4
+      # The Swift image has no curl, which fetch-quickjs.sh downloads with.
+      - run: apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
       - run: runtimes/swift/scripts/fetch-quickjs.sh
       - run: swift test
         working-directory: runtimes/swift

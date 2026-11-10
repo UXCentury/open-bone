@@ -61,8 +61,17 @@ std::string jsNumberToString(double v) {
   if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
   if (v == 0) return "0";
   char buf[64];
+#if defined(__APPLE__)
+  // Apple's libc++ only has floating-point std::to_chars from macOS 13.3 / iOS 16.3. Same result: the fewest
+  // significant digits that read back as exactly v (printf rounds correctly, so that is also the nearest).
+  for (int precision = 0; precision <= 16; precision++) {
+    std::snprintf(buf, sizeof buf, "%.*e", precision, v);
+    if (std::strtod(buf, nullptr) == v) break;
+  }
+#else
   auto r = std::to_chars(buf, buf + sizeof buf, v, std::chars_format::scientific);
   *r.ptr = 0;
+#endif
   // buf: [-]d[.ddd]e±XX
   std::string s(buf);
   bool neg = s[0] == '-';
