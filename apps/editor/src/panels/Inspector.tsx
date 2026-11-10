@@ -456,12 +456,21 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
                   <BindBones slotId={p.slotId} attachment={m().name} skin={p.owner.id} />
                 </Show>
                 <button
-                  disabled={!!m().weights?.length || !!m().linked}
-                  title={m().weights?.length ? "Weighted meshes cannot be re-traced (the weights would be lost)" : "Rebuild this mesh from the image's visible pixels, where it sits now"}
+                  disabled={!!m().linked}
+                  title={
+                    m().linked
+                      ? "A linked mesh uses its parent's shape: re-trace the parent instead"
+                      : m().weights?.length
+                        ? "Rebuild this mesh from the image's visible pixels, where it sits now, and bind it again to the same bones"
+                        : "Rebuild this mesh from the image's visible pixels, where it sits now"
+                  }
                   onClick={() => void retraceMesh(p.slotId, p.owner.id, m())}
                 >
                   Re-trace outline…
                 </button>
+                <Show when={m().linked}>
+                  <div class="hint">Linked meshes take their shape from the parent mesh, so they can't be re-traced.</div>
+                </Show>
               </>
             );
           }}

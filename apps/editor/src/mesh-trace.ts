@@ -95,9 +95,16 @@ export async function traceRegion(slotId: string, skinId: string, r: Region) {
   toast(`Traced ${mesh.hull} outline + ${mesh.vertices.length / 2 - mesh.hull} inner vertices, ${mesh.triangles.length / 3} triangles`, "info");
 }
 
-/** Re-trace an unweighted mesh where it sits (same image mapping). Deform keys for it are removed. */
+/**
+ * Re-trace a mesh where it sits (same image mapping). A weighted mesh is bound again to the same bones, with as many
+ * influences per vertex as before, by automatic weights. Deform keys for it are removed.
+ */
 export async function retraceMesh(slotId: string, skinId: string, m: Mesh) {
-  if (m.weights?.length) return toast("This mesh is weighted to bones: re-tracing would lose the weights. Clear them first.", "error");
+  if (m.linked) return toast("This is a linked mesh: it uses its parent's shape, so re-trace the parent", "error");
+  const children = linkedChildren(slotId, skinId, m.name);
+  if (children.length) return toast(`Linked meshes use this mesh's shape (${children.join(", ")}): re-tracing would break them`, "error");
+  const bones = m.weights?.length ? [...new Set(m.weights.flatMap((inf) => inf.map((w) => w.bone)))] : [];
+  const maxInfluences = m.weights?.length ? Math.min(4, Math.max(1, ...m.weights.map((inf) => inf.length))) : 0;
   const affine = meshUvAffine(m.vertices, m.uvs);
   if (!affine) return toast("Could not work out where this mesh's image sits", "error");
   const opts = await askTraceOptions(`Re-trace mesh: ${m.name}`);
@@ -109,8 +116,19 @@ export async function retraceMesh(slotId: string, skinId: string, m: Mesh) {
   transaction("re-trace mesh", () => {
     store.apply("deleteAttachment", { slot: slotId, attachment: m.name, skin: skinId });
     store.apply("addMesh", { slot: slotId, skin: skinId, name: m.name, image: m.image, ...mesh, color: m.color });
+    if (bones.length) store.apply("autoWeights", { slot: slotId, attachment: m.name, skin: skinId, bones, maxInfluences });
   });
-  toast(`Re-traced: ${mesh.hull} outline + ${mesh.vertices.length / 2 - mesh.hull} inner vertices`, "info");
+  const names = bones.map((id) => store.doc.skeleton.bones.find((b) => b.id === id)?.name ?? id);
+  toast(`Re-traced: ${mesh.hull} outline + ${mesh.vertices.length / 2 - mesh.hull} inner vertices${names.length ? `, bound again to ${names.join(", ")}` : ""}`, "info");
+}
+
+/** Linked meshes (in any skin) that take their shape from this mesh. */
+function linkedChildren(slotId: string, skinId: string, name: string): string[] {
+  const out: string[] = [];
+  for (const k of store.doc.skeleton.skins)
+    for (const att of Object.values(k.attachments[slotId] ?? {}))
+      if (att.type === "mesh" && att.linked?.mesh === name && (att.linked.skin ?? skinId) === skinId) out.push(k.id === skinId ? att.name : `${att.name} (${k.name})`);
+  return out;
 }
 
 /** Grid mesh for a region, honouring its rotation and scale (the old conversion ignored rotation). */
