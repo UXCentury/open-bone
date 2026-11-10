@@ -176,6 +176,14 @@ struct Attachment {
 
 /** A slot's attachments in one skin, in JS object key order (integer-like names first, then insertion order). */
 struct SlotAttachments {
+  // Move-only, said explicitly: MSVC's unordered_map move isn't noexcept, so without a deleted copy std::vector<SkinData>
+  // would try to copy skins (and these unique_ptrs) when it grows.
+  SlotAttachments() = default;
+  SlotAttachments(SlotAttachments&&) = default;
+  SlotAttachments& operator=(SlotAttachments&&) = default;
+  SlotAttachments(const SlotAttachments&) = delete;
+  SlotAttachments& operator=(const SlotAttachments&) = delete;
+
   std::vector<std::unique_ptr<Attachment>> list;
   std::vector<std::string> keys;  // parallel to list
   std::unordered_map<std::string, Attachment*> byName;
