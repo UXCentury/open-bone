@@ -67,7 +67,7 @@ pnpm test
 | C# / Unity | [`runtimes/csharp`](runtimes/csharp) | .NET Standard 2.1, Unity 2021.3+ | `OpenBone.Runtime` (scripts in Jint) and the `com.openbone.runtime` package: importer, components, mesh, AudioSource bridge (tested in Unity 6) |
 | Java / Android | [`runtimes/java`](runtimes/java) | any JVM (Java 11+), libGDX 1.14, Android 7+ | Pure Java port; libGDX renderer; Kotlin `OpenBoneView` |
 | Swift | [`runtimes/swift`](runtimes/swift) | iOS 15+, macOS 12+ | Swift API over the C API; Metal `OpenBoneView` (UIKit, AppKit) and SwiftUI `OpenBonePlayer` |
-| Flutter | [`runtimes/dart`](runtimes/dart) | Flutter 3.41+ (Android, iOS, macOS, Linux, Windows) | `dart:ffi` plugin over the C API; `OpenBoneWidget` with sound (flutter_soloud); Swift Package Manager and CocoaPods |
+| Flutter | [`runtimes/flutter/openbone`](runtimes/flutter/openbone) | Flutter 3.41+ (Android, iOS, macOS, Linux, Windows) | `dart:ffi` plugin over the C API; `OpenBoneWidget` with sound (flutter_soloud); Swift Package Manager and CocoaPods |
 
 Every native runtime implements [docs/runtime-spec.md](docs/runtime-spec.md) and passes the [conformance suite](conformance): the same poses, draw lists, events, audio commands and state-machine steps as the TypeScript runtime, for every example. CI runs each one on Linux, macOS and Windows where it applies. Demos of the knight in each web engine: `pnpm --filter @openbone/examples engines`, then http://localhost:5190.
 
@@ -227,7 +227,7 @@ Needs Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3).
 | `packages/export` | Image, video, ZIP, sprite-sheet and engine-pack exporters |
 | `packages/mcp`, `packages/cli` | MCP server (stdio and HTTP, live bridge to the editor) and the `openbone` CLI |
 | `apps/editor`, `apps/desktop` | The SolidJS editor and its Tauri 2 desktop shell |
-| `runtimes/cpp`, `csharp`, `java`, `swift`, `dart` | Native runtimes and their engine integrations |
+| `runtimes/cpp`, `csharp`, `java`, `swift`, `flutter` | Native runtimes and their engine integrations |
 | `conformance` | Reference results every runtime is tested against |
 | `examples` | The example projects, their art and sound, and the script that builds them |
 

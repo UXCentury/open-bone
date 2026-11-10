@@ -1,12 +1,32 @@
-# OpenBone runtime specification
+# Runtime specification
+
+← [Docs](README.md)
 
 How the TypeScript runtime (`packages/runtime`, `packages/core`) turns a document into poses, draw lists, events,
 audio commands and state-machine states. A port (C++, C#, Java, Swift, Dart…) that follows this text reproduces the
 reference files in [`conformance/expected/`](../conformance/expected) (format: [`conformance/README.md`](../conformance/README.md),
 generator: `conformance/generate.ts`). The file format itself is in [format.md](format.md); it is not repeated here.
 
-Where this text and the code disagree, the code wins and this file is the bug. Section headings cite `file:function`.
-Angles in documents are degrees, counter-clockwise, y-up. "wrap" always means `wrapDeg` (§4.4).
+Section headings cite `file:function`. Angles in documents are degrees, counter-clockwise, y-up. "wrap" always
+means `wrapDeg` (§4.4).
+
+> [!IMPORTANT]
+> Where this text and the code disagree, the code wins and this file is the bug.
+
+**Contents**
+
+1. [Scope and conformance](#1-scope-and-conformance)
+2. [Loading](#2-loading)
+3. [Per-frame pipeline](#3-per-frame-pipeline)
+4. [Maths](#4-maths)
+5. [Timelines](#5-timelines)
+6. [AnimationState](#6-animationstate)
+7. [Constraints](#7-constraints)
+8. [Skins, attachments and the draw list](#8-skins-attachments-and-the-draw-list)
+9. [State machines](#9-state-machines)
+10. [Events and audio commands](#10-events-and-audio-commands)
+11. [Scripts](#11-scripts)
+12. [Float sensitivity and porting traps](#12-float-sensitivity-and-porting-traps)
 
 ---
 
@@ -74,6 +94,15 @@ skeleton.updateWorldTransform()// §3.2
 ```
 
 With a state machine, `StateMachineInstance.advance(dt)` replaces all of it (§9).
+
+```mermaid
+flowchart LR
+    A["animationState.update(dt)<br/>times · events · audio · queue"] --> B["setToSetupPose()"]
+    B --> C["animationState.apply()<br/>timelines, track order"]
+    C --> D["skeleton.update(dt)<br/>clock · physics · particles"]
+    D --> E["updateWorldTransform()<br/>sliders → bones → constraints"]
+    E -. "then, when the host draws" .-> F["drawList()"]
+```
 
 ### 3.1 `skeleton.ts:Skeleton.setToSetupPose`
 Bones' local pose and `inherit` ← bone data; slot colour ← `parseHex(color)`, dark ← `parseHex(dark)` or none, attachment name ←
