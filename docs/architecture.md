@@ -134,6 +134,11 @@ Whoever hosts the runtime plays the commands:
 | Cocos2d-x | `OpenBoneNode` plays them through `cocos2d::AudioEngine` |
 | Unity | the **OpenBone Audio** component, through pooled `AudioSource`s |
 | Flutter | `OpenBoneAudio` (flutter_soloud), on by default in `OpenBoneWidget` |
+| SDL2, SFML samples | `ob::audio::Mixer` (`runtimes/cpp/engines/common/openbone_audio.hpp`) over a software mixer in SDL's audio callback (WAV) or `sf::Sound`s; `--mute` turns it off |
+| Swift | `OpenBoneAudio` (AVAudioPlayer per voice, logic in `OpenBoneAudioMixer`), on by default in `OpenBoneView` / `OpenBonePlayer` (`isAudioEnabled`) |
+| libGDX | `OpenBoneAudio` (`Gdx.audio` `Sound`s), an `OpenBoneInstance.Listener` you add; logic in the runtime's `AudioMixer` |
+| Android | `OpenBoneAudio` (SoundPool, MediaPlayer for long sounds), on by default in `OpenBoneView` (`isAudioEnabled`) |
+| Unreal | none: `UOpenBoneComponent` only emits the commands (`OnAudio`) |
 
 ## Scripts
 

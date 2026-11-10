@@ -4,6 +4,7 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app). Se
 
 ## Unreleased
 
+- **Sound in more runtimes**: the Swift `OpenBoneView` / `OpenBonePlayer` (new `OpenBoneAudio`, AVFoundation; `OpenBoneDocument` gains `audioAssets`, `audioBuses`, `audioMaster`), the libGDX module (`OpenBoneAudio`), the Android `OpenBoneView` (SoundPool / MediaPlayer, `SoundSource`) and the SDL2 and SFML samples play the document's sounds (on by default, `isAudioEnabled` / `--mute` to opt out; audio callbacks still get every command), on shared, unit-tested gain / voice / fade logic (`OpenBoneAudioMixer`, Java `AudioMixer`, `engines/common/openbone_audio.hpp`). Unreal still only emits audio commands.
 - The Flutter plugin moved from `runtimes/dart` to `runtimes/flutter/openbone`: Flutter 3.47's Swift Package Manager support fails when a plugin's folder name differs from its package name ([flutter#186881](https://github.com/flutter/flutter/issues/186881)).
 - Java runtime on **Gradle 9.9** and Android Gradle Plugin 9.5 (Kotlin 2.4 through the Kotlin Android plugin), without Gradle 10 deprecations.
 - **Swift Package Manager** for the Flutter plugin on iOS and macOS (`runtimes/flutter/openbone/darwin/openbone/Package.swift`, with iOS and macOS sharing one `darwin/` folder and podspec), so Flutter no longer warns that `openbone` lacks SPM support; the podspecs stay for CocoaPods.

@@ -63,10 +63,10 @@ pnpm test
 | Web player | `@openbone/player` | browser | `<openbone-player>` element and `Player` class, WebGL2 or Canvas2D, Web Audio |
 | Web renderers | `@openbone/render-webgl`, `@openbone/render-canvas` | browser, Node | Batched WebGL2 with stencil clipping; Canvas2D for the editor and headless PNG/GIF |
 | Web engines | [`@openbone/pixi`](packages/pixi), [`phaser`](packages/phaser), [`three`](packages/three), [`canvaskit`](packages/canvaskit) | PixiJS v8, Phaser 3, Three.js r160+, CanvasKit | Same batches as the WebGL renderer, checked frame for frame; engine pointer events |
-| C / C++ | [`runtimes/cpp`](runtimes/cpp) | Godot 4, Cocos2d-x 4, SDL2, SFML, Unreal 5, any | C++17 port with a stable C API (`openbone.h`); scripts in embedded QuickJS; plays sound in Godot and Cocos2d-x |
+| C / C++ | [`runtimes/cpp`](runtimes/cpp) | Godot 4, Cocos2d-x 4, SDL2, SFML, Unreal 5, any | C++17 port with a stable C API (`openbone.h`); scripts in embedded QuickJS; plays sound in Godot, Cocos2d-x, SDL2 and SFML |
 | C# / Unity | [`runtimes/csharp`](runtimes/csharp) | .NET Standard 2.1, Unity 2021.3+ | `OpenBone.Runtime` (scripts in Jint) and the `com.openbone.runtime` package: importer, components, mesh, AudioSource bridge (tested in Unity 6) |
-| Java / Android | [`runtimes/java`](runtimes/java) | any JVM (Java 11+), libGDX 1.14, Android 7+ | Pure Java port; libGDX renderer; Kotlin `OpenBoneView` |
-| Swift | [`runtimes/swift`](runtimes/swift) | iOS 15+, macOS 12+ | Swift API over the C API; Metal `OpenBoneView` (UIKit, AppKit) and SwiftUI `OpenBonePlayer` |
+| Java / Android | [`runtimes/java`](runtimes/java) | any JVM (Java 11+), libGDX 1.14, Android 7+ | Pure Java port; libGDX renderer and sound; Kotlin `OpenBoneView` with sound (SoundPool, MediaPlayer) |
+| Swift | [`runtimes/swift`](runtimes/swift) | iOS 15+, macOS 12+ | Swift API over the C API; Metal `OpenBoneView` (UIKit, AppKit) and SwiftUI `OpenBonePlayer`, with sound (AVFoundation) |
 | Flutter | [`runtimes/flutter/openbone`](runtimes/flutter/openbone) | Flutter 3.41+ (Android, iOS, macOS, Linux, Windows) | `dart:ffi` plugin over the C API; `OpenBoneWidget` with sound (flutter_soloud); Swift Package Manager and CocoaPods |
 
 Every native runtime implements [docs/runtime-spec.md](docs/runtime-spec.md) and passes the [conformance suite](conformance): the same poses, draw lists, events, audio commands and state-machine steps as the TypeScript runtime, for every example. CI runs each one on Linux, macOS and Windows where it applies. Demos of the knight in each web engine: `pnpm --filter @openbone/examples engines`, then http://localhost:5190.
@@ -175,7 +175,7 @@ Needs Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3).
 
 - **Sounds** from WAV, MP3 or OGG (embedded or by path), each with a bus, volume, rate, loop and fades.
 - Played by **audio keys**, **events**, **state hooks** and **listener actions**; looping sounds fade out when their state or animation ends.
-- **Mixer**: named buses with volume and mute, and a master volume. The runtimes emit play / stop / fade commands; the editor, the web player, Godot, Cocos2d-x, Unity and Flutter play them.
+- **Mixer**: named buses with volume and mute, and a master volume. The runtimes emit play / stop / fade commands; the editor, the web player, Godot, Cocos2d-x, the SDL2 and SFML samples, Unity, Flutter, Swift (`OpenBoneView`), libGDX and Android (`OpenBoneView`) play them. Unreal only emits them.
 - **Lip sync** keys a mouth slot's images to a voice recording (see the Fox and Robot examples).
 
 </details>
