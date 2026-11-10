@@ -43,7 +43,7 @@ runtimes/cpp/build/openbone_conformance --root . conformance/expected/interactiv
 Options: `OPENBONE_WITH_SCRIPTS` (ON; OFF builds without QuickJS, scripts are then skipped), `OPENBONE_BUILD_SHARED`
 (ON), `OPENBONE_BUILD_STATIC` (ON; the tests need it), `OPENBONE_BUILD_TESTS`, `OPENBONE_INSTALL` (ON; install rules),
 `OPENBONE_QUICKJS_DIR` (use a local quickjs-ng tree instead of downloading). Embedders such as the Flutter plugin
-([`runtimes/dart`](../dart)) build only `openbone_shared` with static and install off.
+([`runtimes/flutter/openbone`](../flutter/openbone)) build only `openbone_shared` with static and install off.
 The library is compiled with `-ffp-contract=off` (no fused multiply-add) so results match the reference on ARM64 too.
 
 ## C++ API

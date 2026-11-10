@@ -6,7 +6,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "runtimes/dart/**"
+      - "runtimes/flutter/openbone/**"
       - "runtimes/cpp/include/**"
       - "runtimes/cpp/src/**"
       - "runtimes/cpp/CMakeLists.txt"
@@ -15,7 +15,7 @@ on:
       - ".github/workflows/runtime-flutter.yml"
   pull_request:
     paths:
-      - "runtimes/dart/**"
+      - "runtimes/flutter/openbone/**"
       - "runtimes/cpp/include/**"
       - "runtimes/cpp/src/**"
       - "runtimes/cpp/CMakeLists.txt"
@@ -50,14 +50,14 @@ jobs:
           packages: ninja-build libgtk-3-dev
           version: 1
       - name: Test
-        working-directory: runtimes/dart
+        working-directory: runtimes/flutter/openbone
         run: |
           flutter pub get
           tool/build_native.sh
           flutter analyze
           flutter test
       - name: Build the example (Linux, Android)
-        working-directory: runtimes/dart/example
+        working-directory: runtimes/flutter/openbone/example
         run: |
           flutter build linux
           # One ABI is enough to check the Android build (each ABI compiles the C++ runtime with the NDK).
@@ -72,13 +72,13 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - name: Test
-        working-directory: runtimes/dart
+        working-directory: runtimes/flutter/openbone
         run: |
           flutter pub get
           tool/build_native.sh
           flutter test
       - name: Build the example (macOS, iOS) with Swift Package Manager
-        working-directory: runtimes/dart/example
+        working-directory: runtimes/flutter/openbone/example
         shell: bash  # -eo pipefail: a failed build fails the step despite tee
         run: |
           flutter config --enable-swift-package-manager
@@ -99,5 +99,5 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
       - name: Build the example (Windows)
-        working-directory: runtimes/dart/example
+        working-directory: runtimes/flutter/openbone/example
         run: flutter build windows
