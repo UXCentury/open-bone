@@ -34,6 +34,9 @@ import {
   setCompensate,
   grabTarget,
   setGrabTarget,
+  pickBones,
+  pickParts,
+  setPick,
 } from "../state.ts";
 import { playActive, togglePlay } from "../play.ts";
 import { tip } from "../shortcuts/index.ts";
@@ -176,6 +179,15 @@ export function Toolbar() {
         >
           Part
         </button>
+      </div>
+      <div class="group pick-filter" role="group" aria-label="What viewport clicks can pick">
+        <span class="muted small">Pick</span>
+        <label class="check" title={pickBones() ? "Bones can be clicked in the viewport. Untick to click through them to the pictures" : "Bones can't be clicked in the viewport (select them in the Skeleton tree)"}>
+          <input type="checkbox" disabled={locked()} checked={pickBones()} onChange={(e) => setPick("bones", e.currentTarget.checked)} /> Bones
+        </label>
+        <label class="check" title={pickParts() ? "Pictures can be clicked in the viewport. Untick to click only bones" : "Pictures can't be clicked in the viewport (select them in the Skeleton tree)"}>
+          <input type="checkbox" disabled={locked()} checked={pickParts()} onChange={(e) => setPick("parts", e.currentTarget.checked)} /> Parts
+        </label>
       </div>
       <div class="group">
         <button disabled={locked()} onClick={() => imageInput.click()} title="Import PNG/JPG as a new slot on the selected bone, or a Photoshop PSD (each layer becomes a slot, groups can become bones)">+ Image</button>

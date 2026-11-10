@@ -10,7 +10,8 @@ import type { MenuItem } from "./menu.tsx";
 import { anyLocked, cycleVisTo, isIsolated, isLocked, showImages, toggleLock, unlockAll, visOf } from "./visibility.ts";
 import { view3d, zView } from "./zview.ts";
 import { type AttTransform, type BoneTransform, attTransformsFor, transformAttachment, transformBone } from "./transform-actions.ts";
-import { getAttachment } from "@openbone/core";
+import { attachmentOwner, getAttachment } from "@openbone/core";
+import { retraceMesh, traceRegion } from "./mesh-trace.ts";
 import { activeSkin, compensate } from "./state.ts";
 import { importFromProject } from "./panels/ImportDialog.tsx";
 import { moveToFolder } from "./panels/Folders.tsx";
@@ -53,6 +54,21 @@ const boneTransformMenu = (boneId: string): MenuItem => {
     ],
   };
 };
+/** Mesh actions for a part (also in the Inspector): trace an image into a mesh, re-trace or edit a mesh. */
+function meshItems(slotId: string, attName: string | null | undefined): MenuItem[] {
+  const att = attName ? getAttachment(store.doc, slotId, attName, activeSkin()?.id) : null;
+  if (!att || !attName) return [];
+  const owner = attachmentOwner(store.doc, slotId, attName, activeSkin()?.id);
+  if (!owner) return [];
+  if (att.type === "region") return [{ label: "Trace mesh… (follow the image's outline)", action: () => void traceRegion(slotId, owner.id, att) }];
+  if (att.type === "mesh")
+    return [
+      { label: "Edit mesh points", shortcut: "tool.mesh" },
+      { label: att.linked ? "Re-trace outline… (re-trace the parent: this is a linked mesh)" : "Re-trace outline…", disabled: !!att.linked, action: () => void retraceMesh(slotId, owner.id, att) },
+    ];
+  return [];
+}
+
 /** Transform submenu for one attachment (flip, rotate, skew, reset the image itself; the bone is untouched). */
 function partTransformMenu(slotId: string, attName: string | null | undefined): MenuItem[] {
   const att = attName ? getAttachment(store.doc, slotId, attName, activeSkin()?.id) : null;
@@ -138,7 +154,7 @@ const TOOLS: [Tool, string, string][] = [
   ["pen", "Pen (paths, bounding boxes)", "tool.pen"],
 ];
 
-function selectionItems(): MenuItem[] {
+export function selectionItems(): MenuItem[] {
   const s = selection();
   if (!s) return [];
   const d = store.doc;
@@ -182,6 +198,7 @@ function selectionItems(): MenuItem[] {
         ],
       },
       ...partTransformMenu(slot.id, (s as { attachment?: string }).attachment ?? slot.attachment),
+      ...meshItems(slot.id, (s as { attachment?: string }).attachment ?? slot.attachment),
       boneTransformMenu(slot.bone),
       { label: visOf(slot.id) === "hidden" ? "Show" : "Hide", action: () => cycleVisTo(slot.id, visOf(slot.id) === "hidden" ? "shown" : "hidden") },
       { label: isIsolated() ? "Show all" : "Show only this", shortcut: "view.isolate" },

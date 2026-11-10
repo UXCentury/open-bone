@@ -6,6 +6,7 @@ import { Dock, DragOverlay, Splitter } from "./panels/Workspace.tsx";
 import { ExportDialog } from "./panels/ExportDialog.tsx";
 import { PlayStage } from "./panels/PlayMode.tsx";
 import { ShortcutsDialog } from "./panels/ShortcutsDialog.tsx";
+import { CommandPalette, paletteOpen } from "./panels/CommandPalette.tsx";
 import { dismissToast, exportOpen, toasts } from "./state.ts";
 import { DialogHost } from "./dialogs.tsx";
 import { playActive } from "./play.ts";
@@ -70,6 +71,9 @@ export function App() {
       <MenuHost contextItems={contextItems} />
       <Show when={shortcutsOpen()}>
         <ShortcutsDialog />
+      </Show>
+      <Show when={paletteOpen()}>
+        <CommandPalette />
       </Show>
       <div class="toasts">
         <For each={toasts()}>

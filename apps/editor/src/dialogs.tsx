@@ -13,7 +13,8 @@ export interface ChoiceOption {
 
 export type Field =
   | { key: string; label: string; type: "text"; value?: string; placeholder?: string; required?: boolean; validate?: (v: string) => string | null }
-  | { key: string; label: string; type: "choice"; value?: string; options: ChoiceOption[] };
+  /** `compact`: a drop-down instead of a row of buttons, for long lists (images, presets). */
+  | { key: string; label: string; type: "choice"; value?: string; options: ChoiceOption[]; compact?: boolean };
 
 interface FormRequest {
   title: string;
@@ -220,6 +221,16 @@ function Dialog(p: { req: FormRequest }) {
                             {errors()[i()]}
                           </span>
                         </Show>
+                      </label>
+                    )}
+                  </Match>
+                  <Match when={f.type === "choice" && f.compact && f}>
+                    {(cf) => (
+                      <label class="dialog-field">
+                        <span>{cf().label}</span>
+                        <select class="dialog-select" value={values()[cf().key]} onChange={(e) => set(cf().key, e.currentTarget.value)}>
+                          <For each={cf().options}>{(o) => <option value={o.value} selected={values()[cf().key] === o.value}>{o.label}</option>}</For>
+                        </select>
                       </label>
                     )}
                   </Match>

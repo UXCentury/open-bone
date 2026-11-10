@@ -3,6 +3,8 @@ import { For, Show } from "solid-js";
 import { ensureAnimation } from "../edit.ts";
 import { apply, currentAnimation, doc, mode, time } from "../state.ts";
 import { ColorField, NumberField, Section, SelectField } from "./fields.tsx";
+import { askForm } from "../dialogs.tsx";
+import { deletePreset, presetSettings, savePreset, userPresetNames } from "../particle-presets.ts";
 
 /** Slots that have a particles attachment in any skin (targets for emitter actions and state toggles). */
 export function emitterSlots() {
@@ -103,9 +105,50 @@ export function ParticlesEditor(p: { slotId: string; att: ParticlesAttachment; o
       <SelectField
         label="Preset"
         value=""
-        options={[{ value: "", label: "Apply preset…" }, ...PRESET_NAMES.map((n) => ({ value: n, label: n }))]}
-        onCommit={(v) => v && set({ preset: v })}
+        options={[
+          { value: "", label: "Apply preset…" },
+          ...PRESET_NAMES.map((n) => ({ value: n, label: n })),
+          ...userPresetNames().map((n) => ({ value: `user:${n}`, label: `★ ${n}` })),
+        ]}
+        onCommit={(v) => {
+          if (!v) return;
+          if (!v.startsWith("user:")) return set({ preset: v });
+          const props = presetSettings(v.slice(5));
+          if (props) set(props);
+        }}
       />
+      <div class="btn-row">
+        <button
+          title="Keep these settings as your own preset: it shows up in “+ Particles…” and “Apply preset…” in every project"
+          onClick={async () => {
+            const r = await askForm({
+              title: "Save particle preset",
+              message: "Saves every setting except where the emitter sits. If the particles use an image, the preset uses the image of the same name in other projects.",
+              fields: [{ key: "name", label: "Name", type: "text", value: a().name, validate: (v) => (v.trim() ? null : "Give it a name") }],
+              confirmLabel: "Save",
+            });
+            if (r?.name) savePreset(String(r.name).trim(), a());
+          }}
+        >
+          ★ Save as preset…
+        </button>
+        <Show when={userPresetNames().length}>
+          <button
+            title="Remove one of your saved presets"
+            onClick={async () => {
+              const r = await askForm({
+                title: "Delete particle preset",
+                fields: [{ key: "name", label: "Preset", type: "choice", compact: true, value: userPresetNames()[0], options: userPresetNames().map((n) => ({ value: n, label: n })) }],
+                confirmLabel: "Delete",
+                danger: true,
+              });
+              if (r?.name) deletePreset(String(r.name));
+            }}
+          >
+            Delete a preset…
+          </button>
+        </Show>
+      </div>
       <Section title="Emission" id="particles.emission">
         <Check
           label="Emitting"

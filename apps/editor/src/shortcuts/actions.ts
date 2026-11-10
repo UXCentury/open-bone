@@ -5,7 +5,7 @@ import { createSignal } from "solid-js";
 import { ensureAnimation } from "../edit.ts";
 import { toggleViewAid } from "../guides.ts";
 import { type PanelId, showPanel } from "../layout.ts";
-import { deleteSelectedVertices, nudgeSelected, selectAllVertices } from "../mesh-edit.ts";
+import { deleteSelectedVertices, meshTarget, nudgeSelected, selectAllVertices } from "../mesh-edit.ts";
 import { penDeselect, penDelete, penFinish, penNudge, penSelectAll } from "../tools/pen.ts";
 import { playActive, playFullWindow, restartPlay, setPlayFit, setPlayFullWindow, setPlayPaused, playPaused, stepSpeed, stopPlay, togglePlay } from "../play.ts";
 import { multiBones,
@@ -40,6 +40,9 @@ import { multiBones,
   setGrabTarget,
 } from "../state.ts";
 import { saveProject } from "../storage.ts";
+import { paletteOpen, setPaletteOpen } from "../panels/CommandPalette.tsx";
+import { nudgeDeform, resetDeform } from "../ffd.ts";
+import { viewportApi } from "../panels/Viewport.tsx";
 import { reorderSlot, setShowImages, showImages, toggleIsolateSelection, toggleLockSelection } from "../visibility.ts";
 import { setView3d, setZView, view3d, zView } from "../zview.ts";
 import { redo, undo } from "../panels/Toolbar.tsx";
@@ -154,6 +157,13 @@ function duplicate() {
 function deleteSelection() {
   if (tool() === "pen" && penDelete()) return;
   if (tool() === "mesh" && meshSel().length) {
+    // Animate mode: Delete puts the selected vertices back to the mesh's own shape in this key.
+    const t = meshTarget();
+    const sk = viewportApi.skeleton?.();
+    if (mode() === "animate") {
+      if (t && sk) resetDeform(sk, t, meshSel());
+      return;
+    }
     deleteSelectedVertices();
     return;
   }
@@ -167,6 +177,13 @@ const nudge = (dx: number, dy: number) => (e: { shiftKey: boolean }) => {
   if (tool() === "pen") return penNudge(dx * (e.shiftKey ? 10 : 1), dy * (e.shiftKey ? 10 : 1));
   if (tool() !== "mesh" || !meshSel().length) return false;
   const k = e.shiftKey ? 10 : 1;
+  if (mode() === "animate") {
+    const t = meshTarget();
+    const sk = viewportApi.skeleton?.();
+    // Same directions as the setup nudge (world units).
+    if (t && sk) nudgeDeform(sk, t, meshSel(), dx * k, dy * k);
+    return;
+  }
   nudgeSelected(dx * k, dy * k);
 };
 
@@ -270,6 +287,7 @@ export function setupShortcuts(): () => void {
     b("play.actual", () => setPlayFit("none")),
     b("play.fullWindow", () => setPlayFullWindow(!playFullWindow())),
     b("help.shortcuts", () => setShortcutsOpen(true)),
+    b("help.palette", () => setPaletteOpen(!paletteOpen())),
     b("tool.compensate", () => setCompensate(!compensate())),
     b("tool.grab", () => {
       setGrabTarget(grabTarget() === "part" ? "bone" : "part");

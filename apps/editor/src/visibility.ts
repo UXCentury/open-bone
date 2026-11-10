@@ -1,5 +1,5 @@
-import { createSignal } from "solid-js";
-import { apply, doc, selectedBoneIds, selectedSlotIds, store, toast } from "./state.ts";
+import { createEffect, createRoot, createSignal, on } from "solid-js";
+import { apply, doc, fileName, selectedBoneIds, selectedSlotIds, store, toast } from "./state.ts";
 
 /**
  * Editor-only visibility for the Skeleton tree's eye buttons: a bone or slot can be shown, dimmed or hidden while you
@@ -149,3 +149,47 @@ export function toggleLockSelection() {
   for (const id of ids) setLocked(id, lock);
   toast(lock ? `Locked ${ids.length === 1 ? "it" : `${ids.length} items`}: it can't be clicked in the viewport (unlock in the Skeleton tree or with L)` : "Unlocked", "info");
 }
+
+// ---- remembered per file: eyes, locks and isolate come back when the project is opened again ----
+const viewKey = (name: string) => `openbone.view:${name}`;
+interface SavedView {
+  vis: Record<string, Vis>;
+  locks: Record<string, true>;
+  isolated: Record<string, Vis> | null;
+}
+let restoring = false;
+function restoreView(name: string) {
+  restoring = true;
+  try {
+    const raw = localStorage.getItem(viewKey(name));
+    const v = raw ? (JSON.parse(raw) as Partial<SavedView>) : null;
+    // Only ids this document still has (a rebuilt or replaced file can't bring back stale entries).
+    const d = doc();
+    const ids = new Set([...d.skeleton.bones.map((b) => b.id), ...d.skeleton.slots.map((s) => s.id)]);
+    const keep = <T,>(r: Record<string, T> | null | undefined) => (r ? Object.fromEntries(Object.entries(r).filter(([id]) => ids.has(id))) : {});
+    setVis(keep(v?.vis) as Record<string, Vis>);
+    setLocks(keep(v?.locks) as Record<string, true>);
+    setIsolated(v?.isolated ? (keep(v.isolated) as Record<string, Vis>) : null);
+  } catch {
+    setVis({});
+    setLocks({});
+    setIsolated(null);
+  } finally {
+    restoring = false;
+  }
+}
+createRoot(() => {
+  createEffect(on(fileName, (name) => restoreView(name)));
+  createEffect(
+    on([vis, locks, isolated], ([v, l, iso]) => {
+      if (restoring) return;
+      try {
+        const empty = !Object.keys(v).length && !Object.keys(l).length && !iso;
+        if (empty) localStorage.removeItem(viewKey(fileName()));
+        else localStorage.setItem(viewKey(fileName()), JSON.stringify({ vis: v, locks: l, isolated: iso } satisfies SavedView));
+      } catch {
+        /* private mode or storage full: the view just isn't remembered */
+      }
+    }, { defer: true }),
+  );
+});

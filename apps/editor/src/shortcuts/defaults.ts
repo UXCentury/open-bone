@@ -94,4 +94,5 @@ export const DEFAULT_SHORTCUTS: ShortcutDef[] = [
 
   // ---- Help
   { id: "help.shortcuts", label: "Keyboard shortcuts", group: "Help", keys: ["?"], scope: "global" },
+  { id: "help.palette", label: "Command palette (search every action)", group: "Help", keys: ["Mod+K", "Mod+Shift+P"], scope: "global", inInputs: true },
 ];

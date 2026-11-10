@@ -93,6 +93,27 @@ export function setGrabTarget(v: GrabTarget) {
     /* private mode */
   }
 }
+/** Pick filter (toolbar): whether viewport clicks can grab bones and parts. Remembered between sessions. */
+const PICK_KEY = "openbone.pick";
+const readPick = (): { bones: boolean; parts: boolean } => {
+  try {
+    const v = JSON.parse(localStorage.getItem(PICK_KEY) ?? "null") as { bones?: boolean; parts?: boolean } | null;
+    return { bones: v?.bones !== false, parts: v?.parts !== false };
+  } catch {
+    return { bones: true, parts: true };
+  }
+};
+const [pickFilter, setPickFilterSignal] = createSignal(readPick());
+export const pickBones = () => pickFilter().bones;
+export const pickParts = () => pickFilter().parts;
+export function setPick(which: "bones" | "parts", on: boolean) {
+  setPickFilterSignal((p) => ({ ...p, [which]: on }));
+  try {
+    localStorage.setItem(PICK_KEY, JSON.stringify(pickFilter()));
+  } catch {
+    /* private mode */
+  }
+}
 export function setCompensate(on: boolean) {
   setCompensateSignal(on);
   try {

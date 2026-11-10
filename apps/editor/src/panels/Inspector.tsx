@@ -13,6 +13,7 @@ import { ColorField, NumberField, Section, SelectField, TextField } from "./fiel
 import { AudioAssetInspector, BusInspector, SoundInspector } from "./AudioPanel.tsx";
 import { SequenceEditor } from "./SequenceEditor.tsx";
 import { PRESET_NAMES, ParticlesEditor } from "./ParticlesInspector.tsx";
+import { presetSettings, userPresetNames } from "../particle-presets.ts";
 import { BindingList } from "./Bindings.tsx";
 import { BoundingBoxTools, PathKnotWeights } from "../tools/PenInspector.tsx";
 
@@ -525,6 +526,34 @@ function addAttachment(slotId: string, kind: string, op: string, args: Record<st
   if (added) setSelection({ kind: "slot", id: added });
 }
 
+/**
+ * "+ Particles… → Custom…": a new emitter from a blank start, a built-in preset or one of yours, optionally with one
+ * of the project's images as the particle (leaves, stars, bubbles), in one step.
+ */
+async function addCustomParticles(slotId: string) {
+  const d = doc();
+  const starts = [
+    { value: "", label: "Blank (a gentle puff of dots)" },
+    ...PRESET_NAMES.map((n) => ({ value: n, label: n })),
+    ...userPresetNames().map((n) => ({ value: n, label: `★ ${n}` })),
+  ];
+  const r = await askForm({
+    title: "Custom particles",
+    message: "Start from a preset (or nothing) and pick an image to use as each particle. Every setting can be changed afterwards in the Inspector, and saved as your own preset.",
+    fields: [
+      { key: "name", label: "Name", type: "text", value: "particles", validate: (v) => (v.trim() ? null : "Give it a name") },
+      { key: "start", label: "Start from", type: "choice", compact: true, value: "", options: starts },
+      { key: "image", label: "Particle image", type: "choice", compact: true, value: "", options: [{ value: "", label: "None (round particles)" }, ...d.images.map((i) => ({ value: i.id, label: i.name }))] },
+    ],
+    confirmLabel: "Add",
+  });
+  if (!r) return;
+  const start = String(r.start ?? "");
+  const base = start ? (presetSettings(start) ?? {}) : {};
+  const image = String(r.image ?? "");
+  addAttachment(slotId, "particles", "addParticles", { ...base, ...(image ? { look: "image", image } : {}), name: String(r.name).trim(), ...skinArg() });
+}
+
 function SlotInspector(p: { id: string; attachment?: string }) {
   const slot = () => doc().skeleton.slots.find((s) => s.id === p.id);
   const atts = () => slotAttachments(doc(), p.id, activeSkin()?.id).map((e) => e.name);
@@ -595,13 +624,23 @@ function SlotInspector(p: { id: string; attachment?: string }) {
             title="Add a particle emitter (emits from this slot's bone)"
             value=""
             onChange={(e) => {
-              const preset = e.currentTarget.value;
+              const pick = e.currentTarget.value;
               e.currentTarget.value = "";
-              if (preset) addAttachment(p.id, "particles", "addParticles", { preset, ...skinArg() });
+              if (!pick) return;
+              if (pick === "custom") return void addCustomParticles(p.id);
+              if (pick.startsWith("user:")) {
+                const name = pick.slice(5);
+                const props = presetSettings(name);
+                if (props) addAttachment(p.id, "particles", "addParticles", { ...props, name, ...skinArg() });
+                return;
+              }
+              addAttachment(p.id, "particles", "addParticles", { preset: pick, ...skinArg() });
             }}
           >
             <option value="">+ Particles…</option>
             <For each={PRESET_NAMES}>{(n) => <option value={n}>{n}</option>}</For>
+            <For each={userPresetNames()}>{(n) => <option value={`user:${n}`}>★ {n}</option>}</For>
+            <option value="custom">Custom… (your own image, any start)</option>
           </select>
         </div>
         <Show when={activeSkin()}>

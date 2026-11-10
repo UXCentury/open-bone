@@ -13,6 +13,8 @@ import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "s
 import { imageFor, setImageReadyCallback } from "../images.ts";
 import { playCommand, previewAudioStep, stopPreviewAudio } from "../audio.ts";
 import { commitBone, commitAttachmentMove } from "../edit.ts";
+import { currentDeform, deformInPose, keyDeform, posedVertices } from "../ffd.ts";
+import { blendColor, boneColor, css, drawPie, fillGradientTriangle, heatRgb, setWeightView, weightView } from "../weight-view.ts";
 import { type PartOp, type PartState, dragAmount, partOrigin, partProps, scalable } from "../part-transform.ts";
 import { askForm } from "../dialogs.tsx";
 import { drawPenOverlay, penAltHit, penDown, penMove, penPreview, penUp, usePen } from "../tools/pen.ts";
@@ -61,6 +63,11 @@ import {
   transaction,
   apply,
   ownerSkinArg,
+  fileName,
+  pickBones,
+  selectedBoneIds,
+  pickParts,
+  type Tool,
   grabTarget,
   setRunning,
   toast,
@@ -102,6 +109,47 @@ import {
 
 export const [smInstance, setSmInstance] = createSignal<StateMachineInstance | null>(null);
 /** For the Outline panel: the main view (artboard px → screen: x + ax·zoom) and a way to centre it on a point. */
+/**
+ * The outline the editor selects, picks and highlights a part by: the shape that is drawn (a mesh's hull, an image's
+ * rectangle, a shape, text), not a click area (bounding box) on the same slot, which is for listeners in Play mode.
+ * A slot that only shows a click area (or a clipping mask) uses that.
+ */
+function partShape(sk_: Skeleton, slot: Slot): Float32Array | null {
+  const att = sk_.getAttachment(slot);
+  if (att?.type === "mesh") return sk_.attachmentWorldVertices(slot, att).slice(0, att.hull * 2);
+  if (att && (att.type === "region" || att.type === "sequence" || att.type === "shape" || att.type === "text" || att.type === "boundingBox" || att.type === "clipping"))
+    return sk_.attachmentWorldVertices(slot, att);
+  return sk_.hitPolygon(slot);
+}
+
+/** What the current tool does and what its modifier keys change, for the viewport's status line. */
+function toolHint(): string {
+  const what = grabTarget() === "part" && mode() === "setup" ? "a part" : "a bone or part";
+  switch (tool()) {
+    case "select":
+    case "rotate":
+      return `drag ${what}: rotate · Shift while dragging: 15° steps · Shift-click: add to selection`;
+    case "translate":
+      return `drag ${what}: move · Shift-click: add to selection · drag empty space: box select`;
+    case "scale":
+      return `drag ${what}: scale · Shift while dragging: 10% steps`;
+    case "pose":
+      return "drag a bone: bend the chain · Shift: only that bone";
+    case "bone":
+      return "drag from a bone: new child bone";
+    case "mesh":
+      return mode() === "animate"
+        ? "drag vertices: key a deform · Shift-click: add to selection · Delete: reset the selected"
+        : "click: select vertex · drag: move · Ctrl/⌘-click: add a vertex · Delete: remove";
+    case "weights":
+      return "drag: paint weights · Shift-click a bone: paint that bone";
+    case "pen":
+      return "click: add a knot · drag: pull handles · click the first knot: close · Enter: finish";
+    default:
+      return `wheel: zoom · alt/right-drag: pan · ${kbd("view.fit")}: fit`;
+  }
+}
+
 /** Crosshair with a plus badge (hotspot at the crosshair's centre), for "click adds a point". Falls back to `copy`. */
 const ADD_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><g stroke="#000" stroke-width="3" stroke-linecap="round"><path d="M8 1v14M1 8h14"/><path d="M18 13v8M14 17h8"/></g><g stroke="#fff" stroke-width="1.4" stroke-linecap="round"><path d="M8 1v14M1 8h14"/><path d="M18 13v8M14 17h8"/></g></svg>',
@@ -158,7 +206,18 @@ type Drag =
   /** Rotate / Scale tool on parts (Setup mode): the attachments turn or grow around the grabbed part's origin. */
   | { kind: "part"; op: PartOp; parts: PartState[]; pivot: [number, number]; start: [number, number]; amount: number; preview: Skeleton | null }
   | { kind: "create"; parent: Bone | null; start: [number, number]; end: [number, number] }
-  | { kind: "vertex"; t: MeshTarget; start: [number, number]; anchor: number; base: Map<number, [number, number]>; moved: Map<number, [number, number]>; preview: Skeleton | null; soft?: Map<number, { base: [number, number]; f: number }> }
+  | {
+      kind: "vertex";
+      t: MeshTarget;
+      start: [number, number];
+      anchor: number;
+      base: Map<number, [number, number]>;
+      moved: Map<number, [number, number]>;
+      preview: Skeleton | null;
+      soft?: Map<number, { base: [number, number]; f: number }>;
+      /** Animate mode (free-form deformation): the drag keys deform offsets instead of changing the mesh. */
+      ffd?: { base: number[]; offsets: number[] | null };
+    }
   | { kind: "paint"; t: MeshTarget; table: WeightTable; world: number[]; changed: Set<number>; last: [number, number]; carry: number };
 
 /** Mesh tool: when on, moving existing vertices keeps their uvs (the image stretches). */
@@ -183,6 +242,32 @@ export function Viewport() {
     view.y = (wrap?.clientHeight ?? 0) / 2 - ay * view.zoom;
   };
   let fitted = false;
+  // The camera (pan and zoom) is remembered per file and comes back when it is opened again.
+  const camKey = () => `openbone.camera:${fileName()}`;
+  let savedCam = "";
+  function restoreCamera(): boolean {
+    try {
+      const v = JSON.parse(localStorage.getItem(camKey()) ?? "null") as { x: number; y: number; zoom: number } | null;
+      if (!v || ![v.x, v.y, v.zoom].every(Number.isFinite) || v.zoom <= 0) return false;
+      Object.assign(view, v);
+      savedCam = JSON.stringify(v);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  let camTick = 0;
+  function saveCamera() {
+    if (!fitted || ++camTick % 30) return; // about twice a second is plenty
+    const now = JSON.stringify({ x: Math.round(view.x), y: Math.round(view.y), zoom: Math.round(view.zoom * 1000) / 1000 });
+    if (now === savedCam) return;
+    savedCam = now;
+    try {
+      localStorage.setItem(camKey(), now);
+    } catch {
+      /* not remembered */
+    }
+  }
   let drag: Drag | null = null;
   // Z view: the last layout drawn (for hit testing), a part being dragged to a new column, and the view to restore.
   let zl: ZLayout | null = null;
@@ -195,6 +280,12 @@ export function Viewport() {
   let last = performance.now();
   let previewWasPlaying = false;
   let hoverInfo = "";
+  /** Offscreen layer for the Weights tool's colour overlay. */
+  let overlayLayer: HTMLCanvasElement | null = null;
+  /** A Shift-press on something already selected: it leaves the selection only if the pointer comes up without a drag. */
+  let deferredToggle: { kind: "bone" | "slot"; id: string; at: [number, number] } | null = null;
+  /** What a click under the pointer would grab (the hover preview): a part, a bone, or a part whose bone moves. */
+  let hoverPick: { slot: string | null; bone: string | null; label: string } | null = null;
   let hoverPt: [number, number] | null = null;
   let snapLines: SnapLine[] = [];
   const [aidsOpen, setAidsOpen] = createSignal(false);
@@ -211,7 +302,10 @@ export function Viewport() {
   let ghostRev = -1;
   let ghostCanvas: HTMLCanvasElement | null = null;
   let wtCache: { rev: number; key: string; table: WeightTable } | null = null;
-  const meshToolOn = () => (tool() === "mesh" || tool() === "weights") && mode() === "setup" && !running();
+  // The Mesh tool also works in Animate mode, where dragging vertices keys a deform (FFD); weights are setup-only.
+  const meshToolOn = () => !running() && (tool() === "mesh" || (tool() === "weights" && mode() === "setup"));
+  /** Vertex positions the Mesh tool works with: posed with the current deform when animating, setup otherwise. */
+  const meshVerts = (t: MeshTarget) => (mode() === "animate" && sk ? posedVertices(sk, t) : setupVertices(t));
   // Pen tool (paths, bounding boxes): logic in ../tools/pen.ts.
   usePen({
     sk: () => ensureSkeleton(),
@@ -368,10 +462,11 @@ export function Viewport() {
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
       if (!fitted && w > 0) {
-        fit();
+        if (!restoreCamera()) fit();
         fitted = true;
       }
     }
+    saveCamera();
     const d = store.doc;
     const s = ensureSkeleton();
     pose(s, dt);
@@ -401,6 +496,8 @@ export function Viewport() {
     const r = new CanvasRenderer(ctx, resolveImage);
     const v = { x: view.x * dpr, y: view.y * dpr, zoom: view.zoom * dpr };
     if (onionSkin() && mode() === "animate" && !running()) drawOnionSkins(ctx, v, resolveImage);
+    // FFD preview: the dragged deform replaces the animated one on the posed skeleton until the key is written.
+    if (drag?.kind === "vertex" && drag.ffd?.offsets) s.slotById_(drag.t.slotId)?.deform.set(drag.t.name, drag.ffd.offsets);
     const shown = (drag?.kind === "vertex" || drag?.kind === "attachment" || drag?.kind === "part") && drag.preview ? drag.preview : (penPreview() ?? s);
     r.render(shown, {
       view: v,
@@ -423,7 +520,7 @@ export function Viewport() {
     const sel = selection();
     for (const id of sel?.kind === "slot" && !running() && !meshToolOn() && tool() !== "pen" ? selectedSlotIds() : []) {
       const slot = shown.slotById_(id);
-      const poly = slot && shown.hitPolygon(slot);
+      const poly = slot && partShape(shown, slot);
       if (poly) {
         ctx.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
         ctx.beginPath();
@@ -439,6 +536,7 @@ export function Viewport() {
       ctx.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
       drawPenOverlay(ctx, v.zoom, shown);
     }
+    if (hoverPick && !drag) drawHoverPick(ctx, v, shown, hoverPick);
     const gz = gizmoBone(shown);
     if (gz) drawGizmo(ctx, dpr, gz);
     // The drag preview, so the gizmo follows the part while it turns.
@@ -705,6 +803,45 @@ export function Viewport() {
       ctx.lineWidth = 1;
       ctx.fillRect(sx - 4.5, sy - 4.5, 9, 9);
       ctx.strokeRect(sx - 4.5, sy - 4.5, 9, 9);
+    }
+    ctx.restore();
+  }
+
+  /** The hover preview: a light dashed outline on the part a click would grab, a glow along the bone that would move. */
+  function drawHoverPick(ctx: CanvasRenderingContext2D, v: { x: number; y: number; zoom: number }, sk_: Skeleton, h: NonNullable<typeof hoverPick>) {
+    const d = store.doc;
+    ctx.save();
+    ctx.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
+    if (h.slot && !selectedSlotIds().includes(h.slot)) {
+      const slot = sk_.slotById_(h.slot);
+      const poly = slot && partShape(sk_, slot);
+      if (poly) {
+        ctx.beginPath();
+        for (let i = 0; i < poly.length; i += 2) (i ? ctx.lineTo : ctx.moveTo).call(ctx, poly[i], poly[i + 1]);
+        ctx.closePath();
+        // A dark edge under a bright dashed line, so it reads on light and dark art alike.
+        ctx.strokeStyle = "#000000aa";
+        ctx.lineWidth = 3.5 / v.zoom;
+        ctx.stroke();
+        ctx.strokeStyle = "#8ad4ff";
+        ctx.lineWidth = 2 / v.zoom;
+        ctx.setLineDash([6 / v.zoom, 4 / v.zoom]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+    if (h.bone && !selectedBoneIds().includes(h.bone)) {
+      const b = sk_.boneById_(h.bone);
+      if (b) {
+        const [ex, ey] = applyM(b.world, Math.max(b.data.length, 0.001), 0);
+        ctx.strokeStyle = "#ffffffaa";
+        ctx.lineWidth = 6 / v.zoom;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(b.world.x, b.world.y);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+      }
     }
     ctx.restore();
   }
@@ -976,17 +1113,32 @@ export function Viewport() {
     const bone = weightBone();
     const table = painting ? currentWeights(t) : null;
     const w = (i: number) => (table && bone ? (table[i]?.get(bone) ?? 0) : 0);
+    const wvView = weightView();
+    const boneIndex = new Map(d.skeleton.bones.map((b, i) => [b.id, i]));
+    const colorOf = (id: string) => boneColor(boneIndex.get(id) ?? 0);
     if (table) {
+      // Smooth gradient: every bone's colour blended by the weights (Overlay), or the painted bone's heat map.
+      const vc = table.map((m, i) => (wvView.overlay ? blendColor(m, colorOf) : heatRgb(w(i))));
+      // Drawn opaque on its own layer, then blended in once: half-transparent pieces would show their seams.
+      overlayLayer ??= document.createElement("canvas");
+      if (overlayLayer.width !== canvas.width || overlayLayer.height !== canvas.height) {
+        overlayLayer.width = canvas.width;
+        overlayLayer.height = canvas.height;
+      }
+      const oc = overlayLayer.getContext("2d")!;
+      oc.setTransform(1, 0, 0, 1, 0, 0);
+      oc.clearRect(0, 0, overlayLayer.width, overlayLayer.height);
+      oc.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
+      oc.lineWidth = 1 / v.zoom;
       for (let k = 0; k < tris.length; k += 3) {
         const [a, b, c] = [tris[k], tris[k + 1], tris[k + 2]];
-        ctx.beginPath();
-        ctx.moveTo(wv[a * 2], wv[a * 2 + 1]);
-        ctx.lineTo(wv[b * 2], wv[b * 2 + 1]);
-        ctx.lineTo(wv[c * 2], wv[c * 2 + 1]);
-        ctx.closePath();
-        ctx.fillStyle = heat((w(a) + w(b) + w(c)) / 3, 0.5);
-        ctx.fill();
+        fillGradientTriangle(oc, [[wv[a * 2], wv[a * 2 + 1]], [wv[b * 2], wv[b * 2 + 1]], [wv[c * 2], wv[c * 2 + 1]]], [vc[a], vc[b], vc[c]], 1);
       }
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = 0.55;
+      ctx.drawImage(overlayLayer, 0, 0);
+      ctx.restore();
     }
     ctx.beginPath();
     for (let k = 0; k < tris.length; k += 3)
@@ -1030,7 +1182,10 @@ export function Viewport() {
       ctx.fillStyle = painting ? heat(w(i)) : sel.has(i) ? "#ffcc00" : i < att.hull ? "#8ad4ff" : "#ffffff";
       ctx.strokeStyle = "#000000aa";
       ctx.lineWidth = px * dpr;
-      if (painting) {
+      if (painting && table && wvView.pies && (!wvView.selectedOnly || sel.has(i))) {
+        // A pie of every bone's share on this vertex, in the bones' colours.
+        drawPie(ctx, x, y, sz * 1.7, table[i], colorOf, px * dpr);
+      } else if (painting) {
         ctx.beginPath();
         ctx.arc(x, y, sz, 0, Math.PI * 2);
         ctx.fill();
@@ -1084,7 +1239,7 @@ export function Viewport() {
   function meshDown(e: PointerEvent, x: number, y: number) {
     const target = meshTarget();
     if (target) {
-      const world = setupVertices(target);
+      const world = meshVerts(target);
       const hull = world.slice(0, target.att.hull * 2);
       if (tool() === "mesh") {
         const hit = pickVertex(world, x, y);
@@ -1106,8 +1261,17 @@ export function Viewport() {
                 if (d < R) soft.set(i, { base: [world[i * 2], world[i * 2 + 1]], f: (1 - (d / R) ** 2) ** 2 });
               }
             }
-            drag = { kind: "vertex", t: target, start: [x, y], anchor: hit, base: new Map(sel.map((i) => [i, [world[i * 2], world[i * 2 + 1]]])), moved: new Map(), preview: null, soft };
+            const ffd = mode() === "animate" && sk ? { base: currentDeform(sk, target), offsets: null } : undefined;
+            if (ffd && target.att.linked) {
+              toast("This linked mesh takes its deform from its parent: select the parent mesh to deform it", "info");
+              return;
+            }
+            drag = { kind: "vertex", t: target, start: [x, y], anchor: hit, base: new Map(sel.map((i) => [i, [world[i * 2], world[i * 2 + 1]]])), moved: new Map(), preview: null, soft, ffd };
           }
+          return;
+        }
+        if ((e.ctrlKey || e.metaKey) && mode() === "animate") {
+          toast("Vertices are added and removed in Setup mode; in Animate mode dragging them keys a deform", "info");
           return;
         }
         if (e.ctrlKey || e.metaKey) {
@@ -1409,6 +1573,28 @@ export function Viewport() {
     return best;
   }
 
+  /**
+   * What a click at (x, y) grabs with tool `t`: the one rule both the click and the hover preview use. The pick filter
+   * (toolbar) can rule out bones or parts; in Part mode a picture wins over a bone drawn across it; a bone hidden under
+   * the clicked picture (all its own parts drawn behind it) never wins; bones with no parts always can.
+   */
+  function pickTarget(x: number, y: number, t: Tool): { bone: Bone | null; slot: Slot | null } {
+    const canBones = pickBones();
+    const canParts = pickParts();
+    const partFirst = grabTarget() === "part" && mode() === "setup" && (t === "select" || t === "rotate" || t === "translate" || t === "scale");
+    const partHit = partFirst && canParts ? pickSlot(x, y) : null;
+    let bone = partHit || !canBones ? null : pickBone(x, y);
+    let slot = partHit ?? (bone || !canParts ? null : pickSlot(x, y));
+    if (bone && !partHit && canParts) {
+      const top = pickSlot(x, y);
+      if (top && top.bone !== bone && hiddenUnder(bone, top)) {
+        bone = null;
+        slot = top;
+      }
+    }
+    return { bone, slot };
+  }
+
   /** Whether every part on `bone` is drawn behind `slot` (so the bone is hidden under that picture). */
   function hiddenUnder(bone: Bone, slot: { data: { id: string } }): boolean {
     if (!sk) return false;
@@ -1430,7 +1616,7 @@ export function Viewport() {
     for (const it of [...sk.drawList()].reverse()) {
       // Hidden slots (Skeleton tree eye) and locked ones can't be clicked; dimmed ones still can.
       if (slotOpacity(it.slot.data.id) <= 0 || slotLocked(it.slot.data.id)) continue;
-      const poly = sk.hitPolygon(it.slot);
+      const poly = partShape(sk, it.slot);
       if (poly && pointIn(x, y, poly)) return it.slot;
     }
     return null;
@@ -1480,10 +1666,11 @@ export function Viewport() {
       return;
     }
     if (t === "mesh" || t === "weights") {
-      if (mode() !== "setup") {
+      // Weights are setup data; the Mesh tool works in Animate mode too (dragging vertices keys a deform).
+      if (t === "weights" && mode() !== "setup") {
         setMode("setup");
         setPlaying(false);
-        toast("Mesh editing works in Setup mode", "info");
+        toast("Weight painting works in Setup mode", "info");
         pose(ensureSkeleton(), 0);
       }
       meshDown(e, x, y);
@@ -1501,7 +1688,11 @@ export function Viewport() {
     const pgHit = pg ? partGizmoHit(pg, mx, my) : null;
     if (pg && pgHit) {
       const k = gizmoKind();
-      if (k === "translate" ? startPartMove(pg.slot, x, y) : startPartTurn(pg.slot, k === "scale" ? "scale" : "rotate", x, y)) return;
+      if (k === "translate" ? startPartMove(pg.slot, x, y) : startPartTurn(pg.slot, k === "scale" ? "scale" : "rotate", x, y)) {
+        // Shift-click on the gizmo without dragging still takes the part out of the selection (see deferredToggle).
+        deferredToggle = e.shiftKey && !e.ctrlKey && !e.metaKey ? { kind: "slot", id: pg.slot.data.id, at: [mx, my] } : null;
+        return;
+      }
     }
     // Move arrows of the selected bone: drag the red arrow along X, the green one along Y, the square freely.
     const gz = gizmoBone(sk);
@@ -1514,20 +1705,7 @@ export function Viewport() {
       drag = { kind: "bone", op, bone: gz, start: [x, y], startWorld: [gz.world.x, gz.world.y], base, cur: { ...base }, axis, uniform: op === "scale" && gzPart === "xy", group, comp: compensationFor(gz, group) };
       return;
     }
-    // Part mode (Setup): a picture under the pointer wins over the bone drawn across it.
-    const partFirst = grabTarget() === "part" && mode() === "setup" && (t === "select" || t === "rotate" || t === "translate" || t === "scale");
-    const partHit = partFirst ? pickSlot(x, y) : null;
-    let bone = partHit ? null : pickBone(x, y);
-    let slot = partHit ?? (bone ? null : pickSlot(x, y));
-    if (bone && !partHit) {
-      // A bone hidden under the picture that was clicked (all its own parts drawn behind it, like the back arm under
-      // the shield) doesn't win: the click goes to the picture. Bones with no parts (IK targets, controls) still do.
-      const top = pickSlot(x, y);
-      if (top && top.bone !== bone && hiddenUnder(bone, top)) {
-        bone = null;
-        slot = top;
-      }
-    }
+    const { bone, slot } = pickTarget(x, y, t);
     if (t === "pose") {
       // Grab a bone (or the bone of a clicked image): it and its parents bend so the grabbed point follows.
       const grabbed = bone ?? slot?.bone ?? null;
@@ -1542,7 +1720,15 @@ export function Viewport() {
       return;
     }
     const multi = multiBones();
-    if (bone && (e.shiftKey || e.ctrlKey || e.metaKey) && (t === "select" || t === "translate" || t === "scale")) {
+    // Shift-press on something already selected starts a drag (Shift then snaps it); only a Shift-click without
+    // moving takes it out of the selection, on release. Shift-press on something new still adds it at once.
+    deferredToggle = null;
+    const onlyShift = e.shiftKey && !e.ctrlKey && !e.metaKey;
+    if (onlyShift && bone && selectedBoneIds().includes(bone.data.id) && (t === "select" || t === "translate" || t === "scale" || t === "rotate"))
+      deferredToggle = { kind: "bone", id: bone.data.id, at: [mx, my] };
+    else if (onlyShift && slot && selectedSlotIds().includes(slot.data.id) && (t === "select" || t === "translate" || t === "scale" || t === "rotate"))
+      deferredToggle = { kind: "slot", id: slot.data.id, at: [mx, my] };
+    if (!deferredToggle && bone && (e.shiftKey || e.ctrlKey || e.metaKey) && (t === "select" || t === "translate" || t === "scale")) {
       // Shift-click adds a bone to the selection (or removes it), Ctrl/⌘-click removes.
       const cur = new Set(multi.length ? multi : selectedBoneId() ? [selectedBoneId()!] : []);
       if (cur.has(bone.data.id)) cur.delete(bone.data.id);
@@ -1552,7 +1738,7 @@ export function Viewport() {
       setSelection(first ? { kind: "bone", id: first } : null);
       return;
     }
-    if (slot && (e.shiftKey || e.ctrlKey || e.metaKey) && (t === "select" || t === "translate" || t === "scale")) {
+    if (!deferredToggle && slot && (e.shiftKey || e.ctrlKey || e.metaKey) && (t === "select" || t === "translate" || t === "scale")) {
       // Parts too: Shift-click adds a part to the selection (or removes it), Ctrl/⌘-click removes.
       toggleInSelection("slot", slot.data.id, e);
       return;
@@ -1663,7 +1849,7 @@ export function Viewport() {
     if (addKey() !== (e.ctrlKey || e.metaKey)) setAddKey(e.ctrlKey || e.metaKey);
     if (meshToolOn() && drag?.kind !== "vertex") {
       const t = meshTarget();
-      const hv = t ? pickVertex(setupVertices(t), x, y) : -1;
+      const hv = t ? pickVertex(meshVerts(t), x, y) : -1;
       if (hv !== hoverVertex()) setHoverVertex(hv);
     } else if (hoverVertex() !== -1) setHoverVertex(-1);
     if (running()) {
@@ -1675,6 +1861,16 @@ export function Viewport() {
       const g = guideAt(mx, my);
       const onRuler = viewAids().rulers && (mx < RULER || my < RULER);
       setCursorHint(g ? (g.axis === "x" ? "ew-resize" : "ns-resize") : onRuler ? (my < RULER ? "ns-resize" : "ew-resize") : null);
+      // Hover preview: outline what a click here would grab, and name it in the status line.
+      hoverPick = null;
+      const t = tool();
+      if (!g && !onRuler && !running() && !meshToolOn() && (t === "select" || t === "rotate" || t === "translate" || t === "scale" || t === "pose")) {
+        const { bone, slot } = pickTarget(x, y, t);
+        const partMoves = !!slot && grabTarget() === "part" && mode() === "setup" && t !== "pose";
+        if (bone) hoverPick = { slot: null, bone: bone.data.id, label: `bone ${bone.data.name}` };
+        else if (slot) hoverPick = partMoves ? { slot: slot.data.id, bone: null, label: `part ${slot.data.name}` } : { slot: slot.data.id, bone: slot.bone.data.id, label: `${slot.data.name} → bone ${slot.bone.data.name}` };
+        if (hoverPick) hoverInfo += `  ·  ${hoverPick.label}`;
+      }
       return;
     }
     if (drag.kind === "guide") {
@@ -1705,7 +1901,7 @@ export function Viewport() {
       const [ax, ay] = drag.base.get(drag.anchor)!;
       const vdrag = drag;
       const [sx, sy] = snap(ax + x - drag.start[0], ay + y - drag.start[1], e, () => {
-        const world = setupVertices(vdrag.t);
+        const world = meshVerts(vdrag.t);
         const others: [number, number][] = [];
         for (let i = 0; i < world.length / 2; i++) if (!vdrag.base.has(i)) others.push([world[i * 2], world[i * 2 + 1]]);
         return snapTargets(new Set(), others);
@@ -1715,6 +1911,10 @@ export function Viewport() {
       for (const [i, [bx, by]] of drag.base) drag.moved.set(i, [bx + dx, by + dy]);
       for (const [i, { base: [bx, by], f }] of drag.soft ?? []) drag.moved.set(i, [bx + dx * f, by + dy * f]);
       const t = drag.t;
+      if (drag.ffd) {
+        if (sk) drag.ffd.offsets = deformInPose(sk, t, drag.ffd.base, drag.moved);
+        return;
+      }
       const g = buildGeometry(t, movedWorld(t, drag.moved), t.att.hull, identity(t.att.vertices.length / 2), meshWarp());
       if (typeof g !== "string") {
         // Preview on a throwaway copy of the document; the real edit is one op on release.
@@ -1827,6 +2027,21 @@ export function Viewport() {
   function onUp(e: PointerEvent) {
     const [mx, my] = local(e);
     let [x, y] = toSkeleton(mx, my);
+    const toggle = deferredToggle;
+    deferredToggle = null;
+    if (toggle && Math.hypot(mx - toggle.at[0], my - toggle.at[1]) < 4) {
+      // A Shift-click (no drag) on something already selected: take it out of the selection.
+      drag = null;
+      if (toggle.kind === "slot") toggleInSelection("slot", toggle.id, { shiftKey: true, ctrlKey: false, metaKey: false });
+      else {
+        const cur = new Set(multiBones().length ? multiBones() : selectedBoneId() ? [selectedBoneId()!] : []);
+        cur.delete(toggle.id);
+        setMultiBones(cur.size > 1 ? [...cur] : []);
+        const first = [...cur][0];
+        setSelection(first ? { kind: "bone", id: first } : null);
+      }
+      return;
+    }
     if (zdrag) {
       const z = zdrag;
       zdrag = null;
@@ -1907,7 +2122,9 @@ export function Viewport() {
       if (all.length === 1) commitBone(all[0].id, all[0].changed);
       else if (all.length > 1) transaction(`move ${all.length} bones`, () => all.forEach((c) => commitBone(c.id, c.changed)));
     } else if (d.kind === "vertex") {
-      if ([...d.moved].some(([i, [mx2, my2]]) => mx2 !== d.base.get(i)![0] || my2 !== d.base.get(i)![1])) moveVertices(d.t, d.moved, meshWarp());
+      const changed = [...d.moved].some(([i, [mx2, my2]]) => mx2 !== d.base.get(i)?.[0] || my2 !== d.base.get(i)?.[1]);
+      if (changed && d.ffd?.offsets) keyDeform(d.t, d.ffd.offsets);
+      else if (changed && !d.ffd) moveVertices(d.t, d.moved, meshWarp());
     } else if (d.kind === "paint") {
       commitWeights(d.t, d.table, d.changed);
     } else if (d.kind === "part") {
@@ -2001,9 +2218,16 @@ export function Viewport() {
 
   createEffect(on(selection, () => setMeshSel([]), { defer: true }));
   createEffect(
+    on(fileName, () => {
+      savedCam = "";
+      if (fitted && !restoreCamera()) fit();
+    }, { defer: true }),
+  );
+  createEffect(
     on([tool, () => meshTarget()?.slotBone], ([t, slotBone]) => {
       if (t !== "mesh" && t !== "weights") return;
-      if (mode() !== "setup") {
+      // Weights are setup data; the Mesh tool stays in Animate mode for free-form deformation.
+      if (t === "weights" && mode() !== "setup") {
         setMode("setup");
         setPlaying(false);
       }
@@ -2035,7 +2259,10 @@ export function Viewport() {
         ref={canvas}
         onPointerDown={onDown}
         onPointerMove={onMove}
-        onPointerLeave={() => hoverVertex() !== -1 && !drag && setHoverVertex(-1)}
+        onPointerLeave={() => {
+          hoverPick = null;
+          if (hoverVertex() !== -1 && !drag) setHoverVertex(-1);
+        }}
         onPointerUp={onUp}
         onWheel={onWheel}
         onContextMenu={(e) => e.preventDefault()}
@@ -2130,7 +2357,7 @@ export function Viewport() {
       <div class="viewport-hint" style={{ display: view3d() ? "none" : undefined }}>
         {running()
           ? "▶ Running state machine — interact with the artboard"
-          : `${mode() === "animate" ? `ANIMATE${currentAnimation() ? ` · ${currentAnimation()!.name} @ ${time().toFixed(2)}s` : " · no animation"}` : `SETUP${grabTarget() === "part" ? " · PARTS" : ""}`}${activeSkin() ? ` · SKIN ${activeSkin()!.name}` : ""} · wheel: zoom · alt/right-drag: pan · ${kbd("view.fit")}: fit · ${kbd("help.shortcuts")}: shortcuts`}
+          : `${mode() === "animate" ? `ANIMATE${currentAnimation() ? ` · ${currentAnimation()!.name} @ ${time().toFixed(2)}s` : " · no animation"}` : `SETUP${grabTarget() === "part" ? " · PARTS" : ""}`}${activeSkin() ? ` · SKIN ${activeSkin()!.name}` : ""} · ${toolHint()} · ${kbd("help.palette")}: all commands`}
       </div>
     </div>
   );
@@ -2179,6 +2406,12 @@ function WeightTools() {
   };
   const scope = () => (meshSel().length ? `${meshSel().length} selected` : "all vertices");
   const isLocked = (id: string) => lockedBones().includes(id);
+  /** Each bone's average weight on the selected vertices (empty without a selection). */
+  const selShare = () => {
+    const t = target();
+    if (!t || !meshSel().length) return new Map<string, number>();
+    return new Map(averageWeights(weightTable(t), meshSel()).map((r) => [r.bone, r.w] as [string, number]));
+  };
   const meshBones = () => {
     const t = target();
     return t ? usedBones(t) : [];
@@ -2207,20 +2440,42 @@ function WeightTools() {
   };
   return (
     <>
+      <div class="weight-view-toggles" title="How the weights are shown on the mesh">
+        <label class="check" title="A pie on each vertex: every bone's share, in the bones' colours">
+          <input type="checkbox" checked={weightView().pies} onChange={(e) => setWeightView({ pies: e.currentTarget.checked })} /> Pies
+        </label>
+        <label class="check" title="Tint the mesh with every bone's colour blended by the weights; off: the painted bone's weights as a heat map (blue 0 → red 1)">
+          <input type="checkbox" checked={weightView().overlay} onChange={(e) => setWeightView({ overlay: e.currentTarget.checked })} /> Overlay
+        </label>
+        <label class="check" title="Pies only on the selected vertices">
+          <input type="checkbox" checked={weightView().selectedOnly} onChange={(e) => setWeightView({ selectedOnly: e.currentTarget.checked })} /> Selected
+        </label>
+      </div>
       <div class="muted small" title="Locked bones keep their weights while you paint, smooth, prune or auto-weight; the other bones renormalise around them">
-        Bones on this mesh · 🔒 locks
+        Bones on this mesh · colour: click to paint it · 🔒 locks{meshSel().length ? ` · % of the ${meshSel().length} selected` : ""}
       </div>
       <div class="lock-list">
         <For each={meshBones()}>
           {(b) => (
-            <button
-              class="lock-chip"
-              classList={{ unlocked: !isLocked(b), picked: weightBone() === b }}
-              title={`${isLocked(b) ? "Unlock" : "Lock"} ${boneName(b)}${weightBone() === b ? " (the bone being painted)" : ""}`}
-              onClick={() => toggleLockedBone(b)}
-            >
-              {isLocked(b) ? "🔒" : "🔓"} {boneName(b)}
-            </button>
+            <span class="weight-bone" classList={{ picked: weightBone() === b }}>
+              <button
+                class="bone-swatch"
+                style={{ background: css(boneColor(doc().skeleton.bones.findIndex((x) => x.id === b))) }}
+                title={`Paint ${boneName(b)}`}
+                onClick={() => setWeightBone(b)}
+              />
+              <button
+                class="lock-chip"
+                classList={{ unlocked: !isLocked(b), picked: weightBone() === b }}
+                title={`${isLocked(b) ? "Unlock" : "Lock"} ${boneName(b)}${weightBone() === b ? " (the bone being painted)" : ""}`}
+                onClick={() => toggleLockedBone(b)}
+              >
+                {isLocked(b) ? "🔒" : "🔓"} {boneName(b)}
+                <Show when={selShare().has(b)}>
+                  <span class="weight-pct">{Math.round((selShare().get(b) ?? 0) * 100)}%</span>
+                </Show>
+              </button>
+            </span>
           )}
         </For>
         <Show when={lockedBones().length}>
@@ -2304,7 +2559,14 @@ function MeshPanel() {
               <div class="hint warn">🔗 Linked to “{t().att.linked!.mesh}”: its vertices and weights come from there, so select and edit that mesh (or unlink this one in the Inspector).</div>
             </Show>
             <Show when={tool() === "mesh"}>
-              <div class="hint">Click a vertex to select (shift: add, Ctrl/⌘+A: all), drag or arrow keys to move, Ctrl/⌘-click to add (outside the hull extends the outline), Delete removes, Esc deselects.</div>
+              <Show
+                when={mode() === "animate"}
+                fallback={<div class="hint">Click a vertex to select (shift: add, Ctrl/⌘+A: all), drag or arrow keys to move, Ctrl/⌘-click to add (outside the hull extends the outline), Delete removes, Esc deselects.</div>}
+              >
+                <div class="hint">
+                  <b>Deform (Animate mode):</b> dragging vertices or the arrow keys key a deform at {time().toFixed(2)}s, so the image stretches, squashes or bends over time. Delete puts the selected vertices back in this key. Add or remove vertices in Setup mode.
+                </div>
+              </Show>
               <label class="check" title="Dragging vertices also pulls nearby unselected vertices, less the further away they are">
                 <input type="checkbox" checked={softSelect()} onChange={(e) => setSoftSelect(e.currentTarget.checked)} /> Soft selection
               </label>
@@ -2315,14 +2577,16 @@ function MeshPanel() {
                   <span class="num">{softRadius()}px</span>
                 </label>
               </Show>
-              <div class="btn-row">
-                <label class="check" title="Moving vertices keeps their image coordinates, so the image stretches">
-                  <input type="checkbox" checked={meshWarp()} onChange={(e) => setMeshWarp(e.currentTarget.checked)} /> Warp image
-                </label>
-                <button class="danger" disabled={!meshSel().length} onClick={() => deleteSelectedVertices()}>
-                  Delete {meshSel().length || ""}
-                </button>
-              </div>
+              <Show when={mode() !== "animate"}>
+                <div class="btn-row">
+                  <label class="check" title="Moving vertices keeps their image coordinates, so the image stretches">
+                    <input type="checkbox" checked={meshWarp()} onChange={(e) => setMeshWarp(e.currentTarget.checked)} /> Warp image
+                  </label>
+                  <button class="danger" disabled={!meshSel().length} onClick={() => deleteSelectedVertices()}>
+                    Delete {meshSel().length || ""}
+                  </button>
+                </div>
+              </Show>
             </Show>
             <Show when={tool() === "weights"}>
               <div class="field">
