@@ -200,6 +200,8 @@ export interface BoundingBoxAttachment extends AttachmentBase {
   type: "boundingBox";
   /** Flat [x0,y0,...] polygon in slot-bone local space. */
   vertices: number[];
+  /** Optional per-vertex bone influences (same layout as mesh weights), so the box bends with several bones. */
+  weights?: VertexWeight[][];
 }
 
 export interface PointAttachment extends AttachmentBase {
@@ -497,6 +499,13 @@ export interface PathConstraintData {
   positionMode: PathPositionMode;
   spacingMode: PathSpacingMode;
   rotateMode: PathRotateMode;
+  /**
+   * Distances along each bezier segment are measured by arc length (default, unset = true), so bones stay evenly
+   * spaced however the handles are placed. `false`: the segment is still found by arc length, but the point within
+   * it is at the raw bezier parameter `t = (distance into the segment) / (segment length)` (Spine with "constant
+   * speed" off), so bones bunch up where the handles are short.
+   */
+  constantSpeed?: boolean;
   offsetRotation: number;
   position: number;
   spacing: number;

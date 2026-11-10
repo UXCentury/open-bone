@@ -12,9 +12,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { type OpenBoneDocument, animationDuration, applyOp, deserialize, layoutAtlas, serialize } from "@openbone/core";
-import { type AudioCommand, type DrawItem, type FiredEvent, OpenBoneInstance, type ScriptHost } from "@openbone/runtime";
+import { type AudioCommand, type DrawItem, type FiredEvent, OpenBoneInstance, type ScriptHost, type Skeleton, SkeletonBounds } from "@openbone/runtime";
 import { createQuickJsHost } from "@openbone/scripting";
-import { FIXTURES } from "./fixtures.ts";
+import { BOUNDS_QUERIES, type BoundsQueries, FIXTURES } from "./fixtures.ts";
 
 export const FORMAT = 1;
 export const DT = 1 / 60;
@@ -58,6 +58,22 @@ export interface Sample {
   audio: Record<string, unknown>[];
   /** State machine: active state per layer after this sample's step. */
   states?: Record<string, string | null>;
+  /** Fixtures with `queries` only: the active bounding boxes and the query results in this pose. */
+  bounds?: BoundsRecord;
+}
+export interface BoundsRecord {
+  /** Active bounding boxes in draw order: slot name, attachment name, world vertices. */
+  boxes: { slot: string; attachment: string; vertices: number[] }[];
+  /** Overall [minX, minY, maxX, maxY], or null with no active box. */
+  aabb: number[] | null;
+  /** Per query point: indices (into `boxes`) of every box containing it, in order. */
+  points: number[][];
+  /** Per query segment: indices of every box it touches (crosses an edge or lies inside). */
+  segments: number[][];
+  /** Per query rectangle: whether the overall AABB overlaps it. */
+  aabbs: boolean[];
+  /** Per placement in `queries.others`: the first overlapping pair [mine, theirs] (box indices), or null. */
+  others: ([number, number] | null)[];
 }
 /** One scripted action in a state machine case, applied before the step that starts at `t`. */
 export type Action =
@@ -82,6 +98,8 @@ export interface Expected {
   document: string;
   dt: number;
   sampleEvery: number;
+  /** Bounding-box queries asked of every sample (fixtures listed in BOUNDS_QUERIES only). */
+  queries?: BoundsQueries;
   cases: Case[];
 }
 
@@ -115,7 +133,10 @@ class Recorder {
   events: Sample["events"] = [];
   audio: Sample["audio"] = [];
   private ids = new Map<string, string>();
-  constructor(inst: OpenBoneInstance) {
+  constructor(
+    inst: OpenBoneInstance,
+    private probe?: BoundsProbe,
+  ) {
     inst.on("event", (e: FiredEvent) => this.events.push({ name: e.name, time: r4(e.time), int: e.int, float: r4(e.float), string: e.string }));
     inst.on("audio", (c: AudioCommand) => {
       const id = this.ids.get(c.id) ?? `p${this.ids.size + 1}`;
@@ -135,10 +156,100 @@ class Recorder {
       events: this.events,
       audio: this.audio,
       ...(inst.stateMachine ? { states: { ...inst.stateMachine.activeStates } } : {}),
+      ...(this.probe ? { bounds: this.probe.record(sk) } : {}),
     };
     this.events = [];
     this.audio = [];
     return s;
+  }
+}
+
+const NUDGE = 2e-3;
+const NUDGES = [[NUDGE, 0], [-NUDGE, 0], [0, NUDGE], [0, -NUDGE]];
+
+/**
+ * Records bounding-box query results and notes every candidate query whose answer changes when it is nudged by
+ * NUDGE in any direction (it sits on an edge, so float differences between runtimes could flip it). Those are
+ * dropped from the expected file once every case has run.
+ */
+class BoundsProbe {
+  unstable = { points: new Set<number>(), segments: new Set<number>(), aabbs: new Set<number>(), others: new Set<number>() };
+  /** Per placement: the other skeleton's boxes, then the same nudged four ways. */
+  private others: SkeletonBounds[][];
+  constructor(
+    doc: OpenBoneDocument,
+    host: ScriptHost,
+    public q: BoundsQueries,
+  ) {
+    this.others = q.others.map(([x, y]) =>
+      [[0, 0], ...NUDGES].map(([dx, dy]) => {
+        const o = new OpenBoneInstance(doc, { scriptHost: host });
+        o.skeleton.x = x + dx;
+        o.skeleton.y = y + dy;
+        o.advance(0);
+        const b = o.skeleton.boundingBoxes();
+        o.dispose();
+        return b;
+      }),
+    );
+  }
+  record(sk: Skeleton): BoundsRecord {
+    const b = sk.boundingBoxes();
+    const idx = (list: unknown[]) => list.map((x) => b.boxes.indexOf(x as never));
+    const key = (v: unknown) => JSON.stringify(v);
+    const check = (set: Set<number>, i: number, base: unknown, nudged: unknown[]) => {
+      if (nudged.some((n) => key(n) !== key(base))) set.add(i);
+    };
+    const points = this.q.points.map(([x, y], i) => {
+      const r = idx(b.containsPointAll(x, y));
+      check(this.unstable.points, i, r, NUDGES.map(([dx, dy]) => idx(b.containsPointAll(x + dx, y + dy))));
+      const first = b.containsPoint(x, y);
+      if ((first ? b.boxes.indexOf(first) : -1) !== (r.length ? r[0] : -1)) throw new Error("containsPoint disagrees with containsPointAll");
+      return r;
+    });
+    const segments = this.q.segments.map(([x1, y1, x2, y2], i) => {
+      const r = idx(b.intersectsSegmentAll(x1, y1, x2, y2));
+      check(this.unstable.segments, i, r, NUDGES.map(([dx, dy]) => idx(b.intersectsSegmentAll(x1 + dx, y1 + dy, x2 + dx, y2 + dy))));
+      const first = b.intersectsSegment(x1, y1, x2, y2);
+      if ((first ? b.boxes.indexOf(first) : -1) !== (r.length ? r[0] : -1)) throw new Error("intersectsSegment disagrees with intersectsSegmentAll");
+      return r;
+    });
+    const aabbs = this.q.aabbs.map(([x0, y0, x1, y1], i) => {
+      const r = b.aabbIntersects(x0, y0, x1, y1);
+      check(this.unstable.aabbs, i, r, NUDGES.map(([dx, dy]) => b.aabbIntersects(x0 + dx, y0 + dy, x1 + dx, y1 + dy)));
+      return r;
+    });
+    const others = this.others.map((variants, i) => {
+      const pair = (o: SkeletonBounds) => {
+        const p = b.intersectsBounds(o);
+        return p ? ([b.boxes.indexOf(p[0]), o.boxes.indexOf(p[1])] as [number, number]) : null;
+      };
+      const r = pair(variants[0]);
+      check(this.unstable.others, i, r, variants.slice(1).map(pair));
+      return r;
+    });
+    return {
+      boxes: b.boxes.map((x) => ({ slot: x.slot.data.name, attachment: x.attachment, vertices: arr(x.vertices) })),
+      aabb: b.boxes.length ? arr([b.minX, b.minY, b.maxX, b.maxY]) : null,
+      points,
+      segments,
+      aabbs,
+      others,
+    };
+  }
+  /** Drop the unstable candidates from the queries and from every recorded sample. */
+  finish(cases: Case[]): BoundsQueries {
+    const keep = <T>(list: T[], bad: Set<number>) => list.filter((_, i) => !bad.has(i));
+    const u = this.unstable;
+    for (const c of cases)
+      for (const s of c.samples) {
+        const r = s.bounds!;
+        r.points = keep(r.points, u.points);
+        r.segments = keep(r.segments, u.segments);
+        r.aabbs = keep(r.aabbs, u.aabbs);
+        r.others = keep(r.others, u.others);
+      }
+    return { points: keep(this.q.points, u.points), segments: keep(this.q.segments, u.segments), aabbs: keep(this.q.aabbs, u.aabbs), others: keep(this.q.others, u.others) };
   }
 }
 
@@ -190,18 +301,20 @@ function autoActions(doc: OpenBoneDocument, inst: OpenBoneInstance, smName: stri
 
 export async function expectedFor(name: string, doc: OpenBoneDocument, docPath: string, host: ScriptHost): Promise<Expected> {
   const cases: Case[] = [];
+  const queries = BOUNDS_QUERIES[name]?.();
+  const probe = queries && new BoundsProbe(doc, host, queries);
   const skins = doc.skeleton.skins.map((k) => k.name);
   for (const skin of skins) {
     const inst = new OpenBoneInstance(doc, { scriptHost: host });
     inst.skeleton.setSkin(skin);
-    const rec = new Recorder(inst);
+    const rec = new Recorder(inst, probe);
     cases.push({ name: `setup:${skin}`, kind: "setup", skin, duration: 0, samples: run(inst, rec, 0) });
   }
   for (const anim of doc.animations) {
     for (const skin of skins.length > 1 ? skins : [skins[0]]) {
       const inst = new OpenBoneInstance(doc, { scriptHost: host });
       inst.skeleton.setSkin(skin);
-      const rec = new Recorder(inst);
+      const rec = new Recorder(inst, probe);
       inst.play(anim.name, true);
       // Play past the end so looping (and events on the wrap) are covered.
       const duration = Math.min(4, Math.max(1, animationDuration(anim) * 1.5));
@@ -217,7 +330,7 @@ export async function expectedFor(name: string, doc: OpenBoneDocument, docPath: 
     inst.dispose();
     const run2 = new OpenBoneInstance(doc, { scriptHost: host });
     const machine = run2.useStateMachine(sm.name);
-    const rec = new Recorder(run2);
+    const rec = new Recorder(run2, probe);
     const last = actions.reduce((m, a) => Math.max(m, a.t), 0);
     const steps = Math.round(Math.min(10, last + 1.5) / DT);
     const samples = run(run2, rec, steps, (_i, t) => {
@@ -231,7 +344,7 @@ export async function expectedFor(name: string, doc: OpenBoneDocument, docPath: 
     run2.dispose();
     cases.push({ name: `stateMachine:${sm.name}`, kind: "stateMachine", skin: null, stateMachine: sm.name, duration: r4(steps * DT), actions, samples });
   }
-  return { format: FORMAT, fixture: name, document: docPath, dt: r4(DT), sampleEvery: SAMPLE_EVERY, cases };
+  return { format: FORMAT, fixture: name, document: docPath, dt: r4(DT), sampleEvery: SAMPLE_EVERY, ...(probe ? { queries: probe.finish(cases) } : {}), cases };
 }
 
 /** Build with a seeded Math.random, so generated ids (and so the fixture files) are the same on every run. */

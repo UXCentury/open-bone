@@ -740,7 +740,7 @@ defineOp({
   name: "autoWeights",
   group: "attachment",
   description:
-    "Bind a mesh (or path) to bones automatically: each vertex is weighted to its nearest bones (by distance to the bone segment) in the setup pose.",
+    "Bind a mesh (or path or bounding box) to bones automatically: each vertex is weighted to its nearest bones (by distance to the bone segment) in the setup pose.",
   schema: z.object({
     slot: ref("Slot"),
     attachment: z.string(),
@@ -752,7 +752,7 @@ defineOp({
   apply(doc, a) {
     const slot = get.slot(doc, a.slot);
     const att = getAttachment(doc, slot.id, a.attachment, a.skin ? get.skin(doc, a.skin).id : undefined);
-    if (!att || (att.type !== "mesh" && att.type !== "path")) throw new Error("autoWeights needs a mesh or path attachment");
+    if (!att || (att.type !== "mesh" && att.type !== "path" && att.type !== "boundingBox")) throw new Error("autoWeights needs a mesh, path or bounding-box attachment");
     const world = setupWorld(doc);
     const slotM = world.get(slot.bone)!;
     const bones = a.bones.map((r) => get.bone(doc, r));
@@ -815,7 +815,7 @@ function writeWeights(
 ) {
   const slot = get.slot(doc, slotRef);
   const att = getAttachment(doc, slot.id, attachment, skinRef ? get.skin(doc, skinRef).id : undefined);
-  if (!att || (att.type !== "mesh" && att.type !== "path")) throw new Error(`${op} needs a mesh or path attachment`);
+  if (!att || (att.type !== "mesh" && att.type !== "path" && att.type !== "boundingBox")) throw new Error(`${op} needs a mesh, path or bounding-box attachment`);
   const n = att.vertices.length / 2;
   const world = setupWorld(doc);
   const resolved = edits.map((e) => {
@@ -852,7 +852,7 @@ const influences = z.array(z.object({ bone: ref("Bone"), weight: z.number().min(
 defineOp({
   name: "setWeights",
   group: "attachment",
-  description: "Set explicit weights for one mesh or path vertex (positions computed from the setup pose). Weights are normalised.",
+  description: "Set explicit weights for one mesh, path or bounding-box vertex (positions computed from the setup pose). Weights are normalised.",
   schema: z.object({
     slot: ref("Slot"),
     attachment: z.string(),
@@ -1185,6 +1185,10 @@ const pathProps = {
     .enum(["tangent", "chain", "chainScale"])
     .optional()
     .describe("tangent: follow the curve direction; chain: point at the next bone's spot; chainScale: chain and stretch to reach it"),
+  constantSpeed: z
+    .boolean()
+    .optional()
+    .describe("Measure positions inside each curve segment by arc length, so bones stay evenly spaced (default true). false: raw bezier parameter, bones bunch where handles are short"),
   offsetRotation: z.number().optional(),
   position: z.number().optional().describe("Where the first bone sits along the path"),
   spacing: z.number().optional(),
@@ -1230,6 +1234,7 @@ defineOp({
       positionMode: a.positionMode ?? "percent",
       spacingMode: a.spacingMode ?? "length",
       rotateMode: a.rotateMode ?? "tangent",
+      ...(a.constantSpeed === false ? { constantSpeed: false } : {}),
       offsetRotation: a.offsetRotation ?? 0,
       position: a.position ?? 0,
       spacing: a.spacing ?? 0,
@@ -1261,6 +1266,8 @@ defineOp({
     if (c.bones.some((b) => descendantIds(doc, b).has(slot.bone)))
       throw new Error("The path's slot bone must not be one of the constrained bones or their descendants");
     assignDefined(c, a, PATH_KEYS);
+    // On is the default: store only `false`, so files that never turned it off keep their exact contents.
+    if (c.constantSpeed !== false) delete c.constantSpeed;
     return {};
   },
 });

@@ -54,6 +54,7 @@ import {
   worldScaleY,
 } from "@openbone/core";
 import { applyAnimation } from "./animation.ts";
+import { SkeletonBounds } from "./bounds.ts";
 import { type EmitterValues, MAX_PARTICLE_STEPS, PARTICLE_STEP, ParticleEmitter, hashString } from "./particles.ts";
 import type { TextDraw } from "./text.ts";
 
@@ -889,7 +890,7 @@ export class Skeleton {
     if (!slot) return;
     const att = this.getAttachment(slot);
     if (!att || att.type !== "path") return;
-    const spline = buildSpline(this.attachmentWorldVertices(slot, att), att.closed);
+    const spline = buildSpline(this.attachmentWorldVertices(slot, att), att.closed, c.constantSpeed !== false);
     const total = spline.length;
     if (total <= 1e-9) return;
     const bones = c.bones.map((id) => this.boneById.get(id)).filter(Boolean) as Bone[];
@@ -1127,7 +1128,7 @@ export class Skeleton {
     return this.skin?.attachments[id]?.[name] ?? defaultSkin(this.doc).attachments[id]?.[name] ?? null;
   }
 
-  /** World-space vertices of a slot's region/mesh/path/bbox/shape/point attachment. */
+  /** World-space vertices of a slot's region/mesh/path/bbox/shape/point attachment (bboxes and paths pose like meshes: weights, deform). */
   attachmentWorldVertices(slot: Slot, att: Attachment): Float32Array {
     const m = slot.bone.world;
     if (att.type === "region" || att.type === "sequence" || att.type === "text") {
@@ -1155,7 +1156,7 @@ export class Skeleton {
       }
       return out;
     }
-    if (att.type === "mesh" || att.type === "path") {
+    if (att.type === "mesh" || att.type === "path" || att.type === "boundingBox") {
       const n = att.vertices.length / 2;
       // A linked mesh that inherits deform uses its parent's deform keys (on this slot); its own keys otherwise.
       const linked = att.type === "mesh" && att.linked?.deform ? att.linked.mesh : null;
@@ -1187,7 +1188,7 @@ export class Skeleton {
       }
       return out;
     }
-    const local = att.type === "shape" ? shapeOutline(att) : att.type === "boundingBox" || att.type === "clipping" ? att.vertices : [att.x, att.y];
+    const local = att.type === "shape" ? shapeOutline(att) : att.type === "clipping" ? att.vertices : [att.x, att.y];
     const out = new Float32Array(local.length);
     for (let i = 0; i < local.length; i += 2) {
       out[i] = m.a * local[i] + m.b * local[i + 1] + m.x;
@@ -1384,6 +1385,14 @@ export class Skeleton {
       return v.slice(0, att.hull * 2);
     }
     return null;
+  }
+
+  /**
+   * The active bounding boxes in the current pose (world polygons, their AABB, point / segment / AABB / skeleton
+   * overlap queries). A snapshot: take a new one, or call `update(skeleton)` on it, after the pose changes.
+   */
+  boundingBoxes(): SkeletonBounds {
+    return new SkeletonBounds(this);
   }
 
   hitTest(slot: Slot, x: number, y: number): boolean {

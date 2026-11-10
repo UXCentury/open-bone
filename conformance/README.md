@@ -36,6 +36,24 @@ A step must do what `OpenBoneInstance.advance(dt)` does (see `packages/runtime/s
 | `events` | events fired since the previous sample: `name`, `time`, `int`, `float`, `string` | exact (float 1e-4) |
 | `audio` | audio commands since the previous sample (`play` / `stop` / `fade`); play ids are renumbered `p1`, `p2`… in order of appearance | exact (numbers 1e-4) |
 | `states` | state machines only: the active state per layer after the step | exact |
+| `bounds` | files with `queries` only: see below | `vertices`/`aabb` 1e-3, the rest exact |
+
+### Bounding-box queries
+
+A file with a top-level `queries` (`points` `[x, y]`, `segments` `[x1, y1, x2, y2]`, `aabbs` `[minX, minY, maxX, maxY]`,
+`others` `[x, y]`) asks them of every sample, after the step, on `skeleton.boundingBoxes()` (docs/runtime-spec.md §8.10):
+
+| `bounds` field | meaning |
+| --- | --- |
+| `boxes` | the active bounding boxes in draw order: `slot`, `attachment`, world `vertices` |
+| `aabb` | overall `[minX, minY, maxX, maxY]`, or null with no box |
+| `points` | per query point: indices into `boxes` of `containsPointAll(x, y)` (its first is `containsPoint`) |
+| `segments` | per query segment: indices of `intersectsSegmentAll` (its first is `intersectsSegment`) |
+| `aabbs` | per query rectangle: `aabbIntersects` |
+| `others` | per placement: load the same document in a second instance, set its skeleton `x, y` to the placement, `advance(0)` (setup pose, default skin), and record `intersectsBounds(theirs)` as `[my box index, their box index]` or null |
+
+The generator drops any candidate query whose answer changes when nudged by 0.002 in some direction in some sample,
+so no answer depends on float rounding.
 
 Numbers are rounded to 4 decimals and `-0` is written as `0`; round the same way (or compare with the tolerances above).
 
@@ -48,6 +66,8 @@ Numbers are rounded to 4 decimals and `-0` is written as `0`; round the same way
 | `meshes` | weighted mesh with deform keys, a linked mesh in another skin that follows them, an ellipse clipping mask, a path constraint (chain rotate mode) with a keyed position, two-colour tint |
 | `dynamics` | physics chain (inertia, strength, damping, gravity, wind) driven by a moving root, a bone-driven slider, a ping-pong sequence, a seeded particle emitter, a text template |
 | `interactive` | a state machine with number / trigger / bool / number / string inputs, a blend1d state, any-state transition, exit time, a pointer listener on a hit box (fire trigger + report event), an input binding, an event that plays a sound, and a script that counts clicks into a text template |
+| `bounds` | bounding-box queries (above): an unweighted polygon box, a box weighted to two bones, a box switched on and off by attachment keys, a box on a skin-only bone, a draw-order key that reorders boxes, a region that is ignored |
+| `paths` | path constraints on a curve with very uneven handles, with constant speed on and off: an open path (chain mode, keyed position running off both ends) and a closed one (tangent and chainScale, percent spacing, wrapping) |
 | `rigging` | skin bones and a skin IK + physics that exist only in the `hero` skin, inherit-mode keys, a custom constraint order (transform before IK), reference scale 50 |
 | `example-*` | every project in `examples/`, all animations and state machines |
 | `atlas-polygons` | the knight packed with an octagon polygon per region (polygon packing) and premultiplied alpha |

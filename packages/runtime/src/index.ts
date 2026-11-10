@@ -1,4 +1,5 @@
 export * from "./skeleton.ts";
+export * from "./bounds.ts";
 export * from "./animation.ts";
 export * from "./animation-state.ts";
 export * from "./state-machine.ts";

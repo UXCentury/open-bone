@@ -4,7 +4,8 @@
  * A path is a list of knots, each stored as three points `[in handle, anchor, out handle]`
  * (flat `[inX, inY, x, y, outX, outY, ...]`). Distances along the path are measured by arc
  * length using a per-segment lookup table, so "50 units along" means the same thing on every
- * segment regardless of how its handles are spaced.
+ * segment regardless of how its handles are spaced. Without constant speed only the segment is found by
+ * arc length; the point inside it is at the raw bezier parameter.
  */
 
 export interface PathSample {
@@ -35,8 +36,11 @@ function bezD(a: number, b: number, c: number, d: number, t: number) {
   return 3 * u * u * (b - a) + 6 * u * t * (c - b) + 3 * t * t * (d - c);
 }
 
-/** Build a spline from world (or local) knot vertices. Needs at least two knots (one for a closed path). */
-export function buildSpline(vertices: ArrayLike<number>, closed: boolean): Spline {
+/**
+ * Build a spline from world (or local) knot vertices. Needs at least two knots (one for a closed path).
+ * `constantSpeed` (default true): positions inside a segment by arc length; false: by the raw bezier parameter.
+ */
+export function buildSpline(vertices: ArrayLike<number>, closed: boolean, constantSpeed = true): Spline {
   const knots = Math.floor(vertices.length / 6);
   const segCount = knots < 2 ? 0 : closed ? knots : knots - 1;
   // Control points per segment: x0,y0,x1,y1,x2,y2,x3,y3
@@ -97,6 +101,14 @@ export function buildSpline(vertices: ArrayLike<number>, closed: boolean): Splin
       const end = d <= 0 ? point(0, 0) : point(segCount - 1, 1);
       const over = d <= 0 ? d : d - total;
       return { x: end.x + Math.cos(end.angle) * over, y: end.y + Math.sin(end.angle) * over, angle: end.angle };
+    }
+    if (!constantSpeed) {
+      // Segment by arc length (the first whose end is past d), then the raw parameter inside it.
+      let seg = 0;
+      while (seg < segCount - 1 && table[(seg + 1) * STEPS] <= d) seg++;
+      const start = table[seg * STEPS];
+      const span = table[(seg + 1) * STEPS] - start;
+      return point(seg, span > 0 ? Math.min(1, (d - start) / span) : 0);
     }
     // Binary search the table for the entry just below d.
     let lo = 0;
