@@ -1,0 +1,64 @@
+# C++ runtime: conformance suite on Linux, macOS and Windows, plus the Godot (headless), SDL2 and SFML integrations.
+name: C++ runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "runtimes/cpp/**"
+      - "conformance/**"
+      - "examples/**/*.obone"
+      - ".github/workflows/runtime-cpp.yml"
+  pull_request:
+    paths:
+      - "runtimes/cpp/**"
+      - "conformance/**"
+      - "examples/**/*.obone"
+      - ".github/workflows/runtime-cpp.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S runtimes/cpp -B build -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build --config Release --parallel
+      - run: ctest --test-dir build -C Release --output-on-failure
+
+  engines:
+    runs-on: ubuntu-24.04
+    env:
+      GODOT_VERSION: 4.4.1
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y libsdl2-dev libsfml-dev
+      - name: Godot GDExtension
+        run: |
+          cmake -S runtimes/cpp/engines/godot -B build-godot -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-godot --parallel
+      - name: Godot headless test
+        run: |
+          curl -sSfL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d godot
+          GODOT=$(ls "$PWD"/godot/Godot_v*)
+          # A fresh project has to be imported once before Godot loads its GDExtensions.
+          "$GODOT" --headless --path runtimes/cpp/engines/godot/demo --import
+          cmake -S runtimes/cpp/engines/godot -B build-godot -DGODOT_EXECUTABLE="$GODOT"
+          ctest --test-dir build-godot --output-on-failure
+      - name: SDL2 sample
+        run: |
+          cmake -S runtimes/cpp/engines/sdl2 -B build-sdl2 -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-sdl2 --parallel
+      - name: SFML sample
+        run: |
+          cmake -S runtimes/cpp/engines/sfml -B build-sfml -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-sfml --parallel

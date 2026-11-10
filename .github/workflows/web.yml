@@ -1,0 +1,30 @@
+# Editor, TypeScript runtime and packages: typecheck, tests (including the conformance drift test) and the editor build.
+name: Web
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["runtimes/**", "**.md"]
+  pull_request:
+    paths-ignore: ["runtimes/**", "**.md"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm version:check
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build

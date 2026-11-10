@@ -1,0 +1,38 @@
+# Java runtime: conformance suite and unit tests on the JVM, plus the libGDX renderer, its sample and the Android library.
+name: Java runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "runtimes/java/**"
+      - "conformance/**"
+      - "examples/**/*.obone"
+      - ".github/workflows/runtime-java.yml"
+  pull_request:
+    paths:
+      - "runtimes/java/**"
+      - "conformance/**"
+      - "examples/**/*.obone"
+      - ".github/workflows/runtime-java.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: runtimes/java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      # The runner's ANDROID_HOME makes settings.gradle.kts include :openbone-android, so `build` covers it too.
+      - run: ./gradlew build --no-daemon

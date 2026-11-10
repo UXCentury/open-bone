@@ -18,10 +18,14 @@ include(GNUInstallDirs)
 if(OPENBONE_WITH_SCRIPTS)
   if(OPENBONE_QUICKJS_DIR STREQUAL "")
     include(FetchContent)
+    # Extracted files get the extraction time (CMake 3.24+ policy); spelled as a policy, not the
+    # DOWNLOAD_EXTRACT_TIMESTAMP option, so the Android SDK's CMake 3.22 accepts it too.
+    if(POLICY CMP0135)
+      cmake_policy(SET CMP0135 NEW)
+    endif()
     FetchContent_Declare(quickjs_ng
       URL https://github.com/quickjs-ng/quickjs/archive/refs/tags/v0.10.1.tar.gz
       URL_HASH SHA256=4e917eea3bb6051a0551fdd3aac45199ff705fa08920c15b824a08c5fbb032e4
-      DOWNLOAD_EXTRACT_TIMESTAMP TRUE
       SOURCE_SUBDIR do-not-add)  # only download: the sources are compiled below with this project's flags
     FetchContent_MakeAvailable(quickjs_ng)
     set(OPENBONE_QUICKJS_DIR ${quickjs_ng_SOURCE_DIR})

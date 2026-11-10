@@ -1,0 +1,40 @@
+# C# runtime: conformance suite (dotnet test) and the Unity package compiled against the Unity API stub.
+name: C# runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "runtimes/csharp/**"
+      - "conformance/**"
+      - "examples/**/*.obone"
+      - ".github/workflows/runtime-csharp.yml"
+  pull_request:
+    paths:
+      - "runtimes/csharp/**"
+      - "conformance/**"
+      - "examples/**/*.obone"
+      - ".github/workflows/runtime-csharp.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: runtimes/csharp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - run: dotnet test
+      - run: dotnet build unity/compile-check

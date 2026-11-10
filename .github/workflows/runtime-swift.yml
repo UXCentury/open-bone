@@ -1,0 +1,48 @@
+# Swift package: conformance suite on Linux and macOS; on macOS the Metal / AppKit / SwiftUI views compile, and the
+# package is also built for iOS.
+name: Swift runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "runtimes/swift/**"
+      - "runtimes/cpp/include/**"
+      - "runtimes/cpp/src/**"
+      - "conformance/**"
+      - "examples/**/*.obone"
+      - ".github/workflows/runtime-swift.yml"
+  pull_request:
+    paths:
+      - "runtimes/swift/**"
+      - "runtimes/cpp/include/**"
+      - "runtimes/cpp/src/**"
+      - "conformance/**"
+      - "examples/**/*.obone"
+      - ".github/workflows/runtime-swift.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    container: swift:6.0-jammy
+    steps:
+      - uses: actions/checkout@v4
+      - run: runtimes/swift/scripts/fetch-quickjs.sh
+      - run: swift test
+        working-directory: runtimes/swift
+
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - run: runtimes/swift/scripts/fetch-quickjs.sh
+      - run: swift test
+        working-directory: runtimes/swift
+      - name: Build for iOS
+        working-directory: runtimes/swift
+        run: xcodebuild build -scheme OpenBone -destination 'generic/platform=iOS' -skipPackagePluginValidation CODE_SIGNING_ALLOWED=NO
