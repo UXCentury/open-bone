@@ -13,6 +13,7 @@ import { getAttachment } from "@openbone/core";
 import { activeSkin } from "./state.ts";
 import { importFromProject } from "./panels/ImportDialog.tsx";
 import { moveToFolder } from "./panels/Folders.tsx";
+import { penMenuItems } from "./tools/pen.ts";
 
 const ATT_LABELS: Record<AttTransform, string> = {
   flipX: "Flip horizontally",
@@ -116,6 +117,7 @@ const TOOLS: [Tool, string, string][] = [
   ["bone", "Create bone", "tool.bone"],
   ["mesh", "Edit mesh", "tool.mesh"],
   ["weights", "Paint weights", "tool.weights"],
+  ["pen", "Pen (paths, bounding boxes)", "tool.pen"],
 ];
 
 function selectionItems(): MenuItem[] {
@@ -201,6 +203,8 @@ export function contextItems(target: HTMLElement): MenuItem[] | null {
 
   if (target.closest(".viewport")) {
     return [
+      ...penMenuItems(),
+      "sep",
       ...selectionItems(),
       "sep",
       ...editItems(),

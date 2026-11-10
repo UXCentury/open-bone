@@ -7,7 +7,7 @@ type Region = Extract<Attachment, { type: "region" }>;
 type Mesh = Extract<Attachment, { type: "mesh" }>;
 
 /** The alpha channel of an image asset (loaded at its natural size). */
-async function readAlpha(imageId: string): Promise<{ alpha: Uint8ClampedArray; width: number; height: number } | null> {
+export async function readAlpha(imageId: string): Promise<{ alpha: Uint8ClampedArray; width: number; height: number } | null> {
   const asset = store.doc.images.find((i) => i.id === imageId);
   if (!asset?.src) {
     toast("This image has no file of its own (it is packed in an atlas). Unpack the atlas to trace it.", "error");

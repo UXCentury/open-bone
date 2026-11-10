@@ -80,7 +80,7 @@ export function setCompensate(on: boolean) {
 }
 
 export type Mode = "setup" | "animate";
-export type Tool = "select" | "rotate" | "translate" | "scale" | "bone" | "mesh" | "weights" | "pose";
+export type Tool = "select" | "rotate" | "translate" | "scale" | "bone" | "mesh" | "weights" | "pose" | "pen";
 /** Pose tool: how many bones bend when you drag one (the dragged bone and its parents); 99 = up to the root. */
 export const [poseChain, setPoseChain] = createSignal(3);
 export type Selection =

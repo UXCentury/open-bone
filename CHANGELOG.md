@@ -4,6 +4,14 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 
 ## Unreleased
 
+### Editor
+- Pen tool (`N`, ✒ in the toolbar) for paths: click to place knots, drag to pull out handles, click the first knot to close, Enter or Esc to finish. It creates a slot and path on the selected bone, or, with an end knot of an open path selected, keeps drawing that path. Drag anchors (handles follow) and handles; handles are smooth, mirrored or broken per knot (Alt-drag breaks a handle, Alt-drag an anchor pulls out new ones, right-click a knot to pick a mode or reset its handles). Click the curve to add a knot without changing its shape, Delete removes knots, the panel and context menu toggle Closed. Anchors snap like bones. Weighted paths are re-bound through their bones when knots move; in Animate mode dragging knots keys the path's deform. Paths draw in their colour, the selected one highlighted, and not at all when their slot is hidden.
+- Inspector: "Bind knots to bones" for paths (selected knots or all: bind by distance or 100% to a bone, per-bone weight sliders, Unbind).
+- Bounding boxes: edit points with the Pen tool (drag, click an edge to add, drag inside to move all, Delete), a colour, a translucent fill in the viewport, "Trace from image…" (wraps the box round the visible pixels of an image or mesh, with a corner count) and Rectangle / Ellipse presets. Undoable, one step per edit.
+
+### Format
+- Bounding boxes take an optional editor `color`. `updateAttachment` with `weights: null` unbinds a path.
+
 ### Packages
 - npm: every `@openbone/*` package builds to JavaScript with type definitions, plus the `openbone` CLI (`npx openbone`) and `npx -y @openbone/mcp`.
 - NuGet: `OpenBone.Runtime`, `OpenBone.Scripting.Jint` and `OpenBone.MonoGame`, with symbols and SourceLink.

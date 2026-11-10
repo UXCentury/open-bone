@@ -45,6 +45,7 @@ const TOOLS: { id: Tool; label: string; title: string }[] = [
   { id: "bone", label: "🦴", title: "Create bone: drag from parent" },
   { id: "mesh", label: "◇", title: "Edit mesh vertices: select, drag, Ctrl/⌘-click to add, Delete to remove" },
   { id: "weights", label: "◐", title: "Paint mesh weights for a bone" },
+  { id: "pen", label: "✒", title: "Pen: draw paths (click knots, drag for handles), edit path knots and bounding-box points" },
 ];
 
 export function undo() {

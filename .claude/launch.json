@@ -52,6 +52,23 @@
       ],
       "port": 5187,
       "url": "http://127.0.0.1:5187"
+    },
+    {
+      "name": "editor-pen",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--filter",
+        "@openbone/editor",
+        "exec",
+        "vite",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "5188",
+        "--strictPort"
+      ],
+      "port": 5188,
+      "url": "http://127.0.0.1:5188"
     }
   ]
 }

@@ -712,3 +712,7 @@ input.small { width: 90px; }
 .import-report { margin: 0; padding-left: 18px; line-height: 1.6; }
 .import-report.warn { color: #ffc27a; }
 @media (max-width: 560px) { .import-cols { grid-template-columns: 1fr; } }
+/* Pen tool and path / bounding-box Inspector parts */
+button.link { background: none; border: none; padding: 0; color: var(--accent, #5b8cff); text-decoration: underline; cursor: pointer; font: inherit; }
+.knot-weights { display: flex; flex-direction: column; gap: 6px; }
+.knot-weights select[multiple] { width: 100%; }

@@ -2,11 +2,11 @@ import { animationDuration, type Attachment, attachmentOwner, constraintOrder, I
 import { regionGridMesh, retraceMesh, traceRegion } from "../mesh-trace.ts";
 import { lastBackground, setBackground } from "../background.ts";
 import { reorderSlot } from "../visibility.ts";
-import { tip } from "../shortcuts/index.ts";
+import { kbd, tip } from "../shortcuts/index.ts";
 import { For, Match, Show, Switch, createSignal } from "solid-js";
 import { commitBone, keyBoneInherit, keyBoneProperty, keyConstraint, keySlot } from "../edit.ts";
 import { imageFor } from "../images.ts";
-import { activeSkin, apply, currentAnimation, doc, mode, selection, setSelection, skinArg, store, time, transaction } from "../state.ts";
+import { activeSkin, apply, currentAnimation, doc, mode, selection, setSelection, setTool, skinArg, store, time, transaction } from "../state.ts";
 import { askConfirm, askForm, confirmDelete } from "../dialogs.tsx";
 import { deleteAttachmentAsk, deleteBoneAsk, deleteConstraintAsk, deleteSlotAsk } from "../destructive.ts";
 import { ColorField, NumberField, Section, SelectField, TextField } from "./fields.tsx";
@@ -14,6 +14,7 @@ import { AudioAssetInspector, BusInspector, SoundInspector } from "./AudioPanel.
 import { SequenceEditor } from "./SequenceEditor.tsx";
 import { PRESET_NAMES, ParticlesEditor } from "./ParticlesInspector.tsx";
 import { BindingList } from "./Bindings.tsx";
+import { BoundingBoxTools, PathKnotWeights } from "../tools/PenInspector.tsx";
 
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-4;
 
@@ -327,11 +328,12 @@ function PathAttachmentEditor(p: { slotId: string; att: Extract<Attachment, { ty
   return (
     <>
       <div class="hint">
-        {p.att.vertices.length / 6} knots · {p.att.weights ? "weighted (bend it by moving its bones)" : "unweighted (follows slot bone)"}. Edit knots via MCP/JSON (`vertices`).
+        {p.att.vertices.length / 6} knots · {p.att.weights ? "weighted (bend it by moving its bones)" : "unweighted (follows slot bone)"}. Draw and edit knots with the{" "}
+        <button class="link" onClick={() => setTool("pen")}>Pen tool ({kbd("tool.pen")})</button>.
       </div>
       <Check label="Closed" checked={p.att.closed} onChange={(v) => set({ closed: v })} />
       <ColorField label="Color" value={p.att.color} onCommit={(v) => set({ color: v })} />
-      <BindBones slotId={p.slotId} attachment={p.att.name} skin={p.owner.id} />
+      <PathKnotWeights slotId={p.slotId} name={p.att.name} />
       <div class="field col">
         <span>Bones to place along the path (parent first)</span>
         <select multiple size={5} onChange={(e) => setChain(Array.from(e.currentTarget.selectedOptions).map((o) => o.value))}>
@@ -476,8 +478,12 @@ function AttachmentEditor(p: { slotId: string; att: Attachment; owner: SkinData 
         <Match when={p.att.type === "particles" && p.att}>
           {(_a) => <ParticlesEditor slotId={p.slotId} att={p.att as Extract<Attachment, { type: "particles" }>} owner={p.owner} />}
         </Match>
-        <Match when={p.att.type === "boundingBox"}>
-          <div class="hint">Hit area for state-machine listeners. Edit vertices via MCP/JSON for now.</div>
+        <Match when={p.att.type === "boundingBox" && p.att}>
+          {(a) => (
+            <BoundingBoxTools
+              t={{ slotId: p.slotId, slotBone: doc().skeleton.slots.find((s) => s.id === p.slotId)?.bone ?? "", name: a().name, att: a() as Extract<Attachment, { type: "boundingBox" }> }}
+            />
+          )}
         </Match>
       </Switch>
       <button class="danger" onClick={() => void deleteAttachmentAsk(p.slotId, p.att.name, p.owner.id)}>

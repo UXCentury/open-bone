@@ -200,6 +200,8 @@ export interface BoundingBoxAttachment extends AttachmentBase {
   type: "boundingBox";
   /** Flat [x0,y0,...] polygon in slot-bone local space. */
   vertices: number[];
+  /** Editor display colour (default orange). */
+  color?: Hex;
 }
 
 export interface PointAttachment extends AttachmentBase {

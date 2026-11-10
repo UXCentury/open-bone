@@ -25,7 +25,8 @@ export const DEFAULT_SHORTCUTS: ShortcutDef[] = [
   { id: "edit.bringToFront", label: "Bring slot to front", group: "Edit", keys: ["Mod+Shift+]"], scope: "editor" },
   { id: "edit.sendToBack", label: "Send slot to back", group: "Edit", keys: ["Mod+Shift+["], scope: "editor" },
   { id: "edit.deselect", label: "Deselect", group: "Edit", keys: ["Escape"], scope: "editor" },
-  { id: "edit.selectAllVertices", label: "Select all vertices (Mesh tool)", group: "Edit", keys: ["Mod+A"], scope: "editor" },
+  { id: "edit.finishPath", label: "Finish the path being drawn (Pen tool)", group: "Edit", keys: ["Enter"], scope: "editor" },
+  { id: "edit.selectAllVertices", label: "Select all vertices (Mesh / Pen tool)", group: "Edit", keys: ["Mod+A"], scope: "editor" },
   { id: "edit.nudgeLeft", label: "Nudge vertices left (Shift: ×10)", group: "Edit", keys: ["ArrowLeft", "Shift+ArrowLeft"], scope: "editor", repeat: true },
   { id: "edit.nudgeRight", label: "Nudge vertices right (Shift: ×10)", group: "Edit", keys: ["ArrowRight", "Shift+ArrowRight"], scope: "editor", repeat: true },
   { id: "edit.nudgeUp", label: "Nudge vertices up (Shift: ×10)", group: "Edit", keys: ["ArrowUp", "Shift+ArrowUp"], scope: "editor", repeat: true },
@@ -39,6 +40,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDef[] = [
   { id: "tool.bone", label: "Create bone tool", group: "Tools", keys: ["B"], scope: "editor" },
   { id: "tool.mesh", label: "Mesh edit tool", group: "Tools", keys: ["M"], scope: "editor" },
   { id: "tool.weights", label: "Weight paint tool", group: "Tools", keys: ["W"], scope: "editor" },
+  { id: "tool.pen", label: "Pen tool (draw and edit paths, bounding boxes)", group: "Tools", keys: ["N"], scope: "editor" },
   { id: "tool.compensate", label: "Compensate (children stay put when a bone moves)", group: "Tools", keys: ["J"], scope: "editor" },
 
   // ---- View

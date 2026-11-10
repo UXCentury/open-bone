@@ -169,3 +169,19 @@ describe("triangulate", () => {
     expect(area).toBeCloseTo(300, 6);
   });
 });
+
+describe("path weights", () => {
+  it("weights: null unbinds a weighted path", () => {
+    const s = new DocumentStore(createDocument("p"));
+    const root = s.doc.skeleton.bones[0].id;
+    const bone = (s.apply("addBone", { parent: root, name: "ctrl", x: 10, y: 0, length: 20 }) as { id: string }).id;
+    const slot = (s.apply("addSlot", { bone: root, name: "path" }) as { id: string }).id;
+    s.apply("addPath", { slot, name: "path", anchors: [0, 0, 100, 0] });
+    s.apply("autoWeights", { slot, attachment: "path", bones: [bone] });
+    const att = () => getAttachment(s.doc, slot, "path") as Extract<ReturnType<typeof getAttachment>, { type: "path" }>;
+    expect(att().weights?.length).toBe(6);
+    s.apply("updateAttachment", { slot, attachment: "path", props: { weights: null } });
+    expect(att().weights).toBeUndefined();
+    expect("weights" in att()).toBe(false);
+  });
+});
