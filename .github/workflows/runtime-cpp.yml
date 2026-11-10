@@ -29,8 +29,13 @@ jobs:
         os: [ubuntu-24.04, macos-14, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - run: cmake -S runtimes/cpp -B build -DCMAKE_BUILD_TYPE=Release
+      - uses: actions/checkout@v7
+      # Compiler cache (Linux, macOS): unchanged sources aren't recompiled between runs. MSVC builds without it.
+      - uses: hendrikmuhs/ccache-action@v1.2.24
+        if: runner.os != 'Windows'
+        with:
+          key: core-${{ matrix.os }}
+      - run: cmake -S runtimes/cpp -B build -DCMAKE_BUILD_TYPE=Release ${{ runner.os != 'Windows' && '-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache' || '' }}
       - run: cmake --build build --config Release --parallel 4
       - run: ctest --test-dir build -C Release --output-on-failure
 
@@ -39,16 +44,30 @@ jobs:
     env:
       GODOT_VERSION: 4.4.1
     steps:
-      - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y libsdl2-dev libsfml-dev
+      - uses: actions/checkout@v7
+      - uses: awalsh128/cache-apt-pkgs-action@v1.6.3
+        with:
+          packages: libsdl2-dev libsfml-dev
+          version: 1
+      # godot-cpp is most of this job's compile time; ccache keeps it between runs.
+      - uses: hendrikmuhs/ccache-action@v1.2.24
+        with:
+          key: engines
+          max-size: 1G
+      - uses: actions/cache@v6
+        with:
+          path: godot
+          key: godot-${{ env.GODOT_VERSION }}-linux
       - name: Godot GDExtension
         run: |
-          cmake -S runtimes/cpp/engines/godot -B build-godot -DCMAKE_BUILD_TYPE=Release
+          cmake -S runtimes/cpp/engines/godot -B build-godot -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build-godot --parallel 4
       - name: Godot headless test
         run: |
-          curl -sSfL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          unzip -q godot.zip -d godot
+          if [ ! -d godot ]; then
+            curl -sSfL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+            unzip -q godot.zip -d godot
+          fi
           GODOT=$(ls "$PWD"/godot/Godot_v*)
           # A fresh project has to be imported once before Godot loads its GDExtensions.
           "$GODOT" --headless --path runtimes/cpp/engines/godot/demo --import
@@ -56,9 +75,9 @@ jobs:
           ctest --test-dir build-godot --output-on-failure
       - name: SDL2 sample
         run: |
-          cmake -S runtimes/cpp/engines/sdl2 -B build-sdl2 -DCMAKE_BUILD_TYPE=Release
+          cmake -S runtimes/cpp/engines/sdl2 -B build-sdl2 -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build-sdl2 --parallel 4
       - name: SFML sample
         run: |
-          cmake -S runtimes/cpp/engines/sfml -B build-sfml -DCMAKE_BUILD_TYPE=Release
+          cmake -S runtimes/cpp/engines/sfml -B build-sfml -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build-sfml --parallel 4

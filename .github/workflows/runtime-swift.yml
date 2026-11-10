@@ -31,18 +31,36 @@ jobs:
     runs-on: ubuntu-24.04
     container: swift:6.0-jammy
     steps:
-      - uses: actions/checkout@v4
-      # The Swift image has no curl, which fetch-quickjs.sh downloads with.
-      - run: apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
-      - run: runtimes/swift/scripts/fetch-quickjs.sh
+      - uses: actions/checkout@v7
+      # The Swift image has no curl (fetch-quickjs.sh) or zstd (actions/cache compression).
+      - run: apt-get update && apt-get install -y --no-install-recommends curl ca-certificates zstd
+      - uses: actions/cache@v6
+        with:
+          path: runtimes/swift/Sources/CQuickJS/vendor
+          key: quickjs-${{ hashFiles('runtimes/swift/scripts/fetch-quickjs.sh') }}
+      - uses: actions/cache@v6
+        with:
+          path: runtimes/swift/.build
+          key: swiftpm-linux-${{ hashFiles('runtimes/swift/Package.swift', 'runtimes/swift/Sources/**', 'runtimes/cpp/src/**', 'runtimes/cpp/include/**') }}
+          restore-keys: swiftpm-linux-
+      - run: test -f runtimes/swift/Sources/CQuickJS/vendor/quickjs.c || runtimes/swift/scripts/fetch-quickjs.sh
       - run: swift test
         working-directory: runtimes/swift
 
   macos:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
-      - run: runtimes/swift/scripts/fetch-quickjs.sh
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: runtimes/swift/Sources/CQuickJS/vendor
+          key: quickjs-${{ hashFiles('runtimes/swift/scripts/fetch-quickjs.sh') }}
+      - uses: actions/cache@v6
+        with:
+          path: runtimes/swift/.build
+          key: swiftpm-macos-${{ hashFiles('runtimes/swift/Package.swift', 'runtimes/swift/Sources/**', 'runtimes/cpp/src/**', 'runtimes/cpp/include/**') }}
+          restore-keys: swiftpm-macos-
+      - run: test -f runtimes/swift/Sources/CQuickJS/vendor/quickjs.c || runtimes/swift/scripts/fetch-quickjs.sh
       - run: swift test
         working-directory: runtimes/swift
       - name: Build for iOS
