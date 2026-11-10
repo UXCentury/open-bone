@@ -25,7 +25,7 @@ import { showPanel } from "../layout.ts";
 import { Section } from "./fields.tsx";
 import { askConfirm, askText, uniqueName } from "../dialogs.tsx";
 import { AudioSection } from "./AudioPanel.tsx";
-import { cycleVis, visOf } from "../visibility.ts";
+import { boneLocked, cycleVis, isIsolated, isLocked, slotLocked, toggleIsolateSelection, toggleLock, visOf } from "../visibility.ts";
 import { resolveImageUrl } from "../images.ts";
 import { StatsSection } from "./Stats.tsx";
 import { Foldered, allFolderPaths, draggableItem, newFolder, setAllFolders } from "./Folders.tsx";
@@ -173,6 +173,33 @@ function EyeBtn(p: { id: string; name: string }) {
   );
 }
 
+/** Lock button: a locked bone or slot (and everything under a locked bone) can't be clicked in the viewport. */
+function LockBtn(p: { id: string; name: string; inherited: () => boolean }) {
+  const on = () => isLocked(p.id);
+  return (
+    <button
+      class="lock-btn"
+      classList={{ on: on(), inherited: !on() && p.inherited() }}
+      title={
+        on()
+          ? `${p.name} is locked: it can't be clicked in the viewport. Click to unlock`
+          : p.inherited()
+            ? `${p.name} is locked by a parent bone. Click to lock it on its own too`
+            : `Lock ${p.name}: it can't be clicked in the viewport (editor only)`
+      }
+      onClick={(e) => {
+        e.stopPropagation();
+        toggleLock(p.id);
+      }}
+    >
+      <svg viewBox="0 0 16 16" width="13" height="13">
+        <rect x="3.5" y="7" width="9" height="6.5" rx="1.2" fill={on() ? "currentColor" : "none"} stroke="currentColor" stroke-width="1.4" />
+        <path d={on() || p.inherited() ? "M5.5 7V5a2.5 2.5 0 0 1 5 0v2" : "M5.5 7V5a2.5 2.5 0 0 1 5 0"} fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+      </svg>
+    </button>
+  );
+}
+
 /** Small preview of an attachment's image (regions, meshes, sequences), from wherever the editor loads it. */
 function Thumb(p: { image?: string }) {
   const img = () => doc().images.find((i) => i.id === p.image);
@@ -203,6 +230,7 @@ function BoneNode(p: { bone: BoneData }) {
       <div class="tree-row" ref={(el) => scrollWhenSelected(el, boneSelected)} classList={{ selected: boneSelected(), "vis-off": visOf(p.bone.id) !== "shown" }} onClick={(e) => pick("bone", p.bone.id, e)}>
         <Twisty id={p.bone.id} has={has()} subtree={() => subtreeIds(p.bone.id)} />
         <span class="icon bone-icon">🦴</span> <Name text={p.bone.name} />
+        <LockBtn id={p.bone.id} name={p.bone.name} inherited={() => boneLocked(p.bone.id)} />
         <EyeBtn id={p.bone.id} name={p.bone.name} />
       </div>
       <Show when={has() && isOpen(p.bone.id)}>
@@ -236,6 +264,7 @@ function SlotNode(p: { s: SlotData }) {
         <Twisty id={s.id} has={atts().length + sounds().length > 0} />
         <span class="icon">▣</span> <Name text={s.name} />
         <span class="muted"> {s.attachment ? `· ${s.attachment}` : "· hidden"}</span>
+        <LockBtn id={s.id} name={s.name} inherited={() => slotLocked(s.id)} />
         <EyeBtn id={s.id} name={s.name} />
       </div>
       <Show when={sounds().length > 0 && isOpen(s.id)}>
@@ -501,6 +530,9 @@ export function Hierarchy() {
         title="Skeleton"
         actions={
           <>
+          <button classList={{ active: isIsolated() }} title={isIsolated() ? "Show all again (Shift+H)" : "Show only the selected parts and bones (Shift+H)"} onClick={toggleIsolateSelection}>
+            ◎
+          </button>
           <button title="Expand every bone, slot and folder" onClick={() => { setCollapsedNodes(new Set<string>()); setAllFolders("slot", false); }}>
             ⊞
           </button>

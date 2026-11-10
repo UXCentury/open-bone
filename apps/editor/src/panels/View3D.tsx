@@ -6,7 +6,7 @@ import { commitAttachmentMove, commitBone } from "../edit.ts";
 import { imageFor } from "../images.ts";
 import { kbd } from "../shortcuts/index.ts";
 import { apply, mode, selectedBoneIds, selectedSlotIds, selection, setMultiBones, setMultiSlots, setSelection, store, toast, toggleInSelection, transaction } from "../state.ts";
-import { eyeOpacity } from "../visibility.ts";
+import { eyeOpacity, boneLocked, slotLocked } from "../visibility.ts";
 import { viewportApi } from "./Viewport.tsx";
 
 /**
@@ -411,10 +411,12 @@ export function View3D() {
     const pickBone = () => {
       if (!bonesOn()) return undefined;
       const hit = ray.intersectObject(boneMesh)[0];
-      return hit?.faceIndex != null ? boneOf.get(hit.faceIndex) : undefined;
+      const id = hit?.faceIndex != null ? boneOf.get(hit.faceIndex) : undefined;
+      return id && !boneLocked(id) ? id : undefined;
     };
     const pickPart = () => {
-      const hits = ray.intersectObjects(parts.map((p) => p.mesh).filter((m) => m.visible));
+      // Locked parts (Skeleton tree lock) can't be picked; the ray goes on to the part behind.
+      const hits = ray.intersectObjects(parts.map((p) => p.mesh).filter((m) => m.visible)).filter((h) => !slotLocked(partSlot.get(h.object) ?? ""));
       // The front-most part under the pointer, by draw order (planes are close together in depth).
       const best = hits.sort((a, b) => (b.object.userData.order as number) - (a.object.userData.order as number))[0];
       const id = best ? partSlot.get(best.object) : undefined;

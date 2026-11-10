@@ -1,13 +1,13 @@
 import { type Affine, type Attachment, type BoneData, RAD, localFromWorld, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint, textureAssets } from "@openbone/core";
 import { toggleBackground } from "../background.ts";
 import { checkerPattern, fillArtboard } from "../checker.ts";
-import { showImages, slotOpacity } from "../visibility.ts";
+import { boneLocked, showImages, slotLocked, slotOpacity } from "../visibility.ts";
 import { type ZLayout, view3d, zDropIndex, zHit, zLayout, zMove, zView } from "../zview.ts";
 import { View3D } from "./View3D.tsx";
 import { applySequencePreview } from "../sequence-import.ts";
 import { type Guide, clearGuides, guides, newGuideId, removeGuide, setViewAid, toggleViewAid, upsertGuide, viewAids } from "../guides.ts";
 import { CanvasRenderer } from "@openbone/render-canvas";
-import { type Bone, type ScriptHost, Skeleton, StateMachineInstance, applyAnimation, poseChainFrom, poseEffector, poseGrabPoint, solvePose, trustedFunctionHost } from "@openbone/runtime";
+import { type Bone, type ScriptHost, type Slot, Skeleton, StateMachineInstance, applyAnimation, poseChainFrom, poseEffector, poseGrabPoint, solvePose, trustedFunctionHost } from "@openbone/runtime";
 import { createQuickJsHost } from "@openbone/scripting";
 import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { imageFor, setImageReadyCallback } from "../images.ts";
@@ -61,6 +61,7 @@ import {
   transaction,
   apply,
   ownerSkinArg,
+  grabTarget,
   setRunning,
   toast,
   doc,
@@ -410,7 +411,8 @@ export function Viewport() {
       boundingBoxes: showBones(),
       paths: false, // drawn by the Pen overlay (colour, selection, hidden slots)
       wireframe: showMesh(),
-      selectedBone: selectedBoneId(),
+      // In Part mode a selected part is highlighted on its own: its bone isn't drawn as selected (the bone won't move).
+      selectedBone: grabTarget() === "part" && mode() === "setup" && selection()?.kind === "slot" ? null : selectedBoneId(),
       slotAlpha: slotOpacity,
     });
     // selection outline
@@ -435,6 +437,9 @@ export function Viewport() {
     }
     const gz = gizmoBone(shown);
     if (gz) drawGizmo(ctx, dpr, gz);
+    // The drag preview, so the gizmo follows the part while it turns.
+    const pg = gizmoPart(shown);
+    if (pg) drawPartGizmo(ctx, dpr, pg);
     if (drag?.kind === "pose") drawPoseTarget(ctx, dpr, drag);
     drawMultiSelection(ctx, dpr, shown);
     if (drag?.kind === "create") {
@@ -588,6 +593,8 @@ export function Viewport() {
   /** The selected bone, when its move arrows should show (and be draggable). */
   function gizmoBone(sk_: Skeleton | null | undefined): Bone | null {
     if (!sk_ || running() || !showBones() || meshToolOn() || tool() === "bone") return null;
+    // Part mode with a part selected: the tools act on the part, so the bone's handles (which would move it) are hidden.
+    if (grabTarget() === "part" && mode() === "setup" && selection()?.kind === "slot") return null;
     const id = selectedBoneId();
     const b = id && sk_.boneById_(id);
     // A skin bone outside the shown skin is not posed: no gizmo.
@@ -672,6 +679,14 @@ export function Viewport() {
       ctx.beginPath();
       ctx.arc(sx + u[0] * GIZMO_LEN, sy + u[1] * GIZMO_LEN, 5, 0, Math.PI * 2);
       ctx.fill();
+      if (dragging?.op === "rotate" && dragging.cur.rotation !== undefined && dragging.base.rotation !== undefined) {
+        // On screen the bone turns the way its parent space turns it: mirrored parents flip the direction.
+        const pw = b.parent ? b.parent.world : { a: 1, b: 0, c: 0, d: 1 };
+        const flip = pw.a * pw.d - pw.b * pw.c < 0 ? -1 : 1;
+        const delta = dragging.cur.rotation - dragging.base.rotation;
+        const startAngle = Math.atan2(skToScreenY(dragging.start[1]) - sy, skToScreenX(dragging.start[0]) - sx);
+        drawTurnReadout(ctx, sx, sy, startAngle, delta * flip, dragging.cur.rotation, "#5ab0ff");
+      }
     } else if (kind === "scale") {
       const [u, v] = boneAxes(b);
       line(sx + u[0] * GIZMO_LEN, sy + u[1] * GIZMO_LEN, "#ff5d5d", active === "x", "box");
@@ -687,6 +702,138 @@ export function Viewport() {
       ctx.fillRect(sx - 4.5, sy - 4.5, 9, 9);
       ctx.strokeRect(sx - 4.5, sy - 4.5, 9, 9);
     }
+    ctx.restore();
+  }
+
+  /** Part mode: the selected part's gizmo (ring, scale handles or arrows at its origin, along its own axes), or null. */
+  function gizmoPart(sk_: Skeleton | null | undefined): { slot: Slot; o: [number, number]; u: [number, number]; v: [number, number] } | null {
+    if (!sk_ || running() || meshToolOn() || grabTarget() !== "part" || mode() !== "setup" || !gizmoKind()) return null;
+    const sel = selection();
+    if (sel?.kind !== "slot") return null;
+    const slot = sk_.slotById_(sel.id);
+    const att = slot ? sk_.getAttachment(slot) : null;
+    if (!slot || !att || !movableAttachment(att) || slotOpacity(slot.data.id) <= 0) return null;
+    const w = slot.bone.world;
+    const r = (att.rotation * Math.PI) / 180;
+    const [ox, oy] = applyM(w, att.x, att.y);
+    const dir = (lx: number, ly: number): [number, number] => {
+      const [px, py] = applyM(w, att.x + lx, att.y + ly);
+      const dx = px - ox;
+      const dy = -(py - oy); // screen y is down
+      const l = Math.hypot(dx, dy) || 1;
+      return [dx / l, dy / l];
+    };
+    return { slot, o: [skToScreenX(ox), skToScreenY(oy)], u: dir(Math.cos(r), Math.sin(r)), v: dir(-Math.sin(r), Math.cos(r)) };
+  }
+  function partGizmoHit(g: NonNullable<ReturnType<typeof gizmoPart>>, mx: number, my: number): GizmoPart | null {
+    const kind = gizmoKind();
+    const dx = mx - g.o[0];
+    const dy = my - g.o[1];
+    if (kind === "rotate") return Math.abs(Math.hypot(dx, dy) - GIZMO_LEN) <= 7 ? "ring" : null;
+    if (Math.abs(dx) <= 7 && Math.abs(dy) <= 7) return "xy";
+    const along = (a: [number, number]) => dx * a[0] + dy * a[1];
+    const across = (a: [number, number]) => Math.abs(-dx * a[1] + dy * a[0]);
+    const axes: [[number, number], [number, number]] = kind === "scale" ? [g.u, g.v] : [[1, 0], [0, -1]];
+    if (along(axes[0]) > 7 && along(axes[0]) <= GIZMO_LEN + 7 && across(axes[0]) <= 6) return "x";
+    if (along(axes[1]) > 7 && along(axes[1]) <= GIZMO_LEN + 7 && across(axes[1]) <= 6) return "y";
+    return null;
+  }
+  /**
+   * Live readout on a ring while it is dragged: a wedge from where the drag started to where it is now, and a label
+   * with the change and the result ("+35.0° · 125.0°"). Angles are in screen space (degrees, counter-clockwise up).
+   */
+  function drawTurnReadout(ctx: CanvasRenderingContext2D, sx: number, sy: number, startScreenAngle: number, delta: number, result: number, color: string) {
+    const a0 = startScreenAngle;
+    const a1 = a0 - (delta * Math.PI) / 180; // canvas angles run clockwise
+    ctx.fillStyle = color + "59";
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.arc(sx, sy, GIZMO_LEN, a0, a1, delta > 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.lineTo(sx + Math.cos(a0) * GIZMO_LEN, sy + Math.sin(a0) * GIZMO_LEN);
+    ctx.stroke();
+    const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
+    readout(ctx, sx, sy, `${sign}${Math.abs(delta).toFixed(1)}° · ${result.toFixed(1)}°`);
+  }
+  /** A small label above a ring (dark pill, readable on any art). */
+  function readout(ctx: CanvasRenderingContext2D, sx: number, sy: number, text: string) {
+    ctx.font = "600 12px ui-monospace, SFMono-Regular, Menlo, monospace";
+    const w = ctx.measureText(text).width + 12;
+    const x = sx - w / 2;
+    const y = sy - GIZMO_LEN - 26;
+    ctx.fillStyle = "#15171ce6";
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, 19, 5);
+    ctx.fill();
+    ctx.fillStyle = "#ffe08a";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, x + 6, y + 10);
+  }
+  function drawPartGizmo(ctx: CanvasRenderingContext2D, dpr: number, g: NonNullable<ReturnType<typeof gizmoPart>>) {
+    const kind = gizmoKind();
+    const [sx, sy] = g.o;
+    const dragging = drag?.kind === "part" || drag?.kind === "attachment";
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const handle = (a: [number, number], color: string, head: "arrow" | "box") => {
+      const ex = sx + a[0] * GIZMO_LEN;
+      const ey = sy + a[1] * GIZMO_LEN;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      if (head === "box") return ctx.fillRect(ex - 5, ey - 5, 10, 10);
+      const ang = Math.atan2(ey - sy, ex - sx);
+      ctx.beginPath();
+      ctx.moveTo(ex + Math.cos(ang) * 8, ey + Math.sin(ang) * 8);
+      ctx.lineTo(ex + Math.cos(ang + 2.4) * 7, ey + Math.sin(ang + 2.4) * 7);
+      ctx.lineTo(ex + Math.cos(ang - 2.4) * 7, ey + Math.sin(ang - 2.4) * 7);
+      ctx.closePath();
+      ctx.fill();
+    };
+    if (kind === "rotate") {
+      // The part's own ring (orange, so it isn't mistaken for a bone's): its handle shows where the part points.
+      ctx.strokeStyle = dragging ? "#ffcc00" : "#ff9f43dd";
+      ctx.lineWidth = dragging ? 3 : 2;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.arc(sx, sy, GIZMO_LEN, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#ffcc00";
+      ctx.beginPath();
+      ctx.arc(sx + g.u[0] * GIZMO_LEN, sy + g.u[1] * GIZMO_LEN, 5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (kind === "scale") {
+      handle(g.u, "#ff5d5d", "box");
+      handle(g.v, "#3ddc84", "box");
+    } else {
+      handle([1, 0], "#ff5d5d", "arrow");
+      handle([0, -1], "#3ddc84", "arrow");
+    }
+    if (drag?.kind === "part" && drag.parts[0]?.slotId === g.slot.data.id) {
+      const startAngle = Math.atan2(skToScreenY(drag.start[1]) - sy, skToScreenX(drag.start[0]) - sx);
+      if (drag.op === "rotate") {
+        const after = partProps(drag.parts[0], "rotate", drag.pivot, drag.amount).rotation as number;
+        drawTurnReadout(ctx, sx, sy, startAngle, drag.amount, after, "#ffcc00");
+      } else readout(ctx, sx, sy, `${(drag.amount * 100).toFixed(0)}%`);
+    }
+    // The pivot: what the part turns and scales around.
+    ctx.fillStyle = "#ff9f43";
+    ctx.strokeStyle = "#000a";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -1246,7 +1393,8 @@ export function Viewport() {
     let best: Bone | null = null;
     let bestD = 8 / view.zoom;
     for (const b of sk.bones) {
-      if (!b.active) continue;
+      // Locked bones (lock button in the Skeleton tree) can't be clicked; select them in the tree instead.
+      if (!b.active || boneLocked(b.data.id)) continue;
       const [ex, ey] = applyM(b.world, b.data.length, 0);
       const d = segDist(x, y, b.world.x, b.world.y, ex, ey);
       if (d <= bestD) {
@@ -1257,11 +1405,27 @@ export function Viewport() {
     return best;
   }
 
+  /** Whether every part on `bone` is drawn behind `slot` (so the bone is hidden under that picture). */
+  function hiddenUnder(bone: Bone, slot: { data: { id: string } }): boolean {
+    if (!sk) return false;
+    const order = new Map(sk.drawList().map((it, i) => [it.slot.data.id, i]));
+    const above = order.get(slot.data.id);
+    if (above === undefined) return false;
+    let own = 0;
+    for (const [id, i] of order) {
+      const s2 = sk.slotById_(id);
+      if (!s2 || s2.bone !== bone) continue;
+      own++;
+      if (i >= above) return false;
+    }
+    return own > 0;
+  }
+
   function pickSlot(x: number, y: number) {
     if (!sk) return null;
     for (const it of [...sk.drawList()].reverse()) {
-      // Hidden slots (Skeleton tree eye) can't be clicked; dimmed ones still can.
-      if (slotOpacity(it.slot.data.id) <= 0) continue;
+      // Hidden slots (Skeleton tree eye) and locked ones can't be clicked; dimmed ones still can.
+      if (slotOpacity(it.slot.data.id) <= 0 || slotLocked(it.slot.data.id)) continue;
       const poly = sk.hitPolygon(it.slot);
       if (poly && pointIn(x, y, poly)) return it.slot;
     }
@@ -1328,6 +1492,13 @@ export function Viewport() {
       drag = { kind: "create", parent, start, end: start };
       return;
     }
+    // The selected part's gizmo (Part mode): the ring turns it, the handles scale it, the arrows and centre move it.
+    const pg = gizmoPart(sk);
+    const pgHit = pg ? partGizmoHit(pg, mx, my) : null;
+    if (pg && pgHit) {
+      const k = gizmoKind();
+      if (k === "translate" ? startPartMove(pg.slot, x, y) : startPartTurn(pg.slot, k === "scale" ? "scale" : "rotate", x, y)) return;
+    }
     // Move arrows of the selected bone: drag the red arrow along X, the green one along Y, the square freely.
     const gz = gizmoBone(sk);
     const gzPart = gz ? gizmoHit(gz, mx, my) : null;
@@ -1339,8 +1510,20 @@ export function Viewport() {
       drag = { kind: "bone", op, bone: gz, start: [x, y], startWorld: [gz.world.x, gz.world.y], base, cur: { ...base }, axis, uniform: op === "scale" && gzPart === "xy", group, comp: compensationFor(gz, group) };
       return;
     }
-    const bone = pickBone(x, y);
-    const slot = bone ? null : pickSlot(x, y);
+    // Part mode (Setup): a picture under the pointer wins over the bone drawn across it.
+    const partFirst = grabTarget() === "part" && mode() === "setup" && (t === "select" || t === "rotate" || t === "translate" || t === "scale");
+    const partHit = partFirst ? pickSlot(x, y) : null;
+    let bone = partHit ? null : pickBone(x, y);
+    let slot = partHit ?? (bone ? null : pickSlot(x, y));
+    if (bone && !partHit) {
+      // A bone hidden under the picture that was clicked (all its own parts drawn behind it, like the back arm under
+      // the shield) doesn't win: the click goes to the picture. Bones with no parts (IK targets, controls) still do.
+      const top = pickSlot(x, y);
+      if (top && top.bone !== bone && hiddenUnder(bone, top)) {
+        bone = null;
+        slot = top;
+      }
+    }
     if (t === "pose") {
       // Grab a bone (or the bone of a clicked image): it and its parents bend so the grabbed point follows.
       const grabbed = bone ?? slot?.bone ?? null;
@@ -1390,43 +1573,44 @@ export function Viewport() {
       setSelection(null);
       return;
     }
-    if (slot && t === "translate" && mode() === "setup") {
-      const att = sk!.getAttachment(slot);
-      if (att && movableAttachment(att)) {
-        // The other selected parts move by the same world offset (each converted to its own bone's space).
-        const others = selectedSlotIds()
-          .filter((id) => id !== slot.data.id)
-          .flatMap((id) => {
-            const os = sk!.slotById_(id);
-            const oa = os ? sk!.getAttachment(os) : null;
-            return os && oa && movableAttachment(oa) ? [{ slotId: id, name: oa.name, base: [oa.x, oa.y] as [number, number], cur: [oa.x, oa.y] as [number, number], inv: invert(os.bone.world) }] : [];
-          });
-        drag = { kind: "attachment", slotId: slot.data.id, name: att.name, start: [x, y], base: [att.x, att.y], cur: [att.x, att.y], inv: invert(slot.bone.world), preview: null, startWorld: applyM(slot.bone.world, att.x, att.y) as [number, number], others };
-        return;
-      }
-    }
-    if (slot && !bone && (t === "select" || t === "rotate" || t === "scale") && mode() === "setup") {
-      // Rotate / Scale on a part turns or scales the part itself (and the other selected parts with it), not its bone.
-      const op: PartOp = t === "scale" ? "scale" : "rotate";
-      const partOf = (id: string): PartState | null => {
-        const ps = sk!.slotById_(id);
-        const pa = ps ? sk!.getAttachment(ps) : null;
-        if (!ps || !pa || !movableAttachment(pa) || (op === "scale" && !scalable(pa) && id === slot.data.id)) return null;
-        return { slotId: id, name: pa.name, att: structuredClone(pa), world: { ...ps.bone.world } };
-      };
-      const grabbed = partOf(slot.data.id);
-      if (grabbed) {
-        const others = selectedSlotIds().filter((id) => id !== slot.data.id).map(partOf).filter((p): p is PartState => !!p);
-        drag = { kind: "part", op, parts: [grabbed, ...others], pivot: partOrigin(grabbed), start: [x, y], amount: op === "rotate" ? 0 : 1, preview: null };
-        return;
-      }
-    }
+    if (slot && t === "translate" && mode() === "setup" && grabTarget() === "part" && startPartMove(slot, x, y)) return;
+    if (slot && !bone && (t === "select" || t === "rotate" || t === "scale") && mode() === "setup" && grabTarget() === "part" && startPartTurn(slot, t === "scale" ? "scale" : "rotate", x, y)) return;
     const target = bone ?? slot!.bone;
     const op = t === "translate" ? "translate" : t === "scale" ? "scale" : "rotate";
     const baseOf = (b: Bone) => ({ x: b.x, y: b.y, rotation: b.rotation, scaleX: b.scaleX, scaleY: b.scaleY });
     const base = baseOf(target);
     const group = bone ? selectionGroup(target, op) : undefined;
     drag = { kind: "bone", op, bone: target, start: [x, y], startWorld: [target.world.x, target.world.y], base, cur: { ...base }, group, comp: compensationFor(target, group) };
+  }
+
+  /** Move tool on a part (Part mode): the part, and the other selected parts by the same world offset. */
+  function startPartMove(slot: Slot, x: number, y: number): boolean {
+    const att = sk!.getAttachment(slot);
+    if (!att || !movableAttachment(att)) return false;
+    const others = selectedSlotIds()
+      .filter((id) => id !== slot.data.id)
+      .flatMap((id) => {
+        const os = sk!.slotById_(id);
+        const oa = os ? sk!.getAttachment(os) : null;
+        return os && oa && movableAttachment(oa) ? [{ slotId: id, name: oa.name, base: [oa.x, oa.y] as [number, number], cur: [oa.x, oa.y] as [number, number], inv: invert(os.bone.world) }] : [];
+      });
+    drag = { kind: "attachment", slotId: slot.data.id, name: att.name, start: [x, y], base: [att.x, att.y], cur: [att.x, att.y], inv: invert(slot.bone.world), preview: null, startWorld: applyM(slot.bone.world, att.x, att.y) as [number, number], others };
+    return true;
+  }
+
+  /** Rotate / Scale on a part (Part mode): the part turns or grows (and the other selected parts with it), not its bone. */
+  function startPartTurn(slot: Slot, op: PartOp, x: number, y: number): boolean {
+    const partOf = (id: string): PartState | null => {
+      const ps = sk!.slotById_(id);
+      const pa = ps ? sk!.getAttachment(ps) : null;
+      if (!ps || !pa || !movableAttachment(pa) || (op === "scale" && !scalable(pa) && id === slot.data.id)) return null;
+      return { slotId: id, name: pa.name, att: structuredClone(pa), world: { ...ps.bone.world } };
+    };
+    const grabbed = partOf(slot.data.id);
+    if (!grabbed) return false;
+    const others = selectedSlotIds().filter((id) => id !== slot.data.id).map(partOf).filter((p): p is PartState => !!p);
+    drag = { kind: "part", op, parts: [grabbed, ...others], pivot: partOrigin(grabbed), start: [x, y], amount: op === "rotate" ? 0 : 1, preview: null };
+    return true;
   }
 
   /** With Compensate on: the dragged bones' children (outside the drag), with their world transforms now. */
@@ -1942,7 +2126,7 @@ export function Viewport() {
       <div class="viewport-hint" style={{ display: view3d() ? "none" : undefined }}>
         {running()
           ? "▶ Running state machine — interact with the artboard"
-          : `${mode() === "animate" ? `ANIMATE${currentAnimation() ? ` · ${currentAnimation()!.name} @ ${time().toFixed(2)}s` : " · no animation"}` : "SETUP"}${activeSkin() ? ` · SKIN ${activeSkin()!.name}` : ""} · wheel: zoom · alt/right-drag: pan · ${kbd("view.fit")}: fit · ${kbd("help.shortcuts")}: shortcuts`}
+          : `${mode() === "animate" ? `ANIMATE${currentAnimation() ? ` · ${currentAnimation()!.name} @ ${time().toFixed(2)}s` : " · no animation"}` : `SETUP${grabTarget() === "part" ? " · PARTS" : ""}`}${activeSkin() ? ` · SKIN ${activeSkin()!.name}` : ""} · wheel: zoom · alt/right-drag: pan · ${kbd("view.fit")}: fit · ${kbd("help.shortcuts")}: shortcuts`}
       </div>
     </div>
   );

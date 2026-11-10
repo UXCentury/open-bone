@@ -32,6 +32,8 @@ import {
   skinArg,
   compensate,
   setCompensate,
+  grabTarget,
+  setGrabTarget,
 } from "../state.ts";
 import { playActive, togglePlay } from "../play.ts";
 import { tip } from "../shortcuts/index.ts";
@@ -153,6 +155,26 @@ export function Toolbar() {
           onClick={() => setCompensate(!compensate())}
         >
           ⇲ Comp
+        </button>
+      </div>
+      <div class="group seg-toggle" role="group" aria-label="What dragging a picture transforms">
+        <button
+          disabled={locked()}
+          classList={{ active: grabTarget() === "bone" }}
+          aria-pressed={grabTarget() === "bone"}
+          title={tip("Transform bones: dragging a picture moves, rotates or scales its bone (Setup mode)", "tool.grab")}
+          onClick={() => setGrabTarget("bone")}
+        >
+          Bone
+        </button>
+        <button
+          disabled={locked()}
+          classList={{ active: grabTarget() === "part" }}
+          aria-pressed={grabTarget() === "part"}
+          title={tip("Transform parts: dragging a picture moves, rotates or scales the picture itself, not its bone (Setup mode)", "tool.grab")}
+          onClick={() => setGrabTarget("part")}
+        >
+          Part
         </button>
       </div>
       <div class="group">

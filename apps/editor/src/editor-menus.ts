@@ -7,7 +7,7 @@ import { toggleWatching, watchFolder, watchedFolders, watching } from "./watch.t
 import { toggleViewAid, viewAids } from "./guides.ts";
 import { PANELS, type PanelId, movePanel, resetLayout, showPanel, swapSides, whereIs } from "./layout.ts";
 import type { MenuItem } from "./menu.tsx";
-import { cycleVisTo, showImages, visOf } from "./visibility.ts";
+import { anyLocked, cycleVisTo, isIsolated, isLocked, showImages, toggleLock, unlockAll, visOf } from "./visibility.ts";
 import { view3d, zView } from "./zview.ts";
 import { type AttTransform, type BoneTransform, attTransformsFor, transformAttachment, transformBone } from "./transform-actions.ts";
 import { getAttachment } from "@openbone/core";
@@ -156,6 +156,8 @@ function selectionItems(): MenuItem[] {
       // The bone's own parts, to flip or turn an image without touching the bone (or its children).
       ...d.skeleton.slots.filter((x) => x.bone === b.id).flatMap((x) => partTransformMenu(x.id, x.attachment)),
       boneTransformMenu(b.id),
+      { label: isIsolated() ? "Show all" : "Show only this bone's parts", shortcut: "view.isolate" },
+      { label: isLocked(b.id) ? "Unlock" : "Lock (it and everything under it)", action: () => toggleLock(b.id) },
       "sep",
       { label: "Duplicate", shortcut: "edit.duplicate", disabled: !b.parent },
       { label: "Focus in viewport", shortcut: "view.focus" },
@@ -182,6 +184,8 @@ function selectionItems(): MenuItem[] {
       ...partTransformMenu(slot.id, (s as { attachment?: string }).attachment ?? slot.attachment),
       boneTransformMenu(slot.bone),
       { label: visOf(slot.id) === "hidden" ? "Show" : "Hide", action: () => cycleVisTo(slot.id, visOf(slot.id) === "hidden" ? "shown" : "hidden") },
+      { label: isIsolated() ? "Show all" : "Show only this", shortcut: "view.isolate" },
+      { label: isLocked(slot.id) ? "Unlock" : "Lock (can't be clicked in the viewport)", action: () => toggleLock(slot.id) },
       { label: visOf(slot.id) === "dim" ? "Undim" : "Dim", action: () => cycleVisTo(slot.id, visOf(slot.id) === "dim" ? "shown" : "dim") },
       "sep",
       { label: "Duplicate", shortcut: "edit.duplicate" },
@@ -223,6 +227,8 @@ export function contextItems(target: HTMLElement): MenuItem[] | null {
       { label: "Bones", shortcut: "view.bones", checked: showBones() },
       { label: "Mesh wireframe", shortcut: "view.mesh", checked: showMesh() },
       { label: "Attachments", shortcut: "view.attachments", checked: showImages() },
+      { label: isIsolated() ? "Show all" : "Show only selected", shortcut: "view.isolate" },
+      { label: "Unlock all", disabled: !anyLocked(), action: unlockAll },
       { label: "Order view (draw order)", shortcut: "view.z", checked: zView() },
       { label: "3D view (layers in depth)", shortcut: "view.3d", checked: view3d() },
       { label: "Grid", checked: viewAids().grid, action: () => toggleViewAid("grid") },

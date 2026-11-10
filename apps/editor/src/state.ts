@@ -70,6 +70,29 @@ const readCompensate = () => {
 const [compensate, setCompensateSignal] = createSignal(readCompensate());
 /** Compensate (like Spine's): moving, rotating or scaling a bone leaves its child bones where they are. */
 export { compensate };
+/**
+ * What a click on a picture grabs with the Move / Rotate / Scale tools in Setup mode: its bone, or the part itself
+ * (even where the bone's shape covers it). Clicking a bone away from any picture always grabs the bone.
+ */
+export type GrabTarget = "bone" | "part";
+const GRAB_KEY = "openbone.grab";
+const readGrab = (): GrabTarget => {
+  try {
+    return localStorage.getItem(GRAB_KEY) === "part" ? "part" : "bone";
+  } catch {
+    return "bone";
+  }
+};
+const [grabTarget, setGrabTargetSignal] = createSignal<GrabTarget>(readGrab());
+export { grabTarget };
+export function setGrabTarget(v: GrabTarget) {
+  setGrabTargetSignal(v);
+  try {
+    localStorage.setItem(GRAB_KEY, v);
+  } catch {
+    /* private mode */
+  }
+}
 export function setCompensate(on: boolean) {
   setCompensateSignal(on);
   try {

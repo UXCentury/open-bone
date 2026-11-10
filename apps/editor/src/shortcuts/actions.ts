@@ -36,9 +36,11 @@ import { multiBones,
   transaction,
   compensate,
   setCompensate,
+  grabTarget,
+  setGrabTarget,
 } from "../state.ts";
 import { saveProject } from "../storage.ts";
-import { reorderSlot, setShowImages, showImages } from "../visibility.ts";
+import { reorderSlot, setShowImages, showImages, toggleIsolateSelection, toggleLockSelection } from "../visibility.ts";
 import { setView3d, setZView, view3d, zView } from "../zview.ts";
 import { redo, undo } from "../panels/Toolbar.tsx";
 import { type Scope, installShortcuts, shortcuts } from "./index.ts";
@@ -224,6 +226,8 @@ export function setupShortcuts(): () => void {
       // Bones are the point of hiding the images, so make sure they are on.
       if (!showImages() && !showBones()) setShowBones(true);
     }),
+    b("view.isolate", toggleIsolateSelection),
+    b("edit.lock", toggleLockSelection),
     b("view.onion", () => {
       if (!enterAnimate()) return;
       setOnionSkin(!onionSkin());
@@ -267,6 +271,10 @@ export function setupShortcuts(): () => void {
     b("play.fullWindow", () => setPlayFullWindow(!playFullWindow())),
     b("help.shortcuts", () => setShortcutsOpen(true)),
     b("tool.compensate", () => setCompensate(!compensate())),
+    b("tool.grab", () => {
+      setGrabTarget(grabTarget() === "part" ? "bone" : "part");
+      toast(grabTarget() === "part" ? "Transform parts: dragging a picture moves, rotates or scales the picture itself" : "Transform bones: dragging a picture moves, rotates or scales its bone", "info");
+    }),
   ];
   const scopes = (): Scope[] => (playActive() ? ["global", "play"] : ["global", "editor"]);
   const uninstall = installShortcuts(scopes);

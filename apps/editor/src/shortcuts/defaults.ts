@@ -42,6 +42,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDef[] = [
   { id: "tool.weights", label: "Weight paint tool", group: "Tools", keys: ["W"], scope: "editor" },
   { id: "tool.pen", label: "Pen tool (draw and edit paths, bounding boxes)", group: "Tools", keys: ["N"], scope: "editor" },
   { id: "tool.compensate", label: "Compensate (children stay put when a bone moves)", group: "Tools", keys: ["J"], scope: "editor" },
+  { id: "tool.grab", label: "Switch between transforming bones and parts (pictures)", group: "Tools", keys: ["A"], scope: "editor" },
 
   // ---- View
   { id: "view.fit", label: "Fit artboard", group: "View", keys: ["F", "Shift+1"], scope: "editor" },
@@ -54,6 +55,8 @@ export const DEFAULT_SHORTCUTS: ShortcutDef[] = [
   { id: "view.bones", label: "Toggle bones", group: "View", keys: ["Shift+B"], scope: "editor" },
   { id: "view.mesh", label: "Toggle mesh wireframe", group: "View", keys: ["Shift+M"], scope: "editor" },
   { id: "view.attachments", label: "Toggle attachments (show only bones)", group: "View", keys: ["H"], scope: "editor" },
+  { id: "view.isolate", label: "Show only the selection / show all again", group: "View", keys: ["Shift+H"], scope: "editor" },
+  { id: "edit.lock", label: "Lock or unlock the selection (can't be clicked in the viewport)", group: "Edit", keys: ["L"], scope: "editor" },
   { id: "view.z", label: "Toggle order view (draw order, back to front)", group: "View", keys: ["Z"], scope: "editor" },
   { id: "view.3d", label: "Toggle 3D view (layers in depth)", group: "View", keys: ["Shift+Z"], scope: "editor" },
   { id: "view.onion", label: "Toggle onion skin", group: "View", keys: ["O"], scope: "editor" },
