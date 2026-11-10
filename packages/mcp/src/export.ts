@@ -59,6 +59,8 @@ export interface ExportRequest {
   binary?: boolean;
   /** json/obonb: pack images into an embedded texture atlas (like the dialog's Pack option). */
   pack?: boolean;
+  /** obone/json/obonb: embed every image and audio file as data: URIs, so the file opens anywhere on its own. */
+  embed?: boolean;
   atlas?: AtlasExportOptions;
 }
 
@@ -222,7 +224,12 @@ export async function exportFile(session: ProjectSession, a: ExportRequest, scri
     : "";
   const done = (bytes: Uint8Array, note = ""): ExportResult => ({ bytes, ext: ext[a.format], suffix, note });
 
-  if (a.format === "obone") return done(new TextEncoder().encode(serialize(doc)));
+  if (a.format === "obone") {
+    // Paths are relative to the project folder: embedded, the file can be opened from anywhere (also in the web editor,
+    // which can't read the files next to an opened file).
+    const out = a.embed ? await embedAssets(session, doc) : doc;
+    return done(new TextEncoder().encode(serialize(out)), a.embed ? " · images and audio embedded" : "");
+  }
   if (a.format === "json" || a.format === "obonb") {
     const r = runtimeData();
     let d = r.doc;
@@ -232,6 +239,7 @@ export async function exportFile(session: ProjectSession, a: ExportRequest, scri
       d = p.doc;
       warnings.push(...p.warnings);
     }
+    if (a.embed) d = await embedAssets(session, d);
     const bytes = a.format === "json" ? new TextEncoder().encode(serialize(d)) : serializeBinary(d, { precision: "float32" });
     return done(bytes, warnings.length ? ` · ${warnings.join("; ")}` : "");
   }

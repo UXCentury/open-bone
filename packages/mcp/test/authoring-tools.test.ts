@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -18,7 +18,13 @@ async function connect() {
   const call = async (name: string, args: Record<string, unknown> = {}) => {
     const r = (await client.callTool({ name, arguments: args })) as { isError?: boolean; content: { type: string; text?: string }[] };
     if (r.isError) throw new Error(r.content[0].text);
-    return r.content[0].text ? (JSON.parse(r.content[0].text) as Record<string, unknown>) : {};
+    const t = r.content[0].text;
+    if (!t) return {};
+    try {
+      return JSON.parse(t) as Record<string, unknown>;
+    } catch {
+      return { text: t };
+    }
   };
   const doc = async () => JSON.parse(((await client.callTool({ name: "get_document", arguments: {} })) as { content: { text: string }[] }).content[0].text);
   return { call, doc };
@@ -176,6 +182,19 @@ describe("meshes and weights", () => {
       if (y < 59) expect(share).toBeCloseTo(1, 3);
     }
     await expect(call("set_weights_in_area", { slot: "body", attachment: "body", area: {}, influences: [{ bone: "legs", weight: 1 }] })).rejects.toThrow(/at least one/);
+  });
+});
+
+describe("export_file embed", () => {
+  it("writes a self-contained .obone with every image and sound inside", async () => {
+    const { call, dir } = await project();
+    await call("import_image", { path: png(path.join(dir, "a.png"), 8, 8, (g) => g.fillRect(0, 0, 8, 8)), name: "a" });
+    const out = path.join(dir, "copy", "t.obone");
+    mkdirSync(path.dirname(out));
+    const r = await call("export_file", { format: "obone", embed: true, out });
+    expect(r.text).toMatch(/images and audio embedded/);
+    const saved = JSON.parse(readFileSync(out, "utf8"));
+    expect(saved.images[0].src).toMatch(/^data:image\/png;base64,/);
   });
 });
 

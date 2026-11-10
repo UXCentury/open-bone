@@ -457,8 +457,8 @@ void main() {
     });
   }
 
-  test('suite has 21 files / 92 cases', () {
-    expect(files.length, 21);
-    expect(total, 92);
+  test('suite has 22 files / 100 cases', () {
+    expect(files.length, 22);
+    expect(total, 100);
   });
 }
