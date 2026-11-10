@@ -23,6 +23,8 @@ export interface CanvasRenderOptions {
   clear?: boolean;
   /** Per-slot opacity multiplier (editor show/dim/hide): 0 skips the slot. */
   slotAlpha?: (slotId: string) => number;
+  /** Called after the art and before the overlays (bounding boxes, paths, bones), e.g. for an editor grid. */
+  beforeOverlays?: () => void;
 }
 
 const css = (c: number[]) =>
@@ -214,6 +216,13 @@ export class CanvasRenderer {
       this.drawItem(k < 1 ? { ...item, color: [item.color[0], item.color[1], item.color[2], item.color[3] * k] } : item, opts.wireframe ?? false, view.zoom);
     }
     if (clip) ctx.restore();
+    if (opts.beforeOverlays) {
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+      opts.beforeOverlays();
+      ctx.restore();
+    }
     if (opts.boundingBoxes) this.drawBoundingBoxes(sk, view.zoom);
     if (opts.paths ?? opts.bones) this.drawPaths(sk, view.zoom);
     if (opts.bones) this.drawBones(sk, view.zoom, opts.selectedBone ?? null);

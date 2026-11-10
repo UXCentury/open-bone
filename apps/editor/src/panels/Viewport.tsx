@@ -393,8 +393,6 @@ export function Viewport() {
     fillArtboard(ctx, showImages() ? d.background : "#1d2129", view.x, view.y, d.width * view.zoom, d.height * view.zoom);
     ctx.strokeStyle = "#3a3f4b";
     ctx.strokeRect(view.x, view.y, d.width * view.zoom, d.height * view.zoom);
-    if (viewAids().grid) drawGrid(ctx, w, h);
-    if (viewAids().origin) drawOriginLines(ctx, w, h, d.background);
     const resolveImage = (id: string) => {
       // Packed images are drawn from their atlas page (resolved by page id).
       const a = textureAssets(d).find((i) => i.id === id);
@@ -414,6 +412,12 @@ export function Viewport() {
       // In Part mode a selected part is highlighted on its own: its bone isn't drawn as selected (the bone won't move).
       selectedBone: grabTarget() === "part" && mode() === "setup" && selection()?.kind === "slot" ? null : selectedBoneId(),
       slotAlpha: slotOpacity,
+      // Grid and origin lines go over the art (they are for lining parts up) but under the bones and handles.
+      beforeOverlays: () => {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        if (viewAids().grid) drawGrid(ctx, w, h);
+        if (viewAids().origin) drawOriginLines(ctx, w, h, d.background);
+      },
     });
     // selection outline
     const sel = selection();
