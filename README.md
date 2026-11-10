@@ -99,11 +99,20 @@ Formats: `json`, `obonb`, `atlas`, `png`, `jpeg`, `gif`, `apng`, `psd`, `avi`, `
 
 ### Desktop app
 
+Installers for **Windows** (`.msi`, `.exe`), **macOS** (`.dmg`, Apple Silicon and Intel) and **Linux** (`.deb`, `.rpm`,
+`.AppImage`) are attached to each [GitHub Release](https://github.com/UXCentury/open-bone/releases). To run or build it
+from source:
+
 ```bash
 pnpm desktop
 ```
 
-Needs Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3).
+```bash
+pnpm desktop:build
+```
+
+Needs Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3). [docs/releasing.md](docs/releasing.md)
+covers the installers, releases and code signing.
 
 ### Embed in a website
 

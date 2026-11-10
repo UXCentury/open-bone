@@ -1,0 +1,102 @@
+# Desktop installers for the Tauri app (apps/desktop):
+#   Windows .msi and .exe (NSIS) · macOS .dmg (universal: Apple Silicon + Intel) · Linux .deb, .rpm and .AppImage
+#
+# - Push a version tag (git tag v0.2.0 && git push origin v0.2.0) to build them all and attach them to a draft GitHub
+#   Release for that tag. The tag must match the app version: set it first with `pnpm version:set 0.2.0`.
+# - Or run it by hand (Actions → Desktop installers → Run workflow): without "Create a draft release" it only builds,
+#   and the installers are kept as workflow artifacts for a few days.
+#
+# Code signing is optional: add the secrets listed in docs/releasing.md to sign and notarize the macOS app and sign the
+# Windows installers. Without them the installers work, but macOS Gatekeeper and Windows SmartScreen warn on first open.
+name: Desktop installers
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Create a draft release (tag v<app version>)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            label: Windows
+            args: ""
+          - os: macos-15
+            label: macOS
+            args: "--target universal-apple-darwin"
+          # Ubuntu 22.04 links against an older glibc, so the .deb, .rpm and AppImage run on more distributions.
+          - os: ubuntu-22.04
+            label: Linux
+            args: ""
+    name: ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 file
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ runner.os == 'macOS' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+      - uses: Swatinem/rust-cache@v2.9.3
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - run: pnpm install --frozen-lockfile
+
+      # Signing secrets are passed only when they exist: an empty APPLE_CERTIFICATE would make the build try to sign.
+      - name: Signing secrets (optional)
+        shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          for v in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+            if [ -n "${!v}" ]; then
+              { echo "$v<<__EOF__"; echo "${!v}"; echo "__EOF__"; } >> "$GITHUB_ENV"
+            fi
+          done
+
+      - uses: tauri-apps/tauri-action@action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tauriScript: pnpm tauri
+          args: ${{ matrix.args }}
+          # A release only for tags, or when asked for on a manual run; otherwise just build and keep artifacts.
+          tagName: ${{ (startsWith(github.ref, 'refs/tags/v') || inputs.release) && 'v__VERSION__' || '' }}
+          releaseName: "OpenBone v__VERSION__"
+          releaseBody: "Desktop installers for OpenBone v__VERSION__. See CHANGELOG.md for what changed. Unsigned builds: on macOS right-click the app and choose Open the first time; on Windows choose More info → Run anyway; for the AppImage on newer Ubuntu, install libfuse2 or run it with --appimage-extract-and-run."
+          releaseDraft: true
+          prerelease: false
+          uploadWorkflowArtifacts: true

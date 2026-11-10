@@ -9,6 +9,7 @@
 | [**Runtime specification**](runtime-spec.md) | port the runtime to another language, or check exactly how a pose, a draw list or a state machine is computed |
 | [**MCP server**](mcp.md) | let an AI agent build and edit animations, or drive the editor live |
 | [**Engine and platform exports**](engine-exports.md) | ship sprite sheets or WebView packages to engines from the Export dialog |
+| [**Releasing and desktop installers**](releasing.md) | build the Windows, macOS and Linux installers, cut a release, or set up code signing |
 
 More reference material lives next to the code:
 

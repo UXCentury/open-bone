@@ -10,12 +10,52 @@
     "frontendDist": "../../editor/dist"
   },
   "app": {
-    "windows": [{ "title": "OpenBone", "width": 1440, "height": 900, "minWidth": 900, "minHeight": 600 }],
-    "security": { "csp": null }
+    "windows": [
+      {
+        "title": "OpenBone",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 900,
+        "minHeight": 600
+      }
+    ],
+    "security": {
+      "csp": null
+    }
   },
   "bundle": {
     "active": true,
     "targets": "all",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "UXCentury",
+    "copyright": "\u00a9 UXCentury and the OpenBone contributors, MIT licence",
+    "category": "GraphicsAndDesign",
+    "shortDescription": "Open-source 2D skeletal animation editor",
+    "longDescription": "OpenBone is an open-source 2D skeletal animation editor: Spine-style rigging, Rive-style interactive state machines, sound, and an MCP server so AI agents can animate for you.",
+    "homepage": "https://github.com/UXCentury/open-bone",
+    "license": "MIT",
+    "licenseFile": "../../../LICENSE",
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "both"
+      }
+    },
+    "linux": {
+      "deb": {
+        "section": "graphics"
+      },
+      "rpm": {
+        "release": "1"
+      }
+    }
   }
 }
