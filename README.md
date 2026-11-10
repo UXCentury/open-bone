@@ -175,6 +175,7 @@ The web runtimes build on the TypeScript runtime (`OpenBoneInstance` for posing,
 | Java | [`runtimes/java`](runtimes/java) `openbone-runtime` | any JVM (Java 11+), Android | Full port, no dependencies; scripts in QuickJS (`openbone-scripting`) |
 | libGDX | [`runtimes/java`](runtimes/java) `openbone-gdx` | libGDX 1.14 | Two-colour tint shader, blend modes, stencil clipping; LWJGL3 sample |
 | Android | [`runtimes/java`](runtimes/java) `openbone-android` | Android 7+ (Kotlin) | `OpenBoneView`: touch → listeners, inputs and events as lambdas |
+| Swift | [`runtimes/swift`](runtimes/swift) `OpenBone` | iOS 15+, macOS 12+ (SwiftPM) | Swift API over the C++ runtime's C API (passes the conformance suite); Metal `OpenBoneView` for UIKit / AppKit and SwiftUI `OpenBonePlayer` with blend modes, stencil clipping, two-colour tint, touch → listeners (preview: views not yet run on Apple hardware) |
 
 Demos of the knight in each engine: `pnpm --filter @openbone/examples engines`, then http://localhost:5190.
 
@@ -194,6 +195,7 @@ Native runtimes are ports, not wrappers: they implement [docs/runtime-spec.md](d
 | `runtimes/cpp` | Native C++17 runtime, C API (`openbone.h`), conformance runner, and Godot / SDL2 / SFML / Unreal / Cocos2d-x integrations |
 | `runtimes/csharp` | C# runtime (`OpenBone.Runtime`), Jint script host, conformance tests and the Unity package |
 | `runtimes/java` | Java runtime, QuickJS script host, libGDX renderer and sample, Kotlin Android view (Gradle), with the conformance suite as JUnit tests |
+| `runtimes/swift` | Swift package over the C++ runtime (C API), Metal views for UIKit / AppKit / SwiftUI, SwiftUI sample, conformance suite as XCTest |
 | `packages/export` | Export encoders and packagers: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP, sprite sheets, Unity/Godot/Flutter packs and the Flutter/Android/iOS WebView templates |
 | `packages/mcp` | MCP server (stdio + streamable HTTP), render/simulate tools, live WebSocket bridge |
 | `packages/cli` | `openbone` command line |

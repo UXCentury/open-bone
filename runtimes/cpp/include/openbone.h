@@ -122,6 +122,17 @@ typedef struct ob_draw_item {
   double stroke_width;
 } ob_draw_item;
 
+/** A slot's current state (after advance): attachment shown, tint and optional dark (two-colour) tint. */
+typedef struct ob_slot_info {
+  const char* name;
+  const char* bone;       /* bone name */
+  const char* attachment; /* attachment name, or NULL when the slot is empty */
+  float color[4];
+  int has_dark;
+  float dark[3];
+  ob_blend blend;
+} ob_slot_info;
+
 typedef struct ob_clip {
   const char* slot;
   const float* polygon; /* x,y pairs */
@@ -238,6 +249,11 @@ OB_API void ob_instance_set_log_callback(ob_instance* inst, ob_log_fn fn, void* 
 OB_API int ob_instance_bone_count(const ob_instance* inst);
 OB_API int ob_instance_bone(const ob_instance* inst, int index, ob_bone_info* out);
 OB_API int ob_instance_find_bone(const ob_instance* inst, const char* name);
+/** Slots in document (setup) order; strings valid until the instance changes. */
+OB_API int ob_instance_slot_count(const ob_instance* inst);
+OB_API int ob_instance_slot(const ob_instance* inst, int index, ob_slot_info* out);
+/** Index of a slot by name or id, or -1. */
+OB_API int ob_instance_find_slot(const ob_instance* inst, const char* name);
 /** Rebuild the draw list from the current pose; returns the item count. */
 OB_API int ob_instance_update_draw_list(ob_instance* inst);
 OB_API int ob_instance_draw_item(const ob_instance* inst, int index, ob_draw_item* out);
