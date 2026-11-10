@@ -1,0 +1,25 @@
+name: openbone_example
+description: "OpenBone Flutter plugin example: the knight (animations) and the button (state machine + pointer)."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  openbone:
+    path: ../
+
+dev_dependencies:
+  flutter_lints: ^5.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/openbone/
+    - assets/openbone/assets/eleven/
+    - assets/openbone/assets/canva/

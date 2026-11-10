@@ -254,6 +254,8 @@ OB_API int ob_instance_slot_count(const ob_instance* inst);
 OB_API int ob_instance_slot(const ob_instance* inst, int index, ob_slot_info* out);
 /** Index of a slot by name or id, or -1. */
 OB_API int ob_instance_find_slot(const ob_instance* inst, const char* name);
+/** Alpha of the built-in soft particle sprite ("@openbone/particle-dot", 64 px) at distance r from its centre (0..1). */
+OB_API double ob_particle_dot_alpha(double r);
 /** Rebuild the draw list from the current pose; returns the item count. */
 OB_API int ob_instance_update_draw_list(ob_instance* inst);
 OB_API int ob_instance_draw_item(const ob_instance* inst, int index, ob_draw_item* out);

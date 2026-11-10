@@ -1,7 +1,7 @@
 import { encodePng } from "./png.ts";
 import type { SheetFrame, SpriteSheetSet } from "./spritesheet.ts";
 import { createZip } from "./zip.ts";
-import { FLAME_COMPONENT_DART, FLUTTER_SHEET_DART, UNITY_IMPORTER_CS } from "./engine-templates.ts";
+import { FLAME_COMPONENT_DART, FLUTTER_SHEET_DART, NATIVE_FLUTTER_URL, UNITY_IMPORTER_CS } from "./engine-templates.ts";
 
 /**
  * Engine packs: sprite sheets plus the metadata each engine reads (TexturePacker JSON, Godot SpriteFrames,
@@ -366,6 +366,10 @@ sprite.play('${set.clips[1]?.name ?? clip}'); // switch clips any time
 \`SpriteAnimation.spriteList\` also works if you export with **Trim** off.
 
 Not compiled in this export (no Flutter toolchain was available); the code targets Dart 3 / Flutter 3.x and flame 1.x.
+
+Need bones, meshes, state machines, inputs or scripts instead of baked frames? Export the runtime file (\`.obone\` /
+\`.obonb\`) and play it with the native [\`openbone\` Flutter plugin](${NATIVE_FLUTTER_URL}) (\`OpenBoneWidget\`), or
+use the Flutter WebView package.
 `;
 }
 

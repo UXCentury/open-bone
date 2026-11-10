@@ -275,5 +275,8 @@ describe("WebView packages", () => {
     expect(kt).toContain('addJavascriptInterface(HostBridge(), "OpenBoneHost")');
     const readme = new TextDecoder().decode(webViewPackFiles("ios", opts).find((f) => f.name === "README.md")!.data);
     expect(readme).toContain('controller.fire("jump")');
+    const flutter = new TextDecoder().decode(webViewPackFiles("flutter", opts).find((f) => f.name === "README.md")!.data);
+    expect(flutter).toContain("runtimes/dart");
+    expect(flutter).toContain("OpenBoneWidget.asset('assets/hero.obone'");
   });
 });

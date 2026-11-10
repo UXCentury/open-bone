@@ -422,6 +422,8 @@ int ob_instance_find_slot(const ob_instance* o, const char* name) {
   return -1;
 }
 
+double ob_particle_dot_alpha(double r) { return particleDotAlpha(r); }
+
 int ob_instance_update_draw_list(ob_instance* o) {
   if (!o) return 0;
   o->draw = o->inst->skeleton->drawList();
