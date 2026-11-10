@@ -17,6 +17,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+# Flutter 3.47.9 pins these two one patch release behind (via flutter / flutter_test); the newer patches are
+# compatible (the whole test suite runs on them), and overriding them keeps `pub get` free of "outdated" notices.
+# Overrides only apply when building this package itself, never in apps that depend on it.
+dependency_overrides:
+  material_color_utilities: ^0.13.1
+  test_api: ^0.7.15
+
 flutter:
   uses-material-design: true
   assets:

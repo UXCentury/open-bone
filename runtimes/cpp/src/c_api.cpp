@@ -120,6 +120,24 @@ const char* ob_document_animation_name(const ob_document* d, int i) {
 double ob_document_animation_duration(const ob_document* d, int i) {
   return d && i >= 0 && i < (int)d->doc->animations.size() ? d->doc->animations[i].computedDuration : 0;
 }
+int ob_document_audio_asset_count(const ob_document* d) { return d && d->doc->audio ? (int)d->doc->audio->assets.size() : 0; }
+int ob_document_audio_asset(const ob_document* d, int i, ob_audio_asset* out) {
+  if (!out || i < 0 || i >= ob_document_audio_asset_count(d)) return 0;
+  const auto& a = d->doc->audio->assets[i];
+  *out = {a.id.c_str(), a.name.c_str(), a.src.c_str(), a.duration};
+  return 1;
+}
+int ob_document_audio_bus_count(const ob_document* d) { return d && d->doc->audio ? (int)d->doc->audio->buses.size() : 0; }
+int ob_document_audio_bus(const ob_document* d, int i, ob_audio_bus* out) {
+  if (!out || i < 0 || i >= ob_document_audio_bus_count(d)) return 0;
+  const auto& b = d->doc->audio->buses[i];
+  *out = {b.id.c_str(), b.name.c_str(), b.volume, b.muted ? 1 : 0};
+  return 1;
+}
+double ob_document_audio_master(const ob_document* d) {
+  if (!d || !d->doc->audio) return 1;
+  return d->doc->audio->muted ? 0 : d->doc->audio->master;
+}
 int ob_document_skin_count(const ob_document* d) { return d ? (int)d->doc->skeleton.skins.size() : 0; }
 const char* ob_document_skin_name(const ob_document* d, int i) {
   return d && i >= 0 && i < (int)d->doc->skeleton.skins.size() ? d->doc->skeleton.skins[i].name.c_str() : nullptr;

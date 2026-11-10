@@ -47,9 +47,15 @@ controller.setBool('armed', true);
 controller.fire('jump');
 controller.play('wave', loop: false, track: 1);
 controller.events.listen((e) => print('${e.name} ${e.stringValue}'));
-controller.audioCommands.listen(myAudioEngine.handle); // play / stop / fade; the runtime plays no sound itself
+controller.audioCommands.listen((c) => print('${c.type} ${c.sound}')); // the commands the widget plays (or your own engine)
 controller.stateChanges.listen((s) => print('${s.layer}: ${s.from} -> ${s.to}'));
 ```
+
+`OpenBoneWidget` plays the document's sounds itself (`audio: true`, the default) with
+[flutter_soloud](https://pub.dev/packages/flutter_soloud) (MIT): sound files are found like images (next to the document
+or embedded), and voices follow the command's volume × bus × master, rate, looping, fade-in, stop fades and fades. Set
+`audio: false` to play `controller.audioCommands` with your own engine, or use `OpenBoneAudio(document)` directly with
+an `OpenBoneInstance`. List the sound files in your `pubspec.yaml` assets like the images. Requires Flutter 3.41+.
 
 Taps, drags and mouse hover on the widget become pointer events for the state machine's listeners (`interactive:
 false` turns that off). Calls on the controller before the document has loaded are queued. `OpenBoneWidget.file(path)`

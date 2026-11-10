@@ -176,7 +176,7 @@ The web runtimes build on the TypeScript runtime (`OpenBoneInstance` for posing,
 | libGDX | [`runtimes/java`](runtimes/java) `openbone-gdx` | libGDX 1.14 | Two-colour tint shader, blend modes, stencil clipping; LWJGL3 sample |
 | Android | [`runtimes/java`](runtimes/java) `openbone-android` | Android 7+ (Kotlin) | `OpenBoneView`: touch → listeners, inputs and events as lambdas |
 | Swift | [`runtimes/swift`](runtimes/swift) `OpenBone` | iOS 15+, macOS 12+ (SwiftPM) | Swift API over the C++ runtime's C API (passes the conformance suite); Metal `OpenBoneView` for UIKit / AppKit and SwiftUI `OpenBonePlayer` with blend modes, stencil clipping, two-colour tint, touch → listeners (preview: views not yet run on Apple hardware) |
-| Flutter / Dart | [`runtimes/dart`](runtimes/dart) `openbone` | Flutter 3.24+ (Android, iOS, macOS, Linux, Windows) | FFI plugin over the C++ runtime's C API (`dart:ffi`): `OpenBoneDocument` / `OpenBoneInstance` in pure Dart, `OpenBoneWidget` drawing with `Canvas.drawVertices` (blend modes, clipping, two-colour tint), pointer → listeners. All 82 conformance cases pass through the Dart API |
+| Flutter / Dart | [`runtimes/dart`](runtimes/dart) `openbone` | Flutter 3.41+ (Android, iOS, macOS, Linux, Windows) | FFI plugin over the C++ runtime's C API (`dart:ffi`): `OpenBoneDocument` / `OpenBoneInstance` in pure Dart, `OpenBoneWidget` drawing with `Canvas.drawVertices` (blend modes, clipping, two-colour tint), pointer → listeners. All 82 conformance cases pass through the Dart API |
 
 Demos of the knight in each engine: `pnpm --filter @openbone/examples engines`, then http://localhost:5190.
 

@@ -12,6 +12,43 @@ import '../document.dart';
 import '../native.dart';
 import '../types.dart';
 
+/// Bytes of a document resource (image or sound) given its `src`: a data: URL, or a path relative to where the document
+/// came from ([source]: asset bundle, file or bytes with a base path), else relative to [OpenBoneDocument.basePath].
+Future<Uint8List?> openBoneSourceBytes(String src, OpenBoneDocument doc, OpenBoneSource? source) async {
+  if (src.isEmpty) return null;
+  if (src.startsWith('data:')) {
+    final bytes = UriData.parse(src).contentAsBytes();
+    return bytes.isEmpty ? null : bytes;
+  }
+  switch (source) {
+    case OpenBoneAssetSource(:final key, :final bundle):
+      final dir = key.contains('/') ? key.substring(0, key.lastIndexOf('/') + 1) : '';
+      final data = await (bundle ?? rootBundle).load(_normalizePath('$dir$src'));
+      return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+    case OpenBoneFileSource(:final path):
+      return File('${File(path).parent.path}/$src').readAsBytes();
+    case OpenBoneBytesSource(:final basePath):
+      if (basePath == null) return null;
+      return File('$basePath/$src').readAsBytes();
+    case null:
+      final base = doc.basePath;
+      if (base == null) return null;
+      return File('$base/$src').readAsBytes();
+  }
+}
+
+String _normalizePath(String path) {
+  final parts = <String>[];
+  for (final p in path.split('/')) {
+    if (p == '..' && parts.isNotEmpty && parts.last != '..') {
+      parts.removeLast();
+    } else if (p != '.' && p.isNotEmpty) {
+      parts.add(p);
+    }
+  }
+  return parts.join('/');
+}
+
 /// Loads the encoded image bytes for a texture `src`, or returns null when it cannot.
 typedef OpenBoneImageBytesLoader = Future<Uint8List?> Function(OpenBoneTexture texture, OpenBoneDocument document);
 
@@ -78,42 +115,8 @@ class OpenBoneTextures {
     return OpenBoneTextures(out);
   }
 
-  static Future<Uint8List?> _defaultBytes(OpenBoneTexture t, OpenBoneDocument doc, OpenBoneSource? source) async {
-    final src = t.src;
-    if (src.isEmpty) return null;
-    if (src.startsWith('data:')) {
-      final data = UriData.parse(src);
-      final bytes = data.contentAsBytes();
-      return bytes.isEmpty ? null : bytes;
-    }
-    switch (source) {
-      case OpenBoneAssetSource(:final key, :final bundle):
-        final dir = key.contains('/') ? key.substring(0, key.lastIndexOf('/') + 1) : '';
-        final data = await (bundle ?? rootBundle).load(_normalize('$dir$src'));
-        return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-      case OpenBoneFileSource(:final path):
-        return File('${File(path).parent.path}/$src').readAsBytes();
-      case OpenBoneBytesSource(:final basePath):
-        if (basePath == null) return null;
-        return File('$basePath/$src').readAsBytes();
-      case null:
-        final base = doc.basePath;
-        if (base == null) return null;
-        return File('$base/$src').readAsBytes();
-    }
-  }
-
-  static String _normalize(String path) {
-    final parts = <String>[];
-    for (final p in path.split('/')) {
-      if (p == '..' && parts.isNotEmpty && parts.last != '..') {
-        parts.removeLast();
-      } else if (p != '.' && p.isNotEmpty) {
-        parts.add(p);
-      }
-    }
-    return parts.join('/');
-  }
+  static Future<Uint8List?> _defaultBytes(OpenBoneTexture t, OpenBoneDocument doc, OpenBoneSource? source) =>
+      openBoneSourceBytes(t.src, doc, source);
 
   static Future<ui.Image> _decode(Uint8List bytes) async {
     final codec = await ui.instantiateImageCodec(bytes);

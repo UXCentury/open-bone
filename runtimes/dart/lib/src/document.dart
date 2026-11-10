@@ -64,6 +64,15 @@ class OpenBoneDocument implements Finalizable {
   /// Atlas pages first, then images.
   late final List<OpenBoneTexture> textures;
 
+  /// Sound files the document's audio commands play (`asset` in a play command is an id here).
+  late final List<OpenBoneAudioAsset> audioAssets;
+
+  /// Mixer buses (`bus` in a play command is an id here).
+  late final List<OpenBoneAudioBus> audioBuses;
+
+  /// Master volume: 0 when the document's audio is muted.
+  late final double audioMaster;
+
   bool get isDisposed => _ptr == nullptr;
 
   /// The native handle (valid until [dispose]).
@@ -131,6 +140,20 @@ class OpenBoneDocument implements Finalizable {
               premultipliedAlpha: tex.ref.premultiplied_alpha != 0,
             ),
       ];
+
+      final asset = arena<ob_audio_asset>();
+      audioAssets = [
+        for (var i = 0; i < b.ob_document_audio_asset_count(_ptr); i++)
+          if (b.ob_document_audio_asset(_ptr, i, asset) != 0)
+            OpenBoneAudioAsset(id: asset.ref.id.dart, name: asset.ref.name.dart, src: asset.ref.src.dart, duration: asset.ref.duration),
+      ];
+      final bus = arena<ob_audio_bus>();
+      audioBuses = [
+        for (var i = 0; i < b.ob_document_audio_bus_count(_ptr); i++)
+          if (b.ob_document_audio_bus(_ptr, i, bus) != 0)
+            OpenBoneAudioBus(id: bus.ref.id.dart, name: bus.ref.name.dart, volume: bus.ref.volume, muted: bus.ref.muted != 0),
+      ];
+      audioMaster = b.ob_document_audio_master(_ptr);
     });
   }
 

@@ -1,5 +1,6 @@
 // OpenBoneWidget: loads a document, advances it with a Ticker, paints the draw list and forwards pointers.
 // SPDX-License-Identifier: MIT
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/scheduler.dart';
@@ -9,6 +10,7 @@ import 'package:flutter/widgets.dart';
 import '../document.dart';
 import '../instance.dart';
 import '../types.dart';
+import 'audio.dart';
 import 'controller.dart';
 import 'renderer.dart';
 import 'textures.dart';
@@ -30,6 +32,7 @@ class OpenBoneWidget extends StatefulWidget {
     this.alignment = Alignment.center,
     this.interactive = true,
     this.scripts = true,
+    this.audio = true,
     this.imageLoader,
     this.placeholder,
     this.onLoaded,
@@ -111,6 +114,7 @@ class OpenBoneWidget extends StatefulWidget {
     this.alignment = Alignment.center,
     this.interactive = true,
     this.scripts = true,
+    this.audio = true,
     this.imageLoader,
     this.placeholder,
     this.onLoaded,
@@ -125,6 +129,10 @@ class OpenBoneWidget extends StatefulWidget {
   final Alignment alignment;
   final bool interactive;
   final bool scripts;
+
+  /// Play the document's sounds (flutter_soloud). The audio commands also reach [OpenBoneController.audioCommands]
+  /// either way; set false to play them yourself.
+  final bool audio;
 
   /// Custom loading of texture bytes (default: data: URLs, then the asset bundle / file system next to the document).
   final OpenBoneImageBytesLoader? imageLoader;
@@ -146,6 +154,8 @@ class _OpenBoneWidgetState extends State<OpenBoneWidget> with SingleTickerProvid
   OpenBoneDocument? _ownDocument;
   OpenBoneInstance? _instance;
   OpenBoneTextures? _textures;
+  OpenBoneAudio? _audio;
+  StreamSubscription<OpenBoneAudioCommand>? _audioSub;
   OpenBoneDrawList? _drawList;
   Duration _last = Duration.zero;
   int _generation = 0;
@@ -224,6 +234,11 @@ class _OpenBoneWidgetState extends State<OpenBoneWidget> with SingleTickerProvid
       _ownDocument = own;
       _textures = textures;
       _instance = inst;
+      if (widget.audio) {
+        // Subscribe before the first frame so sounds of the entry state aren't missed.
+        final audio = _audio = OpenBoneAudio(doc, source: widget.source);
+        _audioSub = inst.audioCommands.listen(audio.handle);
+      }
       _start(inst);
       _controller.attach(inst);
       widget.onLoaded?.call(inst);
@@ -279,6 +294,10 @@ class _OpenBoneWidgetState extends State<OpenBoneWidget> with SingleTickerProvid
   void _release() {
     _ticker.stop();
     _controller.attach(null);
+    _audioSub?.cancel();
+    _audioSub = null;
+    _audio?.dispose();
+    _audio = null;
     _instance?.dispose();
     _instance = null;
     _textures?.dispose();

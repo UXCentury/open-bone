@@ -110,6 +110,88 @@ class OpenBoneBindings {
       _ob_document_animation_namePtr.asFunction<
           ffi.Pointer<ffi.Char> Function(ffi.Pointer<ob_document>, int)>();
 
+  int ob_document_audio_asset(
+    ffi.Pointer<ob_document> doc,
+    int index,
+    ffi.Pointer<ob_audio_asset> out,
+  ) {
+    return _ob_document_audio_asset(
+      doc,
+      index,
+      out,
+    );
+  }
+
+  late final _ob_document_audio_assetPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<ob_document>, ffi.Int,
+              ffi.Pointer<ob_audio_asset>)>>('ob_document_audio_asset');
+  late final _ob_document_audio_asset = _ob_document_audio_assetPtr.asFunction<
+      int Function(
+          ffi.Pointer<ob_document>, int, ffi.Pointer<ob_audio_asset>)>();
+
+  int ob_document_audio_asset_count(
+    ffi.Pointer<ob_document> doc,
+  ) {
+    return _ob_document_audio_asset_count(
+      doc,
+    );
+  }
+
+  late final _ob_document_audio_asset_countPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ob_document>)>>(
+          'ob_document_audio_asset_count');
+  late final _ob_document_audio_asset_count = _ob_document_audio_asset_countPtr
+      .asFunction<int Function(ffi.Pointer<ob_document>)>();
+
+  int ob_document_audio_bus(
+    ffi.Pointer<ob_document> doc,
+    int index,
+    ffi.Pointer<ob_audio_bus> out,
+  ) {
+    return _ob_document_audio_bus(
+      doc,
+      index,
+      out,
+    );
+  }
+
+  late final _ob_document_audio_busPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<ob_document>, ffi.Int,
+              ffi.Pointer<ob_audio_bus>)>>('ob_document_audio_bus');
+  late final _ob_document_audio_bus = _ob_document_audio_busPtr.asFunction<
+      int Function(ffi.Pointer<ob_document>, int, ffi.Pointer<ob_audio_bus>)>();
+
+  int ob_document_audio_bus_count(
+    ffi.Pointer<ob_document> doc,
+  ) {
+    return _ob_document_audio_bus_count(
+      doc,
+    );
+  }
+
+  late final _ob_document_audio_bus_countPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ob_document>)>>(
+          'ob_document_audio_bus_count');
+  late final _ob_document_audio_bus_count = _ob_document_audio_bus_countPtr
+      .asFunction<int Function(ffi.Pointer<ob_document>)>();
+
+  /// Master volume (0 when the document's audio is muted, 1 when it has no audio settings).
+  double ob_document_audio_master(
+    ffi.Pointer<ob_document> doc,
+  ) {
+    return _ob_document_audio_master(
+      doc,
+    );
+  }
+
+  late final _ob_document_audio_masterPtr = _lookup<
+          ffi.NativeFunction<ffi.Double Function(ffi.Pointer<ob_document>)>>(
+      'ob_document_audio_master');
+  late final _ob_document_audio_master = _ob_document_audio_masterPtr
+      .asFunction<double Function(ffi.Pointer<ob_document>)>();
+
   void ob_document_free(
     ffi.Pointer<ob_document> doc,
   ) {
@@ -1022,6 +1104,57 @@ class OpenBoneBindings {
 const int OB_API_VERSION = 1;
 
 const int OB_INSTANCE_SCRIPTS = 1;
+
+/// Sound files of the document (for playing its audio commands): `src` is a data: URL or a path relative to the document.
+final class ob_audio_asset extends ffi.Struct {
+  external ffi.Pointer<ffi.Char> id;
+
+  external ffi.Pointer<ffi.Char> name;
+
+  external ffi.Pointer<ffi.Char> src;
+
+  @ffi.Double()
+  external double duration;
+
+  static ffi.Pointer<ob_audio_asset> $allocate(
+    ffi.Allocator $allocator, {
+    required ffi.Pointer<ffi.Char> id,
+    required ffi.Pointer<ffi.Char> name,
+    required ffi.Pointer<ffi.Char> src,
+    required double duration,
+  }) =>
+      $allocator<ob_audio_asset>()
+        ..ref.id = id
+        ..ref.name = name
+        ..ref.src = src
+        ..ref.duration = duration;
+}
+
+/// A mixer bus: audio commands name their bus; its volume multiplies the command's volume.
+final class ob_audio_bus extends ffi.Struct {
+  external ffi.Pointer<ffi.Char> id;
+
+  external ffi.Pointer<ffi.Char> name;
+
+  @ffi.Double()
+  external double volume;
+
+  @ffi.Int()
+  external int muted;
+
+  static ffi.Pointer<ob_audio_bus> $allocate(
+    ffi.Allocator $allocator, {
+    required ffi.Pointer<ffi.Char> id,
+    required ffi.Pointer<ffi.Char> name,
+    required double volume,
+    required int muted,
+  }) =>
+      $allocator<ob_audio_bus>()
+        ..ref.id = id
+        ..ref.name = name
+        ..ref.volume = volume
+        ..ref.muted = muted;
+}
 
 final class ob_audio_command extends ffi.Struct {
   @ffi.UnsignedInt()

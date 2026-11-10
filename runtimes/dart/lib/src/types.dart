@@ -43,6 +43,21 @@ class OpenBoneStateMachineInfo {
 }
 
 /// An image asset or atlas page a renderer has to provide. [src] is a data: URL or a path relative to the document.
+/// A sound file of the document: [src] is a data: URL or a path relative to the document.
+class OpenBoneAudioAsset {
+  const OpenBoneAudioAsset({required this.id, required this.name, required this.src, required this.duration});
+  final String id, name, src;
+  final double duration;
+}
+
+/// A mixer bus of the document.
+class OpenBoneAudioBus {
+  const OpenBoneAudioBus({required this.id, required this.name, required this.volume, required this.muted});
+  final String id, name;
+  final double volume;
+  final bool muted;
+}
+
 class OpenBoneTexture {
   const OpenBoneTexture({
     required this.id,

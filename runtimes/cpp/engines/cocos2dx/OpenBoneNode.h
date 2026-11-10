@@ -11,9 +11,11 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "cocos2d.h"
@@ -37,6 +39,12 @@ class OpenBoneNode : public cocos2d::Node {
   std::function<void(const openbone::FiredEvent&)> onEvent;
   std::function<void(const openbone::AudioCommand&)> onAudio;
 
+  /** Play the document's sounds with cocos2d::AudioEngine (default on; onAudio is called either way). Cocos2d-x has
+      no playback rate, so `rate` is ignored. */
+  void setAudioEnabled(bool enabled);
+  bool isAudioEnabled() const { return _audioEnabled; }
+  void stopAllAudio();
+
   void update(float dt) override;
   void draw(cocos2d::Renderer* renderer, const cocos2d::Mat4& transform, uint32_t flags) override;
   ~OpenBoneNode() override;
@@ -44,6 +52,20 @@ class OpenBoneNode : public cocos2d::Node {
  private:
   bool init(const std::string& file, bool scripts);
   cocos2d::Texture2D* texture(const openbone::TextureRef& ref);
+  void handleAudio(const openbone::AudioCommand& c);
+  std::string audioFile(const std::string& assetId);
+  double busGain(const std::optional<std::string>& bus) const;
+
+  struct Voice {
+    int id = -1;
+    std::optional<std::string> bus;
+    float volume = 1, from = 1, to = 1;  // fade from → to over duration
+    float time = 0, duration = 0;
+    bool stopWhenFaded = false;
+  };
+  bool _audioEnabled = true;
+  std::unordered_map<std::string, Voice> _voices;      // by play id
+  std::unordered_map<std::string, std::string> _audioFiles;  // asset id → playable file path
 
   std::string _path;
   std::shared_ptr<const openbone::Document> _doc;

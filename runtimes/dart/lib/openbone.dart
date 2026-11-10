@@ -4,6 +4,7 @@
 library;
 
 export 'openbone_core.dart';
+export 'src/flutter/audio.dart';
 export 'src/flutter/controller.dart';
 export 'src/flutter/renderer.dart';
 export 'src/flutter/textures.dart';

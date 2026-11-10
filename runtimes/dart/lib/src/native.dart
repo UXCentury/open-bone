@@ -38,7 +38,7 @@ abstract final class OpenBoneNative {
 
   static DynamicLibrary _open() {
     final candidates = <String>[
-      if (libraryPath != null) libraryPath!,
+      ?libraryPath,
       if ((Platform.environment['OPENBONE_LIBRARY'] ?? '').isNotEmpty) Platform.environment['OPENBONE_LIBRARY']!,
     ];
     if (Platform.isMacOS || Platform.isIOS) {

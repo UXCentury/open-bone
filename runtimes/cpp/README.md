@@ -118,7 +118,7 @@ and the box-to-skeleton matrix. `engines/common/openbone_assets.hpp` decodes `da
 | SDL2 | [`engines/sdl2`](engines/sdl2) | `SDL_RenderGeometry` sample with mouse input; `--frames N --out frame.bmp` renders offscreen with the software renderer | Built (SDL 2.30.9 from source) and run headless; frames checked by eye |
 | SFML 2.6 | [`engines/sfml`](engines/sfml) | `sf::Drawable` with triangle arrays, a GLSL two-colour tint shader, mouse input, `sf::Text` for text with `--font`; `--out frame.png` renders into an `sf::RenderTexture` | Built (SFML 2.6.2 from source, `-DOPENBONE_FETCH_SFML=ON`) and run offscreen |
 | Unreal Engine 5 | [`engines/unreal/OpenBone`](engines/unreal/OpenBone) | Plugin: `UOpenBoneComponent` (ProceduralMeshComponent, one section per draw item) over the C API, Blueprint events and calls | Source and build files only — **not compiled** (no Unreal Engine here) |
-| Cocos2d-x 4.0 | [`engines/cocos2dx`](engines/cocos2dx) | `OpenBoneNode` queuing a `TrianglesCommand` per draw item, touch and mouse input | Source and CMake include only — **not compiled** (no Cocos2d-x here) |
+| Cocos2d-x 4.0 | [`engines/cocos2dx`](engines/cocos2dx) | `OpenBoneNode` queuing a `TrianglesCommand` per draw item, touch and mouse input | Built and run with Cocos2d-x 4.0 on Linux (Ubuntu 22.04, GCC 11): the knight with its state machine, textures, meshes and blend modes |
 
 ### Godot
 
@@ -180,7 +180,19 @@ unlit two-sided `Material` with a `Texture` parameter (× vertex colour; optiona
 ### Cocos2d-x
 
 Include `engines/cocos2dx/CMakeLists.txt` from your game's CMake (see the file), link `openbone_cocos2dx`, then
-`auto* n = OpenBoneNode::create("knight.obone"); n->useStateMachine(); n->enableTouch();`.
+`auto* n = OpenBoneNode::create("knight.obone"); n->useStateMachine(); n->enableTouch();`. The node plays the document's
+sounds with `cocos2d::AudioEngine` (volume × bus × master, looping, fades; Cocos has no playback rate);
+`setAudioEnabled(false)` leaves them to your `onAudio` callback.
+
+Cocos2d-x 4.0 itself needs two fixes to build on current Linux distributions (both in Cocos, not OpenBone):
+add `#include <memory>` to `cocos/network/SocketIO.h`, and, because the prebuilt Chipmunk library was linked against
+glibc < 2.31, define the two functions it still expects in your game:
+
+```cpp
+#include <cmath>
+extern "C" float __powf_finite(float x, float y) { return std::pow(x, y); }
+extern "C" float __expf_finite(float x) { return std::exp(x); }
+```
 
 ## Porting notes
 

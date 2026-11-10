@@ -195,6 +195,26 @@ OB_API void ob_document_size(const ob_document* doc, double* width, double* heig
 OB_API int ob_document_animation_count(const ob_document* doc);
 OB_API const char* ob_document_animation_name(const ob_document* doc, int index);
 OB_API double ob_document_animation_duration(const ob_document* doc, int index);
+/** Sound files of the document (for playing its audio commands): `src` is a data: URL or a path relative to the document. */
+typedef struct ob_audio_asset {
+  const char* id;
+  const char* name;
+  const char* src;
+  double duration;
+} ob_audio_asset;
+/** A mixer bus: audio commands name their bus; its volume multiplies the command's volume. */
+typedef struct ob_audio_bus {
+  const char* id;
+  const char* name;
+  double volume;
+  int muted;
+} ob_audio_bus;
+OB_API int ob_document_audio_asset_count(const ob_document* doc);
+OB_API int ob_document_audio_asset(const ob_document* doc, int index, ob_audio_asset* out);
+OB_API int ob_document_audio_bus_count(const ob_document* doc);
+OB_API int ob_document_audio_bus(const ob_document* doc, int index, ob_audio_bus* out);
+/** Master volume (0 when the document's audio is muted, 1 when it has no audio settings). */
+OB_API double ob_document_audio_master(const ob_document* doc);
 OB_API int ob_document_skin_count(const ob_document* doc);
 OB_API const char* ob_document_skin_name(const ob_document* doc, int index);
 OB_API int ob_document_state_machine_count(const ob_document* doc);
