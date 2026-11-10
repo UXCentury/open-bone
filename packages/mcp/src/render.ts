@@ -59,7 +59,7 @@ export function useSkin(inst: OpenBoneInstance, skin?: string) {
 }
 
 /** Build a posed instance for the request. Returns logs from state machine simulation. */
-export function pose(doc: OpenBoneDocument, req: PoseRequest, scriptHost?: ScriptHost) {
+export function pose(doc: OpenBoneDocument, req: PoseRequest, scriptHost?: ScriptHost | null) {
   const inst = new OpenBoneInstance(doc, { scriptHost });
   useSkin(inst, req.skin);
   const log: string[] = [];
@@ -113,7 +113,7 @@ export function pose(doc: OpenBoneDocument, req: PoseRequest, scriptHost?: Scrip
   return { inst, log };
 }
 
-export async function renderPng(session: ProjectSession, req: RenderRequest, scriptHost?: ScriptHost) {
+export async function renderPng(session: ProjectSession, req: RenderRequest, scriptHost?: ScriptHost | null) {
   const doc = session.doc;
   const images = await loadImages(session, doc);
   const { inst, log } = pose(doc, req, scriptHost);
@@ -134,7 +134,7 @@ export async function renderPng(session: ProjectSession, req: RenderRequest, scr
 export async function renderGif(
   session: ProjectSession,
   req: { animation?: string; stateMachine?: string; skin?: string; duration: number; fps: number; scale?: number; showBones?: boolean; steps?: Step[] },
-  scriptHost?: ScriptHost,
+  scriptHost?: ScriptHost | null,
 ) {
   const doc = session.doc;
   const images = await loadImages(session, doc);

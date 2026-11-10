@@ -8,11 +8,22 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 - npm: every `@openbone/*` package builds to JavaScript with type definitions, plus the `openbone` CLI (`npx openbone`) and `npx -y @openbone/mcp`.
 - NuGet: `OpenBone.Runtime`, `OpenBone.Scripting.Jint` and `OpenBone.MonoGame`, with symbols and SourceLink.
 - Unity: the package installs from git (`https://github.com/UXCentury/open-bone.git#upm`) and OpenUPM, with the DLLs built in.
-- Maven Central: `com.uxcentury:openbone-runtime`, `openbone-scripting`, `openbone-gdx` and `openbone-android`.
+- Maven Central: `io.openbone:openbone-runtime`, `openbone-scripting`, `openbone-gdx` and `openbone-android`.
 - Swift: `Package.swift` moved to the repository root, so SwiftPM installs the package from the repository URL.
 - Flutter: the plugin can be published to pub.dev with the C++ sources bundled.
 - Godot: a ready-to-install `addons/openbone` with Windows, macOS, Linux (x86_64, arm64) and Android libraries.
 - Publish workflows for each registry, run by the GitHub release (pub.dev and Swift: by the tag).
+
+### Security
+- MCP server: the editor bridge and the HTTP transport refuse browser requests from pages other than the OpenBone editor, including DNS rebinding. Before, any web page open on the same machine could connect to the bridge and read or change the open project.
+
+### Fixed
+- MCP: `--project` with a file that can't be read stops with the reason instead of replacing it with an empty project, and `new_project` refuses to replace an existing file unless called with `overwrite: true`.
+- CLI and MCP exports: ZIPs carry the format in their name (`hero-atlas.zip`, `hero-web.zip`, `hero-spritesheet-godot.zip`, …), so exporting several formats into one folder no longer overwrites files.
+- CLI: `openbone <command> --help` prints that command's usage (it was read as a file name); the help lists `--animations` and `--steps`.
+- `<openbone-player>`: setting `src` after the element is on the page loads it, and changing any attribute reloads the player; `background` accepts any CSS colour under WebGL too (short hex such as `#fff` was drawn wrong).
+- Runtime: a document whose scripts would be skipped because no `scriptHost` was given prints a warning once; pass `scriptHost: null` to opt out on purpose. `scriptTimeoutMs`, which nothing read, is deprecated.
+- Editor: the Preview panel runs document scripts, like the viewport.
 
 ### Changed
 - QuickJS (quickjs-ng 0.10.1) is vendored in `runtimes/cpp/third_party`, so no build downloads it.

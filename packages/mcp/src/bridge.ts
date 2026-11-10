@@ -1,5 +1,7 @@
 import type { OpCall } from "@openbone/core";
+import type { IncomingMessage } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
+import { isLocalRequest } from "./local-only.ts";
 import type { ProjectSession } from "./session.ts";
 
 /**
@@ -11,7 +13,16 @@ import type { ProjectSession } from "./session.ts";
  *   server → editor: {type:"load", doc, path} | {type:"ops", ops} | {type:"error", message}
  */
 export function startBridge(session: ProjectSession, port: number, log: (m: string) => void) {
-  const wss = new WebSocketServer({ port, host: "127.0.0.1" });
+  const wss = new WebSocketServer({
+    port,
+    host: "127.0.0.1",
+    // Only the editor (local page or desktop app) and non-browser clients: web pages on other sites are refused.
+    verifyClient: ({ req }: { req: IncomingMessage }) => {
+      const ok = isLocalRequest({ origin: req.headers.origin, host: req.headers.host });
+      if (!ok) log(`bridge: refused a connection from ${req.headers.origin ?? "?"} (not the OpenBone editor)`);
+      return ok;
+    },
+  });
   const clients = new Set<WebSocket>();
   const send = (ws: WebSocket, msg: unknown) => ws.readyState === ws.OPEN && ws.send(JSON.stringify(msg));
   const broadcast = (msg: unknown, except?: WebSocket) => {

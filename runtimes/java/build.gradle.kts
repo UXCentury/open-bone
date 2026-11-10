@@ -9,8 +9,8 @@ plugins {
 }
 
 allprojects {
-  // Maven coordinates: com.uxcentury:openbone-<module>. The Java/Kotlin packages stay com.openbone.*.
-  group = "com.uxcentury"
+  // Maven coordinates: io.openbone:openbone-<module>. The Java/Kotlin packages stay com.openbone.*.
+  group = "io.openbone"
   version = "0.2.0"
 }
 

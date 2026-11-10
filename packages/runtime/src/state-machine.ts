@@ -59,10 +59,17 @@ export type SMEvents = {
 };
 
 export interface StateMachineOptions {
-  scriptHost?: ScriptHost;
-  /** Max ms a single script call may take before it is aborted (QuickJS host). */
+  /**
+   * Runs the document's scripts (e.g. `createQuickJsHost()` from @openbone/scripting). Without one, scripts don't run
+   * and a warning is printed once; pass `null` to run without scripts on purpose, with no warning.
+   */
+  scriptHost?: ScriptHost | null;
+  /** @deprecated Ignored. Set the limit on the script host instead, e.g. `createQuickJsHost({ timeoutMs })`. */
   scriptTimeoutMs?: number;
 }
+
+/** Documents already warned about, so a warning shows once per document, not once per state machine instance. */
+const warnedNoHost = new WeakSet<object>();
 
 /**
  * Runs a Rive-style state machine over a skeleton: inputs, layered states with cross-fades,
@@ -100,6 +107,13 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     this.layers = data.layers.map((l) => new LayerInstance(l));
     // Text templates read this machine's inputs by name.
     skeleton.textValues = (name) => this.getInput(name);
+    if (opts.scriptHost === undefined && this.doc.scripts.length && !warnedNoHost.has(this.doc)) {
+      warnedNoHost.add(this.doc);
+      console.warn(
+        `OpenBone: "${this.doc.name}" has ${this.doc.scripts.length} script(s), but no scriptHost was given, so they won't run. ` +
+          "Pass one (e.g. createQuickJsHost() from @openbone/scripting), or scriptHost: null to run without scripts on purpose.",
+      );
+    }
   }
 
   // ---------------- Inputs ----------------

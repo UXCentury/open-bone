@@ -73,7 +73,7 @@ export class OpenBoneDriver {
 
   /** Like `create`, without loading a script sandbox (pass one in `scripts`, or scripts do not run). */
   static createSync(doc: OpenBoneDocument, baseUrl: string, o: DriverOptions = {}): OpenBoneDriver {
-    const instance = new OpenBoneInstance(doc, { scriptHost: typeof o.scripts === "object" ? o.scripts : undefined });
+    const instance = new OpenBoneInstance(doc, { scriptHost: typeof o.scripts === "object" ? o.scripts : null });
     const d = new OpenBoneDriver(doc, instance);
     const hasAudioApi = typeof AudioContext !== "undefined" || !!o.audioContext;
     if (o.audio !== false && doc.audio?.assets.length && hasAudioApi) {

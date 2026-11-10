@@ -7,7 +7,7 @@ import { audio as editorAudio, resolveAudioUrl } from "../audio.ts";
 import { fillArtboard } from "../checker.ts";
 import { imageFor } from "../images.ts";
 import { animationId, doc } from "../state.ts";
-import { viewportApi } from "./Viewport.tsx";
+import { editorScriptHost, viewportApi } from "./Viewport.tsx";
 
 /** Fit the artboard into a w × h canvas: scale and offset (css px). */
 export function fitArtboard(d: OpenBoneDocument, w: number, h: number, pad = 8) {
@@ -72,7 +72,7 @@ export function PreviewPanel() {
     const d = doc();
     sfx?.stopAll(0.05);
     if (playing()) sfx?.resumeAll();
-    inst = new OpenBoneInstance(d);
+    inst = new OpenBoneInstance(d, { scriptHost: editorScriptHost() });
     inst.on("audio", (c) => {
       if (!sound() || !d.audio?.assets.length) return;
       const a = audioFor();
@@ -180,7 +180,7 @@ export function OutlinePanel() {
   let canvas!: HTMLCanvasElement;
   let inst: OpenBoneInstance | null = null;
   createEffect(() => {
-    inst = new OpenBoneInstance(doc());
+    inst = new OpenBoneInstance(doc(), { scriptHost: null }); // outline: no state machine
     inst.advance(0);
   });
   onMount(() => {

@@ -109,11 +109,12 @@ export class Player {
           }),
       ),
     );
-    let scriptHost: ScriptHost | undefined;
+    // null: scripts off on purpose ("none", no scripts, or no sandbox in this build, which warns above).
+    let scriptHost: ScriptHost | null = null;
     if (typeof o.scripts === "object") scriptHost = o.scripts;
     else if (o.scripts !== "none" && this.doc.scripts.length) {
       if (scriptHostFactory) {
-        scriptHost = (await scriptHostFactory()) ?? undefined;
+        scriptHost = (await scriptHostFactory()) ?? null;
         if (!scriptHost) console.warn("OpenBone: this player build has no script sandbox; the document's scripts will not run.");
       } else {
         const { createQuickJsHost } = await import("@openbone/scripting");
@@ -193,7 +194,7 @@ export class Player {
     const v = { x: this.view.x * dpr, y: this.view.y * dpr, zoom: this.view.zoom * dpr };
     const bg = this.opts.background === undefined ? this.doc.background : this.opts.background;
     if (this.gl) {
-      const col = bg ? hexToGl(bg) : ([0, 0, 0, 0] as [number, number, number, number]);
+      const col = bg ? colorToGl(bg) : ([0, 0, 0, 0] as GlColor);
       this.gl.render(this.instance.skeleton, v, col);
     } else if (this.c2d) {
       const ctx = this.c2d.ctx;
@@ -292,9 +293,43 @@ export class Player {
   }
 }
 
-function hexToGl(hex: string): [number, number, number, number] {
-  const h = hex.replace("#", "");
+type GlColor = [number, number, number, number];
+const glColors = new Map<string, GlColor>();
+
+/**
+ * Any CSS colour (#rgb, #rgba, #rrggbb, #rrggbbaa, rgb()/hsl(), named colours…) as premultiplied RGBA for WebGL.
+ * Hex is parsed directly; anything else goes through a 2D context, which normalises it the way CSS does. Cached, since
+ * draw() asks every frame.
+ */
+export function colorToGl(color: string): GlColor {
+  const hit = glColors.get(color);
+  if (hit) return hit;
+  let rgba = parseHex(color);
+  if (!rgba && typeof document !== "undefined") {
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#000000";
+      ctx.fillStyle = color; // invalid colours leave it unchanged
+      rgba = parseHex(ctx.fillStyle) ?? parseRgbFunction(ctx.fillStyle);
+    }
+  }
+  const [r, g, b, a] = rgba ?? [0, 0, 0, 1];
+  const out: GlColor = [r * a, g * a, b * a, a];
+  glColors.set(color, out);
+  return out;
+}
+
+function parseHex(color: string): [number, number, number, number] | null {
+  const m = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(color.trim());
+  if (!m) return null;
+  let h = m[1];
+  if (h.length <= 4) h = [...h].map((c) => c + c).join("");
   const n = (i: number) => parseInt(h.slice(i, i + 2), 16) / 255;
-  const a = h.length >= 8 ? n(6) : 1;
-  return [n(0) * a, n(2) * a, n(4) * a, a];
+  return [n(0), n(2), n(4), h.length === 8 ? n(6) : 1];
+}
+
+/** "rgb(r, g, b)" / "rgba(r, g, b, a)", as a 2D context reports colours with transparency. */
+function parseRgbFunction(color: string): [number, number, number, number] | null {
+  const m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+))?\s*\)$/.exec(color.trim());
+  return m ? [Number(m[1]) / 255, Number(m[2]) / 255, Number(m[3]) / 255, m[4] === undefined ? 1 : Number(m[4])] : null;
 }

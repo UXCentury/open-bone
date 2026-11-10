@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -65,10 +66,12 @@ export function createServer(opts: ServerOptions = {}) {
   server.registerTool(
     "new_project",
     {
-      description: "Start a new empty project (root bone only). With `path` (.obone), it is saved and autosaved after every edit.",
+      description:
+        "Start a new empty project (root bone only). With `path` (.obone), it is saved and autosaved after every edit. An existing file at `path` is never replaced unless `overwrite` is true: use open_project to edit it.",
       inputSchema: {
         name: z.string(),
         path: z.string().optional(),
+        overwrite: z.boolean().default(false).describe("Replace an existing file at `path` (its contents are lost)"),
         width: z.number().positive().default(800),
         height: z.number().positive().default(600),
         originX: z.number().optional(),
@@ -78,6 +81,8 @@ export function createServer(opts: ServerOptions = {}) {
     },
     async (a) => {
       try {
+        if (a.path && !a.overwrite && existsSync(path.resolve(a.path)))
+          throw new Error(`${a.path} already exists: open it with open_project, or pass overwrite: true to replace it`);
         session.newProject(a.name, a.path ?? null, {
           width: a.width,
           height: a.height,
@@ -285,7 +290,7 @@ export function createServer(opts: ServerOptions = {}) {
     async (a) => {
       try {
         const needsScripts = a.stateMachine !== undefined || !!a.steps;
-        const { png, log } = await renderPng(session, a, needsScripts ? await scriptHost() : undefined);
+        const { png, log } = await renderPng(session, a, needsScripts ? await scriptHost() : null);
         return {
           content: [
             { type: "image" as const, data: png.toString("base64"), mimeType: "image/png" },

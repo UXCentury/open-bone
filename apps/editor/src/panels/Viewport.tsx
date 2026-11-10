@@ -100,6 +100,8 @@ let quickjs: ScriptHost | null = null;
 createQuickJsHost({ timeoutMs: 30 })
   .then((h) => (quickjs = h))
   .catch(() => (quickjs = trustedFunctionHost));
+/** The editor's script host (QuickJS once loaded), shared by the viewport and the Preview panel. */
+export const editorScriptHost = (): ScriptHost => quickjs ?? trustedFunctionHost;
 
 type Drag =
   | { kind: "pan"; sx: number; sy: number; vx: number; vy: number }
@@ -196,7 +198,7 @@ export function Viewport() {
     const data = currentStateMachine();
     smInstance()?.dispose();
     if (!data || !sk) return setSmInstance(null);
-    const inst = new StateMachineInstance(sk, data, { scriptHost: quickjs ?? trustedFunctionHost });
+    const inst = new StateMachineInstance(sk, data, { scriptHost: editorScriptHost() });
     const logLine = (s: string) => setEventLog((l) => [s, ...l].slice(0, 60));
     inst.on("event", (e) => logLine(`⚡ ${e.name}${e.string ? ` "${e.string}"` : ""}`));
     inst.on("stateChange", (e) => logLine(`→ [${e.layer}] ${e.from ?? "∅"} → ${e.to}`));

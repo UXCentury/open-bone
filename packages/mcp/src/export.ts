@@ -73,9 +73,9 @@ export interface ExportRequest {
 
 export interface ExportResult {
   bytes: Uint8Array;
-  /** File extension (without the dot), e.g. "png", "zip", "apng.png" is reported as "png" with `suffix` ".apng". */
+  /** File extension (without the dot), e.g. "png" or "zip"; APNG is "png" with `suffix` ".apng". */
   ext: string;
-  /** Extra name part before the extension (".apng"). */
+  /** Extra name part before the extension: ".apng", or "-atlas", "-web", "-png", "-spritesheet-unity" … for ZIPs. */
   suffix: string;
   /** Human summary: frames, sheets, warnings. */
   note: string;
@@ -85,7 +85,7 @@ export interface ExportResult {
 export async function renderFrames(
   session: ProjectSession,
   req: { animation?: string; stateMachine?: string; steps?: Step[]; skin?: string; duration?: number; fps: number; scale: number; background: string | null },
-  scriptHost?: ScriptHost,
+  scriptHost?: ScriptHost | null,
 ): Promise<Frame[]> {
   const doc = session.doc;
   const images = await loadImages(session, doc);
@@ -223,7 +223,13 @@ export async function exportFile(session: ProjectSession, a: ExportRequest, scri
     spritesheet: "zip",
     web: a.singleFile ? "html" : "zip",
   };
-  const done = (bytes: Uint8Array, note = ""): ExportResult => ({ bytes, ext: ext[a.format], suffix: a.format === "apng" ? ".apng" : "", note });
+  // Every ZIP format gets its own suffix, so exporting several formats into one folder never overwrites a file.
+  const suffix =
+    a.format === "apng" ? ".apng"
+    : a.format === "spritesheet" ? `-spritesheet-${a.engine ?? "generic"}`
+    : ext[a.format] === "zip" ? `-${a.format}`
+    : "";
+  const done = (bytes: Uint8Array, note = ""): ExportResult => ({ bytes, ext: ext[a.format], suffix, note });
 
   if (a.format === "obone") return done(new TextEncoder().encode(serialize(doc)));
   if (a.format === "json" || a.format === "obonb") {

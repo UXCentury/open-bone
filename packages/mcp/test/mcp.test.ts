@@ -29,6 +29,19 @@ describe("MCP server", () => {
       expect(names).toContain(n);
   });
 
+  it("new_project never replaces an existing file unless asked to", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "ob-"));
+    const file = path.join(dir, "keep.obone");
+    const { call } = await connect();
+    await call("new_project", { name: "Keep", path: file });
+    await call("add_bone", { name: "arm" });
+    const saved = readFileSync(file, "utf8");
+    await expect(call("new_project", { name: "Other", path: file })).rejects.toThrow(/already exists/);
+    expect(readFileSync(file, "utf8")).toBe(saved);
+    await call("new_project", { name: "Other", path: file, overwrite: true });
+    expect(deserialize(readFileSync(file, "utf8")).name).toBe("Other");
+  });
+
   it("builds an interactive button purely through tools", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "ob-"));
     const file = path.join(dir, "button.obone");

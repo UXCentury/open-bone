@@ -1,4 +1,4 @@
-# Publishes the Java/Kotlin/Android libraries to Maven Central (Sonatype Central Portal) as com.uxcentury:
+# Publishes the Java/Kotlin/Android libraries to Maven Central (Sonatype Central Portal) as io.openbone:
 # openbone-runtime, openbone-scripting, openbone-gdx (jars) and openbone-android (AAR), each with sources, javadoc,
 # Gradle module metadata, POM and PGP signatures. Built with com.vanniktech.maven.publish (runtimes/java/build.gradle.kts).
 #
@@ -9,7 +9,7 @@
 #
 # Secrets (see docs/releasing.md):
 # - MAVEN_CENTRAL_USERNAME / MAVEN_CENTRAL_PASSWORD: a Central Portal user token (central.sonatype.com → View Account →
-#   Generate User Token), for an account that has verified the com.uxcentury namespace.
+#   Generate User Token), for an account that has verified the io.openbone namespace.
 # - SIGNING_KEY: the ASCII-armored private PGP key (gpg --armor --export-secret-keys <KEY_ID>), its public key on a keyserver.
 # - SIGNING_KEY_PASSWORD: the key's passphrase (empty if it has none).
 # A version can be published to Maven Central only once; bump the version (scripts/version.ts) before re-releasing.
@@ -96,7 +96,7 @@ jobs:
             export ORG_GRADLE_PROJECT_signingInMemoryKeyPassword="$SIGNING_KEY_PASSWORD"
           fi
           ./gradlew publishToMavenLocal --no-daemon
-          dir="$HOME/.m2/repository/com/uxcentury"
+          dir="$HOME/.m2/repository/io/openbone"
           version="${{ steps.version.outputs.version }}"
           for m in openbone-runtime openbone-scripting openbone-gdx openbone-android; do
             ext=jar; [ "$m" = openbone-android ] && ext=aar
@@ -108,7 +108,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: maven-${{ steps.version.outputs.version }}
-          path: ~/.m2/repository/com/uxcentury
+          path: ~/.m2/repository/io/openbone
           if-no-files-found: error
       - name: Publish to Maven Central
         if: env.PUBLISH == 'true'
@@ -123,7 +123,7 @@ jobs:
           {
             echo "### Uploaded to Maven Central"
             for m in openbone-runtime openbone-scripting openbone-gdx openbone-android; do
-              echo "- [com.uxcentury:$m:${{ steps.version.outputs.version }}](https://central.sonatype.com/artifact/com.uxcentury/$m/${{ steps.version.outputs.version }})"
+              echo "- [io.openbone:$m:${{ steps.version.outputs.version }}](https://central.sonatype.com/artifact/io.openbone/$m/${{ steps.version.outputs.version }})"
             done
             echo "Validated deployments are released automatically; they reach repo1.maven.org within about 30 minutes."
             echo "Status: https://central.sonatype.com/publishing/deployments"

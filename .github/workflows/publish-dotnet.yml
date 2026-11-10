@@ -109,8 +109,9 @@ jobs:
             echo "Using the NUGET_API_KEY secret"
             echo "mode=key" >> "$GITHUB_OUTPUT"
           else
-            echo "::error title=No nuget.org credentials::Set the repository variable NUGET_USER (nuget.org profile name, with a trusted publishing policy for workflow publish-dotnet.yml) or the secret NUGET_API_KEY, or run with dry-run ticked. See docs/releasing.md."
-            exit 1
+            # Not an error: the release still ships everywhere else, and NuGet catches up on the next release.
+            echo "::warning title=NuGet skipped::No nuget.org credentials. Set the repository variable NUGET_USER (nuget.org profile name, with a trusted publishing policy for workflow publish-dotnet.yml) or the secret NUGET_API_KEY. See docs/releasing.md."
+            echo "mode=none" >> "$GITHUB_OUTPUT"
           fi
       - name: NuGet login (OIDC)
         id: login
@@ -119,6 +120,7 @@ jobs:
         with:
           user: ${{ vars.NUGET_USER || secrets.NUGET_USER }}
       - name: Push to nuget.org
+        if: steps.creds.outputs.mode != 'none'
         env:
           NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY || secrets.NUGET_API_KEY }}
         # .snupkg files next to the .nupkg files are pushed to the symbol server automatically.

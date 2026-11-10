@@ -48,7 +48,7 @@ function Thumb(p: { id: string }) {
       .then((d) => {
         if (!alive) return;
         doc = d;
-        inst = new OpenBoneInstance(doc);
+        inst = new OpenBoneInstance(doc, { scriptHost: null }); // thumbnails: scripts off
         const sm = doc.stateMachines[0];
         const idle = doc.animations.find((a) => /idle/i.test(a.name)) ?? doc.animations[0];
         if (sm) inst.useStateMachine(sm.name);

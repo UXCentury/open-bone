@@ -20,17 +20,17 @@ on the JVM and on an Android emulator.
 
 ## Install
 
-The libraries are on Maven Central under the `com.uxcentury` group (the Java/Kotlin packages are `com.openbone.*`):
+The libraries are on Maven Central under the `io.openbone` group (the Java/Kotlin packages are `com.openbone.*`):
 
 ```kotlin
 // build.gradle.kts
 repositories { mavenCentral() }
 
 dependencies {
-  implementation("com.uxcentury:openbone-runtime:0.2.0")   // the runtime, no dependencies
-  implementation("com.uxcentury:openbone-scripting:0.2.0") // state machine scripts (QuickJS)
-  implementation("com.uxcentury:openbone-gdx:0.2.0")       // libGDX renderer (brings openbone-runtime)
-  implementation("com.uxcentury:openbone-android:0.2.0")   // Android OpenBoneView AAR (brings runtime + scripting)
+  implementation("io.openbone:openbone-runtime:0.2.1")   // the runtime, no dependencies
+  implementation("io.openbone:openbone-scripting:0.2.1") // state machine scripts (QuickJS)
+  implementation("io.openbone:openbone-gdx:0.2.1")       // libGDX renderer (brings openbone-runtime)
+  implementation("io.openbone:openbone-android:0.2.1")   // Android OpenBoneView AAR (brings runtime + scripting)
 }
 ```
 
@@ -64,7 +64,7 @@ Publishing (see [docs/releasing.md](../../docs/releasing.md) and `.github/workfl
 [gradle-maven-publish-plugin](https://github.com/vanniktech/gradle-maven-publish-plugin). Try it locally, unsigned:
 
 ```bash
-./gradlew publishToMavenLocal   # ~/.m2/repository/com/uxcentury/openbone-*/<version>/
+./gradlew publishToMavenLocal   # ~/.m2/repository/io/openbone/openbone-*/<version>/
 ```
 
 The libGDX sample:

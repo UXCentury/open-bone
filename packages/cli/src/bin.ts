@@ -16,18 +16,22 @@ Usage:
   openbone simulate <file.obone> --steps '[{"setInputs":{"speed":1},"advance":1},{"fire":["jump"],"advance":1}]' [--state-machine name]
   openbone export   <file or glob>... --format <format> --out <dir> [options]
       formats: ${EXPORT_FORMATS.join(" | ")}
-      options: --animation walk  --skin name  --scale 1  --fps 30  --duration 2  --time 0
-               --state-machine ui  --transparent  --sequence (png/jpeg: every frame, ZIP)
+      options: --animation walk  --animations walk,run (spritesheet, json, obonb)  --skin name
+               --scale 1  --fps 30  --duration 2  --time 0  --state-machine ui  --steps '<json>'
+               --transparent  --sequence (png/jpeg: every frame, ZIP)
                --engine unity|godot|flutter|generic (spritesheet)  --single-file (web)  --binary
                --pack (json/obonb/web: embed an atlas)  atlas: --padding 2 --max-size 2048 --no-pot
                --rotate --atlas-scale 0.5|auto --strip-whitespace --polygons --premultiplied
   openbone apply    <file.obone> <op> '<json args>'     (edit a file with any op, e.g. addBone)
   openbone ops                                          (list every edit op with its description)
   openbone mcp [--project file.obone] [--http 7718]     (start the MCP server)
+  openbone <command> --help                             (usage for one command)
 `;
 
 const argv = process.argv.slice(2);
 const cmd = argv[0];
+/** `openbone <command> --help` (or -h): that command's usage lines; the MCP server handles its own flags. */
+const wantsHelp = cmd !== "mcp" && (argv.includes("--help") || argv.includes("-h"));
 const file = argv[1];
 const opt = (name: string) => {
   const i = argv.indexOf(`--${name}`);
@@ -132,7 +136,22 @@ async function exportCommand() {
   }
 }
 
+/** The usage lines for one command (the line naming it plus its indented continuation lines). */
+function commandHelp(name: string): string | undefined {
+  const lines = HELP.split("\n");
+  const start = lines.findIndex((l) => l.startsWith(`  openbone ${name} `) || l === `  openbone ${name}`);
+  if (start < 0) return undefined;
+  let end = start + 1;
+  while (end < lines.length && lines[end].startsWith("      ")) end++;
+  return ["Usage:", ...lines.slice(start, end)].join("\n");
+}
+
 async function main() {
+  if (wantsHelp || cmd === "help" || cmd === "--help" || cmd === "-h") {
+    const name = cmd === "help" ? argv[1] : wantsHelp ? cmd : undefined;
+    console.log((name && commandHelp(name)) ?? HELP);
+    return;
+  }
   switch (cmd) {
     case "export":
       await exportCommand();

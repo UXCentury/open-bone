@@ -9,7 +9,8 @@ import { Player } from "./player.ts";
  * Changing the `skin` attribute switches the outfit without reloading.
  */
 export class OpenBonePlayerElement extends HTMLElement {
-  static observedAttributes = ["src", "skin"];
+  /** `skin` switches skins in place; any other of these reloads the player with the new settings. */
+  static observedAttributes = ["src", "skin", "animation", "state-machine", "fit", "renderer", "autoplay", "background", "scripts", "audio", "muted"];
   player: Player | null = null;
   private canvas: HTMLCanvasElement;
 
@@ -22,7 +23,8 @@ export class OpenBonePlayerElement extends HTMLElement {
   }
 
   connectedCallback() {
-    this.init();
+    // An upgraded element may already have loaded from attributeChangedCallback.
+    if (!this.player) this.init();
   }
   disconnectedCallback() {
     this.player?.dispose();
@@ -31,13 +33,23 @@ export class OpenBonePlayerElement extends HTMLElement {
   attributeChangedCallback(n: string, old: string | null, val: string | null) {
     if (old === val || !this.isConnected) return;
     if (n === "skin") this.player?.setSkin(val);
-    else if (old !== null) this.init();
+    // Includes `src` set for the first time after the element was added to the page. Upgrading an element reports each
+    // attribute it already has; those match what the player was built with, so they don't reload it.
+    else if (this.settings() !== this.loadedWith) this.init();
+  }
+
+  /** The attributes the current player was built with (everything observed except `skin`). */
+  private loadedWith: string | undefined;
+  private settings() {
+    return JSON.stringify(OpenBonePlayerElement.observedAttributes.filter((a) => a !== "skin").map((a) => this.getAttribute(a)));
   }
 
   private init() {
     const src = this.getAttribute("src");
-    if (!src) return;
     this.player?.dispose();
+    this.player = null;
+    this.loadedWith = this.settings();
+    if (!src) return;
     this.player = new Player({
       canvas: this.canvas,
       src,

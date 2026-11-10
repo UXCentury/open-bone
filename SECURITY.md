@@ -38,6 +38,12 @@ What was checked:
   downloads (Swift).
 - **MCP server and CLI**: file paths and build inputs are never taken from MCP clients or document contents.
 
+Follow-up on 2026-11-10: the MCP server's editor bridge (`ws://127.0.0.1:7717`) accepted connections from any web
+page open on the same machine, and its HTTP transport (`--http`) did not check where requests came from, which DNS
+rebinding could exploit. Both now refuse browser requests that don't come from the OpenBone editor or aren't addressed
+to a loopback name (`packages/mcp/src/local-only.ts`). Fixed in 0.2.1; use 0.2.1 or later if you run `--http` or the
+bridge.
+
 Open hardening items (not vulnerabilities): run the Unity and Godot publish jobs in the protected `release`
 environment, and pin the Godot binary that the addon test downloads by checksum.
 
@@ -46,7 +52,7 @@ environment, and pin the Godot binary that the addon test downloads by checksum.
 - **Scripts in animation files** run in a sandbox: QuickJS in the web player and the native runtimes, Jint in C#, with
   no file, network or host access beyond the inputs the document declares.
 - **The MCP server** talks to its client over stdio, or over HTTP and a WebSocket bridge bound to `127.0.0.1` only, so
-  other machines can't reach it.
+  other machines can't reach it, and both refuse requests from web pages other than the OpenBone editor.
 - **Desktop installers** are built by GitHub Actions from the tagged source. The macOS app is signed with a Developer
   ID and notarized by Apple; Windows code signing is being set up.
 - **Dependencies** are permissively licensed open source, and npm packages are published with provenance, so anyone

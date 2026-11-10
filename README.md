@@ -101,7 +101,7 @@ Packages are published from each release (from 0.2.1 on; see [docs/releasing.md]
 | Web / Node | `npm install @openbone/player` (or `runtime`, `pixi`, `phaser`, `three`, `canvaskit`, …); CLI: `npx openbone --help`; MCP server: `npx -y @openbone/mcp` |
 | .NET / MonoGame | `dotnet add package OpenBone.Runtime` (+ `OpenBone.Scripting.Jint` for scripts, `OpenBone.MonoGame`) |
 | Unity 2021.3+ | Package Manager → Add package from git URL: `https://github.com/UXCentury/open-bone.git#upm`, or `openupm add com.openbone.runtime` |
-| Java / Android | `implementation("com.uxcentury:openbone-runtime:0.2.1")` (+ `openbone-scripting`, `openbone-gdx`, `openbone-android`) from Maven Central |
+| Java / Android | `implementation("io.openbone:openbone-runtime:0.2.1")` (+ `openbone-scripting`, `openbone-gdx`, `openbone-android`) from Maven Central |
 | Swift | Xcode → Add Package Dependencies → `https://github.com/UXCentury/open-bone`, product `OpenBone` |
 | Flutter | `flutter pub add openbone` |
 | Godot 4.4+ | AssetLib tab → *OpenBone*, or unzip `openbone-godot-<version>.zip` from the [releases](https://github.com/UXCentury/open-bone/releases) into your project |

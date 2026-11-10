@@ -58,9 +58,9 @@ describe("openbone export", () => {
       ["--import", "tsx", path.join(root, "packages/cli/src/bin.ts"), "export", "examples/{button,robot}.obone", "--format", "atlas", "--out", out, "--strip-whitespace", "--polygons", "--premultiplied"],
       { cwd: root },
     );
-    expect(stdout).toMatch(/button\.zip/);
-    expect(readdirSync(out).sort()).toEqual(["button.zip", "robot.zip"]);
-    const files = unzip(readFileSync(path.join(out, "robot.zip")));
+    expect(stdout).toMatch(/button-atlas\.zip/);
+    expect(readdirSync(out).sort()).toEqual(["button-atlas.zip", "robot-atlas.zip"]);
+    const files = unzip(readFileSync(path.join(out, "robot-atlas.zip")));
     const doc = deserialize(files.get("robot.json")!.toString("utf8"));
     expect(doc.atlas).toMatchObject({ premultipliedAlpha: true, stripWhitespace: true, polygons: true });
     for (const p of doc.atlas!.pages) expect(files.get(p.src)!.subarray(1, 4).toString()).toBe("PNG");
