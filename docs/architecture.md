@@ -29,7 +29,7 @@ flowchart TB
     runtime --> renderers["render-webgl · render-canvas<br/>pixi · phaser · three · canvaskit"]
     renderers --> player["player<br/>&lt;openbone-player&gt;"]
     renderers --> previews["CLI / MCP previews<br/>(PNG, GIF, video)"]
-    runtime -. "spec + conformance suite" .-> native["Native runtimes<br/>C++ · C# · Java · Swift · Flutter"]
+    runtime -. "spec + conformance suite" .-> native["Native runtimes<br/>C++ · C# · Java · Swift · Flutter · Haxe"]
 ```
 
 ## One op registry for everything
@@ -145,7 +145,8 @@ Whoever hosts the runtime plays the commands:
 Scripts are plain JavaScript run through a `ScriptHost`. `@openbone/scripting` gives each script its own QuickJS
 runtime with a memory cap and a per-call deadline. Values cross the boundary as JSON through a single bridge function,
 so scripts cannot reach host objects. `trustedFunctionHost` (in the runtime) is available for trusted content and
-tests. Native runtimes embed QuickJS (C++, Swift, Flutter, Java) or use Jint (C#) with the same `ob` API and limits.
+tests. Native runtimes embed QuickJS (C++, Swift, Flutter, Java) or use Jint (C#) with the same `ob` API and limits; the Haxe
+runtime runs them on the JavaScript engine of its JS target and skips them elsewhere.
 
 ## Native runtimes
 
@@ -158,6 +159,7 @@ draw lists, events, audio commands and state-machine steps for every example and
 | C++ (`runtimes/cpp`) | The native core, with a stable C API (`openbone.h`) |
 | Swift, Flutter | Thin wrappers over the C++ runtime's C API |
 | C# (Unity), Java (libGDX, Android) | Full ports in their own language |
+| Haxe (`runtimes/haxe`) | Full port in pure Haxe for every Haxe target; scripts on the JS target only |
 
 ## Exports and live art
 

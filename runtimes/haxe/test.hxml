@@ -1,0 +1,9 @@
+# Unit tests and the conformance suite on the eval (interpreter) target. Run from runtimes/haxe:  haxe test.hxml
+-cp src
+-cp test
+--each
+-main UnitTest
+--interp
+--next
+-main Conformance
+--interp

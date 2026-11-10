@@ -1,0 +1,11 @@
+# Unit tests and the conformance suite compiled to Python 3. Run from runtimes/haxe:  haxe test-python.hxml
+-cp src
+-cp test
+--each
+-main UnitTest
+-python bin/unit.py
+--cmd python3 -I bin/unit.py
+--next
+-main Conformance
+-python bin/conformance.py
+--cmd python3 -I bin/conformance.py

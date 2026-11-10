@@ -1,0 +1,13 @@
+# Unit tests and the conformance suite compiled to JavaScript and run on node (scripts run too). Run from runtimes/haxe:
+#   haxe test-js.hxml
+-cp src
+-cp test
+-D js-es=6
+--each
+-main UnitTest
+-js bin/unit.cjs
+--cmd node bin/unit.cjs
+--next
+-main Conformance
+-js bin/conformance.cjs
+--cmd node bin/conformance.cjs

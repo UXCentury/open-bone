@@ -1,0 +1,47 @@
+# Haxe runtime: unit tests and the conformance suite on the eval, JS (node) and Python targets.
+name: Haxe runtime
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "runtimes/haxe/**"
+      - "conformance/**"
+      - "examples/**/*.obone"
+      - ".github/workflows/runtime-haxe.yml"
+  pull_request:
+    paths:
+      - "runtimes/haxe/**"
+      - "conformance/**"
+      - "examples/**/*.obone"
+      - ".github/workflows/runtime-haxe.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: runtimes/haxe
+    steps:
+      - uses: actions/checkout@v7
+      # The official release tarball, pinned by checksum (the runner already has node and python3).
+      - name: Install Haxe 4.3.7
+        run: |
+          curl -sSfL https://github.com/HaxeFoundation/haxe/releases/download/4.3.7/haxe-4.3.7-linux64.tar.gz -o "$RUNNER_TEMP/haxe.tar.gz"
+          echo "a156b3d039daa572f1f9329870ee753e3c39b7514fe8c818069323579659acca  $RUNNER_TEMP/haxe.tar.gz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/haxe"
+          tar xzf "$RUNNER_TEMP/haxe.tar.gz" -C "$RUNNER_TEMP/haxe" --strip-components=1
+          echo "$RUNNER_TEMP/haxe" >> "$GITHUB_PATH"
+          echo "HAXE_STD_PATH=$RUNNER_TEMP/haxe/std" >> "$GITHUB_ENV"
+      - run: haxe --version
+      - name: JS target (node, scripts included)
+        run: haxe test-js.hxml
+      - name: Eval target
+        run: haxe test.hxml
+      - name: Python target
+        run: haxe test-python.hxml
