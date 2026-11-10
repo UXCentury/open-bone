@@ -80,7 +80,7 @@ class OpenBoneInstance {
       if (!ch.audio.hasListener) return;
       final r = c.ref;
       ch.audio.add(OpenBoneAudioCommand(
-        type: OpenBoneAudioType.values[r.type],
+        type: OpenBoneAudioType.values[r.type.value],
         id: r.id.dart,
         sound: r.sound.dart,
         asset: r.asset.dart,
@@ -221,7 +221,7 @@ class OpenBoneInstance {
         final v = arena<ob_value>();
         final p = input.toNativeUtf8(allocator: arena);
         _check(_b.ob_instance_get_input(handle, p.cast(), v));
-        return switch (ob_value_type.fromValue(v.ref.type)) {
+        return switch (v.ref.type) {
           ob_value_type.OB_VALUE_BOOL => v.ref.b != 0,
           ob_value_type.OB_VALUE_NUMBER => v.ref.n,
           ob_value_type.OB_VALUE_STRING => v.ref.s.dart,
@@ -301,7 +301,7 @@ class OpenBoneInstance {
                 attachment: info.ref.attachment.dartOrNull,
                 color: [for (var k = 0; k < 4; k++) info.ref.color[k]],
                 dark: info.ref.has_dark != 0 ? [for (var k = 0; k < 3; k++) info.ref.dark[k]] : null,
-                blend: OpenBoneBlend.values[info.ref.blend],
+                blend: OpenBoneBlend.values[info.ref.blend.value],
               ),
         ];
       });
@@ -335,8 +335,8 @@ class OpenBoneInstance {
           items.add(OpenBoneDrawItem(
             slot: r.slot.dart,
             attachment: r.attachment.dart,
-            kind: OpenBoneItemKind.values[r.kind],
-            blend: OpenBoneBlend.values[r.blend],
+            kind: OpenBoneItemKind.values[r.kind.value],
+            blend: OpenBoneBlend.values[r.blend.value],
             textureId: r.texture_id.dartOrNull,
             textureSrc: r.texture_src.dartOrNull,
             textureWidth: r.texture_width,

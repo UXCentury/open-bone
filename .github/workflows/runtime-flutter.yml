@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FLUTTER_VERSION: 3.35.3
+  FLUTTER_VERSION: 3.47.9
 
 jobs:
   linux:
@@ -60,7 +60,8 @@ jobs:
         working-directory: runtimes/dart/example
         run: |
           flutter build linux
-          flutter build apk --debug
+          # One ABI is enough to check the Android build (each ABI compiles the C++ runtime with the NDK).
+          flutter build apk --debug --target-platform android-arm64
 
   macos:
     runs-on: macos-15

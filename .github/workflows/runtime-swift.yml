@@ -29,13 +29,10 @@ concurrency:
 jobs:
   linux:
     runs-on: ubuntu-24.04
-    container: swift:6.0-jammy
     steps:
       - uses: actions/checkout@v7
-      # The Swift image has no curl (fetch-quickjs.sh) or zstd (actions/cache compression).
-      - run: |
-          for i in 1 2 3; do apt-get -o Acquire::Retries=3 update && break; sleep 10; done
-          apt-get install -y --no-install-recommends curl ca-certificates zstd
+      # The Ubuntu runner image ships Swift (and curl, zstd), so no container or apt-get step is needed.
+      - run: swift --version
       - uses: actions/cache@v6
         with:
           path: runtimes/swift/Sources/CQuickJS/vendor
@@ -43,8 +40,8 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: runtimes/swift/.build
-          key: swiftpm-linux-${{ hashFiles('runtimes/swift/Package.swift', 'runtimes/swift/Sources/**', 'runtimes/cpp/src/**', 'runtimes/cpp/include/**') }}
-          restore-keys: swiftpm-linux-
+          key: swiftpm-linux-runner-${{ hashFiles('runtimes/swift/Package.swift', 'runtimes/swift/Sources/**', 'runtimes/cpp/src/**', 'runtimes/cpp/include/**') }}
+          restore-keys: swiftpm-linux-runner-
       - run: test -f runtimes/swift/Sources/CQuickJS/vendor/quickjs.c || runtimes/swift/scripts/fetch-quickjs.sh
       - run: swift test
         working-directory: runtimes/swift

@@ -136,7 +136,7 @@ class OpenBoneDocument implements Finalizable {
 
   static OpenBoneInputInfo _input(String name, ob_value v, bool trigger) {
     if (trigger) return OpenBoneInputInfo(name, OpenBoneInputType.trigger, false);
-    return switch (ob_value_type.fromValue(v.type)) {
+    return switch (v.type) {
       ob_value_type.OB_VALUE_BOOL => OpenBoneInputInfo(name, OpenBoneInputType.boolean, v.b != 0),
       ob_value_type.OB_VALUE_NUMBER => OpenBoneInputInfo(name, OpenBoneInputType.number, v.n),
       ob_value_type.OB_VALUE_STRING => OpenBoneInputInfo(name, OpenBoneInputType.string, v.s.dart),
