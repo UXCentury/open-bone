@@ -37,6 +37,9 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 ### Format
 - Bounding boxes take an optional editor `color`. `updateAttachment` with `weights: null` unbinds a path.
 
+### Runtimes
+- Unity: text outlines are drawn (TextMesh has none: a ring of outline-coloured copies under the fill, like MonoGame); outlined titles and subtitles lost their stroke before.
+
 ### MCP
 - **`export_file` `embed: true`**, and `openbone export --embed` (obone, json, obonb): every image and audio file goes inside the file as data, so a copy opens on its own anywhere. The web editor can't read files next to an opened file, so a plain copy elsewhere showed every image missing.
 - **Mute buttons**: new listener action `setMute {bus, muted: true | false | "toggle"}` (`bus: null` = everything) mutes a bus while playing; the runtime emits a `mix` audio command and `@openbone/player` applies it on top of the saved mix. The editor's listener form has toggle mute / mute / unmute (bus). Every native runtime has it too: C++ (the C API gains `OB_AUDIO_MIX` and a `muted` field appended to `ob_audio_command`; the engine samples' mixer, Godot and Unreal apply it), Swift and Flutter (new `mix` command case; their players apply it), C# (MonoGame and Unity players), Java (libGDX and Android through the shared mixer) and Haxe; the conformance suite's `interactive` fixture checks it in all of them.
