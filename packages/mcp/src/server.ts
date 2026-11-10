@@ -8,7 +8,9 @@ import type { ScriptHost } from "@openbone/runtime";
 import { createQuickJsHost } from "@openbone/scripting";
 import { z } from "zod";
 import { GUIDE } from "./guide.ts";
-import { packAtlas, pose, renderGif, renderPng } from "./render.ts";
+import { atlasBuildOptions } from "@openbone/render-canvas";
+import { atlasSettingsShape } from "./atlas-schema.ts";
+import { packAtlasFull, pose, renderGif, renderPng } from "./render.ts";
 import { ProjectSession } from "./session.ts";
 import { registerExtraTools } from "./tools-extra.ts";
 
@@ -230,39 +232,34 @@ export function createServer(opts: ServerOptions = {}) {
     "pack_atlas",
     {
       description:
-        "Pack every image into texture atlas pages (embedded PNGs) and store them with set_atlas, so renderers draw packed images (and shapes) from one texture: fewer WebGL draw calls. Re-run after adding images. With stripImageSources the file carries only the pages.",
+        "Pack every image into texture atlas pages (embedded PNGs, or JPEGs) and store them with set_atlas, so renderers draw packed images (and shapes) from one texture: fewer WebGL draw calls. Re-run after adding images. With stripImageSources the file carries only the pages. Identical images are stored once (alias) and blank ones take no space (ignoreBlank) by default; filterMin/filterMag/wrapX/wrapY/pixelFormat are written for runtimes; debug outlines every region.",
       inputSchema: {
-        padding: z.number().int().min(0).max(32).default(2).describe("Empty pixels around each image"),
-        maxSize: z.number().int().min(16).max(8192).default(2048).describe("Largest page width/height"),
-        powerOfTwo: z.boolean().default(true),
-        rotate: z.boolean().default(false).describe("Turn images 90° when that packs tighter (images used by particles stay upright)"),
-        scale: z
-          .union([z.number().min(0.05).max(1), z.literal("auto")])
-          .default(1)
-          .describe("Store images at this fraction of their size; \"auto\" shrinks only as much as needed to fit one page"),
-        stripWhitespace: z.boolean().default(false).describe("Pack each image by its visible bounds (meshes keep what their uvs cover; particle images stay whole)"),
-        polygons: z.boolean().default(false).describe("Polygon packing: region attachments draw a tight outline around the visible pixels instead of the full quad"),
-        premultipliedAlpha: z.boolean().default(false).describe("Store page pixels premultiplied (rgb × alpha); renderers use the matching blend"),
+        ...atlasSettingsShape,
         stripImageSources: z.boolean().default(false),
       },
     },
     async (a) => {
       try {
         if (!session.doc.images.length) throw new Error("No images to pack");
-        const atlas = await packAtlas(session, session.doc, {
-          padding: a.padding,
-          maxWidth: a.maxSize,
-          maxHeight: a.maxSize,
-          powerOfTwo: a.powerOfTwo,
-          allowRotation: a.rotate,
-          stripWhitespace: a.stripWhitespace,
-          polygons: a.polygons,
-          premultipliedAlpha: a.premultipliedAlpha,
-          ...(a.scale === "auto" ? { autoScale: true } : { scale: a.scale }),
-        });
-        session.store.apply("setAtlas", { atlas, stripImageSources: a.stripImageSources });
+        const { stripImageSources, scales, ...settings } = a;
+        if (scales?.length) throw new Error("pack_atlas stores one atlas in the project; use export_file with format atlas for several scales");
+        const { atlas, warnings } = await packAtlasFull(session, session.doc, atlasBuildOptions(settings));
+        session.store.apply("setAtlas", { atlas, stripImageSources });
         await session.maybeAutosave();
-        return text({ ok: true, pages: atlas.pages.map((p) => `${p.id} ${p.width}x${p.height}`), regions: atlas.regions.length, rotated: atlas.regions.filter((r) => r.rotated).length, trimmed: atlas.regions.filter((r) => isTrimmed(r)).length, polygons: atlas.regions.filter((r) => r.polygon).length, premultipliedAlpha: !!atlas.premultipliedAlpha, scale: atlas.scale ?? 1 });
+        const shared = atlas.regions.length - new Set(atlas.regions.map((r) => `${r.page}:${r.x},${r.y}`)).size;
+        return text({
+          ok: true,
+          pages: atlas.pages.map((p) => `${p.id} ${p.width}x${p.height}`),
+          regions: atlas.regions.length,
+          rotated: atlas.regions.filter((r) => r.rotated).length,
+          trimmed: atlas.regions.filter((r) => isTrimmed(r) && !r.empty).length,
+          polygons: atlas.regions.filter((r) => r.polygon).length,
+          aliased: Math.max(0, shared - Math.max(0, atlas.regions.filter((r) => r.empty).length - 1)),
+          blank: atlas.regions.filter((r) => r.empty).length,
+          premultipliedAlpha: !!atlas.premultipliedAlpha,
+          scale: atlas.scale ?? 1,
+          ...(warnings.length ? { warnings } : {}),
+        });
       } catch (e) {
         return fail(e);
       }

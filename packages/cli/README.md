@@ -104,6 +104,7 @@ openbone export "art/*.obone" --format gif --animation idle --out previews/
 openbone export button.obone --format web --single-file --state-machine ui --out site/
 openbone export hero.obone --format spritesheet --engine godot --animations walk,idle --scale 0.5 --out sheets/
 openbone export hero.obone --format atlas --binary --atlas-scale auto --max-size 1024 --out build/
+openbone export hero.obone --format atlas --scales 1,0.5 --suffixes ,@0.5x --filter-min mipmap --out build/
 ```
 
 Quote globs so the shell does not expand them. Each output is named after its source file and written to `--out`
@@ -138,7 +139,7 @@ The options are those of [`@openbone/mcp`](https://github.com/UXCentury/open-bon
 | `obone` | The whole project as an `.obone` file |
 | `json` | Runtime data as JSON: the animations and state machines marked for export (`--pack` embeds a texture atlas) |
 | `obonb` | The same runtime data in the binary format (`--pack` embeds a texture atlas) |
-| `atlas` | ZIP: runtime data (JSON, or `.obonb` with `--binary`) plus the atlas pages as PNG files |
+| `atlas` | ZIP: runtime data (JSON, or `.obonb` with `--binary`) plus the atlas pages as PNG (or JPEG) files; with `--scales`, one data file and page set per scale (`hero.json` + `hero.png`, `hero@0.5x.json` + `hero@0.5x.png`) |
 | `png`, `jpeg` | One frame (`--time`), or every frame in a ZIP with `--sequence` |
 | `apng` | Animated PNG (`<name>.apng.png`) |
 | `gif` | Animated GIF |
@@ -164,6 +165,32 @@ Frames come from `--animation` (default: the first animation) or from a state ma
 | `--binary` | `atlas` |
 | `--pack` | `json`, `obonb`, `web` |
 | `--padding 2`, `--max-size 2048`, `--no-pot`, `--rotate`, `--atlas-scale 0.5\|auto`, `--strip-whitespace`, `--polygons`, `--premultiplied` | atlas packing (`atlas`, and `--pack`) |
+| `--scales 1,0.5 --suffixes ,@0.5x` | `atlas`: several scales in one pack (suffixes default to `""` for 1 and `@<scale>x` otherwise) |
+
+### Texture packer options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--padding <px>` | 2 | Empty pixels around each image |
+| `--max-size <px>`, `--max-width`, `--max-height` | 2048 | Largest page (`--max-size` sets both axes) |
+| `--min-width <px>`, `--min-height <px>` | 0 | Smallest page |
+| `--no-pot`, `--square`, `--multiple-of-4` | power of two | Page size rules (multiples of 4 suit block-compressed formats) |
+| `--rotate` | off | Turn images 90° when that packs tighter |
+| `--atlas-scale 0.5\|auto` | 1 | Store images smaller; `auto` shrinks just enough to fit one page |
+| `--strip-whitespace`, `--polygons` | off | Pack by visible bounds; draw tight outlines |
+| `--alpha-threshold 0-255` | 0 | Alpha at or below this counts as transparent (trimming, polygons, blank images) |
+| `--no-alias` | aliases on | Identical images (same pixels after trimming) are normally stored once |
+| `--keep-blank` | blank ignored | Fully transparent images normally take no space (their regions are marked `empty`) |
+| `--no-edge-padding` | on | Edge padding repeats each image's edge pixels into half its padding |
+| `--no-duplicate-padding` | on | Without it, opaque edges are repeated as colour only (alpha 0): they fade into the padding |
+| `--bleed`, `--no-bleed` | on unless `--premultiplied` | Transparent pixels take the nearest visible colour (alpha stays 0): no dark fringes |
+| `--premultiplied` | off | Store pages premultiplied |
+| `--filter-min`, `--filter-mag` | `linear` | `nearest`, `linear`, `mipmap`, `mipmapNearestNearest`, `mipmapLinearNearest`, `mipmapNearestLinear`, `mipmapLinearLinear` (written for runtimes) |
+| `--wrap-x`, `--wrap-y` | `clamp` | `clamp`, `repeat`, `mirroredRepeat` (written for runtimes) |
+| `--pixel-format` | `RGBA8888` | `RGBA8888`, `RGB888`, `RGBA4444`, `RGB565`, `Alpha` (a hint for runtimes) |
+| `--page-format png\|jpeg`, `--jpeg-quality 90` | `png` | JPEG pages are opaque; a warning says when the art had transparency |
+| `--resample bilinear\|bicubic\|nearest` | `bilinear` | Resampling for scaled packs (bicubic is the canvas's high-quality smoothing) |
+| `--debug` | off | Outline every region on the pages in magenta |
 
 ## Documentation
 

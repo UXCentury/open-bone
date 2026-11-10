@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, premultipliedTextures } from "@openbone/core";
+import { type OpenBoneDocument, type TextureSampling, filterParts, premultipliedTextures, textureSamplings } from "@openbone/core";
 import { type ClipRegion, type DrawItem, PARTICLE_DOT_SIZE, PARTICLE_DOT_TEXTURE, type Skeleton, type TextContext, type TextDraw, cssFont, drawTextBox, particleDotAlpha } from "@openbone/runtime";
 
 /** One rasterised text item: re-drawn only when its content, style or pixel scale changes. */
@@ -47,7 +47,10 @@ export class WebGLRenderer {
   private pma = new Set<string>();
   private pmaDoc: OpenBoneDocument | null = null;
   /** Whether each cached texture was uploaded as premultiplied data (re-uploaded when that changes). */
-  private texPma = new Map<string, boolean>();
+  /** What each cached texture was uploaded with (premultiplied flag + sampling), to rebuild it when that changes. */
+  private texPma = new Map<string, string>();
+  /** Filter / wrap per atlas page (from the atlas metadata); other textures sample linear + clamp. */
+  private sampling = new Map<string, TextureSampling>();
   private white: WebGLTexture;
   private verts = new Float32Array(STRIDE * 16384);
   private idx = new Uint16Array(6 * 16384);
@@ -94,8 +97,10 @@ export class WebGLRenderer {
 
   private texture(id: string): WebGLTexture | null {
     const pma = this.pma.has(id);
+    const samp = this.sampling.get(id);
+    const key = `${pma}|${samp ? `${samp.min},${samp.mag},${samp.wrapX},${samp.wrapY}` : ""}`;
     let t = this.textures.get(id);
-    if (t && (id === PARTICLE_DOT_TEXTURE || this.texPma.get(id) === pma)) return t;
+    if (t && (id === PARTICLE_DOT_TEXTURE || this.texPma.get(id) === key)) return t;
     if (t) this.invalidate(id);
     if (id === PARTICLE_DOT_TEXTURE) return this.dotTexture();
     const src = this.images(id);
@@ -105,12 +110,9 @@ export class WebGLRenderer {
     gl.bindTexture(gl.TEXTURE_2D, t);
     // Straight-alpha images are premultiplied on upload; premultiplied atlas pages already are.
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, !pma);
-    this.texPma.set(id, pma);
+    this.texPma.set(id, key);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    applySampling(gl, samp);
     this.textures.set(id, t);
     return t;
   }
@@ -156,6 +158,7 @@ export class WebGLRenderer {
     if (this.pmaDoc !== sk.doc) {
       this.pmaDoc = sk.doc;
       this.pma = premultipliedTextures(sk.doc);
+      this.sampling = textureSamplings(sk.doc);
     }
     const w = gl.drawingBufferWidth;
     const h = gl.drawingBufferHeight;
@@ -375,6 +378,25 @@ export class WebGLRenderer {
     this.gl.deleteBuffer(this.ibo);
     this.gl.deleteProgram(this.prog);
   }
+}
+
+/** Filter and wrap parameters of the bound texture: the atlas's settings, or linear + clamp. Generates mipmaps when asked. */
+function applySampling(gl: WebGL2RenderingContext, s: TextureSampling | undefined) {
+  const wrap = (w: TextureSampling["wrapX"] | undefined) => (w === "repeat" ? gl.REPEAT : w === "mirroredRepeat" ? gl.MIRRORED_REPEAT : gl.CLAMP_TO_EDGE);
+  let min: number = gl.LINEAR;
+  if (s) {
+    const { texel, mip } = filterParts(s.min);
+    min =
+      mip === "none" ? (texel === "nearest" ? gl.NEAREST : gl.LINEAR)
+      : mip === "nearest" ? (texel === "nearest" ? gl.NEAREST_MIPMAP_NEAREST : gl.LINEAR_MIPMAP_NEAREST)
+      : texel === "nearest" ? gl.NEAREST_MIPMAP_LINEAR
+      : gl.LINEAR_MIPMAP_LINEAR;
+    if (mip !== "none") gl.generateMipmap(gl.TEXTURE_2D);
+  }
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, min);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, s?.mag === "nearest" ? gl.NEAREST : gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap(s?.wrapX));
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap(s?.wrapY));
 }
 
 function link(gl: WebGL2RenderingContext, vs: string, fs: string): WebGLProgram {

@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, parseDocument, premultipliedTextures } from "@openbone/core";
+import { type OpenBoneDocument, parseDocument, premultipliedTextures, textureSamplings } from "@openbone/core";
 import {
   type Batch,
   type DriverOptions,
@@ -238,12 +238,35 @@ export class OpenBoneGameObject extends Phaser.GameObjects.GameObject {
   /** Texture keys already turned from premultiplied to straight alpha (shared by every object of a game). */
   private static straightened = new WeakMap<object, Set<string>>();
   private pma: Set<string> | null = null;
+  /** Texture keys whose filter mode was already set from the atlas metadata. */
+  private static filtered = new WeakMap<object, Set<string>>();
+
+  /**
+   * Phaser only has one filter mode per texture (nearest or linear, for both minifying and magnifying) and no
+   * per-texture wrap or mipmap setting: an atlas asking for nearest magnification gets NEAREST, everything else
+   * stays LINEAR, and wrap / mipmaps are left to Phaser (clamped, no mipmaps unless the game config enables them).
+   */
+  private applyFilter(id: string, key: string) {
+    const textures = this.scene.sys.textures;
+    let done = OpenBoneGameObject.filtered.get(textures);
+    if (!done) OpenBoneGameObject.filtered.set(textures, (done = new Set()));
+    if (done.has(key)) return;
+    done.add(key);
+    const s = textureSamplings(this.entry.doc).get(id);
+    if (s?.mag === "nearest") textures.get(key).setFilter(Phaser.Textures.FilterMode.NEAREST);
+  }
 
   /**
    * Phaser key of an image / atlas page id. Premultiplied atlas pages are replaced once by straight-alpha copies:
    * Phaser premultiplies textures on upload and its canvas renderer expects straight alpha.
    */
   textureKeyOf(id: string): string | undefined {
+    const key = this.straightKeyOf(id);
+    if (key && this.scene.sys.textures.exists(key)) this.applyFilter(id, key);
+    return key;
+  }
+
+  private straightKeyOf(id: string): string | undefined {
     const key = this.entry.textureKeys.get(id);
     const textures = this.scene.sys.textures;
     this.pma ??= premultipliedTextures(this.entry.doc);
@@ -256,6 +279,7 @@ export class OpenBoneGameObject extends Phaser.GameObjects.GameObject {
       if (c) {
         textures.remove(key);
         textures.addCanvas(key, c as HTMLCanvasElement);
+        OpenBoneGameObject.filtered.get(textures)?.delete(key);
       }
     }
     return key;

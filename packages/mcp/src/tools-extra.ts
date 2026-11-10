@@ -5,6 +5,7 @@ import { createCanvas, loadImage } from "@napi-rs/canvas";
 import { type MouthShape, guessMouthMapping, lipSync, slotAttachments, traceMesh } from "@openbone/core";
 import { OpenBoneInstance, type ScriptHost, Skeleton, applyAnimation, poseChainFrom, solvePose } from "@openbone/runtime";
 import { z } from "zod";
+import { atlasSettingsSchema } from "./atlas-schema.ts";
 import { EXPORT_FORMATS, assetBytes, exportBaseName, exportFile } from "./export.ts";
 import type { ProjectSession } from "./session.ts";
 
@@ -60,7 +61,7 @@ export function registerExtraTools(server: McpServer, session: ProjectSession, s
     "export_file",
     {
       description:
-        "Export the project like the editor's Export dialog (same code as `openbone export`). Formats: obone (whole project), json / obonb (runtime data: picked animations, state machines; obonb is binary; pack: true embeds a texture atlas), atlas (ZIP: runtime JSON + atlas pages as PNG files), png / jpeg (one frame, or a ZIP of every frame with sequence: true), apng, gif, psd (one layer per frame), avi / mov (Motion-JPEG video), spritesheet (engine packs: engine unity | godot | flutter | generic; one clip per animation), web (the <openbone-player> library + animation + demo page as a ZIP, or one self-contained HTML file with singleFile). Atlas settings (`atlas`): padding, maxSize, powerOfTwo, rotate, scale, stripWhitespace, polygons, premultipliedAlpha. Frames come from `animation` (default the first) or a state machine run (`stateMachine` + `steps`). Writes to `out` (default next to the project) and returns the path and size.",
+        "Export the project like the editor's Export dialog (same code as `openbone export`). Formats: obone (whole project), json / obonb (runtime data: picked animations, state machines; obonb is binary; pack: true embeds a texture atlas), atlas (ZIP: runtime JSON + atlas pages as PNG/JPEG files; atlas.scales gives one data file + page set per scale), png / jpeg (one frame, or a ZIP of every frame with sequence: true), apng, gif, psd (one layer per frame), avi / mov (Motion-JPEG video), spritesheet (engine packs: engine unity | godot | flutter | generic; one clip per animation), web (the <openbone-player> library + animation + demo page as a ZIP, or one self-contained HTML file with singleFile). Atlas settings (`atlas`, same as pack_atlas): padding, maxSize / maxWidth / maxHeight, minWidth / minHeight, powerOfTwo, square, multipleOf4, rotate, scale or scales, stripWhitespace, polygons, premultipliedAlpha, alias, ignoreBlank, alphaThreshold, edgePadding, duplicatePadding, bleed, filterMin / filterMag, wrapX / wrapY, pixelFormat, pageFormat (png | jpeg) + jpegQuality, resample, debug. Frames come from `animation` (default the first) or a state machine run (`stateMachine` + `steps`). Writes to `out` (default next to the project) and returns the path and size.",
       inputSchema: {
         format: z.enum(EXPORT_FORMATS),
         out: z.string().optional().describe("Output path (default <project>.<ext> next to the project)"),
@@ -81,17 +82,7 @@ export function registerExtraTools(server: McpServer, session: ProjectSession, s
         minify: z.boolean().default(true).describe("web: minified player"),
         binary: z.boolean().optional().describe("web: animation as .obonb (default true); atlas: runtime data as .obonb instead of .json (default false)"),
         pack: z.boolean().default(false).describe("json/obonb/web: pack images into an embedded texture atlas"),
-        atlas: z
-          .object({
-            padding: z.number().int().min(0).max(32).optional(),
-            maxSize: z.number().int().min(16).max(8192).optional(),
-            powerOfTwo: z.boolean().optional(),
-            rotate: z.boolean().optional(),
-            scale: z.union([z.number().min(0.05).max(1), z.literal("auto")]).optional(),
-            stripWhitespace: z.boolean().optional(),
-            polygons: z.boolean().optional(),
-            premultipliedAlpha: z.boolean().optional(),
-          })
+        atlas: atlasSettingsSchema
           .optional()
           .describe("Texture atlas settings for atlas / pack"),
       },

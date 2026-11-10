@@ -453,6 +453,16 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
 .export-atlas { display: flex; flex-direction: column; gap: 5px; padding: 4px 0 4px 20px; }
 .export-atlas .field input[type="number"] { width: 56px; }
 .export-atlas .error { color: #ffd0d0; }
+.export-atlas .warn { color: #ffd98a; }
+.export-atlas .field select + select, .export-atlas .field select + .muted + select { margin-left: 4px; }
+.atlas-scales { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.atlas-scale-row { display: flex; gap: 4px; align-items: center; }
+.atlas-scale-row input[type="number"] { width: 56px; }
+.atlas-scale-row input[type="text"] { width: 90px; }
+.atlas-scales .link-btn { background: transparent; border-color: transparent; padding: 0; color: var(--accent, #8ab4ff); cursor: pointer; }
+.export-advanced { margin-top: 2px; }
+.export-advanced > summary { cursor: pointer; color: var(--muted, #9aa); }
+.export-advanced[open] { display: flex; flex-direction: column; gap: 5px; }
 .atlas-pages { display: flex; gap: 6px; flex-wrap: wrap; }
 .atlas-pages img {
   max-width: 96px; max-height: 96px; border: 1px solid var(--line); border-radius: 4px;

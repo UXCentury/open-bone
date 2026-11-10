@@ -1,7 +1,8 @@
 #!/usr/bin/env -S npx tsx
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { DocumentStore, deserialize, registry, serialize, summarize, validate } from "@openbone/core";
+import { ATLAS_FILTERS, ATLAS_PIXEL_FORMATS, ATLAS_WRAPS, DocumentStore, deserialize, registry, serialize, summarize, validate } from "@openbone/core";
+import { type AtlasSettings, parseScaleVariants } from "@openbone/mcp";
 import { EXPORT_FORMATS, type ExportFormat, ProjectSession, exportBaseName, exportFile, pose, renderGif, renderPng } from "@openbone/mcp";
 import { expandGlob } from "./glob.ts";
 import { createQuickJsHost } from "@openbone/scripting";
@@ -20,8 +21,20 @@ Usage:
                --scale 1  --fps 30  --duration 2  --time 0  --state-machine ui  --steps '<json>'
                --transparent  --sequence (png/jpeg: every frame, ZIP)
                --engine unity|godot|flutter|generic (spritesheet)  --single-file (web)  --binary
-               --pack (json/obonb/web: embed an atlas)  atlas: --padding 2 --max-size 2048 --no-pot
-               --rotate --atlas-scale 0.5|auto --strip-whitespace --polygons --premultiplied
+               --pack (json/obonb/web: embed an atlas)
+      atlas packing (atlas, and --pack):
+               --padding 2  --max-size 2048 (or --max-width / --max-height)  --min-width 0 --min-height 0
+               --no-pot  --square  --multiple-of-4  --rotate  --atlas-scale 0.5|auto
+               --scales 1,0.5 --suffixes ,@0.5x (atlas: one data file + page set per scale)
+               --strip-whitespace  --polygons  --premultiplied  --alpha-threshold 0
+               --no-alias (store identical images twice)  --keep-blank (blank images get space)
+               --no-edge-padding  --no-duplicate-padding (opaque edges fade into the padding)
+               --bleed | --no-bleed (default: on unless --premultiplied)
+               --filter-min linear --filter-mag linear (nearest | linear | mipmap | mipmapNearestNearest |
+                 mipmapLinearNearest | mipmapNearestLinear | mipmapLinearLinear)
+               --wrap-x clamp --wrap-y clamp (clamp | repeat | mirroredRepeat)
+               --pixel-format RGBA8888 (RGBA8888 | RGB888 | RGBA4444 | RGB565 | Alpha)
+               --page-format png|jpeg  --jpeg-quality 90  --resample bilinear|bicubic|nearest  --debug
   openbone apply    <file.obone> <op> '<json args>'     (edit a file with any op, e.g. addBone)
   openbone ops                                          (list every edit op with its description)
   openbone mcp [--project file.obone] [--http 7718]     (start the MCP server)
@@ -48,7 +61,57 @@ async function session(): Promise<ProjectSession> {
 }
 
 /** Flags that take no value (everything else starting with -- takes the next argument). */
-const SWITCHES = new Set(["bones", "bounding-boxes", "transparent", "sequence", "single-file", "binary", "pack", "no-pot", "rotate", "strip-whitespace", "polygons", "premultiplied", "no-minify"]);
+const SWITCHES = new Set([
+  "bones", "bounding-boxes", "transparent", "sequence", "single-file", "binary", "pack", "no-pot", "rotate", "strip-whitespace", "polygons", "premultiplied", "no-minify",
+  "square", "multiple-of-4", "no-alias", "keep-blank", "no-edge-padding", "no-duplicate-padding", "bleed", "no-bleed", "debug",
+]);
+
+/** `--name value` that must be one of `allowed` (undefined when absent). */
+function choice<T extends string>(name: string, allowed: readonly T[]): T | undefined {
+  const v = opt(name);
+  if (v === undefined) return undefined;
+  if (!allowed.includes(v as T)) throw new Error(`--${name} must be one of: ${allowed.join(", ")}`);
+  return v as T;
+}
+
+/** The atlas packer settings from the command line (the same settings as the Export dialog and the MCP tools). */
+function atlasSettings(): AtlasSettings {
+  const flag = (n: string) => argv.includes(`--${n}`);
+  const atlasScale = opt("atlas-scale");
+  const scales = opt("scales");
+  return {
+    padding: num("padding"),
+    maxSize: num("max-size"),
+    maxWidth: num("max-width"),
+    maxHeight: num("max-height"),
+    minWidth: num("min-width"),
+    minHeight: num("min-height"),
+    powerOfTwo: !flag("no-pot"),
+    square: flag("square"),
+    multipleOf4: flag("multiple-of-4"),
+    rotate: flag("rotate"),
+    scale: atlasScale === "auto" ? "auto" : atlasScale ? Number(atlasScale) : undefined,
+    ...(scales ? { scales: parseScaleVariants(scales, opt("suffixes")) } : {}),
+    stripWhitespace: flag("strip-whitespace"),
+    polygons: flag("polygons"),
+    premultipliedAlpha: flag("premultiplied"),
+    alias: !flag("no-alias"),
+    ignoreBlank: !flag("keep-blank"),
+    alphaThreshold: num("alpha-threshold"),
+    edgePadding: !flag("no-edge-padding"),
+    duplicatePadding: !flag("no-duplicate-padding"),
+    bleed: flag("bleed") ? true : flag("no-bleed") ? false : undefined,
+    filterMin: choice("filter-min", ATLAS_FILTERS),
+    filterMag: choice("filter-mag", ATLAS_FILTERS),
+    wrapX: choice("wrap-x", ATLAS_WRAPS),
+    wrapY: choice("wrap-y", ATLAS_WRAPS),
+    pixelFormat: choice("pixel-format", ATLAS_PIXEL_FORMATS),
+    pageFormat: choice("page-format", ["png", "jpeg"] as const),
+    jpegQuality: num("jpeg-quality"),
+    resample: choice("resample", ["bilinear", "bicubic", "nearest"] as const),
+    debug: flag("debug"),
+  };
+}
 
 /** Positional arguments after the command (files and globs), skipping option values. */
 function positionals(): string[] {
@@ -78,7 +141,8 @@ async function exportCommand() {
   const outDir = path.resolve(opt("out") ?? ".");
   await mkdir(outDir, { recursive: true });
   const flag = (n: string) => argv.includes(`--${n}`);
-  const atlasScale = opt("atlas-scale");
+  const atlas = atlasSettings();
+  if (atlas.scales && format !== "atlas") throw new Error("--scales needs --format atlas (embedded atlases hold one scale)");
   const host = (() => {
     let h: ReturnType<typeof createQuickJsHost> | null = null;
     return () => (h ??= createQuickJsHost());
@@ -109,16 +173,7 @@ async function exportCommand() {
           minify: !flag("no-minify"),
           binary: flag("binary") ? true : undefined,
           pack: flag("pack"),
-          atlas: {
-            padding: num("padding"),
-            maxSize: num("max-size"),
-            powerOfTwo: !flag("no-pot"),
-            rotate: flag("rotate"),
-            scale: atlasScale === "auto" ? "auto" : atlasScale ? Number(atlasScale) : undefined,
-            stripWhitespace: flag("strip-whitespace"),
-            polygons: flag("polygons"),
-            premultipliedAlpha: flag("premultiplied"),
-          },
+          atlas,
         },
         host,
       );

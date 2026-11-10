@@ -67,6 +67,30 @@ describe("openbone export", () => {
     expect(doc.images.every((i) => i.src === "")).toBe(true);
   }, 60_000);
 
+  it("takes the texture packer flags: several scales, page rules, sampling metadata", async () => {
+    const out = mkdtempSync(path.join(tmpdir(), "ob-cli-"));
+    const bin = path.join(root, "packages/cli/src/bin.ts");
+    const { stdout } = await run(
+      process.execPath,
+      ["--import", "tsx", bin, "export", "examples/robot.obone", "--format", "atlas", "--out", out, "--scales", "1,0.5", "--suffixes", ",@half", "--square", "--max-width", "4096", "--max-height", "1024",
+        "--filter-min", "mipmapLinearLinear", "--filter-mag", "nearest", "--wrap-y", "repeat", "--pixel-format", "RGBA4444", "--no-alias", "--alpha-threshold", "4"],
+      { cwd: root },
+    );
+    expect(stdout).toMatch(/@half: /);
+    const files = unzip(readFileSync(path.join(out, "robot-atlas.zip")));
+    for (const name of ["robot.json", "robot@half.json"]) {
+      const doc = deserialize(files.get(name)!.toString("utf8"));
+      expect(doc.atlas).toMatchObject({ filterMin: "mipmapLinearLinear", filterMag: "nearest", wrapY: "repeat", pixelFormat: "RGBA4444" });
+      for (const p of doc.atlas!.pages) {
+        expect(p.width).toBe(p.height);
+        expect(p.height).toBeLessThanOrEqual(1024);
+        expect(files.has(p.src)).toBe(true);
+      }
+    }
+    expect(deserialize(files.get("robot@half.json")!.toString("utf8")).atlas!.scale).toBe(0.5);
+    await expect(run(process.execPath, ["--import", "tsx", bin, "export", "examples/robot.obone", "--format", "atlas", "--out", out, "--wrap-x", "tile"], { cwd: root })).rejects.toThrow(/--wrap-x must be one of/);
+  }, 60_000);
+
   it("writes the same bytes as the MCP export_file path", async () => {
     const s = new ProjectSession();
     s.autosave = false;

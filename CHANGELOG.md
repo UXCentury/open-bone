@@ -30,6 +30,19 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 - Path constraints: `constantSpeed` (default on, the existing arc-length placement). Off places bones at the raw bezier parameter inside each curve segment, as Spine does; a "Constant speed" checkbox in the path-constraint Inspector. Existing files pose exactly as before.
 - Conformance: `bounds` (recorded point, segment, AABB and skeleton-overlap queries) and `paths` (constant speed on and off on uneven curves) fixtures.
 
+### Texture packer
+- New packer options in the Export dialog, `openbone export` (`--format atlas` and `--pack`) and the MCP `pack_atlas` / `export_file` tools, all through the same settings:
+  - **Alias** (on): identical images, same pixels after trimming, are stored once and their regions share one rect.
+  - **Ignore blank images** (on): fully transparent images take no space; their regions are marked `empty` and point at a shared 1×1 transparent block, so every runtime draws nothing for them without changes.
+  - **Alpha threshold** (0–255) for whitespace stripping, polygons and the blank test.
+  - Page rules: **square** pages (the packer already could; now exposed), **min width / height**, separate **max width / height** (`--max-size` still sets both), **divisible by 4**.
+  - **Edge padding** and **duplicate padding** (both on, as before: edge pixels repeat into half the padding; with duplicate padding off, opaque edges repeat as colour only and fade out) and **bleed** (on unless premultiplied): transparent pixels take the nearest visible colour, alpha 0, so filtered and scaled edges get no dark fringe. Edge padding now fills the whole half of the padding (it stopped at 2 px).
+  - **Several scales in one pack**: rows of scale + file suffix (`--scales 1,0.5 --suffixes ,@0.5x`, `atlas.scales` in `export_file`), one data file + page set per scale.
+  - **Page format**: PNG or JPEG with a quality (JPEG pages are opaque; a warning says when the art has transparency). **Resample** for scaled packs: bilinear, bicubic (the canvas's high-quality smoothing, Skia's cubic in Node and Chrome) or nearest.
+  - **Debug**: region outlines drawn on the pages.
+- Atlas metadata for runtimes: `atlas.filterMin` / `filterMag` (nearest, linear, mipmap variants), `wrapX` / `wrapY` (clamp, repeat, mirroredRepeat) and `pixelFormat` (RGBA8888, RGB888, RGBA4444, RGB565, Alpha), accepted by `setAtlas` and kept in JSON and binary files. render-webgl, Pixi, Three.js and CanvasKit apply the filter and wrap to atlas pages (with generated mipmaps where asked); Phaser and Canvas 2D switch to nearest for `filterMag: nearest`. Native runtimes read and ignore the new fields.
+- Editor: data exports can write the pages as separate files in a ZIP (always with several scales).
+
 ### Security
 - MCP server: the editor bridge and the HTTP transport refuse browser requests from pages other than the OpenBone editor, including DNS rebinding. Before, any web page open on the same machine could connect to the bridge and read or change the open project.
 

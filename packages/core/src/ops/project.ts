@@ -2,6 +2,8 @@ import { z } from "zod";
 import { newId } from "../document.ts";
 import { get } from "../document.ts";
 import { defineOp, hex, optId, ref } from "./registry.ts";
+import { atlasSampling } from "../atlas.ts";
+import { ATLAS_FILTERS, ATLAS_PIXEL_FORMATS, ATLAS_WRAPS, type AtlasFilter, type AtlasPixelFormat, type AtlasWrap } from "../types.ts";
 
 defineOp({
   name: "setDocument",
@@ -117,6 +119,7 @@ const atlasRegionSchema = z.object({
   originalWidth: z.number().positive().optional().describe("Original image width (default: the image asset's width)"),
   originalHeight: z.number().positive().optional(),
   rotated: z.boolean().optional().describe("Stored turned 90° clockwise: on the page it covers height × width at (x, y)"),
+  empty: z.boolean().optional().describe("Fully transparent image that got no space: the region points at a shared 1×1 transparent block"),
   polygon: z
     .array(z.number())
     .optional()
@@ -141,6 +144,11 @@ defineOp({
         premultipliedAlpha: z.boolean().optional().describe("Page pixels are premultiplied (rgb × alpha); renderers then upload them as they are and blend with ONE, ONE_MINUS_SRC_ALPHA"),
         stripWhitespace: z.boolean().optional().describe("Regions were trimmed to their images' visible bounds (informational)"),
         polygons: z.boolean().optional().describe("Regions carry outline polygons (informational)"),
+        filterMin: z.enum(ATLAS_FILTERS as [AtlasFilter, ...AtlasFilter[]]).optional().describe("Texture minification filter for the pages (default linear); mipmap variants ask renderers for mipmaps"),
+        filterMag: z.enum(ATLAS_FILTERS as [AtlasFilter, ...AtlasFilter[]]).optional().describe("Texture magnification filter (default linear; mipmap variants act as their texel filter)"),
+        wrapX: z.enum(ATLAS_WRAPS as [AtlasWrap, ...AtlasWrap[]]).optional().describe("Texture wrap along x (default clamp)"),
+        wrapY: z.enum(ATLAS_WRAPS as [AtlasWrap, ...AtlasWrap[]]).optional().describe("Texture wrap along y (default clamp)"),
+        pixelFormat: z.enum(ATLAS_PIXEL_FORMATS as [AtlasPixelFormat, ...AtlasPixelFormat[]]).optional().describe("Pixel format runtimes should upload pages as (a hint; default RGBA8888)"),
       })
       .nullable(),
     stripImageSources: z.boolean().default(false),
@@ -172,14 +180,14 @@ defineOp({
       const originalHeight = r.originalHeight ?? img.height;
       if (r.offsetX + r.width > originalWidth + 1e-6 || r.offsetY + r.height > originalHeight + 1e-6)
         throw new Error(`Region of "${img.name}": offset + size exceeds the original ${originalWidth}x${originalHeight}`);
-      const { rotated, polygon, ...rest } = r;
+      const { rotated, polygon, empty, ...rest } = r;
       if (polygon) {
         if (polygon.length < 6 || polygon.length % 2) throw new Error(`Region of "${img.name}": polygon needs 3 or more x,y pairs`);
         for (let i = 0; i < polygon.length; i += 2)
           if (polygon[i] < r.offsetX - 1e-3 || polygon[i] > r.offsetX + r.width + 1e-3 || polygon[i + 1] < r.offsetY - 1e-3 || polygon[i + 1] > r.offsetY + r.height + 1e-3)
             throw new Error(`Region of "${img.name}": polygon point (${polygon[i]}, ${polygon[i + 1]}) lies outside the packed rect`);
       }
-      return { ...rest, image: img.id, originalWidth, originalHeight, ...(rotated ? { rotated: true } : {}), ...(polygon ? { polygon } : {}) };
+      return { ...rest, image: img.id, originalWidth, originalHeight, ...(rotated ? { rotated: true } : {}), ...(empty ? { empty: true } : {}), ...(polygon ? { polygon } : {}) };
     });
     if (a.atlas.white) inPage("White block", a.atlas.white);
     const missing = doc.images.filter((i) => !i.src && !seen.has(i.id));
@@ -193,6 +201,7 @@ defineOp({
       ...(a.atlas.premultipliedAlpha ? { premultipliedAlpha: true } : {}),
       ...(a.atlas.stripWhitespace ? { stripWhitespace: true } : {}),
       ...(a.atlas.polygons ? { polygons: true } : {}),
+      ...atlasSampling(a.atlas),
     };
     // Image assets are shared between undo snapshots, so replace them instead of mutating.
     if (a.stripImageSources) doc.images = doc.images.map((img) => (seen.has(img.id) ? { ...img, src: "" } : img));

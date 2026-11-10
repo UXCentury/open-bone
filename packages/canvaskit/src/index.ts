@@ -1,4 +1,4 @@
-import { type OpenBoneDocument, premultipliedTextures } from "@openbone/core";
+import { type OpenBoneDocument, type TextureSampling, filterParts, premultipliedTextures, textureSamplings } from "@openbone/core";
 import {
   type Batch,
   type DriverOptions,
@@ -111,10 +111,31 @@ export class CanvasKitRenderer {
     return this.images(id) ?? null;
   }
 
+  /** Atlas page sampling (filter / wrap) of the current document, and of the batch being drawn. */
+  private sampling = new Map<string, TextureSampling>();
+  private samplingDoc: OpenBoneDocument | null = null;
+  private curSampling: TextureSampling | undefined;
+  private sampledShaders = new Map<Image, { key: string; shader: Shader }>();
+
   private shader(img: Image): Shader {
+    const ck = this.ck;
+    const sm = this.curSampling;
+    if (sm) {
+      // Skia has one filter per shader: nearest when the atlas asks for nearest magnification, else the min filter's texel filter.
+      const key = `${sm.min},${sm.mag},${sm.wrapX},${sm.wrapY}`;
+      const hit = this.sampledShaders.get(img);
+      if (hit?.key === key) return hit.shader;
+      hit?.shader.delete();
+      const { texel, mip } = filterParts(sm.min);
+      const tile = (w: TextureSampling["wrapX"]) => (w === "repeat" ? ck.TileMode.Repeat : w === "mirroredRepeat" ? ck.TileMode.Mirror : ck.TileMode.Clamp);
+      const filter = sm.mag === "nearest" || texel === "nearest" ? ck.FilterMode.Nearest : ck.FilterMode.Linear;
+      const mipmap = mip === "linear" ? ck.MipmapMode.Linear : mip === "nearest" ? ck.MipmapMode.Nearest : ck.MipmapMode.None;
+      const shader = img.makeShaderOptions(tile(sm.wrapX), tile(sm.wrapY), filter, mipmap);
+      this.sampledShaders.set(img, { key, shader });
+      return shader;
+    }
     let s = this.shaders.get(img);
     if (!s) {
-      const ck = this.ck;
       s = img.makeShaderOptions(ck.TileMode.Clamp, ck.TileMode.Clamp, ck.FilterMode.Linear, ck.MipmapMode.None);
       this.shaders.set(img, s);
     }
@@ -138,6 +159,10 @@ export class CanvasKitRenderer {
     canvas.concat(CanvasKitRenderer.matrix(sk.doc, view));
     // Device pixels per skeleton unit (view and the canvas's own matrix), for text rasters.
     const zoom = Math.sqrt(Math.abs(determinant(canvas.getTotalMatrix())));
+    if (this.samplingDoc !== sk.doc) {
+      this.samplingDoc = sk.doc;
+      this.sampling = textureSamplings(sk.doc);
+    }
     const batches = buildBatches(sk.drawList(), { hasTexture: (id) => !!this.image(id) });
     for (const id of this.text.nextFrame()) {
       this.textImages.get(id)?.img.delete();
@@ -168,9 +193,11 @@ export class CanvasKitRenderer {
           e = { img: ck.MakeImageFromCanvasImageSource(r.canvas as unknown as CanvasImageSource), version: r.version };
           this.textImages.set(b.text.id, e);
         }
+        this.curSampling = undefined;
         this.drawBatch(canvas, b, e.img);
         continue;
       }
+      this.curSampling = b.texture ? this.sampling.get(b.texture) : undefined;
       this.drawBatch(canvas, b, b.texture ? this.image(b.texture) : null);
     }
     if (clip) canvas.restore();
@@ -277,6 +304,8 @@ export class CanvasKitRenderer {
   dispose() {
     for (const s of this.shaders.values()) s.delete();
     this.shaders.clear();
+    for (const s of this.sampledShaders.values()) s.shader.delete();
+    this.sampledShaders.clear();
     for (const e of this.textImages.values()) e.img.delete();
     for (const f of this.fontCache.values()) f?.delete();
     this.dot?.delete();
