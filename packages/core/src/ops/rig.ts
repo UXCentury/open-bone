@@ -655,6 +655,11 @@ defineOp({
       if ("vertices" in props) checkClipPolygon(props.vertices);
       if ("end" in props) props.end = props.end == null ? null : get.slot(doc, String(props.end)).id;
     }
+    if (att.type === "path" && "weights" in props && props.weights == null) {
+      // weights: null unbinds the path (its vertices are then used as given, in slot-bone space).
+      delete props.weights;
+      delete att.weights;
+    }
     Object.assign(att, props);
     return {};
   },

@@ -14,6 +14,8 @@ import { imageFor, setImageReadyCallback } from "../images.ts";
 import { playCommand, previewAudioStep, stopPreviewAudio } from "../audio.ts";
 import { commitBone, commitAttachmentMove } from "../edit.ts";
 import { askForm } from "../dialogs.tsx";
+import { drawPenOverlay, penAltHit, penDown, penMove, penPreview, penUp, usePen } from "../tools/pen.ts";
+import { PenPanel } from "../tools/PenPanel.tsx";
 import { isTypingTarget, kbd, shortcuts, tip } from "../shortcuts/index.ts";
 import {
   type MeshTarget,
@@ -192,6 +194,15 @@ export function Viewport() {
   let ghostCanvas: HTMLCanvasElement | null = null;
   let wtCache: { rev: number; key: string; table: WeightTable } | null = null;
   const meshToolOn = () => (tool() === "mesh" || tool() === "weights") && mode() === "setup" && !running();
+  // Pen tool (paths, bounding boxes): logic in ../tools/pen.ts.
+  usePen({
+    sk: () => ensureSkeleton(),
+    zoom: () => view.zoom,
+    snap: (x, y, e, extra) => snap(x, y, e, () => snapTargets(new Set(), extra)),
+    clearSnap: () => (snapLines = []),
+    repose: (p) => pose(p, 0),
+    pointer: () => hoverPt,
+  });
 
   const toSkeleton = (mx: number, my: number): [number, number] => {
     const d = store.doc;
@@ -374,19 +385,20 @@ export function Viewport() {
     const r = new CanvasRenderer(ctx, resolveImage);
     const v = { x: view.x * dpr, y: view.y * dpr, zoom: view.zoom * dpr };
     if (onionSkin() && mode() === "animate" && !running()) drawOnionSkins(ctx, v, resolveImage);
-    const shown = (drag?.kind === "vertex" || drag?.kind === "attachment") && drag.preview ? drag.preview : s;
+    const shown = (drag?.kind === "vertex" || drag?.kind === "attachment") && drag.preview ? drag.preview : (penPreview() ?? s);
     r.render(shown, {
       view: v,
       clear: false,
       bones: showBones() && !running(),
       boundingBoxes: showBones(),
+      paths: false, // drawn by the Pen overlay (colour, selection, hidden slots)
       wireframe: showMesh(),
       selectedBone: selectedBoneId(),
       slotAlpha: slotOpacity,
     });
     // selection outline
     const sel = selection();
-    for (const id of sel?.kind === "slot" && !running() && !meshToolOn() ? selectedSlotIds() : []) {
+    for (const id of sel?.kind === "slot" && !running() && !meshToolOn() && tool() !== "pen" ? selectedSlotIds() : []) {
       const slot = shown.slotById_(id);
       const poly = slot && shown.hitPolygon(slot);
       if (poly) {
@@ -400,6 +412,10 @@ export function Viewport() {
       }
     }
     if (meshToolOn()) drawMeshOverlay(ctx, v, shown);
+    if (!running()) {
+      ctx.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
+      drawPenOverlay(ctx, v.zoom, shown);
+    }
     const gz = gizmoBone(shown);
     if (gz) drawGizmo(ctx, dpr, gz);
     if (drag?.kind === "pose") drawPoseTarget(ctx, dpr, drag);
@@ -969,7 +985,7 @@ export function Viewport() {
     // No mesh under the cursor: select whatever slot is there.
     const slot = pickSlot(x, y);
     setSelection(slot ? { kind: "slot", id: slot.data.id } : null);
-    if (slot && sk?.getAttachment(slot)?.type !== "mesh") toast("Select a mesh attachment to edit its vertices or weights", "info");
+    if (slot && sk?.getAttachment(slot)?.type !== "mesh") toast(`Select a mesh attachment to edit its vertices or weights (paths and bounding boxes: Pen tool, ${kbd("tool.pen")})`, "info");
   }
 
   // ---------------- grid, rulers, guides, snapping ----------------
@@ -1247,6 +1263,12 @@ export function Viewport() {
       /* pointer already released (or synthetic): dragging still works without capture */
     }
     const [mx, my] = local(e);
+    if (e.button === 0 && e.altKey && !spaceDown && tool() === "pen" && !running() && penAltHit(...toSkeleton(mx, my))) {
+      // Alt-drag on a knot or handle breaks / pulls handles instead of panning.
+      pose(ensureSkeleton(), 0);
+      penDown(e, ...toSkeleton(mx, my));
+      return;
+    }
     if (e.button === 1 || e.button === 2 || e.altKey || spaceDown) {
       drag = { kind: "pan", sx: mx, sy: my, vx: view.x, vy: view.y };
       return;
@@ -1268,6 +1290,10 @@ export function Viewport() {
     // Make sure picking sees the latest document even if no frame has been drawn since the last edit.
     pose(ensureSkeleton(), 0);
     const t = tool();
+    if (t === "pen") {
+      penDown(e, x, y);
+      return;
+    }
     if (t === "mesh" || t === "weights") {
       if (mode() !== "setup") {
         setMode("setup");
@@ -1422,6 +1448,7 @@ export function Viewport() {
       smInstance()?.pointer("move", x, y);
       if (!drag) return;
     }
+    if (!running() && !drag && penMove(e, x, y)) return;
     if (!drag) {
       const g = guideAt(mx, my);
       const onRuler = viewAids().rulers && (mx < RULER || my < RULER);
@@ -1578,6 +1605,7 @@ export function Viewport() {
     const d = drag;
     drag = null;
     snapLines = [];
+    if (!d && penUp()) return;
     if (!d) return;
     if (d.kind === "pose") {
       const changed = d.chain.filter((b) => Math.abs(d.cur.get(b)! - d.base.get(b)!) > 1e-6);
@@ -1762,10 +1790,13 @@ export function Viewport() {
         onPointerUp={onUp}
         onWheel={onWheel}
         onContextMenu={(e) => e.preventDefault()}
-        style={{ cursor: running() ? "pointer" : (cursorHint() ?? (tool() === "bone" || tool() === "weights" ? "crosshair" : "default")) }}
+        style={{ cursor: running() ? "pointer" : (cursorHint() ?? (tool() === "bone" || tool() === "weights" || tool() === "pen" ? "crosshair" : "default")) }}
       />
       <Show when={meshToolOn()}>
         <MeshPanel />
+      </Show>
+      <Show when={tool() === "pen" && !running()}>
+        <PenPanel />
       </Show>
       <div class="view-bar" style={{ display: view3d() ? "none" : undefined }} onPointerDown={(e) => e.stopPropagation()}>
         <div class="seg">

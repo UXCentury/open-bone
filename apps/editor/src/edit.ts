@@ -19,7 +19,7 @@ export function ensureAnimation(): string | null {
  * Set keys like the `setKeys` op, and when a key lands past an animation's fixed length, extend the length to it
  * (recording past the end grows the animation, as in Spine). One undo step.
  */
-function setKeysExtending(args: { animation: string; keys: { time: number; [k: string]: unknown }[]; [k: string]: unknown }) {
+export function setKeysExtending(args: { animation: string; keys: { time: number; [k: string]: unknown }[]; [k: string]: unknown }) {
   transaction("key", () => {
     store.apply("setKeys", args);
     const a = store.doc.animations.find((x) => x.id === args.animation);

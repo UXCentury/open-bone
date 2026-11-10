@@ -6,6 +6,7 @@ import { ensureAnimation } from "../edit.ts";
 import { toggleViewAid } from "../guides.ts";
 import { type PanelId, showPanel } from "../layout.ts";
 import { deleteSelectedVertices, nudgeSelected, selectAllVertices } from "../mesh-edit.ts";
+import { penDeselect, penDelete, penFinish, penNudge, penSelectAll } from "../tools/pen.ts";
 import { playActive, playFullWindow, restartPlay, setPlayFit, setPlayFullWindow, setPlayPaused, playPaused, stepSpeed, stopPlay, togglePlay } from "../play.ts";
 import { multiBones,
   apply,
@@ -149,6 +150,7 @@ function duplicate() {
 }
 
 function deleteSelection() {
+  if (tool() === "pen" && penDelete()) return;
   if (tool() === "mesh" && meshSel().length) {
     deleteSelectedVertices();
     return;
@@ -160,6 +162,7 @@ function deleteSelection() {
 }
 
 const nudge = (dx: number, dy: number) => (e: { shiftKey: boolean }) => {
+  if (tool() === "pen") return penNudge(dx * (e.shiftKey ? 10 : 1), dy * (e.shiftKey ? 10 : 1));
   if (tool() !== "mesh" || !meshSel().length) return false;
   const k = e.shiftKey ? 10 : 1;
   nudgeSelected(dx * k, dy * k);
@@ -187,11 +190,13 @@ export function setupShortcuts(): () => void {
       }),
     ),
     b("edit.deselect", () => {
+      if (tool() === "pen" && penDeselect()) return;
       if (tool() === "mesh" && meshSel().length) setMeshSel([]);
       else if (selection()) setSelection(null);
       else return false;
     }),
     b("edit.selectAllVertices", () => {
+      if (tool() === "pen") return penSelectAll();
       if (tool() !== "mesh") return false;
       selectAllVertices();
     }),
@@ -206,6 +211,8 @@ export function setupShortcuts(): () => void {
     b("tool.bone", () => setTool("bone")),
     b("tool.mesh", () => setTool("mesh")),
     b("tool.weights", () => setTool("weights")),
+    b("tool.pen", () => setTool("pen")),
+    b("edit.finishPath", () => (tool() === "pen" ? penFinish() : false)),
     b("view.grid", () => toggleViewAid("grid")),
     b("view.rulers", () => toggleViewAid("rulers")),
     b("view.bones", () => setShowBones(!showBones())),

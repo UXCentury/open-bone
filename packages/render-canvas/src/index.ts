@@ -394,17 +394,22 @@ export class CanvasRenderer {
     const { ctx } = this;
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
-    ctx.strokeStyle = "rgba(255,180,0,0.9)";
     ctx.setLineDash([4 / zoom, 3 / zoom]);
     ctx.lineWidth = 1.5 / zoom;
     for (const slot of sk.slots) {
+      if (!slot.bone.active) continue;
       const atts = [sk.doc.skeleton.skins[0], sk.skin].flatMap((k) => Object.values(k?.attachments[slot.data.id] ?? {}));
-      const hasBox = atts.some((a) => a.type === "boundingBox");
-      const poly = hasBox ? sk.hitPolygon(slot) : null;
-      if (!poly) continue;
+      const box = atts.find((a) => a.type === "boundingBox");
+      const poly = box ? sk.hitPolygon(slot) : null;
+      if (!poly || box?.type !== "boundingBox") continue;
+      // Its editor colour (default orange), outlined with a light fill.
+      const color = /^#[0-9a-f]{6}$/i.test(box.color ?? "") ? box.color! : "#ffb400";
       ctx.beginPath();
       for (let i = 0; i < poly.length; i += 2) (i ? ctx.lineTo : ctx.moveTo).call(ctx, poly[i], poly[i + 1]);
       ctx.closePath();
+      ctx.fillStyle = `${color}1a`;
+      ctx.fill();
+      ctx.strokeStyle = `${color}e6`;
       ctx.stroke();
     }
     // Clipping masks: dashed violet outline.

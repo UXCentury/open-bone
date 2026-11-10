@@ -734,3 +734,8 @@ input.small { width: 90px; }
 .view3d-bar input[type="range"] { width: 90px; }
 .view3d-inset-label { position: absolute; right: 18px; bottom: 16px; color: #e6e9ef; font-size: 10px; font-weight: 600; text-shadow: 0 1px 2px #000a; pointer-events: none; }
 .view3d-hint { position: absolute; left: 10px; bottom: 8px; max-width: calc(100% - 300px); color: var(--muted); font-size: 11px; background: #15171ccc; padding: 2px 6px; border-radius: 4px; pointer-events: none; }
+
+/* Pen tool and path / bounding-box Inspector parts */
+button.link { background: none; border: none; padding: 0; color: var(--accent, #5b8cff); text-decoration: underline; cursor: pointer; font: inherit; }
+.knot-weights { display: flex; flex-direction: column; gap: 6px; }
+.knot-weights select[multiple] { width: 100%; }

@@ -224,6 +224,8 @@ export interface BoundingBoxAttachment extends AttachmentBase {
   vertices: number[];
   /** Optional per-vertex bone influences (same layout as mesh weights), so the box bends with several bones. */
   weights?: VertexWeight[][];
+  /** Editor display colour (default orange). */
+  color?: Hex;
 }
 
 export interface PointAttachment extends AttachmentBase {
