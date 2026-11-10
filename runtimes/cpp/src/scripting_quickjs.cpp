@@ -8,13 +8,25 @@
 
 #if OPENBONE_WITH_SCRIPTS
 extern "C" {
-// QuickJS's header trips MSVC conversion warnings (C4244); they are upstream's, so hide them for this include.
+// QuickJS's header trips conversion warnings (MSVC C4244, Clang -Wshorten-64-to-32 on Apple builds); they are
+// upstream's, so hide every warning for this include only.
 #if defined(_MSC_VER)
 #pragma warning(push, 0)
+#elif defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Weverything"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+#pragma GCC diagnostic ignored "-Wsign-conversion"
 #endif
 #include "quickjs.h"
 #if defined(_MSC_VER)
 #pragma warning(pop)
+#elif defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
 #endif
 }
 #endif

@@ -27,6 +27,9 @@ The package lives inside this repository and compiles `runtimes/cpp` through the
    runtimes/swift/scripts/fetch-quickjs.sh
    ```
 
+   SwiftPM caches what `Package.swift` decided, so if you fetch QuickJS after a first build, delete
+   `runtimes/swift/.build` (or *Product → Clean Build Folder* in Xcode) so the package is rebuilt with scripts on.
+
 2. Add the package as a **local** dependency — in Xcode *File → Add Package Dependencies… → Add Local…* and pick
    `runtimes/swift`, or in a `Package.swift`:
 
