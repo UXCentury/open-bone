@@ -1,4 +1,5 @@
-# C# runtime: conformance suite (dotnet test) and the Unity package compiled against the Unity API stub.
+# C# runtime: conformance suite (dotnet test), the Unity package compiled against the Unity API stub, and the MonoGame
+# integration (library, sample and its window-less tests).
 name: C# runtime
 
 on:
@@ -43,3 +44,4 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
       - run: dotnet test
       - run: dotnet build unity/compile-check
+      - run: dotnet test monogame/OpenBone.MonoGame.sln
