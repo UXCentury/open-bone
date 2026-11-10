@@ -1,6 +1,6 @@
 {
   "name": "@openbone/core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "OpenBone core: the document model, edit ops, validation and the binary format for 2D skeletal animation",
   "keywords": [
     "openbone",

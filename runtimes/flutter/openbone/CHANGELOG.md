@@ -1,3 +1,11 @@
+## 0.3.0
+
+- Mute buttons: the `setMute` listener action reaches Flutter as an `OpenBoneAudioType.mix` command (`bus`, `muted`);
+  the built-in flutter_soloud player applies it to playing and later sounds.
+- The C++ runtime underneath: the new audio `mix` command (`OB_AUDIO_MIX`, with a `muted` field) in the C API.
+- Example app: the Windswept scene (state machine, buttons, lip-synced voice, music and ambience), on desktop and
+  Android.
+
 ## 0.2.0
 
 * First release on pub.dev. The package bundles the OpenBone C++ runtime (`cpp/`) with nlohmann/json and QuickJS

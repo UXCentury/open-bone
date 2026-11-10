@@ -1,6 +1,6 @@
 {
   "name": "@openbone/phaser",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "OpenBone runtime for Phaser 3: a scene plugin, a loader file type and a GameObject",
   "keywords": [
     "openbone",

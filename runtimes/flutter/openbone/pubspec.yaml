@@ -2,7 +2,7 @@ name: openbone
 description: >-
   OpenBone runtime for Flutter and Dart: plays .obone / .obonb skeletal animations and state machines through the
   native C++ runtime (libopenbone) over dart:ffi, and draws them with Canvas.drawVertices.
-version: 0.2.0
+version: 0.3.0
 homepage: https://github.com/UXCentury/open-bone
 repository: https://github.com/UXCentury/open-bone/tree/main/runtimes/flutter/openbone
 # Publish the staged copy (tool/bundle.sh removes this line), never this folder: it reaches runtimes/cpp outside it.

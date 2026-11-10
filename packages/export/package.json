@@ -1,6 +1,6 @@
 {
   "name": "@openbone/export",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Image and video encoders for OpenBone exports: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP, plus sprite sheets and engine packs (Unity, Godot, Flutter, generic)",
   "keywords": [
     "openbone",

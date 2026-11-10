@@ -2,7 +2,7 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
-## Unreleased
+## 0.3.0 (2026-11-11)
 
 ### Editor
 - **Your own layouts**: Menu → Layout → "Save current layout as…" keeps where every panel is docked, its tabs, splits and sizes under a name; your layouts are listed at the top of Menu → Layout (the current one ticked) and switch in one click, with Rename and Delete. They are kept by the editor, so they work in every project, and are in the command palette too.

@@ -5,7 +5,7 @@
     <Nullable>disable</Nullable>
     <RootNamespace>OpenBone.MonoGame</RootNamespace>
     <AssemblyName>OpenBone.MonoGame</AssemblyName>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
     <IsPackable>true</IsPackable>
     <PackageId>OpenBone.MonoGame</PackageId>
     <Description>MonoGame (DesktopGL) integration for the OpenBone C# runtime: renderer (blend modes, clipping, two-colour tint), player component with pointer input, and a SoundEffect bridge for audio commands.</Description>

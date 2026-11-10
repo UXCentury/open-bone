@@ -1,6 +1,6 @@
 {
   "name": "openbone",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "OpenBone command line (npx openbone): validate, render, export and edit 2D skeletal animations, and start the MCP server",
   "keywords": [
     "openbone",
