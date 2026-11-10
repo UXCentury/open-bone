@@ -609,20 +609,45 @@ namespace OpenBone
             return new Pair { Lo = Anim(lo.Animation), Hi = Anim(hi.Animation), T = t };
         }
 
-        void ApplyState(StateInstance s, double alpha)
+        /// <summary>The animations a state is playing now (a blend state's current pair).</summary>
+        List<AnimationData> StateAnimations(StateInstance s)
+        {
+            var d = s.Data;
+            var out_ = new List<AnimationData>();
+            if (d.Type == "animation")
+            {
+                var anim = Anim(d.Animation);
+                if (anim != null) out_.Add(anim);
+            }
+            else if (d.Type == "blend1d")
+            {
+                var pair = BlendPair(d);
+                if (pair != null)
+                {
+                    if (pair.Lo != null) out_.Add(pair.Lo);
+                    if (pair.Hi != null) out_.Add(pair.Hi);
+                }
+            }
+            return out_;
+        }
+
+        /// <summary>Pose a state at weight alpha. With <paramref name="into"/> (the state being faded to) and its outgoing weight,
+        /// the blending values none of <paramref name="into"/> key are applied at <paramref name="outAlpha"/> instead (§5.1a).</summary>
+        void ApplyState(StateInstance s, double alpha, List<AnimationData> into = null, double outAlpha = 0)
         {
             var d = s.Data;
             if (d.Type == "animation")
             {
                 var anim = Anim(d.Animation);
-                if (anim != null) Animations.Apply(Skeleton, anim, Animations.LocalTime(anim, s.Time, d.Loop), alpha);
+                if (anim != null) Animations.Apply(Skeleton, anim, Animations.LocalTime(anim, s.Time, d.Loop), alpha, into == null ? null : new MixOut { Into = into, Alpha = outAlpha });
             }
             else if (d.Type == "blend1d")
             {
                 var pair = BlendPair(d);
                 if (pair == null) return;
-                if (pair.Lo != null) Animations.Apply(Skeleton, pair.Lo, Animations.LocalTime(pair.Lo, s.Time, d.Loop), alpha);
-                if (pair.Hi != null && pair.Hi != pair.Lo && pair.T > 0) Animations.Apply(Skeleton, pair.Hi, Animations.LocalTime(pair.Hi, s.Time, d.Loop), alpha * pair.T);
+                if (pair.Lo != null) Animations.Apply(Skeleton, pair.Lo, Animations.LocalTime(pair.Lo, s.Time, d.Loop), alpha, into == null ? null : new MixOut { Into = into, Alpha = outAlpha });
+                if (pair.Hi != null && pair.Hi != pair.Lo && pair.T > 0)
+                    Animations.Apply(Skeleton, pair.Hi, Animations.LocalTime(pair.Hi, s.Time, d.Loop), alpha * pair.T, into == null ? null : new MixOut { Into = into, Alpha = outAlpha * pair.T });
             }
         }
 
@@ -679,7 +704,12 @@ namespace OpenBone
             foreach (var l in _layers)
             {
                 double mixA = l.MixDuration > 0 ? Math.Min(1, l.MixTime / l.MixDuration) : 1;
-                if (l.From != null) ApplyState(l.From, l.Exited ? 1 - mixA : 1);
+                if (l.From != null)
+                {
+                    // Fading to a state: what it doesn't key fades from the old state's value to the pose underneath.
+                    if (l.Current != null) ApplyState(l.From, 1, StateAnimations(l.Current), 1 - mixA);
+                    else ApplyState(l.From, l.Exited ? 1 - mixA : 1);
+                }
                 if (l.Current != null) ApplyState(l.Current, l.From != null ? mixA : 1);
             }
             foreach (var kv in _boneOverrides)

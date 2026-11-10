@@ -10,7 +10,7 @@
 
 namespace openbone {
 
-void applyTimelines(Skeleton& sk, const AnimationData& anim, double time, double alpha, int filter);  // animation.cpp
+void applyTimelines(Skeleton& sk, const AnimationData& anim, double time, double alpha, int filter, const MixOut* mixOut = nullptr);  // animation.cpp
 
 // ---------------- Bone ----------------
 

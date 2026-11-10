@@ -10,6 +10,7 @@ import com.openbone.runtime.data.Attachment;
 import com.openbone.runtime.data.Timeline;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.List;
 import java.util.Set;
 
@@ -83,14 +84,49 @@ public final class Animations {
 
   /** Pose the skeleton with an animation at local time {@code time}, mixed over the current pose by {@code alpha}. */
   public static void apply(Skeleton sk, AnimationData anim, double time, double alpha) {
-    apply(sk, anim, anim.timelines, time, alpha);
+    apply(sk, anim, anim.timelines, time, alpha, null);
+  }
+
+  /** The same, for an animation being faded out (see {@link MixOut}); {@code mixOut} may be null. */
+  public static void apply(Skeleton sk, AnimationData anim, double time, double alpha, MixOut mixOut) {
+    apply(sk, anim, anim.timelines, time, alpha, mixOut);
+  }
+
+  /** True for timelines whose values blend (a mix fades them); false for the ones that switch at keys. */
+  static boolean blends(Timeline tl) {
+    switch (tl.target) {
+      case "bone": return !"inherit".equals(tl.property);
+      case "slot": return "color".equals(tl.property) || "dark".equals(tl.property);
+      case "ik": return !"bend".equals(tl.property) && !"stretch".equals(tl.property) && !"compress".equals(tl.property);
+      case "transform":
+      case "path":
+      case "physics":
+      case "deform": return true;
+      case "particles": return "rate".equals(tl.property);
+      default: return false;
+    }
+  }
+
+  /** Whether any of {@code anims} has a keyed timeline for the same value as {@code tl} (same target, id, property and attachment). */
+  public static boolean keyedBy(List<AnimationData> anims, Timeline tl) {
+    for (AnimationData a : anims)
+      for (Timeline o : a.timelines)
+        if (o.keys.length > 0 && Objects.equals(o.target, tl.target) && Objects.equals(o.id, tl.id)
+            && Objects.equals(o.property, tl.property) && Objects.equals(o.attachment, tl.attachment)) return true;
+    return false;
   }
 
   static void apply(Skeleton sk, AnimationData anim, List<Timeline> timelines, double time, double alpha) {
-    if (alpha <= 0) return;
-    if (alpha >= 0.5 || sk.animationTime == null) sk.animationTime = time;
+    apply(sk, anim, timelines, time, alpha, null);
+  }
+
+  static void apply(Skeleton sk, AnimationData anim, List<Timeline> timelines, double time, double full, MixOut mixOut) {
+    if (full <= 0) return;
+    if (full >= 0.5 || sk.animationTime == null) sk.animationTime = time;
     for (Timeline tl : timelines) {
       if (tl.keys.length == 0) continue;
+      double alpha = mixOut != null && blends(tl) && !keyedBy(mixOut.into, tl) ? mixOut.alpha : full;
+      if (alpha <= 0) continue;
       switch (tl.target) {
         case "bone": {
           Bone bone = sk.boneById(tl.id);

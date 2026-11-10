@@ -627,16 +627,42 @@ public final class StateMachineInstance {
     return p;
   }
 
+  /** The animations a state is playing now (a blend state's current pair). */
+  private List<AnimationData> stateAnimations(StateInstance s) {
+    State d = s.data;
+    List<AnimationData> out = new ArrayList<>();
+    if (d.type.equals("animation")) {
+      AnimationData anim = doc.animationById(d.animation);
+      if (anim != null) out.add(anim);
+    } else if (d.type.equals("blend1d")) {
+      BlendPair pair = blendPair(d);
+      if (pair != null) {
+        if (pair.lo != null) out.add(pair.lo);
+        if (pair.hi != null) out.add(pair.hi);
+      }
+    }
+    return out;
+  }
+
   private void applyState(StateInstance s, double alpha) {
+    applyState(s, alpha, null, 0);
+  }
+
+  /**
+   * Pose a state at weight {@code alpha}. With {@code into} (the state being faded to) and its outgoing weight
+   * {@code outAlpha}, the blending values none of {@code into} key are applied at {@code outAlpha} instead (spec §5.1a).
+   */
+  private void applyState(StateInstance s, double alpha, List<AnimationData> into, double outAlpha) {
     State d = s.data;
     if (d.type.equals("animation")) {
       AnimationData anim = doc.animationById(d.animation);
-      if (anim != null) Animations.apply(skeleton, anim, Animations.localTime(anim, s.time, d.loop), alpha);
+      if (anim != null) Animations.apply(skeleton, anim, Animations.localTime(anim, s.time, d.loop), alpha, into == null ? null : new MixOut(into, outAlpha));
     } else if (d.type.equals("blend1d")) {
       BlendPair pair = blendPair(d);
       if (pair == null) return;
-      if (pair.lo != null) Animations.apply(skeleton, pair.lo, Animations.localTime(pair.lo, s.time, d.loop), alpha);
-      if (pair.hi != null && pair.hi != pair.lo && pair.t > 0) Animations.apply(skeleton, pair.hi, Animations.localTime(pair.hi, s.time, d.loop), alpha * pair.t);
+      if (pair.lo != null) Animations.apply(skeleton, pair.lo, Animations.localTime(pair.lo, s.time, d.loop), alpha, into == null ? null : new MixOut(into, outAlpha));
+      if (pair.hi != null && pair.hi != pair.lo && pair.t > 0)
+        Animations.apply(skeleton, pair.hi, Animations.localTime(pair.hi, s.time, d.loop), alpha * pair.t, into == null ? null : new MixOut(into, outAlpha * pair.t));
     }
   }
 
@@ -691,7 +717,11 @@ public final class StateMachineInstance {
     sk.setToSetupPose();
     for (LayerInstance l : layers) {
       double mixA = l.mixDuration > 0 ? Math.min(1, l.mixTime / l.mixDuration) : 1;
-      if (l.from != null) applyState(l.from, l.exited ? 1 - mixA : 1);
+      if (l.from != null) {
+        // Fading to a state: what it doesn't key fades from the old state's value to the pose underneath.
+        if (l.current != null) applyState(l.from, 1, stateAnimations(l.current), 1 - mixA);
+        else applyState(l.from, l.exited ? 1 - mixA : 1);
+      }
       if (l.current != null) applyState(l.current, l.from != null ? mixA : 1);
     }
     for (Map.Entry<String, Map<String, Double>> e : boneOverrides.entrySet()) {

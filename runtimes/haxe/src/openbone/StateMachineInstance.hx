@@ -679,20 +679,45 @@ class StateMachineInstance implements ScriptApi {
 		return p;
 	}
 
-	function applyState(s:StateInstance, alpha:Float):Void {
+	/** The animations a state is playing now (a blend state's current pair). */
+	function stateAnimations(s:StateInstance):Array<AnimationData> {
+		var d = s.data;
+		var out:Array<AnimationData> = [];
+		if (d.type == "animation") {
+			var anim = doc.animationById(d.animation);
+			if (anim != null)
+				out.push(anim);
+		} else if (d.type == "blend1d") {
+			var pair = blendPair(d);
+			if (pair != null) {
+				if (pair.lo != null)
+					out.push(pair.lo);
+				if (pair.hi != null)
+					out.push(pair.hi);
+			}
+		}
+		return out;
+	}
+
+	/**
+		Pose a state at weight `alpha`. With `into` (the state being faded to) and its outgoing weight `outAlpha`, the
+		blending values none of `into` key are applied at `outAlpha` instead (spec §5.1a).
+	**/
+	function applyState(s:StateInstance, alpha:Float, ?into:Array<AnimationData>, outAlpha:Float = 0):Void {
 		var d = s.data;
 		if (d.type == "animation") {
 			var anim = doc.animationById(d.animation);
 			if (anim != null)
-				Animations.apply(skeleton, anim, Animations.localTime(anim, s.time, d.loop), alpha);
+				Animations.apply(skeleton, anim, Animations.localTime(anim, s.time, d.loop), alpha, into == null ? null : new MixOut(into, outAlpha));
 		} else if (d.type == "blend1d") {
 			var pair = blendPair(d);
 			if (pair == null)
 				return;
 			if (pair.lo != null)
-				Animations.apply(skeleton, pair.lo, Animations.localTime(pair.lo, s.time, d.loop), alpha);
+				Animations.apply(skeleton, pair.lo, Animations.localTime(pair.lo, s.time, d.loop), alpha, into == null ? null : new MixOut(into, outAlpha));
 			if (pair.hi != null && pair.hi != pair.lo && pair.t > 0)
-				Animations.apply(skeleton, pair.hi, Animations.localTime(pair.hi, s.time, d.loop), alpha * pair.t);
+				Animations.apply(skeleton, pair.hi, Animations.localTime(pair.hi, s.time, d.loop), alpha * pair.t,
+					into == null ? null : new MixOut(into, outAlpha * pair.t));
 		}
 	}
 
@@ -758,8 +783,13 @@ class StateMachineInstance implements ScriptApi {
 		sk.setToSetupPose();
 		for (l in layers) {
 			var mixA = l.mixDuration > 0 ? Math.min(1, l.mixTime / l.mixDuration) : 1;
-			if (l.from != null)
-				applyState(l.from, l.exited ? 1 - mixA : 1);
+			if (l.from != null) {
+				// Fading to a state: what it doesn't key fades from the old state's value to the pose underneath.
+				if (l.current != null)
+					applyState(l.from, 1, stateAnimations(l.current), 1 - mixA);
+				else
+					applyState(l.from, l.exited ? 1 - mixA : 1);
+			}
 			if (l.current != null)
 				applyState(l.current, l.from != null ? mixA : 1);
 		}

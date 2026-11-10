@@ -500,17 +500,37 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     return { lo: this.anim(lo.animation), hi: this.anim(hi.animation), t };
   }
 
-  private applyState(s: StateInstance, alpha: number) {
+  /** The animations a state is playing now (a blend state's current pair). */
+  private stateAnimations(s: StateInstance): AnimationData[] {
     const d = s.data;
     if (d.type === "animation") {
       const anim = this.anim(d.animation);
-      if (anim) applyAnimation(this.skeleton, anim, localTime(anim, s.time, d.loop), alpha);
+      return anim ? [anim] : [];
+    }
+    if (d.type === "blend1d") {
+      const pair = this.blendPair(d);
+      if (!pair) return [];
+      return [pair.lo, pair.hi].filter((a): a is AnimationData => !!a);
+    }
+    return [];
+  }
+
+  /**
+   * Pose a state at weight `alpha`. With `into` (the state being faded to) and its outgoing weight `outAlpha`, the
+   * blending values none of `into` key are applied at `outAlpha` instead, so they fade towards the pose underneath.
+   */
+  private applyState(s: StateInstance, alpha: number, into?: AnimationData[], outAlpha = 0) {
+    const d = s.data;
+    if (d.type === "animation") {
+      const anim = this.anim(d.animation);
+      if (anim) applyAnimation(this.skeleton, anim, localTime(anim, s.time, d.loop), alpha, into && { into, alpha: outAlpha });
     } else if (d.type === "blend1d") {
       const pair = this.blendPair(d);
       if (!pair) return;
       const { lo, hi, t } = pair;
-      if (lo) applyAnimation(this.skeleton, lo, localTime(lo, s.time, d.loop), alpha);
-      if (hi && hi !== lo && t > 0) applyAnimation(this.skeleton, hi, localTime(hi, s.time, d.loop), alpha * t);
+      if (lo) applyAnimation(this.skeleton, lo, localTime(lo, s.time, d.loop), alpha, into && { into, alpha: outAlpha });
+      if (hi && hi !== lo && t > 0)
+        applyAnimation(this.skeleton, hi, localTime(hi, s.time, d.loop), alpha * t, into && { into, alpha: outAlpha * t });
     }
   }
 
@@ -561,7 +581,11 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     sk.setToSetupPose();
     for (const l of this.layers) {
       const mixA = l.mixDuration > 0 ? Math.min(1, l.mixTime / l.mixDuration) : 1;
-      if (l.from) this.applyState(l.from, l.exited ? 1 - mixA : 1);
+      if (l.from) {
+        // Fading to a state: what it doesn't key fades from the old state's value to the pose underneath.
+        if (l.current) this.applyState(l.from, 1, this.stateAnimations(l.current), 1 - mixA);
+        else this.applyState(l.from, l.exited ? 1 - mixA : 1);
+      }
       if (l.current) this.applyState(l.current, l.from ? mixA : 1);
     }
     for (const [id, o] of this.boneOverrides) {

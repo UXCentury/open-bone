@@ -9,11 +9,11 @@ events and audio commands. It does no rendering: draw the `DrawItem`s with your 
 
 ## Status
 
-| Target | Command | Conformance (82 cases in 18 files) |
+| Target | Command | Conformance (86 cases in 19 files) |
 |---|---|---|
-| JS (node) | `haxe test-js.hxml` | **82/82** (scripts run on node's JavaScript engine) |
-| eval (interpreter) | `haxe test.hxml` | **76/82**, 6 scripted cases skipped |
-| Python 3 | `haxe test-python.hxml` | **76/82**, 6 scripted cases skipped |
+| JS (node) | `haxe test-js.hxml` | **86/86** (scripts run on node's JavaScript engine) |
+| eval (interpreter) | `haxe test.hxml` | **80/86**, 6 scripted cases skipped |
+| Python 3 | `haxe test-python.hxml` | **80/86**, 6 scripted cases skipped |
 
 Each command also runs the unit tests (`test/UnitTest.hx`: JS number strings, `toFixed` ties, `Math.fround`,
 templates, mulberry32, FNV-1a, earcut, `.obonb` decoding against the TypeScript decoder's output). Checked with Haxe

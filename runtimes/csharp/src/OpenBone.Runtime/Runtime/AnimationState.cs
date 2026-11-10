@@ -177,9 +177,11 @@ namespace OpenBone
                 if (e == null) continue;
                 if (e.MixingFrom != null)
                 {
-                    Animations.Apply(sk, e.MixingFrom.Animation, e.MixingFrom.LocalTime, e.Alpha);
                     double md = e.MixDuration == 0 || double.IsNaN(e.MixDuration) ? 1 : e.MixDuration;
-                    Animations.Apply(sk, e.Animation, e.LocalTime, e.Alpha * Math.Min(1, e.MixTime / md));
+                    double mix = Math.Min(1, e.MixTime / md);
+                    // What the new animation doesn't key fades from the old one's value to the pose underneath.
+                    Animations.Apply(sk, e.MixingFrom.Animation, e.MixingFrom.LocalTime, e.Alpha, new MixOut { Into = new[] { e.Animation }, Alpha = e.Alpha * (1 - mix) });
+                    Animations.Apply(sk, e.Animation, e.LocalTime, e.Alpha * mix);
                 }
                 else Animations.Apply(sk, e.Animation, e.LocalTime, e.Alpha);
             }
