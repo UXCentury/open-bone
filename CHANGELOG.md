@@ -4,6 +4,7 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app). Se
 
 ## Unreleased
 
+- **Haxe runtime** (`runtimes/haxe`): a pure Haxe 4.3 port of the runtime with no dependencies (`.obone`/`.obonb` loading, skins and skin bones, every constraint in custom order, sliders, physics, particles, sequences, packed/trimmed/polygon atlases, text templates, the draw list, state machines with listeners and bindings, events, audio commands) and JS number semantics on every target. All 82 conformance cases pass on the JS target (scripts run on its JavaScript engine through `JsScriptHost`); on eval and Python the 6 scripted state-machine cases are skipped and the other 76 pass.
 - The Flutter plugin moved from `runtimes/dart` to `runtimes/flutter/openbone`: Flutter 3.47's Swift Package Manager support fails when a plugin's folder name differs from its package name ([flutter#186881](https://github.com/flutter/flutter/issues/186881)).
 - Java runtime on **Gradle 9.9** and Android Gradle Plugin 9.5 (Kotlin 2.4 through the Kotlin Android plugin), without Gradle 10 deprecations.
 - **Swift Package Manager** for the Flutter plugin on iOS and macOS (`runtimes/flutter/openbone/darwin/openbone/Package.swift`, with iOS and macOS sharing one `darwin/` folder and podspec), so Flutter no longer warns that `openbone` lacks SPM support; the podspecs stay for CocoaPods.

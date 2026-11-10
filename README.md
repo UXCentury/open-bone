@@ -14,6 +14,7 @@
   <a href="https://github.com/UXCentury/open-bone/actions/workflows/runtime-java.yml"><img alt="Java runtime" src="https://github.com/UXCentury/open-bone/actions/workflows/runtime-java.yml/badge.svg" /></a>
   <a href="https://github.com/UXCentury/open-bone/actions/workflows/runtime-swift.yml"><img alt="Swift runtime" src="https://github.com/UXCentury/open-bone/actions/workflows/runtime-swift.yml/badge.svg" /></a>
   <a href="https://github.com/UXCentury/open-bone/actions/workflows/runtime-flutter.yml"><img alt="Flutter runtime" src="https://github.com/UXCentury/open-bone/actions/workflows/runtime-flutter.yml/badge.svg" /></a>
+  <a href="https://github.com/UXCentury/open-bone/actions/workflows/runtime-haxe.yml"><img alt="Haxe runtime" src="https://github.com/UXCentury/open-bone/actions/workflows/runtime-haxe.yml/badge.svg" /></a>
 </p>
 
 ![The OpenBone editor in Animate mode: the painted Knight mid-salute with his sword raised, the skeleton tree, the dopesheet with the voice line's waveform, and the bone Inspector](docs/editor.webp)
@@ -21,7 +22,7 @@
 - **Rig like Spine**: bones, weighted meshes, IK, transform, path and physics constraints, skins, clipping, two-colour tint, texture atlases.
 - **Make it interactive like Rive**: state machines with inputs, pointer listeners, live text, input bindings and sandboxed scripts.
 - **Sound built in**: sounds on the timeline, events and states, a mixer with buses, and lip sync from a voice recording.
-- **Play it anywhere**: web (WebGL, Canvas, PixiJS, Phaser, Three.js, CanvasKit) and native runtimes for C/C++ (Godot, Unreal, Cocos2d-x, SDL2, SFML), C# (Unity), Java (libGDX, Android), Swift and Flutter, all checked against one conformance suite.
+- **Play it anywhere**: web (WebGL, Canvas, PixiJS, Phaser, Three.js, CanvasKit) and native runtimes for C/C++ (Godot, Unreal, Cocos2d-x, SDL2, SFML), C# (Unity), Java (libGDX, Android), Swift, Flutter and Haxe, all checked against one conformance suite.
 - **Let an agent do it**: every edit is an MCP tool, and the editor shows an agent's work live.
 
 Everything in this repository is **MIT** and built only on permissively licensed open-source dependencies.
@@ -68,6 +69,7 @@ pnpm test
 | Java / Android | [`runtimes/java`](runtimes/java) | any JVM (Java 11+), libGDX 1.14, Android 7+ | Pure Java port; libGDX renderer; Kotlin `OpenBoneView` |
 | Swift | [`runtimes/swift`](runtimes/swift) | iOS 15+, macOS 12+ | Swift API over the C API; Metal `OpenBoneView` (UIKit, AppKit) and SwiftUI `OpenBonePlayer` |
 | Flutter | [`runtimes/flutter/openbone`](runtimes/flutter/openbone) | Flutter 3.41+ (Android, iOS, macOS, Linux, Windows) | `dart:ffi` plugin over the C API; `OpenBoneWidget` with sound (flutter_soloud); Swift Package Manager and CocoaPods |
+| Haxe | [`runtimes/haxe`](runtimes/haxe) | Haxe 4.3+ (JS, eval, Python checked; any target) | Pure Haxe port with no dependencies; state machine scripts on the JS target |
 
 Every native runtime implements [docs/runtime-spec.md](docs/runtime-spec.md) and passes the [conformance suite](conformance): the same poses, draw lists, events, audio commands and state-machine steps as the TypeScript runtime, for every example. CI runs each one on Linux, macOS and Windows where it applies. Demos of the knight in each web engine: `pnpm --filter @openbone/examples engines`, then http://localhost:5190.
 
