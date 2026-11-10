@@ -60,6 +60,8 @@ interface SideRigSpec {
   upper: { part: Part; top: Pt; bottom: Pt };
   fore: { part: Part; top: Pt; wrist: Pt };
   hand?: { part: Part; top: Pt; grip: Pt };
+  /** The far hand's own drawing (the fist seen from its inner side); without it the far hand mirrors `hand`. */
+  backHand?: { part: Part; top: Pt };
   thigh: { part: Part; top: Pt; bottom: Pt };
   shin: { part: Part; top: Pt; bottom: Pt };
   foot: { part: Part; ankle: Pt };
@@ -149,8 +151,10 @@ function sideRig(A: Op, r: SideRigSpec) {
       fore();
       upper();
     }
-    // One fist drawing serves both hands: the far hand is its mirror image, so the two read as a left and a right hand.
-    if (r.hand) pin(A, `${side}-fist`, `${side}-hand`, r.hand.part, r.hand.top, [0, 0], 90, ak, { color, mirror: side === "back" });
+    // The far hand has its own drawing (its inner side faces us) or else mirrors the near one, so the two read as a
+    // left and a right hand.
+    if (side === "back" && r.backHand) pin(A, `${side}-fist`, `${side}-hand`, r.backHand.part, r.backHand.top, [0, 0], 90, ak, { color });
+    else if (r.hand) pin(A, `${side}-fist`, `${side}-hand`, r.hand.part, r.hand.top, [0, 0], 90, ak, { color, mirror: side === "back" });
   };
   // The boot goes under the shin (the greave or trouser leg covers the boot's top). At the knee, whichever part
   // carries the joint's covering goes on top: the shin's knee guard, or the thigh's hem over the shin's open top.
@@ -216,6 +220,8 @@ function knight() {
   const upper = P("arm-upper", 117, 198);
   const fore = P("forearm", 79, 180);
   const fist = P("fist", 83, 116);
+  // The far (left) hand seen from its inner side: thumb wrapped over the curled fingers.
+  const fistInner = P("fist-inner", 77, 130);
   const thigh = P("thigh", 106, 218);
   const shin = P("shin", 111, 282);
   const boot = P("boot", 143, 123);
@@ -251,6 +257,7 @@ function knight() {
     // Pinned well inside its top, so the forearm reaches up into the upper arm's open tube at the elbow (no gap when it bends).
     fore: { part: fore, top: [0.5, 0.17], wrist: [0.5, 0.9] },
     hand: { part: fist, top: [0.5, 0.14], grip: [0.5, 0.62] },
+    backHand: { part: fistInner, top: [0.46, 0.14] },
     thigh: { part: thigh, top: [0.5, 0.12], bottom: [0.5, 0.88] },
     // The knee joint is just above the knee guard: the thigh hides the shin's top tube and the whole guard shows below
     // the thigh's rim.
@@ -290,7 +297,7 @@ function knight() {
   setPart("sword", "knight-sword", { x: 57.22, y: 49.21 });
   setPart("back-fore", "knight-forearm", { x: 23.3 });
   setPart("back-upper", "knight-arm-upper", { x: 20, y: -1, scaleX: -1 });
-  setPart("back-fist", "knight-fist", { x: 15.31 });
+  setPart("back-fist", "knight-fist-inner", { x: 15.31 });
   setPart("back-boot", "knight-boot", { x: 10.44, y: 2.78 });
   setPart("back-shin", "knight-shin", { x: 15.58, y: -9.4 });
   setPart("front-boot", "knight-boot", { x: 9.01, y: 0 });

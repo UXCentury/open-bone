@@ -5,6 +5,7 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 ## Unreleased
 
 ### Editor
+- **Rotate and Scale a part on its own** (Setup mode): with the Rotate or Scale tool, dragging a part (not a bone) turns or scales the image itself around its origin instead of its bone, like the Translate tool already moved it. Selected parts turn or scale together around the grabbed one; Shift snaps to 15° / 10% steps; each drag is one undo step; the viewport status shows the angle or percentage. Animate mode still rotates bones.
 - Mesh tool cursors: holding Ctrl/⌘ shows a crosshair with a plus where a click adds a vertex, and hovering a vertex shows a move cursor.
 - **Re-trace outline…** works on weighted meshes: the new mesh is bound again to the same bones, with as many influences per vertex as before (it was disabled with no explanation). Linked meshes, and meshes other meshes link to, say why they can't be re-traced.
 - **Select several parts**: Shift+click adds a part to the selection (or takes it out), Ctrl/⌘+click takes it out, in the viewport, the Skeleton tree and the 3D view (bones worked this way already; in the 3D view Alt+Shift+click adds bones). Every selected part is outlined; dragging one of them with the move tool, or the 3D gizmo, moves them all by the same offset, and the 3D gizmo's Z arrow moves them through the draw order together, each as one undoable edit.
@@ -37,7 +38,7 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 - Bounding boxes can be weighted to bones (`autoWeights`, `setWeights`) and take deform keys, like paths.
 - Path constraints: `constantSpeed` (default on, the existing arc-length placement). Off places bones at the raw bezier parameter inside each curve segment, as Spine does; a "Constant speed" checkbox in the path-constraint Inspector. Existing files pose exactly as before.
 - Conformance: `bounds` (recorded point, segment, AABB and skeleton-overlap queries) and `paths` (constant speed on and off on uneven curves) fixtures.
-- Knight example: the project owner's hand alignment (arms, forearms, shins, boots, helmet, sword; the breastplate over the front thigh and each vambrace over its upper arm; the road lowered to his feet), built into `examples/build-examples.ts` so rebuilding keeps it. The forearms reach up into the upper arms' open tubes, so there is no gap at the elbow.
+- Knight example: the project owner's hand alignment (arms, forearms, shins, boots, helmet, sword; the breastplate over the front thigh and each vambrace over its upper arm; the road lowered to his feet), built into `examples/build-examples.ts` so rebuilding keeps it. The forearms reach up into the upper arms' open tubes, so there is no gap at the elbow. The far hand has its own gauntlet drawn from the inner side (thumb over the curled fingers) instead of a mirrored copy of the near one, so the two read as a left and a right hand.
 
 ### Texture packer
 - New packer options in the Export dialog, `openbone export` (`--format atlas` and `--pack`) and the MCP `pack_atlas` / `export_file` tools, all through the same settings:

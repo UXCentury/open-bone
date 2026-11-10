@@ -10,98 +10,105 @@
   "fps": 30,
   "images": [
     {
-      "id": "img_673z78h",
+      "id": "img_52jzp8h",
       "name": "knight-torso",
       "src": "assets/eleven/knight-torso.png",
       "width": 196,
       "height": 281
     },
     {
-      "id": "img_epkcy8i",
+      "id": "img_0qqoh8i",
       "name": "knight-helmet",
       "src": "assets/eleven/knight-helmet.png",
       "width": 260,
       "height": 280
     },
     {
-      "id": "img_ixv0u8j",
+      "id": "img_nngkb8j",
       "name": "knight-arm-upper",
       "src": "assets/eleven/knight-arm-upper.png",
       "width": 117,
       "height": 198
     },
     {
-      "id": "img_3qd6l8k",
+      "id": "img_fgsi88k",
       "name": "knight-forearm",
       "src": "assets/eleven/knight-forearm.png",
       "width": 79,
       "height": 180
     },
     {
-      "id": "img_i0rej8l",
+      "id": "img_f92mx8l",
       "name": "knight-fist",
       "src": "assets/eleven/knight-fist.png",
       "width": 83,
       "height": 116
     },
     {
-      "id": "img_4yoj48m",
+      "id": "img_xln0r8m",
+      "name": "knight-fist-inner",
+      "src": "assets/eleven/knight-fist-inner.png",
+      "width": 77,
+      "height": 130
+    },
+    {
+      "id": "img_a7qwi8n",
       "name": "knight-thigh",
       "src": "assets/eleven/knight-thigh.png",
       "width": 106,
       "height": 218
     },
     {
-      "id": "img_44dt18n",
+      "id": "img_rl43j8o",
       "name": "knight-shin",
       "src": "assets/eleven/knight-shin.png",
       "width": 111,
       "height": 282
     },
     {
-      "id": "img_uamks8o",
+      "id": "img_tr0he8p",
       "name": "knight-boot",
       "src": "assets/eleven/knight-boot.png",
       "width": 143,
       "height": 123
     },
     {
-      "id": "img_acye28p",
+      "id": "img_75prq8q",
       "name": "knight-sword",
       "src": "assets/eleven/knight-sword.png",
       "width": 116,
       "height": 370
     },
     {
-      "id": "img_u0sbh8q",
+      "id": "img_wn4rb8r",
       "name": "knight-shield",
       "src": "assets/eleven/knight-shield.png",
       "width": 263,
       "height": 265
     },
     {
-      "id": "img_ng1m78r",
+      "id": "img_5cpja8s",
       "name": "knight-cape",
       "src": "assets/eleven/knight-cape.png",
       "width": 343,
       "height": 175
     },
     {
-      "id": "img_xpvcg8s",
+      "id": "img_8wzfs8t",
       "name": "knight-bg-far",
       "src": "assets/eleven/knight-bg-far.jpg",
       "width": 2000,
       "height": 429
     },
     {
-      "id": "img_8flth8t",
+      "id": "img_av8xy8u",
       "name": "knight-bg-mid",
       "src": "assets/eleven/knight-bg-mid.png",
       "width": 2000,
       "height": 260
     },
     {
-      "id": "img_qvpzm8u",
+      "id": "img_tk3bq8v",
       "name": "knight-bg-ground",
       "src": "assets/eleven/knight-bg-ground.png",
       "width": 2000,
@@ -111,7 +118,7 @@
   "skeleton": {
     "bones": [
       {
-        "id": "bone_4s8bk8g",
+        "id": "bone_5cplu8g",
         "name": "root",
         "parent": null,
         "length": 0,
@@ -125,9 +132,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_diko78v",
+        "id": "bone_istzd8w",
         "name": "bg-far",
-        "parent": "bone_4s8bk8g",
+        "parent": "bone_5cplu8g",
         "length": 0,
         "x": 700,
         "y": 290,
@@ -140,9 +147,9 @@
         "color": "#7fb7ff"
       },
       {
-        "id": "bone_fjwpx8y",
+        "id": "bone_4fxpw8z",
         "name": "bg-mid",
-        "parent": "bone_4s8bk8g",
+        "parent": "bone_5cplu8g",
         "length": 0,
         "x": 700,
         "y": 100,
@@ -155,9 +162,9 @@
         "color": "#7fb7ff"
       },
       {
-        "id": "bone_lmeq391",
+        "id": "bone_ezlqf92",
         "name": "bg-ground",
-        "parent": "bone_4s8bk8g",
+        "parent": "bone_5cplu8g",
         "length": 0,
         "x": 700,
         "y": -61.36,
@@ -170,9 +177,9 @@
         "color": "#7fb7ff"
       },
       {
-        "id": "bone_qxsu594",
+        "id": "bone_dns9r95",
         "name": "hip",
-        "parent": "bone_4s8bk8g",
+        "parent": "bone_5cplu8g",
         "length": 20,
         "x": 0,
         "y": 148,
@@ -185,9 +192,9 @@
         "color": "#ff9f43"
       },
       {
-        "id": "bone_dbmnu95",
+        "id": "bone_vohm596",
         "name": "torso",
-        "parent": "bone_qxsu594",
+        "parent": "bone_dns9r95",
         "length": 104,
         "x": 5.8,
         "y": 0,
@@ -199,9 +206,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_5x2l096",
+        "id": "bone_v23bf97",
         "name": "head",
-        "parent": "bone_dbmnu95",
+        "parent": "bone_vohm596",
         "length": 50,
         "x": 103.97,
         "y": 1.9600000000000017,
@@ -213,9 +220,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_tnd1b97",
+        "id": "bone_36z6w98",
         "name": "back-arm",
-        "parent": "bone_dbmnu95",
+        "parent": "bone_vohm596",
         "length": 56,
         "x": 74.465,
         "y": -3.59,
@@ -227,9 +234,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_ceabh98",
+        "id": "bone_nbfxb99",
         "name": "back-forearm",
-        "parent": "bone_tnd1b97",
+        "parent": "bone_36z6w98",
         "length": 57,
         "x": 56.20140795567314,
         "y": 7.27,
@@ -241,9 +248,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_98ukh99",
+        "id": "bone_zb9jp9a",
         "name": "back-hand",
-        "parent": "bone_ceabh98",
+        "parent": "bone_nbfxb99",
         "length": 24,
         "x": 56.502,
         "y": 0,
@@ -255,9 +262,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_bwz1i9a",
+        "id": "bone_1droe9b",
         "name": "back-thigh",
-        "parent": "bone_qxsu594",
+        "parent": "bone_dns9r95",
         "length": 68,
         "x": 0,
         "y": 0,
@@ -269,9 +276,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_fic289b",
+        "id": "bone_031c89c",
         "name": "back-shin",
-        "parent": "bone_bwz1i9a",
+        "parent": "bone_1droe9b",
         "length": 76,
         "x": 67.9288,
         "y": 0,
@@ -283,9 +290,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_qn0eb9c",
+        "id": "bone_njurg9d",
         "name": "back-foot",
-        "parent": "bone_4s8bk8g",
+        "parent": "bone_5cplu8g",
         "length": 0,
         "x": -15,
         "y": 11.756039999999999,
@@ -298,9 +305,9 @@
         "color": "#ff5d5d"
       },
       {
-        "id": "bone_4ofu09d",
+        "id": "bone_lnizp9e",
         "name": "front-arm",
-        "parent": "bone_dbmnu95",
+        "parent": "bone_vohm596",
         "length": 56,
         "x": 69.69,
         "y": 34.19,
@@ -312,9 +319,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_ouwhj9e",
+        "id": "bone_8bq3i9f",
         "name": "front-forearm",
-        "parent": "bone_4ofu09d",
+        "parent": "bone_lnizp9e",
         "length": 57,
         "x": 56,
         "y": -9.87,
@@ -326,9 +333,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_yh1i59f",
+        "id": "bone_546gq9g",
         "name": "front-hand",
-        "parent": "bone_ouwhj9e",
+        "parent": "bone_8bq3i9f",
         "length": 24,
         "x": 56.502,
         "y": 0,
@@ -340,9 +347,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_dcwwz9g",
+        "id": "bone_wtttp9h",
         "name": "front-thigh",
-        "parent": "bone_qxsu594",
+        "parent": "bone_dns9r95",
         "length": 68,
         "x": 0,
         "y": 0,
@@ -354,9 +361,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_6bgvs9h",
+        "id": "bone_a5e7m9i",
         "name": "front-shin",
-        "parent": "bone_dcwwz9g",
+        "parent": "bone_wtttp9h",
         "length": 76,
         "x": 64.36,
         "y": -0.95,
@@ -368,9 +375,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_5e4e09i",
+        "id": "bone_1p6fd9j",
         "name": "front-foot",
-        "parent": "bone_4s8bk8g",
+        "parent": "bone_5cplu8g",
         "length": 0,
         "x": 15,
         "y": 11.756039999999999,
@@ -383,9 +390,9 @@
         "color": "#ff5d5d"
       },
       {
-        "id": "bone_tx9ff9j",
+        "id": "bone_1qu0i9k",
         "name": "drape1",
-        "parent": "bone_dbmnu95",
+        "parent": "bone_vohm596",
         "length": 50,
         "x": 92,
         "y": 10,
@@ -397,9 +404,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_tw0bv9k",
+        "id": "bone_38iuj9l",
         "name": "drape2",
-        "parent": "bone_tx9ff9j",
+        "parent": "bone_1qu0i9k",
         "length": 50,
         "x": 50,
         "y": 0,
@@ -411,9 +418,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_j8j2z9l",
+        "id": "bone_4bfhe9m",
         "name": "drape3",
-        "parent": "bone_tw0bv9k",
+        "parent": "bone_38iuj9l",
         "length": 50,
         "x": 50,
         "y": 0,
@@ -427,193 +434,193 @@
     ],
     "slots": [
       {
-        "id": "slot_0ks9j8w",
+        "id": "slot_r0q348x",
         "name": "bg-far-a",
-        "bone": "bone_diko78v",
+        "bone": "bone_istzd8w",
         "color": "#ffffff",
         "attachment": "knight-bg-far",
         "blend": "normal"
       },
       {
-        "id": "slot_d56n58x",
+        "id": "slot_bh98x8y",
         "name": "bg-far-b",
-        "bone": "bone_diko78v",
+        "bone": "bone_istzd8w",
         "color": "#ffffff",
         "attachment": "knight-bg-far",
         "blend": "normal"
       },
       {
-        "id": "slot_ny9mb8z",
+        "id": "slot_8ldx490",
         "name": "bg-mid-a",
-        "bone": "bone_fjwpx8y",
+        "bone": "bone_4fxpw8z",
         "color": "#ffffff",
         "attachment": "knight-bg-mid",
         "blend": "normal"
       },
       {
-        "id": "slot_dh4zn90",
+        "id": "slot_7dpmm91",
         "name": "bg-mid-b",
-        "bone": "bone_fjwpx8y",
+        "bone": "bone_4fxpw8z",
         "color": "#ffffff",
         "attachment": "knight-bg-mid",
         "blend": "normal"
       },
       {
-        "id": "slot_ck3s692",
+        "id": "slot_8o53j93",
         "name": "bg-ground-a",
-        "bone": "bone_lmeq391",
+        "bone": "bone_ezlqf92",
         "color": "#ffffff",
         "attachment": "knight-bg-ground",
         "blend": "normal"
       },
       {
-        "id": "slot_6wugc93",
+        "id": "slot_s2cf594",
         "name": "bg-ground-b",
-        "bone": "bone_lmeq391",
+        "bone": "bone_ezlqf92",
         "color": "#ffffff",
         "attachment": "knight-bg-ground",
         "blend": "normal"
       },
       {
-        "id": "slot_t14269m",
+        "id": "slot_dfwj79n",
         "name": "drape",
-        "bone": "bone_tx9ff9j",
+        "bone": "bone_1qu0i9k",
         "color": "#ffffff",
         "attachment": "drape",
         "blend": "normal"
       },
       {
-        "id": "slot_b87tg9n",
+        "id": "slot_fyugw9o",
         "name": "sword",
-        "bone": "bone_98ukh99",
+        "bone": "bone_zb9jp9a",
         "color": "#ffffff",
         "attachment": "knight-sword",
         "blend": "normal"
       },
       {
-        "id": "slot_hcuky9o",
+        "id": "slot_2ig9v9p",
         "name": "back-upper",
-        "bone": "bone_tnd1b97",
+        "bone": "bone_36z6w98",
         "color": "#c2c6d0",
         "attachment": "knight-arm-upper",
         "blend": "normal"
       },
       {
-        "id": "slot_3xywj9p",
+        "id": "slot_akfrq9q",
         "name": "back-fore",
-        "bone": "bone_ceabh98",
+        "bone": "bone_nbfxb99",
         "color": "#c2c6d0",
         "attachment": "knight-forearm",
         "blend": "normal"
       },
       {
-        "id": "slot_5oixt9q",
+        "id": "slot_nneui9r",
         "name": "back-fist",
-        "bone": "bone_98ukh99",
+        "bone": "bone_zb9jp9a",
         "color": "#c2c6d0",
-        "attachment": "knight-fist",
+        "attachment": "knight-fist-inner",
         "blend": "normal"
       },
       {
-        "id": "slot_r93fv9r",
+        "id": "slot_51hbf9s",
         "name": "back-boot",
-        "bone": "bone_qn0eb9c",
+        "bone": "bone_njurg9d",
         "color": "#c2c6d0",
         "attachment": "knight-boot",
         "blend": "normal"
       },
       {
-        "id": "slot_jusxq9s",
+        "id": "slot_xokmj9t",
         "name": "back-shin",
-        "bone": "bone_fic289b",
+        "bone": "bone_031c89c",
         "color": "#c2c6d0",
         "attachment": "knight-shin",
         "blend": "normal"
       },
       {
-        "id": "slot_ehpvg9t",
+        "id": "slot_ueoq59u",
         "name": "back-thigh",
-        "bone": "bone_bwz1i9a",
+        "bone": "bone_1droe9b",
         "color": "#c2c6d0",
         "attachment": "knight-thigh",
         "blend": "normal"
       },
       {
-        "id": "slot_qvdti9u",
+        "id": "slot_phsq29v",
         "name": "front-boot",
-        "bone": "bone_5e4e09i",
+        "bone": "bone_1p6fd9j",
         "color": "#ffffff",
         "attachment": "knight-boot",
         "blend": "normal"
       },
       {
-        "id": "slot_blw1j9v",
+        "id": "slot_mp6ov9w",
         "name": "front-shin",
-        "bone": "bone_6bgvs9h",
+        "bone": "bone_a5e7m9i",
         "color": "#ffffff",
         "attachment": "knight-shin",
         "blend": "normal"
       },
       {
-        "id": "slot_qb9qx9w",
+        "id": "slot_452kp9x",
         "name": "front-thigh",
-        "bone": "bone_dcwwz9g",
+        "bone": "bone_wtttp9h",
         "color": "#ffffff",
         "attachment": "knight-thigh",
         "blend": "normal"
       },
       {
-        "id": "slot_45one9x",
+        "id": "slot_uyx369y",
         "name": "torso",
-        "bone": "bone_dbmnu95",
+        "bone": "bone_vohm596",
         "color": "#ffffff",
         "attachment": "knight-torso",
         "blend": "normal"
       },
       {
-        "id": "slot_a87qm9y",
+        "id": "slot_vd7gt9z",
         "name": "head",
-        "bone": "bone_5x2l096",
+        "bone": "bone_v23bf97",
         "color": "#ffffff",
         "attachment": "knight-helmet",
         "blend": "normal"
       },
       {
-        "id": "slot_dvbfw9z",
+        "id": "slot_d2iata0",
         "name": "front-upper",
-        "bone": "bone_4ofu09d",
+        "bone": "bone_lnizp9e",
         "color": "#ffffff",
         "attachment": "knight-arm-upper",
         "blend": "normal"
       },
       {
-        "id": "slot_f6xsxa0",
+        "id": "slot_9ovjxa1",
         "name": "front-fore",
-        "bone": "bone_ouwhj9e",
+        "bone": "bone_8bq3i9f",
         "color": "#ffffff",
         "attachment": "knight-forearm",
         "blend": "normal"
       },
       {
-        "id": "slot_rdol5a1",
+        "id": "slot_polp9a2",
         "name": "front-fist",
-        "bone": "bone_yh1i59f",
+        "bone": "bone_546gq9g",
         "color": "#ffffff",
         "attachment": "knight-fist",
         "blend": "normal"
       },
       {
-        "id": "slot_2a0zga2",
+        "id": "slot_pgyp7a3",
         "name": "shield",
-        "bone": "bone_ouwhj9e",
+        "bone": "bone_8bq3i9f",
         "color": "#ffffff",
         "attachment": "knight-shield",
         "blend": "normal"
       },
       {
-        "id": "slot_3rhf3a5",
+        "id": "slot_i4l6ja6",
         "name": "road-hit",
-        "bone": "bone_4s8bk8g",
+        "bone": "bone_5cplu8g",
         "color": "#ffffff",
         "attachment": null,
         "blend": "normal"
@@ -624,11 +631,11 @@
         "id": "skin_default",
         "name": "default",
         "attachments": {
-          "slot_0ks9j8w": {
+          "slot_r0q348x": {
             "knight-bg-far": {
               "type": "region",
               "name": "knight-bg-far",
-              "image": "img_xpvcg8s",
+              "image": "img_8wzfs8t",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -639,11 +646,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_d56n58x": {
+          "slot_bh98x8y": {
             "knight-bg-far": {
               "type": "region",
               "name": "knight-bg-far",
-              "image": "img_xpvcg8s",
+              "image": "img_8wzfs8t",
               "x": 2300,
               "y": 0,
               "rotation": 0,
@@ -654,11 +661,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_ny9mb8z": {
+          "slot_8ldx490": {
             "knight-bg-mid": {
               "type": "region",
               "name": "knight-bg-mid",
-              "image": "img_8flth8t",
+              "image": "img_av8xy8u",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -669,11 +676,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_dh4zn90": {
+          "slot_7dpmm91": {
             "knight-bg-mid": {
               "type": "region",
               "name": "knight-bg-mid",
-              "image": "img_8flth8t",
+              "image": "img_av8xy8u",
               "x": 2300,
               "y": 0,
               "rotation": 0,
@@ -684,11 +691,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_ck3s692": {
+          "slot_8o53j93": {
             "knight-bg-ground": {
               "type": "region",
               "name": "knight-bg-ground",
-              "image": "img_qvpzm8u",
+              "image": "img_tk3bq8v",
               "x": 0,
               "y": 0,
               "rotation": 0,
@@ -699,11 +706,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_6wugc93": {
+          "slot_s2cf594": {
             "knight-bg-ground": {
               "type": "region",
               "name": "knight-bg-ground",
-              "image": "img_qvpzm8u",
+              "image": "img_tk3bq8v",
               "x": 2300,
               "y": 0,
               "rotation": 0,
@@ -714,11 +721,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_t14269m": {
+          "slot_dfwj79n": {
             "drape": {
               "type": "mesh",
               "name": "drape",
-              "image": "img_ng1m78r",
+              "image": "img_5cpja8s",
               "vertices": [
                 0,
                 42,
@@ -886,13 +893,13 @@
               "weights": [
                 [
                   {
-                    "bone": "bone_tx9ff9j",
+                    "bone": "bone_1qu0i9k",
                     "x": 0,
                     "y": 42.000000000000014,
                     "weight": 0.7039041078535754
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": -50,
                     "y": 41.999999999999986,
                     "weight": 0.2960958921464246
@@ -900,13 +907,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tx9ff9j",
+                    "bone": "bone_1qu0i9k",
                     "x": 25.00000000000003,
                     "y": 42.000000000000014,
                     "weight": 0.5736443291622318
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": -24.99999999999997,
                     "y": 42,
                     "weight": 0.4263556708377681
@@ -914,13 +921,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tx9ff9j",
+                    "bone": "bone_1qu0i9k",
                     "x": 50,
                     "y": 42.000000000000014,
                     "weight": 0.5
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 2.842170943040401e-14,
                     "y": 41.999999999999986,
                     "weight": 0.5
@@ -928,13 +935,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 25.00000000000003,
                     "y": 41.999999999999986,
                     "weight": 0.573644329162232
                   },
                   {
-                    "bone": "bone_j8j2z9l",
+                    "bone": "bone_4bfhe9m",
                     "x": -24.999999999999943,
                     "y": 42,
                     "weight": 0.426355670837768
@@ -942,13 +949,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 50,
                     "y": 41.999999999999986,
                     "weight": 0.5
                   },
                   {
-                    "bone": "bone_j8j2z9l",
+                    "bone": "bone_4bfhe9m",
                     "x": 2.842170943040401e-14,
                     "y": 42,
                     "weight": 0.5
@@ -956,13 +963,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_j8j2z9l",
+                    "bone": "bone_4bfhe9m",
                     "x": 25.00000000000003,
                     "y": 42,
                     "weight": 0.5736443291622321
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 75,
                     "y": 41.999999999999986,
                     "weight": 0.426355670837768
@@ -970,13 +977,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_j8j2z9l",
+                    "bone": "bone_4bfhe9m",
                     "x": 50.00000000000004,
                     "y": 42,
                     "weight": 0.7039041078535755
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 100.00000000000001,
                     "y": 41.999999999999986,
                     "weight": 0.29609589214642457
@@ -984,13 +991,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_j8j2z9l",
+                    "bone": "bone_4bfhe9m",
                     "x": 50.00000000000004,
                     "y": 1.4210854715202004e-14,
                     "weight": 0.9996156802459647
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 100.00000000000001,
                     "y": 0,
                     "weight": 0.000384319754035379
@@ -998,13 +1005,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_j8j2z9l",
+                    "bone": "bone_4bfhe9m",
                     "x": 50.00000000000006,
                     "y": -42,
                     "weight": 0.7039041078535755
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 100.00000000000001,
                     "y": -42.000000000000014,
                     "weight": 0.29609589214642457
@@ -1012,13 +1019,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_j8j2z9l",
+                    "bone": "bone_4bfhe9m",
                     "x": 25.000000000000043,
                     "y": -41.999999999999986,
                     "weight": 0.5736443291622321
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 75,
                     "y": -42,
                     "weight": 0.426355670837768
@@ -1026,13 +1033,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 50,
                     "y": -42,
                     "weight": 0.5
                   },
                   {
-                    "bone": "bone_j8j2z9l",
+                    "bone": "bone_4bfhe9m",
                     "x": 2.842170943040401e-14,
                     "y": -41.999999999999986,
                     "weight": 0.5
@@ -1040,13 +1047,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 25,
                     "y": -42,
                     "weight": 0.5736443291622318
                   },
                   {
-                    "bone": "bone_j8j2z9l",
+                    "bone": "bone_4bfhe9m",
                     "x": -24.999999999999943,
                     "y": -41.999999999999986,
                     "weight": 0.4263556708377681
@@ -1054,13 +1061,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tx9ff9j",
+                    "bone": "bone_1qu0i9k",
                     "x": 50,
                     "y": -42,
                     "weight": 0.5
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 0,
                     "y": -42,
                     "weight": 0.5
@@ -1068,13 +1075,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tx9ff9j",
+                    "bone": "bone_1qu0i9k",
                     "x": 25,
                     "y": -41.999999999999986,
                     "weight": 0.5736443291622318
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": -24.99999999999997,
                     "y": -41.999999999999986,
                     "weight": 0.42635567083776815
@@ -1082,13 +1089,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tx9ff9j",
+                    "bone": "bone_1qu0i9k",
                     "x": 0,
                     "y": -42,
                     "weight": 0.7039041078535754
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": -49.99999999999997,
                     "y": -42,
                     "weight": 0.2960958921464246
@@ -1096,13 +1103,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tx9ff9j",
+                    "bone": "bone_1qu0i9k",
                     "x": 0,
                     "y": 0,
                     "weight": 0.9996156802459647
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": -49.99999999999997,
                     "y": 0,
                     "weight": 0.0003843197540353576
@@ -1110,13 +1117,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tx9ff9j",
+                    "bone": "bone_1qu0i9k",
                     "x": 25.00000000000003,
                     "y": 1.4210854715202004e-14,
                     "weight": 0.9985228951255538
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": -24.99999999999997,
                     "y": 0,
                     "weight": 0.0014771048744460975
@@ -1124,13 +1131,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tx9ff9j",
+                    "bone": "bone_1qu0i9k",
                     "x": 50,
                     "y": 0,
                     "weight": 0.5
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 0,
                     "y": 0,
                     "weight": 0.5
@@ -1138,13 +1145,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 25,
                     "y": 0,
                     "weight": 0.9985228951255538
                   },
                   {
-                    "bone": "bone_j8j2z9l",
+                    "bone": "bone_4bfhe9m",
                     "x": -24.99999999999997,
                     "y": 1.4210854715202004e-14,
                     "weight": 0.001477104874446087
@@ -1152,13 +1159,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 49.99999999999997,
                     "y": -1.4210854715202004e-14,
                     "weight": 0.5
                   },
                   {
-                    "bone": "bone_j8j2z9l",
+                    "bone": "bone_4bfhe9m",
                     "x": 0,
                     "y": 0,
                     "weight": 0.5
@@ -1166,13 +1173,13 @@
                 ],
                 [
                   {
-                    "bone": "bone_j8j2z9l",
+                    "bone": "bone_4bfhe9m",
                     "x": 25.00000000000003,
                     "y": 1.4210854715202004e-14,
                     "weight": 0.9985228951255538
                   },
                   {
-                    "bone": "bone_tw0bv9k",
+                    "bone": "bone_38iuj9l",
                     "x": 75,
                     "y": 0,
                     "weight": 0.0014771048744461053
@@ -1181,11 +1188,11 @@
               ]
             }
           },
-          "slot_b87tg9n": {
+          "slot_fyugw9o": {
             "knight-sword": {
               "type": "region",
               "name": "knight-sword",
-              "image": "img_acye28p",
+              "image": "img_75prq8q",
               "x": 57.22,
               "y": 49.21,
               "rotation": -40,
@@ -1196,11 +1203,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_hcuky9o": {
+          "slot_2ig9v9p": {
             "knight-arm-upper": {
               "type": "region",
               "name": "knight-arm-upper",
-              "image": "img_ixv0u8j",
+              "image": "img_nngkb8j",
               "x": 20,
               "y": -1,
               "rotation": 90,
@@ -1211,11 +1218,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_3xywj9p": {
+          "slot_akfrq9q": {
             "knight-forearm": {
               "type": "region",
               "name": "knight-forearm",
-              "image": "img_3qd6l8k",
+              "image": "img_fgsi88k",
               "x": 23.3,
               "y": 0,
               "rotation": 90,
@@ -1226,26 +1233,26 @@
               "color": "#ffffff"
             }
           },
-          "slot_5oixt9q": {
-            "knight-fist": {
+          "slot_nneui9r": {
+            "knight-fist-inner": {
               "type": "region",
-              "name": "knight-fist",
-              "image": "img_i0rej8l",
+              "name": "knight-fist-inner",
+              "image": "img_xln0r8m",
               "x": 15.31,
-              "y": 0,
+              "y": 1.32,
               "rotation": 90,
-              "scaleX": -1,
+              "scaleX": 1,
               "scaleY": 1,
-              "width": 35.69,
-              "height": 49.88,
+              "width": 33.11,
+              "height": 55.9,
               "color": "#ffffff"
             }
           },
-          "slot_r93fv9r": {
+          "slot_51hbf9s": {
             "knight-boot": {
               "type": "region",
               "name": "knight-boot",
-              "image": "img_uamks8o",
+              "image": "img_tr0he8p",
               "x": 10.44,
               "y": 2.78,
               "rotation": 0,
@@ -1256,11 +1263,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_jusxq9s": {
+          "slot_xokmj9t": {
             "knight-shin": {
               "type": "region",
               "name": "knight-shin",
-              "image": "img_44dt18n",
+              "image": "img_rl43j8o",
               "x": 15.58,
               "y": -9.4,
               "rotation": 90,
@@ -1271,11 +1278,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_ehpvg9t": {
+          "slot_ueoq59u": {
             "knight-thigh": {
               "type": "region",
               "name": "knight-thigh",
-              "image": "img_4yoj48m",
+              "image": "img_a7qwi8n",
               "x": 33.96,
               "y": 0,
               "rotation": 90,
@@ -1286,11 +1293,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_qvdti9u": {
+          "slot_phsq29v": {
             "knight-boot": {
               "type": "region",
               "name": "knight-boot",
-              "image": "img_uamks8o",
+              "image": "img_tr0he8p",
               "x": 9.01,
               "y": 0,
               "rotation": 0,
@@ -1301,11 +1308,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_blw1j9v": {
+          "slot_mp6ov9w": {
             "knight-shin": {
               "type": "region",
               "name": "knight-shin",
-              "image": "img_44dt18n",
+              "image": "img_rl43j8o",
               "x": 22.39,
               "y": -7.64,
               "rotation": 90,
@@ -1316,11 +1323,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_qb9qx9w": {
+          "slot_452kp9x": {
             "knight-thigh": {
               "type": "region",
               "name": "knight-thigh",
-              "image": "img_4yoj48m",
+              "image": "img_a7qwi8n",
               "x": 33.96,
               "y": 0,
               "rotation": 90,
@@ -1331,11 +1338,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_45one9x": {
+          "slot_uyx369y": {
             "knight-torso": {
               "type": "region",
               "name": "knight-torso",
-              "image": "img_673z78h",
+              "image": "img_52jzp8h",
               "x": 42.15,
               "y": 1.96,
               "rotation": -90,
@@ -1360,11 +1367,11 @@
               ]
             }
           },
-          "slot_a87qm9y": {
+          "slot_vd7gt9z": {
             "knight-helmet": {
               "type": "region",
               "name": "knight-helmet",
-              "image": "img_epkcy8i",
+              "image": "img_0qqoh8i",
               "x": 47.21,
               "y": 12.56,
               "rotation": -90,
@@ -1389,11 +1396,11 @@
               ]
             }
           },
-          "slot_dvbfw9z": {
+          "slot_d2iata0": {
             "knight-arm-upper": {
               "type": "region",
               "name": "knight-arm-upper",
-              "image": "img_ixv0u8j",
+              "image": "img_nngkb8j",
               "x": 22.14,
               "y": 1.01,
               "rotation": 90,
@@ -1404,11 +1411,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_f6xsxa0": {
+          "slot_9ovjxa1": {
             "knight-forearm": {
               "type": "region",
               "name": "knight-forearm",
-              "image": "img_3qd6l8k",
+              "image": "img_fgsi88k",
               "x": 28.45,
               "y": -0.28,
               "rotation": 90,
@@ -1419,11 +1426,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_rdol5a1": {
+          "slot_polp9a2": {
             "knight-fist": {
               "type": "region",
               "name": "knight-fist",
-              "image": "img_i0rej8l",
+              "image": "img_f92mx8l",
               "x": 17.96,
               "y": 0,
               "rotation": 90,
@@ -1434,11 +1441,11 @@
               "color": "#ffffff"
             }
           },
-          "slot_2a0zga2": {
+          "slot_pgyp7a3": {
             "knight-shield": {
               "type": "region",
               "name": "knight-shield",
-              "image": "img_u0sbh8q",
+              "image": "img_wn4rb8r",
               "x": 40,
               "y": -6,
               "rotation": 90,
@@ -1449,7 +1456,7 @@
               "color": "#ffffff"
             }
           },
-          "slot_3rhf3a5": {
+          "slot_i4l6ja6": {
             "road": {
               "type": "boundingBox",
               "name": "road",
@@ -1470,13 +1477,13 @@
     ],
     "ik": [
       {
-        "id": "ik_k6rota3",
+        "id": "ik_ejvoga4",
         "name": "back-leg",
         "bones": [
-          "bone_bwz1i9a",
-          "bone_fic289b"
+          "bone_1droe9b",
+          "bone_031c89c"
         ],
-        "target": "bone_qn0eb9c",
+        "target": "bone_njurg9d",
         "mix": 1,
         "bendPositive": false,
         "softness": 0,
@@ -1484,13 +1491,13 @@
         "compress": false
       },
       {
-        "id": "ik_tr10ea4",
+        "id": "ik_yx6bva5",
         "name": "front-leg",
         "bones": [
-          "bone_dcwwz9g",
-          "bone_6bgvs9h"
+          "bone_wtttp9h",
+          "bone_a5e7m9i"
         ],
-        "target": "bone_5e4e09i",
+        "target": "bone_1p6fd9j",
         "mix": 1,
         "bendPositive": false,
         "softness": 0,
@@ -1505,13 +1512,13 @@
   "events": [],
   "animations": [
     {
-      "id": "anim_0jkc5a6",
+      "id": "anim_q9vlya7",
       "name": "idle",
       "duration": 2.4,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_qxsu594",
+          "id": "bone_dns9r95",
           "property": "y",
           "keys": [
             {
@@ -1548,7 +1555,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_dbmnu95",
+          "id": "bone_vohm596",
           "property": "rotation",
           "keys": [
             {
@@ -1585,7 +1592,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5x2l096",
+          "id": "bone_v23bf97",
           "property": "rotation",
           "keys": [
             {
@@ -1622,7 +1629,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_tnd1b97",
+          "id": "bone_36z6w98",
           "property": "rotation",
           "keys": [
             {
@@ -1659,7 +1666,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_ceabh98",
+          "id": "bone_nbfxb99",
           "property": "rotation",
           "keys": [
             {
@@ -1696,7 +1703,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_4ofu09d",
+          "id": "bone_lnizp9e",
           "property": "rotation",
           "keys": [
             {
@@ -1733,7 +1740,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_ouwhj9e",
+          "id": "bone_8bq3i9f",
           "property": "rotation",
           "keys": [
             {
@@ -1770,7 +1777,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_tw0bv9k",
+          "id": "bone_38iuj9l",
           "property": "rotation",
           "keys": [
             {
@@ -1807,7 +1814,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_j8j2z9l",
+          "id": "bone_4bfhe9m",
           "property": "rotation",
           "keys": [
             {
@@ -1844,7 +1851,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5e4e09i",
+          "id": "bone_1p6fd9j",
           "property": "x",
           "keys": [
             {
@@ -1856,7 +1863,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5e4e09i",
+          "id": "bone_1p6fd9j",
           "property": "y",
           "keys": [
             {
@@ -1868,7 +1875,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5e4e09i",
+          "id": "bone_1p6fd9j",
           "property": "rotation",
           "keys": [
             {
@@ -1880,7 +1887,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qn0eb9c",
+          "id": "bone_njurg9d",
           "property": "x",
           "keys": [
             {
@@ -1892,7 +1899,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qn0eb9c",
+          "id": "bone_njurg9d",
           "property": "y",
           "keys": [
             {
@@ -1904,7 +1911,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qn0eb9c",
+          "id": "bone_njurg9d",
           "property": "rotation",
           "keys": [
             {
@@ -1916,7 +1923,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_tx9ff9j",
+          "id": "bone_1qu0i9k",
           "property": "rotation",
           "keys": [
             {
@@ -1928,7 +1935,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_98ukh99",
+          "id": "bone_zb9jp9a",
           "property": "rotation",
           "keys": [
             {
@@ -1940,7 +1947,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qxsu594",
+          "id": "bone_dns9r95",
           "property": "x",
           "keys": [
             {
@@ -1954,13 +1961,13 @@
       "events": []
     },
     {
-      "id": "anim_cumlaa7",
+      "id": "anim_ehwf5a8",
       "name": "walk",
       "duration": 1,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_5e4e09i",
+          "id": "bone_1p6fd9j",
           "property": "x",
           "keys": [
             {
@@ -1997,7 +2004,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5e4e09i",
+          "id": "bone_1p6fd9j",
           "property": "y",
           "keys": [
             {
@@ -2074,7 +2081,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5e4e09i",
+          "id": "bone_1p6fd9j",
           "property": "rotation",
           "keys": [
             {
@@ -2151,7 +2158,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qn0eb9c",
+          "id": "bone_njurg9d",
           "property": "x",
           "keys": [
             {
@@ -2188,7 +2195,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qn0eb9c",
+          "id": "bone_njurg9d",
           "property": "y",
           "keys": [
             {
@@ -2265,7 +2272,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qn0eb9c",
+          "id": "bone_njurg9d",
           "property": "rotation",
           "keys": [
             {
@@ -2352,7 +2359,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qxsu594",
+          "id": "bone_dns9r95",
           "property": "y",
           "keys": [
             {
@@ -2409,7 +2416,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_dbmnu95",
+          "id": "bone_vohm596",
           "property": "rotation",
           "keys": [
             {
@@ -2466,7 +2473,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5x2l096",
+          "id": "bone_v23bf97",
           "property": "rotation",
           "keys": [
             {
@@ -2523,7 +2530,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_tnd1b97",
+          "id": "bone_36z6w98",
           "property": "rotation",
           "keys": [
             {
@@ -2560,7 +2567,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_ceabh98",
+          "id": "bone_nbfxb99",
           "property": "rotation",
           "keys": [
             {
@@ -2597,7 +2604,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_4ofu09d",
+          "id": "bone_lnizp9e",
           "property": "rotation",
           "keys": [
             {
@@ -2634,7 +2641,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_ouwhj9e",
+          "id": "bone_8bq3i9f",
           "property": "rotation",
           "keys": [
             {
@@ -2671,7 +2678,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_tx9ff9j",
+          "id": "bone_1qu0i9k",
           "property": "rotation",
           "keys": [
             {
@@ -2708,7 +2715,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_tw0bv9k",
+          "id": "bone_38iuj9l",
           "property": "rotation",
           "keys": [
             {
@@ -2765,7 +2772,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_j8j2z9l",
+          "id": "bone_4bfhe9m",
           "property": "rotation",
           "keys": [
             {
@@ -2822,7 +2829,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_98ukh99",
+          "id": "bone_zb9jp9a",
           "property": "rotation",
           "keys": [
             {
@@ -2834,7 +2841,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qxsu594",
+          "id": "bone_dns9r95",
           "property": "x",
           "keys": [
             {
@@ -2849,22 +2856,22 @@
       "audio": [
         {
           "time": 0.02,
-          "sound": "snd_k7ii2av"
+          "sound": "snd_1iec4aw"
         },
         {
           "time": 0.52,
-          "sound": "snd_k7ii2av"
+          "sound": "snd_1iec4aw"
         }
       ]
     },
     {
-      "id": "anim_bsdg4a8",
+      "id": "anim_o8i69a9",
       "name": "attack",
       "duration": 0.95,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_tnd1b97",
+          "id": "bone_36z6w98",
           "property": "rotation",
           "keys": [
             {
@@ -2931,7 +2938,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_ceabh98",
+          "id": "bone_nbfxb99",
           "property": "rotation",
           "keys": [
             {
@@ -2998,7 +3005,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_98ukh99",
+          "id": "bone_zb9jp9a",
           "property": "rotation",
           "keys": [
             {
@@ -3045,7 +3052,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_dbmnu95",
+          "id": "bone_vohm596",
           "property": "rotation",
           "keys": [
             {
@@ -3112,7 +3119,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qxsu594",
+          "id": "bone_dns9r95",
           "property": "x",
           "keys": [
             {
@@ -3169,7 +3176,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qxsu594",
+          "id": "bone_dns9r95",
           "property": "y",
           "keys": [
             {
@@ -3226,7 +3233,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_4ofu09d",
+          "id": "bone_lnizp9e",
           "property": "rotation",
           "keys": [
             {
@@ -3273,7 +3280,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5x2l096",
+          "id": "bone_v23bf97",
           "property": "rotation",
           "keys": [
             {
@@ -3320,7 +3327,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_tw0bv9k",
+          "id": "bone_38iuj9l",
           "property": "rotation",
           "keys": [
             {
@@ -3367,7 +3374,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_j8j2z9l",
+          "id": "bone_4bfhe9m",
           "property": "rotation",
           "keys": [
             {
@@ -3414,7 +3421,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_ouwhj9e",
+          "id": "bone_8bq3i9f",
           "property": "rotation",
           "keys": [
             {
@@ -3426,7 +3433,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5e4e09i",
+          "id": "bone_1p6fd9j",
           "property": "x",
           "keys": [
             {
@@ -3438,7 +3445,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5e4e09i",
+          "id": "bone_1p6fd9j",
           "property": "y",
           "keys": [
             {
@@ -3450,7 +3457,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5e4e09i",
+          "id": "bone_1p6fd9j",
           "property": "rotation",
           "keys": [
             {
@@ -3462,7 +3469,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qn0eb9c",
+          "id": "bone_njurg9d",
           "property": "x",
           "keys": [
             {
@@ -3474,7 +3481,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qn0eb9c",
+          "id": "bone_njurg9d",
           "property": "y",
           "keys": [
             {
@@ -3486,7 +3493,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qn0eb9c",
+          "id": "bone_njurg9d",
           "property": "rotation",
           "keys": [
             {
@@ -3498,7 +3505,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_tx9ff9j",
+          "id": "bone_1qu0i9k",
           "property": "rotation",
           "keys": [
             {
@@ -3513,22 +3520,22 @@
       "audio": [
         {
           "time": 0.34,
-          "sound": "snd_ezpxfax"
+          "sound": "snd_hau7jay"
         },
         {
           "time": 0.47,
-          "sound": "snd_dqb09az"
+          "sound": "snd_hvoknb0"
         }
       ]
     },
     {
-      "id": "anim_euq2aa9",
+      "id": "anim_taaipaa",
       "name": "salute",
       "duration": 1.8,
       "timelines": [
         {
           "target": "bone",
-          "id": "bone_tnd1b97",
+          "id": "bone_36z6w98",
           "property": "rotation",
           "keys": [
             {
@@ -3575,7 +3582,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_ceabh98",
+          "id": "bone_nbfxb99",
           "property": "rotation",
           "keys": [
             {
@@ -3622,7 +3629,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_98ukh99",
+          "id": "bone_zb9jp9a",
           "property": "rotation",
           "keys": [
             {
@@ -3669,7 +3676,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_dbmnu95",
+          "id": "bone_vohm596",
           "property": "rotation",
           "keys": [
             {
@@ -3716,7 +3723,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5x2l096",
+          "id": "bone_v23bf97",
           "property": "rotation",
           "keys": [
             {
@@ -3773,7 +3780,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qxsu594",
+          "id": "bone_dns9r95",
           "property": "y",
           "keys": [
             {
@@ -3820,7 +3827,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_j8j2z9l",
+          "id": "bone_4bfhe9m",
           "property": "rotation",
           "keys": [
             {
@@ -3867,7 +3874,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_4ofu09d",
+          "id": "bone_lnizp9e",
           "property": "rotation",
           "keys": [
             {
@@ -3879,7 +3886,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_ouwhj9e",
+          "id": "bone_8bq3i9f",
           "property": "rotation",
           "keys": [
             {
@@ -3891,7 +3898,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_tw0bv9k",
+          "id": "bone_38iuj9l",
           "property": "rotation",
           "keys": [
             {
@@ -3903,7 +3910,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5e4e09i",
+          "id": "bone_1p6fd9j",
           "property": "x",
           "keys": [
             {
@@ -3915,7 +3922,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5e4e09i",
+          "id": "bone_1p6fd9j",
           "property": "y",
           "keys": [
             {
@@ -3927,7 +3934,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_5e4e09i",
+          "id": "bone_1p6fd9j",
           "property": "rotation",
           "keys": [
             {
@@ -3939,7 +3946,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qn0eb9c",
+          "id": "bone_njurg9d",
           "property": "x",
           "keys": [
             {
@@ -3951,7 +3958,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qn0eb9c",
+          "id": "bone_njurg9d",
           "property": "y",
           "keys": [
             {
@@ -3963,7 +3970,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qn0eb9c",
+          "id": "bone_njurg9d",
           "property": "rotation",
           "keys": [
             {
@@ -3975,7 +3982,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_tx9ff9j",
+          "id": "bone_1qu0i9k",
           "property": "rotation",
           "keys": [
             {
@@ -3987,7 +3994,7 @@
         },
         {
           "target": "bone",
-          "id": "bone_qxsu594",
+          "id": "bone_dns9r95",
           "property": "x",
           "keys": [
             {
@@ -4002,30 +4009,30 @@
       "audio": [
         {
           "time": 0.3,
-          "sound": "snd_jbpkcb1"
+          "sound": "snd_lpefpb2"
         }
       ]
     }
   ],
   "stateMachines": [
     {
-      "id": "sm_kh11gaa",
+      "id": "sm_baah4ab",
       "name": "knight",
       "inputs": [
         {
-          "id": "in_sxx6nab",
+          "id": "in_r68c5ac",
           "name": "walk",
           "type": "bool",
           "default": false
         },
         {
-          "id": "in_ss306ac",
+          "id": "in_in7kqad",
           "name": "attack",
           "type": "trigger",
           "default": false
         },
         {
-          "id": "in_9prw4ad",
+          "id": "in_krwg7ae",
           "name": "salute",
           "type": "trigger",
           "default": false
@@ -4034,45 +4041,45 @@
       "bindings": [],
       "layers": [
         {
-          "id": "sm_kh11gaa_layer1",
+          "id": "sm_baah4ab_layer1",
           "name": "Layer 1",
-          "entry": "st_dp4v7ae",
+          "entry": "st_kva32af",
           "states": [
             {
-              "id": "st_dp4v7ae",
+              "id": "st_kva32af",
               "name": "idle",
               "type": "animation",
-              "animation": "anim_0jkc5a6",
+              "animation": "anim_q9vlya7",
               "loop": true,
               "speed": 1,
               "x": 120,
               "y": 140
             },
             {
-              "id": "st_9r5g5af",
+              "id": "st_eat86ag",
               "name": "walk",
               "type": "animation",
-              "animation": "anim_cumlaa7",
+              "animation": "anim_ehwf5a8",
               "loop": true,
               "speed": 1,
               "x": 380,
               "y": 40
             },
             {
-              "id": "st_yfp0gag",
+              "id": "st_eq7u5ah",
               "name": "attack",
               "type": "animation",
-              "animation": "anim_bsdg4a8",
+              "animation": "anim_o8i69a9",
               "loop": false,
               "speed": 1,
               "x": 380,
               "y": 160
             },
             {
-              "id": "st_u0zizah",
+              "id": "st_o96noai",
               "name": "salute",
               "type": "animation",
-              "animation": "anim_euq2aa9",
+              "animation": "anim_taaipaa",
               "loop": false,
               "speed": 1,
               "x": 380,
@@ -4081,12 +4088,12 @@
           ],
           "transitions": [
             {
-              "id": "tr_1mzugai",
-              "from": "st_dp4v7ae",
-              "to": "st_9r5g5af",
+              "id": "tr_ppyedaj",
+              "from": "st_kva32af",
+              "to": "st_eat86ag",
               "conditions": [
                 {
-                  "input": "in_sxx6nab",
+                  "input": "in_r68c5ac",
                   "op": "==",
                   "value": true
                 }
@@ -4095,12 +4102,12 @@
               "exitTime": null
             },
             {
-              "id": "tr_5jzw4aj",
-              "from": "st_9r5g5af",
-              "to": "st_dp4v7ae",
+              "id": "tr_nenj2ak",
+              "from": "st_eat86ag",
+              "to": "st_kva32af",
               "conditions": [
                 {
-                  "input": "in_sxx6nab",
+                  "input": "in_r68c5ac",
                   "op": "==",
                   "value": false
                 }
@@ -4109,12 +4116,12 @@
               "exitTime": null
             },
             {
-              "id": "tr_aacafak",
+              "id": "tr_06ul8al",
               "from": "@any",
-              "to": "st_yfp0gag",
+              "to": "st_eq7u5ah",
               "conditions": [
                 {
-                  "input": "in_ss306ac",
+                  "input": "in_in7kqad",
                   "op": "==",
                   "value": true
                 }
@@ -4123,12 +4130,12 @@
               "exitTime": null
             },
             {
-              "id": "tr_z3cxlal",
+              "id": "tr_4mdtpam",
               "from": "@any",
-              "to": "st_u0zizah",
+              "to": "st_o96noai",
               "conditions": [
                 {
-                  "input": "in_9prw4ad",
+                  "input": "in_krwg7ae",
                   "op": "==",
                   "value": true
                 }
@@ -4137,12 +4144,12 @@
               "exitTime": null
             },
             {
-              "id": "tr_c5jwdam",
-              "from": "st_yfp0gag",
-              "to": "st_9r5g5af",
+              "id": "tr_7yjgvan",
+              "from": "st_eq7u5ah",
+              "to": "st_eat86ag",
               "conditions": [
                 {
-                  "input": "in_sxx6nab",
+                  "input": "in_r68c5ac",
                   "op": "==",
                   "value": true
                 }
@@ -4151,12 +4158,12 @@
               "exitTime": 1
             },
             {
-              "id": "tr_mjtu3an",
-              "from": "st_yfp0gag",
-              "to": "st_dp4v7ae",
+              "id": "tr_vi2haao",
+              "from": "st_eq7u5ah",
+              "to": "st_kva32af",
               "conditions": [
                 {
-                  "input": "in_sxx6nab",
+                  "input": "in_r68c5ac",
                   "op": "==",
                   "value": false
                 }
@@ -4165,12 +4172,12 @@
               "exitTime": 1
             },
             {
-              "id": "tr_ypvzlao",
-              "from": "st_u0zizah",
-              "to": "st_9r5g5af",
+              "id": "tr_6kr8aap",
+              "from": "st_o96noai",
+              "to": "st_eat86ag",
               "conditions": [
                 {
-                  "input": "in_sxx6nab",
+                  "input": "in_r68c5ac",
                   "op": "==",
                   "value": true
                 }
@@ -4179,12 +4186,12 @@
               "exitTime": 1
             },
             {
-              "id": "tr_g77scap",
-              "from": "st_u0zizah",
-              "to": "st_dp4v7ae",
+              "id": "tr_oqga5aq",
+              "from": "st_o96noai",
+              "to": "st_kva32af",
               "conditions": [
                 {
-                  "input": "in_sxx6nab",
+                  "input": "in_r68c5ac",
                   "op": "==",
                   "value": false
                 }
@@ -4197,50 +4204,50 @@
       ],
       "listeners": [
         {
-          "id": "lis_tfbnmaq",
+          "id": "lis_ktbzxar",
           "name": "click",
-          "slot": "slot_45one9x",
+          "slot": "slot_uyx369y",
           "event": "click",
           "actions": [
             {
               "type": "fireTrigger",
-              "input": "in_ss306ac"
+              "input": "in_in7kqad"
             }
           ]
         },
         {
-          "id": "lis_yd8usar",
+          "id": "lis_1mxfzas",
           "name": "click",
-          "slot": "slot_a87qm9y",
+          "slot": "slot_vd7gt9z",
           "event": "click",
           "actions": [
             {
               "type": "fireTrigger",
-              "input": "in_9prw4ad"
+              "input": "in_krwg7ae"
             }
           ]
         },
         {
-          "id": "lis_lpzseas",
+          "id": "lis_2n3xjat",
           "name": "click",
-          "slot": "slot_3rhf3a5",
+          "slot": "slot_i4l6ja6",
           "event": "click",
           "actions": [
             {
               "type": "toggleInput",
-              "input": "in_sxx6nab"
+              "input": "in_r68c5ac"
             }
           ]
         }
       ],
       "scripts": [
-        "scr_5qkwmat"
+        "scr_6dy8kau"
       ]
     }
   ],
   "scripts": [
     {
-      "id": "scr_5qkwmat",
+      "id": "scr_6dy8kau",
       "name": "scroll",
       "code": "// Parallax scrolling that follows the feet: the ground moves back exactly as far as the planted foot does, so the\n// feet don't slide (also while walking slows into idle). Other layers move in proportion; each wraps every tile width.\nconst layers = [{\"bone\":\"bg-far\",\"x\":700,\"y\":290,\"w\":2300,\"rate\":0.076},{\"bone\":\"bg-mid\",\"x\":700,\"y\":100,\"w\":2300,\"rate\":0.299},{\"bone\":\"bg-ground\",\"x\":700,\"y\":-61.36,\"w\":2300,\"rate\":1}];\nconst feet = [\"front-foot\", \"back-foot\"];\nconst off = layers.map(() => 0);\nconst last = {};\nlet floor = Infinity; // lowest a foot gets: the ground line\nlet carry = 0; // ground speed (px/s) kept while both feet are in the air\nlet planted = null; // the foot bearing the weight, followed until it lifts\nfunction onUpdate(dt) {\n  if (!(dt > 0)) return;\n  const down = [];\n  const moved = {};\n  for (const name of feet) {\n    const b = ob.bone(name);\n    if (!b) continue;\n    floor = Math.min(floor, b.worldY);\n    const prev = last[name];\n    last[name] = b.worldX;\n    if (prev === undefined) continue;\n    moved[name] = b.worldX - prev;\n    if (b.worldY <= floor + 0.5) down.push(name);\n  }\n  let step;\n  if (planted && down.includes(planted)) step = -moved[planted];\n  else if (down.length === 1) step = -moved[(planted = down[0])];\n  else if (down.length > 1) {\n    // Both down and no foot to follow yet (a step starting from a stand): split the difference.\n    planted = null;\n    step = -down.reduce((s, n) => s + moved[n], 0) / down.length;\n  } else {\n    planted = null;\n    step = carry * dt; // in the air: keep going\n  }\n  if (down.length) carry = step / dt;\n  if (Math.abs(step) < 1e-4) carry = 0;\n  for (let i = 0; i < layers.length; i++) {\n    const l = layers[i];\n    off[i] = (off[i] - step * l.rate) % l.w;\n    ob.setBone(l.bone, { x: l.x + off[i], y: l.y });\n  }\n}"
     }
@@ -4250,25 +4257,25 @@
     "muted": false,
     "assets": [
       {
-        "id": "aud_ifztfau",
+        "id": "aud_ugqkiav",
         "name": "step",
         "src": "assets/eleven/knight-step.wav",
         "duration": 0.396
       },
       {
-        "id": "aud_mczrzaw",
+        "id": "aud_zfyqjax",
         "name": "swoosh",
         "src": "assets/eleven/knight-swoosh.wav",
         "duration": 0.402
       },
       {
-        "id": "aud_mnll1ay",
+        "id": "aud_w9525az",
         "name": "clang",
         "src": "assets/eleven/knight-clang.wav",
         "duration": 1
       },
       {
-        "id": "aud_zq0knb0",
+        "id": "aud_glfvab1",
         "name": "hail",
         "src": "assets/eleven/knight-hail.wav",
         "duration": 2.434
@@ -4296,9 +4303,9 @@
     ],
     "sounds": [
       {
-        "id": "snd_k7ii2av",
+        "id": "snd_1iec4aw",
         "name": "step",
-        "asset": "aud_ifztfau",
+        "asset": "aud_ugqkiav",
         "bus": "bus_sfx",
         "volume": 0.55,
         "rate": 1,
@@ -4307,9 +4314,9 @@
         "fadeOut": 0
       },
       {
-        "id": "snd_ezpxfax",
+        "id": "snd_hau7jay",
         "name": "swoosh",
-        "asset": "aud_mczrzaw",
+        "asset": "aud_zfyqjax",
         "bus": "bus_sfx",
         "volume": 0.8,
         "rate": 1,
@@ -4318,9 +4325,9 @@
         "fadeOut": 0
       },
       {
-        "id": "snd_dqb09az",
+        "id": "snd_hvoknb0",
         "name": "clang",
-        "asset": "aud_mnll1ay",
+        "asset": "aud_w9525az",
         "bus": "bus_sfx",
         "volume": 0.7,
         "rate": 1,
@@ -4329,9 +4336,9 @@
         "fadeOut": 0
       },
       {
-        "id": "snd_jbpkcb1",
+        "id": "snd_lpefpb2",
         "name": "hail",
-        "asset": "aud_zq0knb0",
+        "asset": "aud_glfvab1",
         "bus": "bus_sfx",
         "volume": 1,
         "rate": 1,
@@ -4353,7 +4360,7 @@
     ],
     "regions": [
       {
-        "image": "img_xpvcg8s",
+        "image": "img_8wzfs8t",
         "page": "atlas_page0",
         "x": 2,
         "y": 2,
@@ -4383,7 +4390,7 @@
         ]
       },
       {
-        "image": "img_8flth8t",
+        "image": "img_av8xy8u",
         "page": "atlas_page0",
         "x": 2,
         "y": 433,
@@ -4413,7 +4420,7 @@
         ]
       },
       {
-        "image": "img_qvpzm8u",
+        "image": "img_tk3bq8v",
         "page": "atlas_page0",
         "x": 2,
         "y": 695,
@@ -4443,7 +4450,7 @@
         ]
       },
       {
-        "image": "img_acye28p",
+        "image": "img_75prq8q",
         "page": "atlas_page0",
         "x": 2,
         "y": 855,
@@ -4473,7 +4480,7 @@
         ]
       },
       {
-        "image": "img_ng1m78r",
+        "image": "img_5cpja8s",
         "page": "atlas_page0",
         "x": 2,
         "y": 1227,
@@ -4503,7 +4510,7 @@
         ]
       },
       {
-        "image": "img_44dt18n",
+        "image": "img_rl43j8o",
         "page": "atlas_page0",
         "x": 120,
         "y": 855,
@@ -4533,7 +4540,7 @@
         ]
       },
       {
-        "image": "img_673z78h",
+        "image": "img_52jzp8h",
         "page": "atlas_page0",
         "x": 233,
         "y": 855,
@@ -4563,7 +4570,7 @@
         ]
       },
       {
-        "image": "img_epkcy8i",
+        "image": "img_0qqoh8i",
         "page": "atlas_page0",
         "x": 2,
         "y": 1404,
@@ -4593,7 +4600,7 @@
         ]
       },
       {
-        "image": "img_u0sbh8q",
+        "image": "img_wn4rb8r",
         "page": "atlas_page0",
         "x": 2,
         "y": 1686,
@@ -4623,7 +4630,7 @@
         ]
       },
       {
-        "image": "img_4yoj48m",
+        "image": "img_a7qwi8n",
         "page": "atlas_page0",
         "x": 264,
         "y": 1404,
@@ -4653,7 +4660,7 @@
         ]
       },
       {
-        "image": "img_ixv0u8j",
+        "image": "img_nngkb8j",
         "page": "atlas_page0",
         "x": 347,
         "y": 1138,
@@ -4683,7 +4690,7 @@
         ]
       },
       {
-        "image": "img_3qd6l8k",
+        "image": "img_fgsi88k",
         "page": "atlas_page0",
         "x": 431,
         "y": 855,
@@ -4713,7 +4720,7 @@
         ]
       },
       {
-        "image": "img_uamks8o",
+        "image": "img_tr0he8p",
         "page": "atlas_page0",
         "x": 267,
         "y": 1624,
@@ -4743,10 +4750,40 @@
         ]
       },
       {
-        "image": "img_i0rej8l",
+        "image": "img_xln0r8m",
         "page": "atlas_page0",
         "x": 372,
         "y": 1338,
+        "width": 77,
+        "height": 130,
+        "offsetX": 0,
+        "offsetY": 0,
+        "originalWidth": 77,
+        "originalHeight": 130,
+        "polygon": [
+          19.25,
+          0,
+          57.75,
+          0,
+          77,
+          19.25,
+          77,
+          110.75,
+          57.75,
+          130,
+          19.25,
+          130,
+          0,
+          110.75,
+          0,
+          19.25
+        ]
+      },
+      {
+        "image": "img_f92mx8l",
+        "page": "atlas_page0",
+        "x": 372,
+        "y": 1470,
         "width": 83,
         "height": 116,
         "offsetX": 0,

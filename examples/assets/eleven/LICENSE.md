@@ -21,6 +21,7 @@ of this repository, so you can reuse them in your own OpenBone projects.
 | `walker-step.wav`, `walker-jump.wav`, `walker-land.wav` | `walker.obone` | Footstep, jump and landing |
 | `tail-chirp.wav` | `tail.obone` | Creature chirp as the tail curls |
 | `knight-{helmet,torso,arm-upper,forearm,fist,thigh,shin,boot,sword,shield,cape}.png` | `knight.obone` | Side-view knight parts, cut from one parts sheet |
+| `knight-fist-inner.png` | `knight.obone` | The far (left) gauntlet seen from its inner side, thumb over the curled fingers |
 | `knight-swoosh.wav`, `knight-clang.wav` | `knight.obone` | Sword swing and clang |
 | `walker-{head,torso,arm-upper,forearm,thigh,shin,shoe,scarf}.png` | `walker.obone` | Side-view adventurer parts, cut from one parts sheet |
 | `tail-body.png`, `tail-tail.png`, `tail-antenna.png` | `tail.obone` | The creature, its tail and antenna (tail and antenna stored turned to lie along their bones) |

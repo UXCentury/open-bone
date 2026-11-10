@@ -13,6 +13,7 @@ import { For, Show, createEffect, createSignal, on, onCleanup, onMount } from "s
 import { imageFor, setImageReadyCallback } from "../images.ts";
 import { playCommand, previewAudioStep, stopPreviewAudio } from "../audio.ts";
 import { commitBone, commitAttachmentMove } from "../edit.ts";
+import { type PartOp, type PartState, dragAmount, partOrigin, partProps, scalable } from "../part-transform.ts";
 import { askForm } from "../dialogs.tsx";
 import { drawPenOverlay, penAltHit, penDown, penMove, penPreview, penUp, usePen } from "../tools/pen.ts";
 import { PenPanel } from "../tools/PenPanel.tsx";
@@ -59,6 +60,7 @@ import {
   setPoseChain,
   transaction,
   apply,
+  ownerSkinArg,
   setRunning,
   toast,
   doc,
@@ -152,6 +154,8 @@ type Drag =
       /** Other selected parts moving along (multi-selection). */
       others: { slotId: string; name: string; base: [number, number]; cur: [number, number]; inv: ReturnType<typeof invert> }[];
     }
+  /** Rotate / Scale tool on parts (Setup mode): the attachments turn or grow around the grabbed part's origin. */
+  | { kind: "part"; op: PartOp; parts: PartState[]; pivot: [number, number]; start: [number, number]; amount: number; preview: Skeleton | null }
   | { kind: "create"; parent: Bone | null; start: [number, number]; end: [number, number] }
   | { kind: "vertex"; t: MeshTarget; start: [number, number]; anchor: number; base: Map<number, [number, number]>; moved: Map<number, [number, number]>; preview: Skeleton | null; soft?: Map<number, { base: [number, number]; f: number }> }
   | { kind: "paint"; t: MeshTarget; table: WeightTable; world: number[]; changed: Set<number>; last: [number, number]; carry: number };
@@ -398,7 +402,7 @@ export function Viewport() {
     const r = new CanvasRenderer(ctx, resolveImage);
     const v = { x: view.x * dpr, y: view.y * dpr, zoom: view.zoom * dpr };
     if (onionSkin() && mode() === "animate" && !running()) drawOnionSkins(ctx, v, resolveImage);
-    const shown = (drag?.kind === "vertex" || drag?.kind === "attachment") && drag.preview ? drag.preview : (penPreview() ?? s);
+    const shown = (drag?.kind === "vertex" || drag?.kind === "attachment" || drag?.kind === "part") && drag.preview ? drag.preview : (penPreview() ?? s);
     r.render(shown, {
       view: v,
       clear: false,
@@ -1401,6 +1405,22 @@ export function Viewport() {
         return;
       }
     }
+    if (slot && !bone && (t === "select" || t === "rotate" || t === "scale") && mode() === "setup") {
+      // Rotate / Scale on a part turns or scales the part itself (and the other selected parts with it), not its bone.
+      const op: PartOp = t === "scale" ? "scale" : "rotate";
+      const partOf = (id: string): PartState | null => {
+        const ps = sk!.slotById_(id);
+        const pa = ps ? sk!.getAttachment(ps) : null;
+        if (!ps || !pa || !movableAttachment(pa) || (op === "scale" && !scalable(pa) && id === slot.data.id)) return null;
+        return { slotId: id, name: pa.name, att: structuredClone(pa), world: { ...ps.bone.world } };
+      };
+      const grabbed = partOf(slot.data.id);
+      if (grabbed) {
+        const others = selectedSlotIds().filter((id) => id !== slot.data.id).map(partOf).filter((p): p is PartState => !!p);
+        drag = { kind: "part", op, parts: [grabbed, ...others], pivot: partOrigin(grabbed), start: [x, y], amount: op === "rotate" ? 0 : 1, preview: null };
+        return;
+      }
+    }
     const target = bone ?? slot!.bone;
     const op = t === "translate" ? "translate" : t === "scale" ? "scale" : "rotate";
     const baseOf = (b: Bone) => ({ x: b.x, y: b.y, rotation: b.rotation, scaleX: b.scaleX, scaleY: b.scaleY });
@@ -1555,6 +1575,16 @@ export function Viewport() {
           oa.y = o.cur[1];
         }
       }
+    } else if (drag.kind === "part") {
+      drag.amount = dragAmount(drag.op, drag.pivot, drag.start, [x, y], e.shiftKey);
+      drag.preview ??= new Skeleton(structuredClone(store.doc));
+      const ps = drag.preview;
+      ps.textValues = inputDefault;
+      for (const p of drag.parts) {
+        const pa = ps.getAttachment(ps.slotById_(p.slotId)!, p.name);
+        if (pa) Object.assign(pa, p.att, partProps(p, drag.op, drag.pivot, drag.amount));
+      }
+      hoverInfo = drag.op === "rotate" ? `rotate ${drag.amount.toFixed(1)}°` : `scale ${(drag.amount * 100).toFixed(0)}%`;
     } else if (drag.kind === "marquee") {
       drag.end = [mx, my];
     } else {
@@ -1692,6 +1722,17 @@ export function Viewport() {
       if ([...d.moved].some(([i, [mx2, my2]]) => mx2 !== d.base.get(i)![0] || my2 !== d.base.get(i)![1])) moveVertices(d.t, d.moved, meshWarp());
     } else if (d.kind === "paint") {
       commitWeights(d.t, d.table, d.changed);
+    } else if (d.kind === "part") {
+      const changed = d.op === "rotate" ? Math.abs(d.amount) > 1e-6 : Math.abs(d.amount - 1) > 1e-6;
+      if (changed) {
+        const verb = d.op === "rotate" ? "Rotate" : "Scale";
+        transaction(d.parts.length > 1 ? `${verb} ${d.parts.length} parts` : `${verb} part`, () => {
+          for (const p of d.parts) {
+            const props = partProps(p, d.op, d.pivot, d.amount);
+            if (Object.keys(props).length) apply("updateAttachment", { slot: p.slotId, attachment: p.name, ...ownerSkinArg(p.slotId, p.name), props });
+          }
+        });
+      }
     } else if (d.kind === "attachment") {
       if (d.cur[0] !== d.base[0] || d.cur[1] !== d.base[1]) {
         if (!d.others.length) commitAttachmentMove(d.slotId, d.name, round2(d.cur[0]), round2(d.cur[1]));
