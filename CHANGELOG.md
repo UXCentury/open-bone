@@ -4,6 +4,7 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app). Se
 
 ## Unreleased
 
+- **MonoGame integration** (`runtimes/csharp/monogame`): `OpenBone.MonoGame` for MonoGame 3.8 DesktopGL — `OpenBoneRenderer` (`DrawUserIndexedPrimitives`, premultiplied blend modes, stencil clipping, two-colour tint through a GLSL effect built in code with a `BasicEffect` fallback, optional SpriteFont text), `OpenBoneMonoGame` (load, animations or state machine, mouse / touch → listeners, events) and `OpenBoneSoundPlayer` (`SoundEffectInstance` with bus × master volume, log2 pitch, loops and fades), a DesktopGL knight sample and window-less tests (also in CI).
 - The Flutter plugin moved from `runtimes/dart` to `runtimes/flutter/openbone`: Flutter 3.47's Swift Package Manager support fails when a plugin's folder name differs from its package name ([flutter#186881](https://github.com/flutter/flutter/issues/186881)).
 - Java runtime on **Gradle 9.9** and Android Gradle Plugin 9.5 (Kotlin 2.4 through the Kotlin Android plugin), without Gradle 10 deprecations.
 - **Swift Package Manager** for the Flutter plugin on iOS and macOS (`runtimes/flutter/openbone/darwin/openbone/Package.swift`, with iOS and macOS sharing one `darwin/` folder and podspec), so Flutter no longer warns that `openbone` lacks SPM support; the podspecs stay for CocoaPods.
