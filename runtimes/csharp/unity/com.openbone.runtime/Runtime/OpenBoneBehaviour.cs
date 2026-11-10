@@ -194,7 +194,10 @@ namespace OpenBone.Unity
             Instance?.Skeleton.SetSkin(string.IsNullOrEmpty(name) ? null : name);
         }
 
-        /// <summary>A world-space point in skeleton space (y up, skeleton units).</summary>
+        /// <summary>
+        /// A world-space point in skeleton space (y up, skeleton units). Use it before bounding-box queries, e.g.
+        /// <c>Instance.Skeleton.BoundingBoxes().ContainsPoint(p.x, p.y)</c>; box vertices come back in skeleton space too.
+        /// </summary>
         public Vector2 WorldToSkeleton(Vector3 world)
         {
             var local = transform.InverseTransformPoint(world);

@@ -73,7 +73,10 @@ namespace OpenBone
     public sealed class BoundingBoxAttachment : Attachment
     {
         public override string Type => "boundingBox";
+        /// <summary>Flat [x0,y0,...] polygon in slot-bone local space (ignored per vertex when weighted).</summary>
         public double[] Vertices = new double[0];
+        /// <summary>Optional per-vertex bone influences (same layout as mesh weights), so the box bends with several bones.</summary>
+        public VertexWeight[][] Weights;
     }
 
     public sealed class PointAttachment : Attachment

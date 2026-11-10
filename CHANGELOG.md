@@ -14,6 +14,12 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 - Godot: a ready-to-install `addons/openbone` with Windows, macOS, Linux (x86_64, arm64) and Android libraries.
 - Publish workflows for each registry, run by the GitHub release (pub.dev and Swift: by the tag).
 
+### Added
+- Bounding-box queries, in the TypeScript runtime and every native runtime (C++ and its C API, C#, Java, Haxe, Swift, Dart): `skeleton.boundingBoxes()` (`instance.boundingBoxes()`) gives the world polygons of the active bounding boxes and their AABB, with `containsPoint` / `containsPointAll`, `intersectsSegment` / `intersectsSegmentAll`, `aabbIntersects` and `intersectsBounds(other)` for overlap between two skeletons, in skeleton space. The player and the engine adapters expose it with coordinate helpers (`Player.clientToSkeleton`, pixi `toSkeleton`, phaser `worldToSkeleton`, three `rayToSkeleton`, canvaskit `clientToSkeleton`).
+- Bounding boxes can be weighted to bones (`autoWeights`, `setWeights`) and take deform keys, like paths.
+- Path constraints: `constantSpeed` (default on, the existing arc-length placement). Off places bones at the raw bezier parameter inside each curve segment, as Spine does; a "Constant speed" checkbox in the path-constraint Inspector. Existing files pose exactly as before.
+- Conformance: `bounds` (recorded point, segment, AABB and skeleton-overlap queries) and `paths` (constant speed on and off on uneven curves) fixtures.
+
 ### Security
 - MCP server: the editor bridge and the HTTP transport refuse browser requests from pages other than the OpenBone editor, including DNS rebinding. Before, any web page open on the same machine could connect to the bridge and read or change the open project.
 

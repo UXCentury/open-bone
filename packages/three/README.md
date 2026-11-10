@@ -100,6 +100,7 @@ your loop.
 | `artboard` | The artboard rectangle in local space (skeleton units, y up; `x, y` is the bottom-left corner). |
 | `bindPointer(dom, camera)` | Raycast a canvas's pointer events through `camera` to the state machine. Returns an unbind function. |
 | `pointer(type, ray)`, `rayToSkeleton(ray)` | Send your own ray (for example `raycaster.ray`), or find where it hits the plane. |
+| `boundingBoxes()`, `skeletonToWorld(x, y)` | Bounding-box queries in skeleton space (y up): `const p = obj.rayToSkeleton(raycaster.ray); const hit = p && obj.boundingBoxes().containsPoint(...p)`. `skeletonToWorld` maps a skeleton point back to world space. |
 | `redraw()`, `drawCalls` | Rebuild meshes after changing the pose by hand; batches drawn by the last redraw. |
 | `driver`, `instance`, `skeleton`, `stateMachine`, `asset` | Lower-level access. |
 | `dispose()` | Frees geometry, materials and text textures. The asset's textures are kept, since they may be shared. |

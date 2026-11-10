@@ -4,7 +4,7 @@
 animation, meshes, constraints, physics, particles, text, and Rive-style state machines with inputs, pointer listeners,
 events, audio commands and scripts. It is a thin `dart:ffi` wrapper over the native C++ runtime
 ([`runtimes/cpp`](https://github.com/UXCentury/open-bone/tree/main/runtimes/cpp), C API [`openbone.h`](https://github.com/UXCentury/open-bone/blob/main/runtimes/cpp/include/openbone.h)), so it poses and reacts exactly like the
-other runtimes: `flutter test` runs all 82 cases of the [conformance suite](https://github.com/UXCentury/open-bone/blob/main/conformance/README.md) through the
+other runtimes: `flutter test` runs all 88 cases of the [conformance suite](https://github.com/UXCentury/open-bone/blob/main/conformance/README.md) through the
 Dart API.
 
 | | |
@@ -90,7 +90,26 @@ doc.dispose();
 `OpenBoneDocument` exposes size and origin, animations (name, duration), skins, state machines and their inputs, and
 the textures a renderer needs. `OpenBoneInstance` adds `setSkin`, `setTransform`, `play` / `queue` / `clearTracks`,
 `setBool` / `setNumber` / `setString` / `setInput` / `fire` / `getInput`, `activeStates`, `setText`, `bones`, `slots`,
-`findBone`, `findSlot`, `drawList()` and `bounds`. Failures throw `OpenBoneException` with the runtime's message.
+`findBone`, `findSlot`, `drawList()`, `bounds` and `boundingBoxes()`. Failures throw `OpenBoneException` with the
+runtime's message.
+
+`inst.boundingBoxes()` returns an `OpenBoneSkeletonBounds` snapshot of the current pose (like Spine's SkeletonBounds;
+docs/runtime-spec.md §8.10): `boxes` (`OpenBoneBoundingBox`: `index`, `slot`, `attachment`, world `vertices` as a
+`Float32List`, own min/max) for every slot in draw order whose bone is active and whose current attachment is a bounding
+box, and `aabb` (null with no box). Queries in skeleton space: `aabbContainsPoint`, `aabbIntersects`, `containsPoint` /
+`containsPointAll`, `intersectsSegment` / `intersectsSegmentAll`, and `intersectsBounds(other)` → `(mine, theirs)?`
+between two snapshots (for example two characters). Call `update(inst)` or take a new snapshot after the pose changes;
+`dispose()` frees it at once (a `NativeFinalizer` otherwise).
+
+```dart
+inst.advance(1 / 60);
+final hits = inst.boundingBoxes();
+final hit = hits.containsPoint(x, y);                // null when nothing is hit
+hits.dispose();
+```
+
+Path constraints with `constantSpeed: false` in the document place bones at the raw bezier parameter inside each
+segment instead of by arc length (Spine's "constant speed" off); unset or true keeps arc-length placement.
 
 ### Memory and threads
 
@@ -122,7 +141,7 @@ on any canvas):
 cd runtimes/flutter/openbone
 flutter pub get
 tool/build_native.sh                     # libopenbone for the host → .dart_tool/openbone_native/
-flutter test                             # conformance (82 cases), API, widget + golden tests
+flutter test                             # conformance (88 cases), API, widget + golden tests
 flutter analyze
 cd example && flutter run -d linux       # the example app (knight + button)
 ```
@@ -151,7 +170,7 @@ cd /tmp/openbone-pub/openbone && flutter pub publish --dry-run
 
 ### What has been checked
 
-- Linux x64: `flutter test` (all 82 conformance cases, API tests, widget tests with a golden), `flutter analyze`, and
+- Linux x64: `flutter test` (all 88 conformance cases, API tests, widget tests with a golden), `flutter analyze`, and
   the example app built with `flutter build linux` and run under xvfb (`--dart-define=OPENBONE_SMOKE=true` loads the
   button, presses it, prints a status line and exits).
 - The iOS/macOS source layout: the `darwin/Classes` forwarders compiled with clang and the podspec's flags into a

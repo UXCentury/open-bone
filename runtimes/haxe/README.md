@@ -9,11 +9,11 @@ events and audio commands. It does no rendering: draw the `DrawItem`s with your 
 
 ## Status
 
-| Target | Command | Conformance (82 cases in 18 files) |
+| Target | Command | Conformance (88 cases in 20 files) |
 |---|---|---|
-| JS (node) | `haxe test-js.hxml` | **82/82** (scripts run on node's JavaScript engine) |
-| eval (interpreter) | `haxe test.hxml` | **76/82**, 6 scripted cases skipped |
-| Python 3 | `haxe test-python.hxml` | **76/82**, 6 scripted cases skipped |
+| JS (node) | `haxe test-js.hxml` | **88/88** (scripts run on node's JavaScript engine) |
+| eval (interpreter) | `haxe test.hxml` | **82/88**, 6 scripted cases skipped |
+| Python 3 | `haxe test-python.hxml` | **82/88**, 6 scripted cases skipped |
 
 Each command also runs the unit tests (`test/UnitTest.hx`: JS number strings, `toFixed` ties, `Math.fround`,
 templates, mulberry32, FNV-1a, earcut, `.obonb` decoding against the TypeScript decoder's output). Checked with Haxe
@@ -79,6 +79,19 @@ class Main {
 `setText`. `inst.animationState` queues and mixes animations on tracks (`setAnimation`, `addAnimation`). Draw item
 vertices are skeleton space (y up); uvs are in the item's texture (an image, or an atlas page when packed), v down.
 
+Bounding boxes (like Spine's `SkeletonBounds`, docs/runtime-spec.md §8.10): `inst.skeleton.boundingBoxes()` returns an
+`openbone.SkeletonBounds` snapshot of the current pose: `boxes` (`BoundingBoxPolygon`: `slot`, `attachment` name, world
+`vertices`, own `minX`..`maxY`) for every active slot in draw order whose current attachment is a bounding box, and the
+overall `minX`, `minY`, `maxX`, `maxY` (all 0 with no box). Queries: `aabbContainsPoint(x, y)`,
+`aabbIntersects(minX, minY, maxX, maxY)`, `containsPoint(x, y)` / `containsPointAll`, `intersectsSegment(x1, y1, x2, y2)`
+/ `intersectsSegmentAll` (first match or every match, in draw order) and `intersectsBounds(other)` (the first overlapping
+`[mine, theirs]` pair with another skeleton's bounds, or null). Call `update(skeleton)` on it, or take a new one, after
+the pose changes. Bounding boxes may be weighted and deformed like meshes and paths.
+
+Path constraints honour `constantSpeed` (default true: arc-length placement). With `constantSpeed: false` the segment
+is still found by arc length but the point inside it is at the raw bezier parameter, so bones bunch up where the handles
+are short (Spine's "constant speed" off).
+
 Audio: the runtime never plays sound. It emits `AudioCommand`s (`play` with sound, asset, bus, volume, rate, loop,
 fade-in; `stop` with a fade; `fade`); feed them to your audio API and apply `doc.audio` bus and master volumes.
 
@@ -98,6 +111,6 @@ fade-in; `stop` with a fade; `fade`); feed them to your audio API and apply `doc
 | Path | What it is |
 |---|---|
 | `src/openbone/data` | Document model (`Model.hx`) and `DocumentLoader` (JSON and binary) |
-| `src/openbone` | `OpenBoneInstance`, `Skeleton`, `AnimationState`, `StateMachineInstance`, `AudioDirector`, `ParticleEmitter`, `DrawItem`, maths, templates, earcut, `JsScriptHost` |
+| `src/openbone` | `OpenBoneInstance`, `Skeleton`, `SkeletonBounds`, `AnimationState`, `StateMachineInstance`, `AudioDirector`, `ParticleEmitter`, `DrawItem`, maths, templates, earcut, `JsScriptHost` |
 | `test/Conformance.hx` | Conformance runner (same checks and tolerances as the Java, C# and C++ runners) |
 | `test/UnitTest.hx`, `test/data` | Porting-trap unit tests and their `.obonb` fixtures |

@@ -71,9 +71,36 @@ namespace OpenBone.Tests
             public Dictionary<string, string> States;
             public List<double[]> Bones;
             public List<(string name, double[] color, double[] dark)> Slots;
+            public SkeletonBounds Bounds;
         }
 
-        static Sample Take(OpenBoneInstance inst, Recorder rec, double t)
+        /// <summary>A file's top-level `queries` (conformance/README.md "Bounding-box queries"), with the `others` placements posed.</summary>
+        sealed class Queries
+        {
+            public List<double[]> Points, Segments, Aabbs;
+            public List<SkeletonBounds> Others;
+        }
+
+        static List<double[]> QueryList(JsonElement q, string key) =>
+            q.GetProperty(key).EnumerateArray().Select(a => a.EnumerateArray().Select(x => x.GetDouble()).ToArray()).ToList();
+
+        static Queries LoadQueries(JsonElement root, Document doc, IScriptHost host)
+        {
+            if (!root.TryGetProperty("queries", out var q)) return null;
+            var others = new List<SkeletonBounds>();
+            foreach (var p in QueryList(q, "others"))
+            {
+                var o = new OpenBoneInstance(doc, new StateMachineOptions { ScriptHost = host });
+                o.Skeleton.X = p[0];
+                o.Skeleton.Y = p[1];
+                o.Advance(0);
+                others.Add(o.Skeleton.BoundingBoxes());
+                o.Dispose();
+            }
+            return new Queries { Points = QueryList(q, "points"), Segments = QueryList(q, "segments"), Aabbs = QueryList(q, "aabbs"), Others = others };
+        }
+
+        static Sample Take(OpenBoneInstance inst, Recorder rec, double t, Queries queries)
         {
             var s = new Sample
             {
@@ -85,6 +112,7 @@ namespace OpenBone.Tests
                 Events = rec.Events,
                 Audio = rec.Audio,
                 States = inst.StateMachine?.ActiveStates,
+                Bounds = queries != null ? inst.Skeleton.BoundingBoxes() : null,
             };
             rec.Events = new List<FiredEvent>();
             rec.Audio = new List<Dictionary<string, object>>();
@@ -102,6 +130,7 @@ namespace OpenBone.Tests
             var docPath = Path.Combine(RepoRoot, root.GetProperty("document").GetString());
             var doc = DocumentLoader.Load(File.ReadAllBytes(docPath));
             var host = Host();
+            var queries = LoadQueries(root, doc, host);
             foreach (var c in root.GetProperty("cases").EnumerateArray())
             {
                 if (errors.Count >= maxErrors) break;
@@ -136,12 +165,12 @@ namespace OpenBone.Tests
                 try
                 {
                     inst.Advance(0);
-                    samples.Add(Take(inst, rec, 0));
+                    samples.Add(Take(inst, rec, 0, queries));
                     for (int i = 1; i <= steps; i++)
                     {
                         before?.Invoke(i, (i - 1) * Dt);
                         inst.Advance(Dt);
-                        if (i % SampleEvery == 0) samples.Add(Take(inst, rec, i * Dt));
+                        if (i % SampleEvery == 0) samples.Add(Take(inst, rec, i * Dt, queries));
                     }
                 }
                 catch (Exception e)
@@ -161,7 +190,12 @@ namespace OpenBone.Tests
                 }
                 Compared += samples.Count;
                 for (int i = 0; i < samples.Count && errors.Count < maxErrors; i++)
-                    CompareSample($"{file} {name} t={expected[i].GetProperty("t").GetDouble()}", samples[i], expected[i], errors, maxErrors);
+                    {
+                    string where = $"{file} {name} t={expected[i].GetProperty("t").GetDouble()}";
+                    CompareSample(where, samples[i], expected[i], errors, maxErrors);
+                    if (queries != null) CompareBounds(where, samples[i].Bounds, queries, expected[i], errors, maxErrors);
+                    else if (expected[i].TryGetProperty("bounds", out _)) errors.Add($"{where}: bounds recorded but the file has no queries");
+                }
             }
             return errors;
         }
@@ -206,6 +240,76 @@ namespace OpenBone.Tests
 
         static double[] D(float[] f) => f.Select(x => (double)x).ToArray();
         static double[] D(ushort[] f) => f.Select(x => (double)x).ToArray();
+
+        /// <summary>Bounding-box queries: boxes (names exact, vertices 1e-3), aabb (1e-3 or null), points / segments (index lists exact, first-hit variants agree), aabbs, others.</summary>
+        static void CompareBounds(string where, SkeletonBounds b, Queries q, JsonElement e, List<string> errors, int max)
+        {
+            if (!e.TryGetProperty("bounds", out var be))
+            {
+                errors.Add($"{where}: no bounds in the expected sample");
+                return;
+            }
+            where += ": bounds";
+            var boxes = be.GetProperty("boxes").EnumerateArray().ToList();
+            if (boxes.Count != b.Boxes.Count)
+            {
+                errors.Add($"{where}: {b.Boxes.Count} boxes, expected {boxes.Count}: mine [{string.Join(", ", b.Boxes.Select(x => x.Slot.Name + "/" + x.Attachment))}] vs [{string.Join(", ", boxes.Select(x => x.GetProperty("slot").GetString() + "/" + x.GetProperty("attachment").GetString()))}]");
+                return;
+            }
+            for (int i = 0; i < boxes.Count; i++)
+            {
+                var x = boxes[i];
+                var m = b.Boxes[i];
+                string w = $"{where} box {i} ({m.Slot.Name}/{m.Attachment})";
+                if (x.GetProperty("slot").GetString() != m.Slot.Name || x.GetProperty("attachment").GetString() != m.Attachment)
+                    errors.Add($"{w}: expected {x.GetProperty("slot").GetString()}/{x.GetProperty("attachment").GetString()}");
+                Nums($"{w} vertices", D(m.Vertices), x.GetProperty("vertices"), 1e-3, errors, max);
+            }
+            var aabb = be.GetProperty("aabb");
+            if (aabb.ValueKind == JsonValueKind.Null) { if (b.Boxes.Count > 0) errors.Add($"{where}: aabb present, expected null"); }
+            else Nums($"{where} aabb", new[] { b.MinX, b.MinY, b.MaxX, b.MaxY }, aabb, 1e-3, errors, max);
+
+            string Idx(IEnumerable<BoundingBoxPolygon> list) => "[" + string.Join(",", list.Select(p => b.Boxes.IndexOf(p))) + "]";
+            string Exp(JsonElement list) => "[" + string.Join(",", list.EnumerateArray().Select(x => x.GetInt32())) + "]";
+            void Hits(string kind, List<double[]> qs, JsonElement exp, Func<double[], List<BoundingBoxPolygon>> all, Func<double[], BoundingBoxPolygon> first)
+            {
+                var list = exp.EnumerateArray().ToList();
+                if (list.Count != qs.Count) { errors.Add($"{where}: {qs.Count} {kind}, expected {list.Count}"); return; }
+                for (int i = 0; i < qs.Count; i++)
+                {
+                    var mineAll = all(qs[i]);
+                    string mine = Idx(mineAll), want = Exp(list[i]);
+                    if (mine != want) errors.Add($"{where}: {kind} {i} ({string.Join(", ", qs[i])}) {mine}, expected {want}");
+                    var f = first(qs[i]);
+                    var fe = list[i].GetArrayLength() > 0 ? b.Boxes.ElementAtOrDefault(list[i][0].GetInt32()) : null;
+                    if (f != fe) errors.Add($"{where}: {kind} {i} first hit {(f == null ? "none" : b.Boxes.IndexOf(f).ToString())}, expected {(fe == null ? "none" : list[i][0].GetInt32().ToString())}");
+                }
+            }
+            Hits("points", q.Points, be.GetProperty("points"), p => b.ContainsPointAll(p[0], p[1]), p => b.ContainsPoint(p[0], p[1]));
+            Hits("segments", q.Segments, be.GetProperty("segments"), p => b.IntersectsSegmentAll(p[0], p[1], p[2], p[3]), p => b.IntersectsSegment(p[0], p[1], p[2], p[3]));
+
+            var aabbs = be.GetProperty("aabbs").EnumerateArray().ToList();
+            if (aabbs.Count != q.Aabbs.Count) errors.Add($"{where}: {q.Aabbs.Count} aabbs, expected {aabbs.Count}");
+            else
+                for (int i = 0; i < aabbs.Count; i++)
+                {
+                    var r = q.Aabbs[i];
+                    bool mine = b.AabbIntersects(r[0], r[1], r[2], r[3]);
+                    if (mine != aabbs[i].GetBoolean()) errors.Add($"{where}: aabbs {i} ({string.Join(", ", r)}) {mine}, expected {aabbs[i].GetBoolean()}");
+                }
+
+            var others = be.GetProperty("others").EnumerateArray().ToList();
+            if (others.Count != q.Others.Count) errors.Add($"{where}: {q.Others.Count} others, expected {others.Count}");
+            else
+                for (int i = 0; i < others.Count; i++)
+                {
+                    var o = q.Others[i];
+                    var p = b.IntersectsBounds(o);
+                    string mine = p == null ? "null" : $"[{b.Boxes.IndexOf(p.Value.Mine)},{o.Boxes.IndexOf(p.Value.Theirs)}]";
+                    string want = others[i].ValueKind == JsonValueKind.Null ? "null" : Exp(others[i]);
+                    if (mine != want) errors.Add($"{where}: others {i} {mine}, expected {want}");
+                }
+        }
 
         static void CompareSample(string where, Sample s, JsonElement e, List<string> errors, int max)
         {

@@ -952,7 +952,7 @@ class Skeleton {
 		var att = getAttachment(slot);
 		if (!Std.isOfType(att, PathAttachment))
 			return;
-		var spline = new Spline(attachmentWorldVertices(slot, att), (cast att : PathAttachment).closed);
+		var spline = new Spline(attachmentWorldVertices(slot, att), (cast att : PathAttachment).closed, c.constantSpeed);
 		var total = spline.length;
 		if (total <= 1e-9)
 			return;
@@ -1251,7 +1251,7 @@ class Skeleton {
 		return def != null ? def.get(id, name) : null;
 	}
 
-	/** World-space vertices (float32 values) of a slot's attachment. */
+	/** World-space vertices (float32 values) of a slot's attachment (bounding boxes and paths pose like meshes: weights, deform). */
 	public function attachmentWorldVertices(slot:Slot, att:Attachment):Array<Float> {
 		var m = slot.bone.world;
 		if (Std.isOfType(att, RegionAttachment) || Std.isOfType(att, SequenceAttachment) || Std.isOfType(att, TextAttachment)) {
@@ -1312,7 +1312,7 @@ class Skeleton {
 			}
 			return out;
 		}
-		if (Std.isOfType(att, MeshAttachment) || Std.isOfType(att, PathAttachment)) {
+		if (Std.isOfType(att, MeshAttachment) || Std.isOfType(att, PathAttachment) || Std.isOfType(att, BoundingBoxAttachment)) {
 			var verts:Array<Float>;
 			var weights:Array<Array<VertexWeight>>;
 			var linked:String = null;
@@ -1322,10 +1322,14 @@ class Skeleton {
 				weights = mesh.weights;
 				if (mesh.linked != null && mesh.linked.deform)
 					linked = mesh.linked.mesh;
-			} else {
+			} else if (Std.isOfType(att, PathAttachment)) {
 				var path:PathAttachment = cast att;
 				verts = path.vertices;
 				weights = path.weights;
+			} else {
+				var box:BoundingBoxAttachment = cast att;
+				verts = box.vertices;
+				weights = box.weights;
 			}
 			var n = Std.int(verts.length / 2);
 			var deform = linked != null ? slot.deform.get(linked) : null;
@@ -1360,8 +1364,6 @@ class Skeleton {
 		var local:Array<Float>;
 		if (Std.isOfType(att, ShapeAttachment))
 			local = shapeOutline(cast att);
-		else if (Std.isOfType(att, BoundingBoxAttachment))
-			local = (cast att : BoundingBoxAttachment).vertices;
 		else if (Std.isOfType(att, ClippingAttachment))
 			local = (cast att : ClippingAttachment).vertices;
 		else if (Std.isOfType(att, PointAttachment))
@@ -1608,6 +1610,15 @@ class Skeleton {
 	}
 
 	// ---------------- Hit testing ----------------
+
+	/**
+	 * The active bounding boxes in the current pose (world polygons, their AABB, point / segment / AABB / skeleton
+	 * overlap queries; docs/runtime-spec.md §8.10). A snapshot: take a new one, or call `update(skeleton)` on it, after
+	 * the pose changes.
+	 */
+	public function boundingBoxes():SkeletonBounds {
+		return new SkeletonBounds(this);
+	}
 
 	/** World polygon used for hit tests: the current bounding box, else the slot's first bounding box, else the attachment. */
 	public function hitPolygon(slot:Slot):Array<Float> {

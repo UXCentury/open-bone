@@ -4,7 +4,7 @@ A Swift package for iOS and macOS that plays OpenBone documents (`.obone` / `.ob
 state machines with inputs, triggers and pointer listeners, events, sound (AVFoundation) and scripts. It is a thin layer
 over the [C++ runtime](../cpp) — SwiftPM compiles the C++ sources directly and the Swift API wraps its stable C API
 (`openbone.h`) — so it poses, draws and reacts exactly like the other runtimes. It passes the whole
-[conformance suite](../../conformance) (18 reference files, 82 cases).
+[conformance suite](../../conformance) (20 reference files, 88 cases).
 
 | | |
 | --- | --- |
@@ -162,6 +162,7 @@ two files in `Sources/OpenBoneSample` to the target (bundle the documents and th
 | --- | --- |
 | `OpenBoneDocument` | Loaded, immutable document (`init(contentsOf:)`, `init(data:baseURL:)`); `artboard`, `animations` (name, duration), `skins`, `stateMachines` (inputs with type and default), `textures` (atlas pages, images, premultiplied flag), `textureData(for:)`, `audioAssets`, `audioBuses`, `audioMaster`, `audioData(for:)`, `artboardToSkeleton` |
 | `OpenBoneInstance` | A skeleton of a document: `setSkin`, `setTransform`, `play` / `queue` / `clearTracks`, `useStateMachine`, `setInput`, `fire`, `input(_:)`, `pointer`, `activeStates`, `setText(slot:_:)`, `advance`, `bones` / `bone(named:)`, `slots` / `slot(named:)`, `bounds`, `withDrawList`, `drawList()`; callbacks `onEvent`, `onAudio`, `onStateChange`, `onLog` |
+| `OpenBoneSkeletonBounds`, `OpenBoneBoundingBox` | Bounding-box queries: `instance.boundingBoxes()` (see below) |
 | `OpenBoneDrawItemView` / `OpenBoneDrawItem` | Draw item (zero-copy view or copy): slot, attachment, kind, blend, texture, vertices, uvs, indices, colour, dark, per-vertex colours, clip, text, stroke |
 | `OpenBoneEvent`, `OpenBoneAudioCommand`, `OpenBoneValue`, `OpenBoneBone`, `OpenBoneSlot` | Value types |
 | `OpenBoneViewport`, `OpenBoneRenderMesh` | Framing (skeleton ↔ view, NDC) and the batched GPU-ready mesh |
@@ -170,6 +171,24 @@ two files in `Sources/OpenBoneSample` to the target (bundle the documents and th
 | `OpenBoneAudioMixer`, `OpenBoneAudioOutput` | Platform-neutral gain, voice and fade logic, and the protocol of what plays the voices |
 | `OpenBoneRuntime` | `apiVersion`, `version`, `hasScripts` |
 | `OpenBoneError` | Thrown with the runtime's message (`ob_last_error()`) |
+
+### Bounding boxes
+
+`instance.boundingBoxes()` returns an `OpenBoneSkeletonBounds` snapshot of the current pose (like Spine's
+SkeletonBounds; docs/runtime-spec.md §8.10): `boxes` (`OpenBoneBoundingBox`: `index`, `slot`, `attachment`, world
+`vertices` as `[Float]`, own `bounds`) for every slot in draw order whose bone is active and whose current attachment is
+a bounding box, and `aabb` (nil with no box). Queries in skeleton space: `aabbContainsPoint(x:y:)`, `aabbIntersects(_:)`,
+`containsPoint(x:y:)` / `containsPointAll(x:y:)`, `intersectsSegment(x1:y1:x2:y2:)` / `intersectsSegmentAll`, and
+`intersectsBounds(_:)` → `(mine, theirs)?` between two snapshots (for example two characters). Call `update(_:)` or take
+a new snapshot after the pose changes.
+
+```swift
+inst.advance(dt)
+if let hit = inst.boundingBoxes().containsPoint(x: p.x, y: p.y) { print("hit \(hit.attachment)") }
+```
+
+Path constraints with `constantSpeed: false` in the document place bones at the raw bezier parameter inside each
+segment instead of by arc length (Spine's "constant speed" off); unset or true keeps arc-length placement.
 
 Memory: documents and instances own their C handles and free them in `deinit`. An instance keeps its document alive,
 so a document is always freed after its instances. Callbacks are closures stored on the instance (beware of
@@ -180,7 +199,8 @@ instances may be used from different threads.
 
 Tested here (Linux x86_64, Swift 6.0.3, Ubuntu 22.04):
 
-- `swift build` and `swift test`: all 82 conformance cases pass, plus the API, render-geometry and audio tests (41 tests);
+- `swift build` and `swift test`: all 88 conformance cases pass (including the bounding-box queries of `bounds.json`),
+  plus the API, render-geometry and audio tests (43 tests);
 - the conformance comparison was mutation-checked (perturbed vertices and states make every case fail);
 - `swift test --sanitize=address`: no errors; LeakSanitizer reports only allocations made inside the Swift runtime /
   XCTest themselves (none from the C / C++ runtime or this package's objects); `testLifetimes` checks documents and

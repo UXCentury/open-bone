@@ -73,6 +73,34 @@ foreach (var item in hero.DrawList())
 State machines: `sm.SetInput("speed", 0.5)`, `sm.Fire("jump")`, `hero.Pointer("down", x, y)` (skeleton space, y up),
 `sm.ActiveStates`, events `StateChanged`, `InputChanged`, `Error`, `Log`.
 
+### Bounding-box queries
+
+`Skeleton.BoundingBoxes()` returns a `SkeletonBounds` snapshot of the current pose (like Spine's SkeletonBounds;
+docs/runtime-spec.md §8.10): `Boxes` (each a `BoundingBoxPolygon` with `Slot`, `Attachment` name, world `Vertices`
+as float x,y pairs and its own `MinX`..`MaxY`) for every slot in draw order whose bone is active and whose current
+attachment is a bounding box, plus the overall `MinX`, `MinY`, `MaxX`, `MaxY` (all 0 with no box). Call
+`Update(skeleton)` on it, or take a new one, after the pose changes.
+
+```csharp
+var bounds = hero.Skeleton.BoundingBoxes();
+if (bounds.AabbContainsPoint(x, y) && bounds.ContainsPoint(x, y) is BoundingBoxPolygon hit) Console.WriteLine(hit.Attachment);
+var all = bounds.ContainsPointAll(x, y);                   // every box, draw order (the last is drawn on top)
+var cut = bounds.IntersectsSegment(x1, y1, x2, y2);        // or IntersectsSegmentAll
+bool near = bounds.AabbIntersects(minX, minY, maxX, maxY);
+var pair = bounds.IntersectsBounds(enemy.Skeleton.BoundingBoxes());   // (Mine, Theirs) or null
+```
+
+Everything is in skeleton space (y up, the draw list's coordinates): convert engine positions first
+(`OpenBoneBehaviour.WorldToSkeleton` in Unity, `OpenBoneMonoGame.ScreenToSkeleton` in MonoGame). Bounding boxes may
+carry `weights` and deform keys and are posed like meshes and paths.
+
+### Path constant speed
+
+`PathConstraintData.ConstantSpeed` (file field `constantSpeed`, default true) keeps bones evenly spaced along each bezier
+segment by arc length. `false` finds the segment by arc length but places the point at the raw bezier parameter inside
+it (Spine with "constant speed" off), so bones bunch up where the handles are short; total length, `percent` positions
+and spacing are unchanged. `Spline` takes it as an optional constructor argument.
+
 ## MonoGame
 
 `monogame/` (its own solution, `OpenBone.MonoGame.sln`, so the runtime's `dotnet test` needs no MonoGame packages):

@@ -60,6 +60,16 @@ describe("SkeletonBounds", () => {
     expect(b.containsPoint(80, 0)).toBeNull();
   });
 
+  it("re-binds a weighted box's new vertices to its bones", () => {
+    const s = rig();
+    s.apply("autoWeights", { slot: "two", attachment: "box2", bones: ["a", "b"] });
+    s.apply("updateAttachment", { slot: "two", attachment: "box2", props: { vertices: [0, -10, 60, -10, 60, 10, 0, 10] } });
+    const att = s.doc.skeleton.skins[0].attachments[s.doc.skeleton.slots[1].id].box2 as { weights?: unknown[] };
+    expect(att.weights).toHaveLength(4);
+    const b = new Skeleton(s.doc).boundingBoxes();
+    expect(b.boxes[1].maxX).toBeCloseTo(110, 3);
+  });
+
   it("is empty (all zeros) when no box is active", () => {
     const s = new DocumentStore(createDocument("none"));
     const b = new Skeleton(s.doc).boundingBoxes();

@@ -351,14 +351,22 @@ export class CanvasKitPlayer {
     if (!this.playing) this.draw();
   }
 
+  /** Page (client) coordinates, e.g. a pointer event's clientX/clientY, to skeleton space (y up), through the current fit. */
+  clientToSkeleton(clientX: number, clientY: number): [number, number] {
+    const r = this.canvas.getBoundingClientRect();
+    const ax = (clientX - r.left - this.view.x) / this.view.zoom;
+    const ay = (clientY - r.top - this.view.y) / this.view.zoom;
+    return this.driver.instance.artboardToSkeleton(ax, ay);
+  }
+
+  /** The active bounding boxes (skeleton space): `player.boundingBoxes().containsPoint(...player.clientToSkeleton(e.clientX, e.clientY))`. */
+  boundingBoxes() {
+    return this.driver.boundingBoxes();
+  }
+
   private bindPointer() {
+    const send = (type: "down" | "up" | "move") => (e: PointerEvent) => this.driver.pointer(type, ...this.clientToSkeleton(e.clientX, e.clientY));
     const c = this.canvas;
-    const send = (type: "down" | "up" | "move") => (e: PointerEvent) => {
-      const r = c.getBoundingClientRect();
-      const ax = (e.clientX - r.left - this.view.x) / this.view.zoom;
-      const ay = (e.clientY - r.top - this.view.y) / this.view.zoom;
-      this.driver.pointer(type, ...this.driver.instance.artboardToSkeleton(ax, ay));
-    };
     const down = send("down");
     const up = send("up");
     const move = send("move");

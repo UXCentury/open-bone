@@ -7,6 +7,7 @@ import com.openbone.runtime.Json;
 import com.openbone.runtime.OpenBoneInstance;
 import com.openbone.runtime.ScriptHost;
 import com.openbone.runtime.Skeleton;
+import com.openbone.runtime.SkeletonBounds;
 import com.openbone.runtime.Slot;
 import com.openbone.runtime.StateMachineInstance;
 import com.openbone.runtime.Bone;
@@ -59,11 +60,27 @@ public final class ConformanceRunner {
   private final OpenBoneDocument doc;
   private final ScriptHost host;
   private final String file;
+  /** The file's top-level {@code queries} (bounding-box queries asked of every sample), or null. */
+  private final Map<String, Object> queries;
+  /** Per {@code queries.others} placement: a second instance's boxes (setup pose, default skin), built once. */
+  private List<SkeletonBounds> others;
 
   public ConformanceRunner(String file, OpenBoneDocument doc, ScriptHost host) {
+    this(file, doc, host, null);
+  }
+
+  /** {@code queries}: the expected file's top-level {@code queries} object (null when it has none). */
+  public ConformanceRunner(String file, OpenBoneDocument doc, ScriptHost host, Map<String, Object> queries) {
     this.file = file;
     this.doc = doc;
     this.host = host;
+    this.queries = queries;
+  }
+
+  /** Runner for a parsed expected file (passes its {@code queries}). */
+  @SuppressWarnings("unchecked")
+  public static ConformanceRunner forExpected(String file, OpenBoneDocument doc, ScriptHost host, Map<String, Object> expected) {
+    return new ConformanceRunner(file, doc, host, (Map<String, Object>) expected.get("queries"));
   }
 
   @SuppressWarnings("unchecked")
@@ -206,8 +223,113 @@ public final class ConformanceRunner {
       Map<String, String> got = inst.stateMachine.activeStates();
       if (!new LinkedHashMap<String, Object>(got).equals(es)) throw new AssertionError(where + " states: got " + got + " expected " + es);
     }
+    if (queries != null) {
+      if (!exp.containsKey("bounds")) throw new AssertionError(where + ": file has queries but the sample has no bounds");
+      compareBounds(where + " bounds", sk, (Map<String, Object>) exp.get("bounds"));
+    } else if (exp.containsKey("bounds")) throw new AssertionError(where + ": sample has bounds but the file has no queries");
     rec.events.clear();
     rec.audio.clear();
+  }
+
+  private static double d(Object o) {
+    return ((Number) o).doubleValue();
+  }
+
+  @SuppressWarnings("unchecked")
+  private List<SkeletonBounds> others() {
+    if (others == null) {
+      others = new ArrayList<>();
+      for (Object o : (List<Object>) queries.get("others")) {
+        List<Object> p = (List<Object>) o;
+        OpenBoneInstance other = new OpenBoneInstance(doc, host);
+        other.skeleton.x = d(p.get(0));
+        other.skeleton.y = d(p.get(1));
+        other.advance(0);
+        others.add(other.skeleton.boundingBoxes());
+        other.dispose();
+      }
+    }
+    return others;
+  }
+
+  private static List<Integer> indices(SkeletonBounds b, List<SkeletonBounds.Box> list) {
+    List<Integer> out = new ArrayList<>();
+    for (SkeletonBounds.Box x : list) out.add(b.boxes().indexOf(x));
+    return out;
+  }
+
+  private static List<Integer> ints(Object o) {
+    List<Integer> out = new ArrayList<>();
+    for (Object x : (List<?>) o) out.add(((Number) x).intValue());
+    return out;
+  }
+
+  /** The first-hit query must return boxes[all[0]], or null when all is empty. */
+  private static void first(String what, SkeletonBounds b, SkeletonBounds.Box got, List<Integer> all) {
+    int g = got == null ? -1 : b.boxes().indexOf(got);
+    int w = all.isEmpty() ? -1 : all.get(0);
+    if (g != w) throw new AssertionError(what + " first hit: got box " + g + " expected " + w);
+  }
+
+  @SuppressWarnings("unchecked")
+  private void compareBounds(String where, Skeleton sk, Map<String, Object> exp) {
+    SkeletonBounds b = sk.boundingBoxes();
+    List<Object> eb = (List<Object>) exp.get("boxes");
+    if (b.boxes().size() != eb.size()) {
+      List<String> want = new ArrayList<>();
+      for (Object o : eb) want.add(((Map<String, Object>) o).get("slot") + "/" + ((Map<String, Object>) o).get("attachment"));
+      throw new AssertionError(where + " boxes: got " + b.boxes() + " expected " + want);
+    }
+    for (int i = 0; i < eb.size(); i++) {
+      Map<String, Object> e = (Map<String, Object>) eb.get(i);
+      SkeletonBounds.Box x = b.boxes().get(i);
+      String w = where + " box[" + i + "]";
+      eq(w + " slot", x.slot.data.name, e.get("slot"));
+      eq(w + " attachment", x.attachment, e.get("attachment"));
+      nums(w + " vertices", x.vertices, (List<Object>) e.get("vertices"), TOL_VERT, -1);
+    }
+    Object ea = exp.get("aabb");
+    if (ea == null) {
+      if (!b.boxes().isEmpty()) throw new AssertionError(where + " aabb: expected null (no boxes)");
+    } else nums(where + " aabb", new double[] {b.minX, b.minY, b.maxX, b.maxY}, (List<Object>) ea, TOL_VERT, -1);
+
+    List<Object> qp = (List<Object>) queries.get("points"), ep = (List<Object>) exp.get("points");
+    eq(where + " point count", ep.size(), qp.size());
+    for (int i = 0; i < qp.size(); i++) {
+      List<Object> q = (List<Object>) qp.get(i);
+      double x = d(q.get(0)), y = d(q.get(1));
+      String w = where + " point[" + i + "] (" + x + ", " + y + ")";
+      List<Integer> got = indices(b, b.containsPointAll(x, y)), want = ints(ep.get(i));
+      if (!got.equals(want)) throw new AssertionError(w + " containsPointAll: got " + got + " expected " + want);
+      first(w + " containsPoint", b, b.containsPoint(x, y), want);
+    }
+    List<Object> qs = (List<Object>) queries.get("segments"), es = (List<Object>) exp.get("segments");
+    eq(where + " segment count", es.size(), qs.size());
+    for (int i = 0; i < qs.size(); i++) {
+      List<Object> q = (List<Object>) qs.get(i);
+      double x1 = d(q.get(0)), y1 = d(q.get(1)), x2 = d(q.get(2)), y2 = d(q.get(3));
+      String w = where + " segment[" + i + "] " + q;
+      List<Integer> got = indices(b, b.intersectsSegmentAll(x1, y1, x2, y2)), want = ints(es.get(i));
+      if (!got.equals(want)) throw new AssertionError(w + " intersectsSegmentAll: got " + got + " expected " + want);
+      first(w + " intersectsSegment", b, b.intersectsSegment(x1, y1, x2, y2), want);
+    }
+    List<Object> qa = (List<Object>) queries.get("aabbs"), eaa = (List<Object>) exp.get("aabbs");
+    eq(where + " aabb query count", eaa.size(), qa.size());
+    for (int i = 0; i < qa.size(); i++) {
+      List<Object> q = (List<Object>) qa.get(i);
+      eq(where + " aabbs[" + i + "] " + q, b.aabbIntersects(d(q.get(0)), d(q.get(1)), d(q.get(2)), d(q.get(3))), eaa.get(i));
+    }
+    List<SkeletonBounds> theirs = others();
+    List<Object> eo = (List<Object>) exp.get("others");
+    eq(where + " others count", eo.size(), theirs.size());
+    for (int i = 0; i < theirs.size(); i++) {
+      SkeletonBounds o = theirs.get(i);
+      SkeletonBounds.Pair p = b.intersectsBounds(o);
+      List<Integer> got = p == null ? null : java.util.Arrays.asList(b.boxes().indexOf(p.mine), o.boxes().indexOf(p.theirs));
+      List<Integer> want = eo.get(i) == null ? null : ints(eo.get(i));
+      if (got == null ? want != null : !got.equals(want))
+        throw new AssertionError(where + " others[" + i + "] " + queries.get("others") + ": got " + got + " expected " + want);
+    }
   }
 
   private static void eq(String what, Object got, Object want) {

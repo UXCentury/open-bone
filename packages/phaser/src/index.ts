@@ -339,6 +339,23 @@ export class OpenBoneGameObject extends Phaser.GameObjects.GameObject {
     return this;
   }
 
+  /** Phaser world coordinates (e.g. `camera.getWorldPoint(pointer.x, pointer.y)`) to skeleton space (y up). */
+  worldToSkeleton(x: number, y: number): [number, number] {
+    const p = this.getWorldTransformMatrix().applyInverse(x, y);
+    return [p.x, -p.y];
+  }
+
+  /** Skeleton space (y up) to Phaser world coordinates. */
+  skeletonToWorld(x: number, y: number): { x: number; y: number } {
+    const p = this.getWorldTransformMatrix().transformPoint(x, -y);
+    return { x: p.x, y: p.y };
+  }
+
+  /** The active bounding boxes (skeleton space): `obj.boundingBoxes().containsPoint(...obj.worldToSkeleton(wx, wy))`. */
+  boundingBoxes() {
+    return this.driver.boundingBoxes();
+  }
+
   /** The artboard rectangle in the object's local space (y down). */
   get artboard() {
     const d = this.entry.doc;

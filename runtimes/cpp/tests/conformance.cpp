@@ -30,7 +30,45 @@ double r4(double n) {
   return v == 0 ? 0 : v;
 }
 
+/** Bounding-box queries of a fixture (conformance/README.md "Bounding-box queries"). */
+struct BoundsQueries {
+  json q;
+  std::vector<SkeletonBounds> others;  // one per placement
+  json record(const Skeleton& sk, std::vector<std::string>& errors) const {
+    const SkeletonBounds b = sk.boundingBoxes();
+    json r;
+    json boxes = json::array();
+    for (const auto& x : b.boxes)
+      boxes.push_back({{"slot", x.slot->name}, {"attachment", x.attachment->name}, {"vertices", std::vector<double>(x.vertices.begin(), x.vertices.end())}});
+    r["boxes"] = boxes;
+    r["aabb"] = b.boxes.empty() ? json(nullptr) : json({b.minX, b.minY, b.maxX, b.maxY});
+    json points = json::array(), segments = json::array(), aabbs = json::array(), others = json::array();
+    for (const auto& p : q["points"]) {
+      const auto all = b.containsPointAll(p[0], p[1]);
+      if (b.containsPoint(p[0], p[1]) != (all.empty() ? -1 : all[0])) errors.push_back("containsPoint disagrees with containsPointAll");
+      points.push_back(all);
+    }
+    for (const auto& s : q["segments"]) {
+      const auto all = b.intersectsSegmentAll(s[0], s[1], s[2], s[3]);
+      if (b.intersectsSegment(s[0], s[1], s[2], s[3]) != (all.empty() ? -1 : all[0])) errors.push_back("intersectsSegment disagrees with intersectsSegmentAll");
+      segments.push_back(all);
+    }
+    for (const auto& a : q["aabbs"]) aabbs.push_back(b.aabbIntersects(a[0], a[1], a[2], a[3]));
+    for (const auto& o : this->others) {
+      const auto pair = b.intersectsBounds(o);
+      others.push_back(pair ? json({pair->first, pair->second}) : json(nullptr));
+    }
+    r["points"] = points;
+    r["segments"] = segments;
+    r["aabbs"] = aabbs;
+    r["others"] = others;
+    return r;
+  }
+};
+
 struct Recorder {
+  const BoundsQueries* bounds = nullptr;
+  std::vector<std::string> boundsErrors;
   json events = json::array();
   json audio = json::array();
   std::map<std::string, std::string> ids;
@@ -107,6 +145,7 @@ struct Recorder {
       for (const auto& [layer, state] : inst.stateMachine->activeStates()) st[layer] = state ? json(*state) : json(nullptr);
       s["states"] = st;
     }
+    if (bounds) s["bounds"] = bounds->record(sk, boundsErrors);
     events = json::array();
     audio = json::array();
     return s;
@@ -209,16 +248,34 @@ struct Compare {
         }
         if (ma[i].size() != ra[i].size()) fail(q, show(ma[i]) + " vs reference " + show(ra[i]));
       }
+    if (r.contains("bounds") != m.contains("bounds")) fail(p + ".bounds", m.contains("bounds") ? "unexpected" : "missing");
+    else if (r.contains("bounds")) {
+      const json &mb2 = m["bounds"], &rb2 = r["bounds"];
+      const json &mx = mb2["boxes"], &rx = rb2["boxes"];
+      if (mx.size() != rx.size()) fail(p + ".bounds.boxes", show(mx) + " vs reference " + show(rx));
+      else
+        for (size_t i = 0; i < rx.size(); i++) {
+          const std::string q = p + ".bounds.boxes[" + std::to_string(i) + "]";
+          exact(q + ".slot", mx[i]["slot"], rx[i]["slot"]);
+          exact(q + ".attachment", mx[i]["attachment"], rx[i]["attachment"]);
+          nums(q + ".vertices", mx[i]["vertices"], rx[i]["vertices"], 1e-3);
+        }
+      if (rb2["aabb"].is_null() || mb2["aabb"].is_null()) exact(p + ".bounds.aabb", mb2["aabb"], rb2["aabb"]);
+      else nums(p + ".bounds.aabb", mb2["aabb"], rb2["aabb"], 1e-3);
+      for (const char* k : {"points", "segments", "aabbs", "others"}) exact(p + ".bounds." + k, mb2[k], rb2[k]);
+    }
     if (r.contains("states") || m.contains("states")) exact(p + ".states", m.contains("states") ? m["states"] : json(), r.contains("states") ? r["states"] : json());
   }
 };
 
-std::vector<json> runCase(const std::shared_ptr<const Document>& doc, const json& c, std::shared_ptr<ScriptHost> host) {
+std::vector<json> runCase(const std::shared_ptr<const Document>& doc, const json& c, std::shared_ptr<ScriptHost> host, const BoundsQueries* bounds,
+                          std::vector<std::string>& boundsErrors) {
   const std::string kind = c["kind"];
   const double duration = c["duration"].get<double>();
   const int steps = (int)std::lround(duration / DT);
   auto inst = std::make_unique<Instance>(doc, host);
   Recorder rec;
+  rec.bounds = bounds;
   if (kind != "stateMachine" && c["skin"].is_string()) inst->skeleton->setSkin(c["skin"].get<std::string>());
   StateMachineInstance* machine = nullptr;
   if (kind == "animation") inst->play(c["animation"].get<std::string>(), true);
@@ -250,6 +307,7 @@ std::vector<json> runCase(const std::shared_ptr<const Document>& doc, const json
     if (i % SAMPLE_EVERY == 0) out.push_back(rec.sample(*inst, i * DT));
   }
   inst->dispose();
+  boundsErrors = rec.boundsErrors;
   return out;
 }
 
@@ -289,6 +347,20 @@ int main(int argc, char** argv) {
       failedCases++;
       continue;
     }
+    std::unique_ptr<BoundsQueries> bounds;
+    if (expected.contains("queries")) {
+      bounds = std::make_unique<BoundsQueries>();
+      bounds->q = expected["queries"];
+      for (const auto& xy : bounds->q["others"]) {
+        // A second instance of the document at the placement: setup pose, default skin.
+        Instance other(doc, host);
+        other.skeleton->x = xy[0].get<double>();
+        other.skeleton->y = xy[1].get<double>();
+        other.advance(0);
+        bounds->others.push_back(other.skeleton->boundingBoxes());
+        other.dispose();
+      }
+    }
     int passed = 0, count = 0;
     for (const auto& c : expected["cases"]) {
       const std::string name = c["name"];
@@ -298,7 +370,9 @@ int main(int argc, char** argv) {
       Compare cmp;
       cmp.max = maxErrors;
       try {
-        std::vector<json> mine = runCase(doc, c, host);
+        std::vector<std::string> boundsErrors;
+        std::vector<json> mine = runCase(doc, c, host, bounds.get(), boundsErrors);
+        for (const auto& e : boundsErrors) cmp.fail("bounds", e);
         if (name == dumpCase) std::cout << json(mine).dump(1) << "\n";
         const json& ref = c["samples"];
         if (mine.size() != ref.size()) cmp.fail("samples", "count " + std::to_string(mine.size()) + " vs " + std::to_string(ref.size()));

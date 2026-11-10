@@ -1,6 +1,6 @@
 import type { AudioAsset, OpenBoneDocument } from "@openbone/core";
 import { WebAudioBackend } from "@openbone/player/audio";
-import { type AudioCommand, type FiredEvent, OpenBoneInstance, type ScriptHost, type StateMachineInstance } from "@openbone/runtime";
+import { type AudioCommand, type FiredEvent, OpenBoneInstance, type ScriptHost, type SkeletonBounds, type StateMachineInstance } from "@openbone/runtime";
 
 export type InputValue = boolean | number | string;
 
@@ -152,6 +152,15 @@ export class OpenBoneDriver {
   /** Switch to a state machine (name or id; default the first). */
   useStateMachine(name?: string) {
     return this.instance.useStateMachine(name);
+  }
+
+  /**
+   * The active bounding boxes in the current pose, in skeleton space (y up): world polygons, their AABB and
+   * point / segment / AABB / other-skeleton queries. Engine adapters convert their coordinates to skeleton space
+   * (pixi `toSkeleton`, phaser `worldToSkeleton`, three `rayToSkeleton`, canvaskit `clientToSkeleton`).
+   */
+  boundingBoxes(): SkeletonBounds {
+    return this.instance.boundingBoxes();
   }
 
   /** Pointer at a point in skeleton space (y-up). */

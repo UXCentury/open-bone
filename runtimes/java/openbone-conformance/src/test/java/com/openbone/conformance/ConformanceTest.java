@@ -19,7 +19,7 @@ import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
-/** Every case of every conformance/expected/*.json (19 files) against the Java runtime. */
+/** Every case of every conformance/expected/*.json (20 files) against the Java runtime. */
 class ConformanceTest {
   static Path repo() {
     return Paths.get(System.getProperty("openbone.repo", "../.."));
@@ -52,7 +52,7 @@ class ConformanceTest {
       if (only != null && !only.isEmpty() && !name.equals(only)) continue;
       Map<String, Object> exp = (Map<String, Object>) Json.parse(new String(Files.readAllBytes(f), StandardCharsets.UTF_8));
       OpenBoneDocument doc = DocumentLoader.load(Files.readAllBytes(repo().resolve((String) exp.get("document"))));
-      ConformanceRunner runner = new ConformanceRunner(name, doc, host);
+      ConformanceRunner runner = ConformanceRunner.forExpected(name, doc, host, exp);
       List<DynamicNode> cases = new ArrayList<>();
       for (Object c : (List<Object>) exp.get("cases")) {
         Map<String, Object> cm = (Map<String, Object>) c;

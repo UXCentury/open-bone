@@ -863,7 +863,7 @@ void Skeleton::applyPath(const PathConstraintData& c, ConstraintValues& v) {
   if (!slot) return;
   const Attachment* att = getAttachment(*slot);
   if (!att || att->type != AttachmentType::Path) return;
-  const Spline spline(attachmentWorldVertices(*slot, *att), att->closed);
+  const Spline spline(attachmentWorldVertices(*slot, *att), att->closed, c.constantSpeed);
   const double total = spline.length;
   if (total <= 1e-9) return;
   std::vector<Bone*> bs;
@@ -1065,7 +1065,7 @@ std::vector<float> Skeleton::attachmentWorldVertices(const Slot& slot, const Att
     }
     return out;
   }
-  if (att.type == AttachmentType::Mesh || att.type == AttachmentType::Path) {
+  if (att.type == AttachmentType::Mesh || att.type == AttachmentType::Path || att.type == AttachmentType::BoundingBox) {
     const size_t n = att.vertices.size() / 2;
     const std::vector<double>* deform = nullptr;
     if (att.type == AttachmentType::Mesh && att.linkedDeform) {
@@ -1105,7 +1105,7 @@ std::vector<float> Skeleton::attachmentWorldVertices(const Slot& slot, const Att
   }
   std::vector<double> local;
   if (att.type == AttachmentType::Shape) local = shapeOutline(att);
-  else if (att.type == AttachmentType::BoundingBox || att.type == AttachmentType::Clipping) local = att.vertices;
+  else if (att.type == AttachmentType::Clipping) local = att.vertices;
   else local = {att.x, att.y};
   std::vector<float> out(local.size());
   for (size_t i = 0; i + 1 < local.size(); i += 2) {
@@ -1473,6 +1473,118 @@ std::array<double, 4> Skeleton::bounds() const {
     add(ex, ey);
   }
   return {minX, minY, maxX, maxY};
+}
+
+// ---------------- Bounding boxes (bounds.ts) ----------------
+
+SkeletonBounds Skeleton::boundingBoxes() const { return SkeletonBounds(*this); }
+
+SkeletonBounds& SkeletonBounds::update(const Skeleton& sk) {
+  boxes.clear();
+  double x0 = INFINITY, y0 = INFINITY, x1 = -INFINITY, y1 = -INFINITY;
+  for (const Slot* slot : sk.drawOrder) {
+    if (!slot->bone->active) continue;
+    const Attachment* att = sk.getAttachment(*slot);
+    if (!att || att->type != AttachmentType::BoundingBox || att->vertices.size() < 6) continue;
+    BoundingBoxPolygon box;
+    box.slot = slot->data;
+    box.attachment = att;
+    box.vertices = sk.attachmentWorldVertices(*slot, *att);
+    box.minX = box.minY = INFINITY;
+    box.maxX = box.maxY = -INFINITY;
+    for (size_t i = 0; i + 1 < box.vertices.size(); i += 2) {
+      box.minX = std::min(box.minX, (double)box.vertices[i]);
+      box.minY = std::min(box.minY, (double)box.vertices[i + 1]);
+      box.maxX = std::max(box.maxX, (double)box.vertices[i]);
+      box.maxY = std::max(box.maxY, (double)box.vertices[i + 1]);
+    }
+    x0 = std::min(x0, box.minX);
+    y0 = std::min(y0, box.minY);
+    x1 = std::max(x1, box.maxX);
+    y1 = std::max(y1, box.maxY);
+    boxes.push_back(std::move(box));
+  }
+  if (boxes.empty()) x0 = y0 = x1 = y1 = 0;
+  minX = x0;
+  minY = y0;
+  maxX = x1;
+  maxY = y1;
+  return *this;
+}
+
+bool segmentsIntersect(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4) {
+  const double d = (x2 - x1) * (y4 - y3) - (y2 - y1) * (x4 - x3);
+  if (d == 0) return false;
+  const double ua = ((x3 - x1) * (y4 - y3) - (y3 - y1) * (x4 - x3)) / d;
+  const double ub = ((x3 - x1) * (y2 - y1) - (y3 - y1) * (x2 - x1)) / d;
+  return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
+}
+
+namespace {
+bool boxContains(const BoundingBoxPolygon& b, double x, double y) {
+  return x >= b.minX && x <= b.maxX && y >= b.minY && y <= b.maxY && pointInPolygon(x, y, b.vertices);
+}
+bool edgeCrosses(const std::vector<float>& v, double x1, double y1, double x2, double y2) {
+  const size_t n = v.size();
+  if (n < 2) return false;
+  for (size_t i = 0, j = n - 2; i + 1 < n; j = i, i += 2)
+    if (segmentsIntersect(x1, y1, x2, y2, v[j], v[j + 1], v[i], v[i + 1])) return true;
+  return false;
+}
+bool boxSegment(const BoundingBoxPolygon& b, double x1, double y1, double x2, double y2) {
+  if (std::max(x1, x2) < b.minX || std::min(x1, x2) > b.maxX || std::max(y1, y2) < b.minY || std::min(y1, y2) > b.maxY) return false;
+  return edgeCrosses(b.vertices, x1, y1, x2, y2) || pointInPolygon(x1, y1, b.vertices);
+}
+bool polygonsOverlap(const BoundingBoxPolygon& a, const BoundingBoxPolygon& b) {
+  if (a.maxX < b.minX || a.minX > b.maxX || a.maxY < b.minY || a.minY > b.maxY) return false;
+  const std::vector<float>& v = a.vertices;
+  const size_t n = v.size();
+  for (size_t i = 0, j = n - 2; i + 1 < n; j = i, i += 2)
+    if (edgeCrosses(b.vertices, v[j], v[j + 1], v[i], v[i + 1])) return true;
+  return pointInPolygon(v[0], v[1], b.vertices) || pointInPolygon(b.vertices[0], b.vertices[1], v);
+}
+}  // namespace
+
+bool SkeletonBounds::aabbContainsPoint(double x, double y) const {
+  return !boxes.empty() && x >= minX && x <= maxX && y >= minY && y <= maxY;
+}
+
+bool SkeletonBounds::aabbIntersects(double x0, double y0, double x1, double y1) const {
+  return !boxes.empty() && x0 <= maxX && x1 >= minX && y0 <= maxY && y1 >= minY;
+}
+
+int SkeletonBounds::containsPoint(double x, double y) const {
+  for (size_t i = 0; i < boxes.size(); i++)
+    if (boxContains(boxes[i], x, y)) return (int)i;
+  return -1;
+}
+
+std::vector<int> SkeletonBounds::containsPointAll(double x, double y) const {
+  std::vector<int> out;
+  for (size_t i = 0; i < boxes.size(); i++)
+    if (boxContains(boxes[i], x, y)) out.push_back((int)i);
+  return out;
+}
+
+int SkeletonBounds::intersectsSegment(double x1, double y1, double x2, double y2) const {
+  for (size_t i = 0; i < boxes.size(); i++)
+    if (boxSegment(boxes[i], x1, y1, x2, y2)) return (int)i;
+  return -1;
+}
+
+std::vector<int> SkeletonBounds::intersectsSegmentAll(double x1, double y1, double x2, double y2) const {
+  std::vector<int> out;
+  for (size_t i = 0; i < boxes.size(); i++)
+    if (boxSegment(boxes[i], x1, y1, x2, y2)) out.push_back((int)i);
+  return out;
+}
+
+std::optional<std::pair<int, int>> SkeletonBounds::intersectsBounds(const SkeletonBounds& other) const {
+  if (!aabbIntersects(other.minX, other.minY, other.maxX, other.maxY)) return std::nullopt;
+  for (size_t i = 0; i < boxes.size(); i++)
+    for (size_t j = 0; j < other.boxes.size(); j++)
+      if (polygonsOverlap(boxes[i], other.boxes[j])) return std::make_pair((int)i, (int)j);
+  return std::nullopt;
 }
 
 }  // namespace openbone

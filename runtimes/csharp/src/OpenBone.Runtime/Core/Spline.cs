@@ -9,7 +9,10 @@ namespace OpenBone
         public double Angle;
     }
 
-    /// <summary>Cubic bezier spline of a path attachment, sampled by arc length (core/path.ts:buildSpline).</summary>
+    /// <summary>
+    /// Cubic bezier spline of a path attachment, sampled by arc length (core/path.ts:buildSpline). Without constant
+    /// speed only the segment is found by arc length; the point inside it is at the raw bezier parameter.
+    /// </summary>
     public sealed class Spline
     {
         const int Steps = 32;
@@ -21,7 +24,10 @@ namespace OpenBone
         public double Length { get; }
         public int Segments { get; }
 
-        public Spline(float[] v, bool closed) : this(ToDoubles(v), closed) { }
+        /// <summary>True: points inside a segment are placed by arc length; false: by the raw bezier parameter.</summary>
+        public bool ConstantSpeed { get; }
+
+        public Spline(float[] v, bool closed, bool constantSpeed = true) : this(ToDoubles(v), closed, constantSpeed) { }
 
         static double[] ToDoubles(float[] v)
         {
@@ -30,9 +36,10 @@ namespace OpenBone
             return d;
         }
 
-        public Spline(double[] vertices, bool closed)
+        public Spline(double[] vertices, bool closed, bool constantSpeed = true)
         {
             Closed = closed;
+            ConstantSpeed = constantSpeed;
             _knots = vertices.Length / 6;
             int segCount = _knots < 2 ? 0 : closed ? _knots : _knots - 1;
             Segments = segCount;
@@ -113,6 +120,15 @@ namespace OpenBone
                 var end = d <= 0 ? Point(0, 0) : Point(Segments - 1, 1);
                 double over = d <= 0 ? d : d - total;
                 return new PathSample { X = end.X + Math.Cos(end.Angle) * over, Y = end.Y + Math.Sin(end.Angle) * over, Angle = end.Angle };
+            }
+            if (!ConstantSpeed)
+            {
+                // Segment by arc length (the first whose end is past d), then the raw parameter inside it.
+                int sg = 0;
+                while (sg < Segments - 1 && _table[(sg + 1) * Steps] <= d) sg++;
+                double start = _table[sg * Steps];
+                double len = _table[(sg + 1) * Steps] - start;
+                return Point(sg, len > 0 ? Math.Min(1, (d - start) / len) : 0);
             }
             int lo = 0, hi = _table.Length - 1;
             while (hi - lo > 1)

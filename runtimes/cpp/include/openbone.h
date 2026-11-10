@@ -41,6 +41,7 @@ extern "C" {
 
 typedef struct ob_document ob_document;
 typedef struct ob_instance ob_instance;
+typedef struct ob_bounds ob_bounds;
 
 typedef enum ob_blend { OB_BLEND_NORMAL = 0, OB_BLEND_ADDITIVE = 1, OB_BLEND_MULTIPLY = 2, OB_BLEND_SCREEN = 3 } ob_blend;
 
@@ -283,6 +284,45 @@ OB_API int ob_instance_clip_count(const ob_instance* inst);
 OB_API int ob_instance_clip(const ob_instance* inst, int index, ob_clip* out);
 /** Bounds of the drawn geometry and bones: min x, min y, max x, max y. */
 OB_API void ob_instance_bounds(ob_instance* inst, double out[4]);
+
+/* ---------- Bounding-box queries (docs/runtime-spec.md §8.10, like Spine's SkeletonBounds) ----------
+ * An ob_bounds is a snapshot of an instance's active bounding boxes: every slot, in draw order, whose bone is active
+ * and whose current attachment is a bounding box. Take it with ob_bounds_update after advancing; it does not follow
+ * the pose by itself. It keeps the document alive and does not reference the instance, so it may outlive it.
+ * Box indices are 0..ob_bounds_count-1 in draw order; with no box every query returns nothing. */
+
+/** One bounding box: names (valid while the ob_bounds lives), world polygon (valid until the next update). */
+typedef struct ob_bounding_box {
+  const char* slot;       /* slot name */
+  const char* attachment; /* attachment name */
+  const float* vertices;  /* x,y pairs, skeleton space */
+  int vertex_count;
+  double min_x, min_y, max_x, max_y;
+} ob_bounding_box;
+
+OB_API ob_bounds* ob_bounds_create(void);
+OB_API void ob_bounds_free(ob_bounds* bounds);
+/** Recompute from the instance's current pose; returns the box count (0 on failure, see ob_last_error). */
+OB_API int ob_bounds_update(ob_bounds* bounds, const ob_instance* inst);
+OB_API int ob_bounds_count(const ob_bounds* bounds);
+OB_API int ob_bounds_box(const ob_bounds* bounds, int index, ob_bounding_box* out);
+/** Overall AABB (min x, min y, max x, max y); returns 0 (and writes zeros) when there is no box. */
+OB_API int ob_bounds_aabb(const ob_bounds* bounds, double out[4]);
+/** 1 when the point is inside the overall AABB (edges included). */
+OB_API int ob_bounds_aabb_contains_point(const ob_bounds* bounds, double x, double y);
+/** 1 when the overall AABB overlaps the rectangle (edges included). */
+OB_API int ob_bounds_aabb_intersects(const ob_bounds* bounds, double min_x, double min_y, double max_x, double max_y);
+/** Index of the first box containing the point (even-odd rule), or -1. */
+OB_API int ob_bounds_contains_point(const ob_bounds* bounds, double x, double y);
+/** Every box containing the point: writes up to `capacity` indices to `out` (may be NULL) and returns the full count. */
+OB_API int ob_bounds_contains_point_all(const ob_bounds* bounds, double x, double y, int* out, int capacity);
+/** Index of the first box the segment touches (crosses an edge, or starts inside), or -1. */
+OB_API int ob_bounds_intersects_segment(const ob_bounds* bounds, double x1, double y1, double x2, double y2);
+/** Every box the segment touches; same out/capacity/return convention as ob_bounds_contains_point_all. */
+OB_API int ob_bounds_intersects_segment_all(const ob_bounds* bounds, double x1, double y1, double x2, double y2, int* out, int capacity);
+/** First overlapping pair between two snapshots (e.g. two characters): returns 1 and sets *mine / *theirs
+ *  (either may be NULL), or 0 when none overlap. Mine is the outer loop, both in draw order. */
+OB_API int ob_bounds_intersects_bounds(const ob_bounds* bounds, const ob_bounds* other, int* mine, int* theirs);
 
 #ifdef __cplusplus
 }

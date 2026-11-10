@@ -186,6 +186,10 @@ namespace OpenBone.MonoGame
             PointerSent?.Invoke(type, p);
         }
 
+        /// <summary>
+        /// Screen pixels → skeleton space (y up). Bounding-box queries (<c>Instance.Skeleton.BoundingBoxes()</c>) work in
+        /// skeleton space: convert a mouse position with this first, and box vertices back with <see cref="SkeletonToScreen"/>.
+        /// </summary>
         public Vector2 ScreenToSkeleton(Vector2 screen) => View.ScreenToSkeleton(screen);
         public Vector2 SkeletonToScreen(double x, double y) => View.SkeletonToScreen(x, y);
 

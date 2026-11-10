@@ -648,6 +648,9 @@ defineOp({
     }
     if (att.type === "mesh") return updateMesh(doc, slot.bone, att, props);
     if (att.type === "sequence") checkSequenceProps(doc, props);
+    // A weighted bounding box keeps its bones: new vertices are re-bound like a weighted mesh's.
+    if (att.type === "boundingBox" && att.weights && Array.isArray(props.vertices) && !("weights" in props))
+      props.weights = rebindWeights(doc, slot.bone, att as typeof att & { weights: VertexWeight[][] }, props.vertices as number[]);
     if (att.type === "clipping") {
       if ("vertices" in props) checkClipPolygon(props.vertices);
       if ("end" in props) props.end = props.end == null ? null : get.slot(doc, String(props.end)).id;
@@ -656,6 +659,33 @@ defineOp({
     return {};
   },
 });
+
+/**
+ * Weights for new (slot-bone local) `vertices` of a weighted mesh or bounding box: each vertex keeps its influences
+ * (those of the nearest old vertex when the count changed), re-bound at its new setup-pose position.
+ */
+function rebindWeights(doc: OpenBoneDocument, slotBone: string, att: Weighted & { weights: VertexWeight[][] }, vertices: number[]): VertexWeight[][] {
+  const world = setupWorld(doc);
+  const slotM = world.get(slotBone)!;
+  const oldN = att.vertices.length / 2;
+  const n = vertices.length / 2;
+  const oldWorld = Array.from({ length: oldN }, (_, v) => vertexSetupWorld(att, world, slotBone, v));
+  return Array.from({ length: n }, (_, v) => {
+    const [wx, wy] = applyM(slotM, vertices[v * 2], vertices[v * 2 + 1]);
+    let from = v;
+    if (n !== oldN) {
+      let best = Infinity;
+      oldWorld.forEach(([ox, oy], i) => {
+        const d = (ox - wx) ** 2 + (oy - wy) ** 2;
+        if (d < best) [best, from] = [d, i];
+      });
+    }
+    return att.weights[from].map((inf) => {
+      const [x, y] = applyM(invert(world.get(inf.bone)!), wx, wy);
+      return { ...inf, x, y };
+    });
+  });
+}
 
 /**
  * Apply props to a mesh and keep it consistent: new `vertices` on a weighted mesh re-bind each vertex to its
@@ -687,27 +717,8 @@ function updateMesh(doc: OpenBoneDocument, slotBone: string, att: MeshAtt, props
   if (!Number.isInteger(next.hull) || next.hull < 3 || next.hull > n) throw new Error(`hull must be an integer between 3 and ${n}`);
   if (!isNums(next.triangles) || next.triangles.length % 3 || next.triangles.some((i) => !Number.isInteger(i) || i < 0 || i >= n))
     throw new Error(`triangles must be index triples in 0..${n - 1}`);
-  if ("vertices" in props && !("weights" in props) && att.weights) {
-    // Re-bind the weighted mesh so the new vertex positions take effect.
-    const world = setupWorld(doc);
-    const slotM = world.get(slotBone)!;
-    const oldWorld = Array.from({ length: oldN }, (_, v) => vertexSetupWorld(att, world, slotBone, v));
-    next.weights = Array.from({ length: n }, (_, v) => {
-      const [wx, wy] = applyM(slotM, next.vertices[v * 2], next.vertices[v * 2 + 1]);
-      let from = v;
-      if (n !== oldN) {
-        let best = Infinity;
-        oldWorld.forEach(([ox, oy], i) => {
-          const d = (ox - wx) ** 2 + (oy - wy) ** 2;
-          if (d < best) [best, from] = [d, i];
-        });
-      }
-      return att.weights![from].map((inf) => {
-        const [x, y] = applyM(invert(world.get(inf.bone)!), wx, wy);
-        return { ...inf, x, y };
-      });
-    });
-  }
+  // Re-bind the weighted mesh so the new vertex positions take effect.
+  if ("vertices" in props && !("weights" in props) && att.weights) next.weights = rebindWeights(doc, slotBone, { vertices: att.vertices, weights: att.weights }, next.vertices);
   if (next.weights) {
     if (!Array.isArray(next.weights) || next.weights.length !== n) throw new Error(`weights must have one entry per vertex (${n})`);
     for (const list of next.weights)

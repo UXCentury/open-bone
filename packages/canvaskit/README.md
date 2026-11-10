@@ -120,6 +120,7 @@ Over HTTP(S) no custom `fetch` is needed: `loadOpenBone(ck, "https://cdn.example
 | `play()`, `pause()`, `playing` | The render loop; pausing also pauses sounds. |
 | `resize()` | Call after the canvas changed size (the player does not observe it). |
 | `draw()` | Draw the current pose once. |
+| `boundingBoxes()`, `clientToSkeleton(clientX, clientY)` | Bounding-box queries in skeleton space (y up), and page coordinates to skeleton space through the fit: `player.boundingBoxes().containsPoint(...player.clientToSkeleton(e.clientX, e.clientY))`. |
 | `on(name, fn)` | Listen to `"event"`, `"stateChange"` or `"audio"`. Returns an unsubscribe function. |
 | `driver`, `instance`, `stateMachine`, `renderer`, `asset`, `ck`, `canvas` | Lower-level access (playback speed is `driver.speed`). |
 | `dispose()` | Stops the loop and sounds, removes pointer listeners and frees the surface and renderer. |

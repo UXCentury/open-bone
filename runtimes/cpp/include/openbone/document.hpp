@@ -242,6 +242,8 @@ struct PathConstraintData {
   PositionMode positionMode = PositionMode::Percent;
   SpacingMode spacingMode = SpacingMode::Length;
   RotateMode rotateMode = RotateMode::Tangent;
+  /** Arc-length placement inside each bezier segment (default); false = the raw bezier parameter (spec §7.3). */
+  bool constantSpeed = true;
   double offsetRotation = 0, position = 0, spacing = 0, mixRotate = 1, mixX = 1, mixY = 1;
 };
 

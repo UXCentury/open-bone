@@ -212,6 +212,7 @@ public final class DocumentLoader {
       c.positionMode = str(x, "positionMode", "percent");
       c.spacingMode = str(x, "spacingMode", "length");
       c.rotateMode = str(x, "rotateMode", "tangent");
+      c.constantSpeed = bool(x, "constantSpeed", true);
       c.offsetRotation = num(x, "offsetRotation", 0);
       c.position = num(x, "position", 0);
       c.spacing = num(x, "spacing", 0);
@@ -344,6 +345,7 @@ public final class DocumentLoader {
       case "boundingBox": {
         BoundingBoxAttachment a = new BoundingBoxAttachment();
         a.vertices = numsOr(x.get("vertices"));
+        a.weights = weights(x.get("weights"));
         out = a;
         break;
       }

@@ -439,6 +439,17 @@ export class OpenBoneObject3D extends THREE.Group {
     return hit ? [hit.x, hit.y] : null;
   }
 
+  /** Skeleton space (y up) to a world-space point on the object's plane. */
+  skeletonToWorld(x: number, y: number, target = new THREE.Vector3()): THREE.Vector3 {
+    this.updateWorldMatrix(true, false);
+    return target.set(x, y, 0).applyMatrix4(this.matrixWorld);
+  }
+
+  /** The active bounding boxes (skeleton space): `const p = obj.rayToSkeleton(ray); p && obj.boundingBoxes().containsPoint(...p)`. */
+  boundingBoxes() {
+    return this.driver.boundingBoxes();
+  }
+
   /** Send a pointer event along a ray (e.g. raycaster.ray) to the state machine; outside the artboard ends hovers. */
   pointer(type: "down" | "up" | "move", ray: THREE.Ray) {
     const p = this.rayToSkeleton(ray);

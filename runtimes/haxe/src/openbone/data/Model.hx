@@ -427,6 +427,9 @@ class ShapeAttachment extends Attachment {
 class BoundingBoxAttachment extends Attachment {
 	public var vertices:Array<Float> = [];
 
+	/** Optional per-vertex bone influences (mesh layout), so the box bends with several bones. */
+	public var weights:Array<Array<VertexWeight>>;
+
 	public function new() {
 		super("boundingBox");
 	}
@@ -660,6 +663,12 @@ class PathConstraintData extends ConstraintData {
 
 	/** "tangent", "chain" or "chainScale". */
 	public var rotateMode = "tangent";
+
+	/**
+	 * Arc-length placement inside each bezier segment (default). False: the segment is found by arc length, the point
+	 * inside it at the raw bezier parameter (docs/runtime-spec.md §7.3 "Constant speed off").
+	 */
+	public var constantSpeed = true;
 
 	public var offsetRotation = 0.0;
 	public var position = 0.0;

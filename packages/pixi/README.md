@@ -95,6 +95,7 @@ skeleton origin; at scale 1, one skeleton unit is one pixel, with y down like th
 | `update(dt)`, `redraw()` | Advance and rebuild the meshes; rebuild only (after changing the pose by hand). |
 | `onOpenBone(name, fn)` | Listen to `"event"`, `"stateChange"` or `"audio"`. Returns an unsubscribe function. |
 | `artboard` | The artboard rectangle in the container's space (y down). |
+| `boundingBoxes()`, `toSkeleton(global)`, `fromSkeleton(x, y)` | Bounding-box queries in skeleton space (y up), and conversion from / to Pixi global coordinates: `obj.boundingBoxes().containsPoint(...obj.toSkeleton(e.global))`. |
 | `drawCalls` | Batches drawn in the last update. |
 | `driver`, `instance`, `skeleton`, `stateMachine`, `asset` | Lower-level access. |
 | `destroy()` | Stops ticking, stops sounds and frees text and particle textures. Shared asset textures are kept. |

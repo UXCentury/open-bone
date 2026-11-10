@@ -18,7 +18,7 @@ export function summarize(d: OpenBoneDocument): string {
   lines.push(`## Slots (${d.skeleton.slots.length}, back→front)`);
   const skin = defaultSkin(d);
   for (const s of d.skeleton.slots) {
-    const atts = Object.values(skin.attachments[s.id] ?? {}).map((a) => `${a.name}:${a.type}${(a.type === "mesh" || a.type === "path") && a.weights ? "(weighted)" : ""}`);
+    const atts = Object.values(skin.attachments[s.id] ?? {}).map((a) => `${a.name}:${a.type}${(a.type === "mesh" || a.type === "path" || a.type === "boundingBox") && a.weights ? "(weighted)" : ""}`);
     lines.push(`- ${s.name} [${s.id}] on ${name(s.bone)} shows ${s.attachment ?? "nothing"}; attachments: ${atts.join(", ") || "none"}`);
   }
   if (d.images.length) lines.push(`## Images: ${d.images.map((i) => `${i.name} [${i.id}] ${i.width}x${i.height}`).join("; ")}`);

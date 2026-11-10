@@ -3,6 +3,7 @@ import { AnimationState } from "./animation-state.ts";
 import type { FiredEvent } from "./animation.ts";
 import type { AudioCommand } from "./audio.ts";
 import { Emitter } from "./emitter.ts";
+import type { SkeletonBounds } from "./bounds.ts";
 import { Skeleton } from "./skeleton.ts";
 import { type StateMachineOptions, StateMachineInstance } from "./state-machine.ts";
 
@@ -81,5 +82,14 @@ export class OpenBoneInstance extends Emitter<Events> {
 
   drawList() {
     return this.skeleton.drawList();
+  }
+
+  /**
+   * The active bounding boxes in the current pose, in skeleton space (y up, like `pointer` and the draw list):
+   * world polygons, their AABB and point / segment / AABB / other-skeleton queries. A snapshot: call again (or
+   * `update(skeleton)` on it) after the next `advance`.
+   */
+  boundingBoxes(): SkeletonBounds {
+    return this.skeleton.boundingBoxes();
   }
 }

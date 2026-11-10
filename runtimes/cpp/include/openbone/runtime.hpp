@@ -9,6 +9,7 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "document.hpp"
@@ -172,6 +173,7 @@ struct ConstraintRef {
 };
 
 struct PhysicsState;
+class SkeletonBounds;
 
 class Skeleton {
  public:
@@ -234,6 +236,8 @@ class Skeleton {
   bool hitTest(const Slot& slot, double x, double y) const;
   /** Axis-aligned bounds of everything drawn plus bones: minX, minY, maxX, maxY. */
   std::array<double, 4> bounds() const;
+  /** The active bounding boxes in the current pose (spec §8.10). A snapshot: take a new one after the pose changes. */
+  SkeletonBounds boundingBoxes() const;
   const std::vector<ConstraintRef>& constraintOrder() const { return order; }
 
   Affine rootMatrix() const { return {scaleX, 0, 0, scaleY, x, y}; }
@@ -277,6 +281,52 @@ class Skeleton {
   bool particleItem(const Slot& slot, const Attachment& att, DrawItem& out) const;
   const std::vector<uint16_t>& triangulated(const Attachment& att, const std::vector<double>& outline) const;
 };
+
+// ---------------- Bounding boxes (runtime/bounds.ts, spec §8.10) ----------------
+
+/** One active bounding box: the world polygon of a slot's current bounding-box attachment. */
+struct BoundingBoxPolygon {
+  const SlotData* slot = nullptr;
+  const Attachment* attachment = nullptr;
+  /** World x,y pairs (skeleton space, y up: the draw list's coordinates), float32 like the reference. */
+  std::vector<float> vertices;
+  double minX = 0, minY = 0, maxX = 0, maxY = 0;
+};
+
+/**
+ * The active bounding boxes of a skeleton for one pose (like Spine's SkeletonBounds): every slot, in draw order,
+ * whose bone is active and whose current attachment is a bounding box with at least 3 vertices. The snapshot does
+ * not reference the Skeleton (only document data), so it outlives it as long as the Document does.
+ * Queries return indices into `boxes` (-1 / empty when none). With no box the overall AABB is all zeros and every
+ * query returns nothing.
+ */
+class SkeletonBounds {
+ public:
+  SkeletonBounds() = default;
+  explicit SkeletonBounds(const Skeleton& skeleton) { update(skeleton); }
+  /** Recompute the polygons from the skeleton's current world pose. */
+  SkeletonBounds& update(const Skeleton& skeleton);
+
+  std::vector<BoundingBoxPolygon> boxes;
+  double minX = 0, minY = 0, maxX = 0, maxY = 0;
+
+  /** The point is inside the overall AABB (edges included). */
+  bool aabbContainsPoint(double x, double y) const;
+  /** The overall AABB overlaps the rectangle (edges included). */
+  bool aabbIntersects(double minX, double minY, double maxX, double maxY) const;
+  /** The first box (draw order) containing the point, or -1. */
+  int containsPoint(double x, double y) const;
+  /** Every box containing the point, in draw order. */
+  std::vector<int> containsPointAll(double x, double y) const;
+  /** The first box the segment touches (crosses an edge or starts inside), or -1. */
+  int intersectsSegment(double x1, double y1, double x2, double y2) const;
+  std::vector<int> intersectsSegmentAll(double x1, double y1, double x2, double y2) const;
+  /** The first overlapping pair {mine, theirs} (mine outer loop, theirs inner, draw order), or nullopt. */
+  std::optional<std::pair<int, int>> intersectsBounds(const SkeletonBounds& other) const;
+};
+
+/** Closed segments p1-p2 and p3-p4 cross or touch (parallel ones never count). */
+bool segmentsIntersect(double x1, double y1, double x2, double y2, double x3, double y3, double x4, double y4);
 
 // ---------------- Animation ----------------
 

@@ -366,6 +366,23 @@ export class OpenBone extends Container {
     this.drawCalls = batches.length;
   }
 
+  /** A point in Pixi global (stage) coordinates, e.g. a pointer event's `global`, to skeleton space (y up). */
+  toSkeleton(global: { x: number; y: number }): [number, number] {
+    const p = this.view.toLocal(global);
+    return [p.x, p.y];
+  }
+
+  /** Skeleton space (y up) to Pixi global (stage) coordinates. */
+  fromSkeleton(x: number, y: number): { x: number; y: number } {
+    const p = this.view.toGlobal({ x, y });
+    return { x: p.x, y: p.y };
+  }
+
+  /** The active bounding boxes (skeleton space): `obj.boundingBoxes().containsPoint(...obj.toSkeleton(e.global))`. */
+  boundingBoxes() {
+    return this.driver.boundingBoxes();
+  }
+
   /** The artboard rectangle in this container's space (y down). */
   get artboard() {
     const d = this.asset.doc;

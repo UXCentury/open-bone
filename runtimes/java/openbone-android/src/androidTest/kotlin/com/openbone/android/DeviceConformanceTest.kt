@@ -34,7 +34,7 @@ class DeviceConformanceTest {
     for (file in assets.list("conformance/expected")!!.filter { it.endsWith(".json") }.sorted()) {
       val exp = Json.parse(String(bytes("conformance/expected/$file"))) as Map<String, Any?>
       val doc = DocumentLoader.load(bytes(exp["document"] as String))
-      val runner = ConformanceRunner(file.removeSuffix(".json"), doc, host)
+      val runner = ConformanceRunner.forExpected(file.removeSuffix(".json"), doc, host, exp)
       for (c in exp["cases"] as List<Any?>) {
         cases++
         try {
@@ -45,7 +45,7 @@ class DeviceConformanceTest {
       }
     }
     assertEquals("failures: " + failures.joinToString("\n"), 0, failures.size)
-    assertEquals(82, cases)
+    assertEquals(88, cases)
   }
 
   @Test
