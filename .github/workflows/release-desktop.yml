@@ -117,6 +117,7 @@ jobs:
           { echo "body<<__NOTES__"; cat "$RUNNER_TEMP/notes.md"; echo "__NOTES__"; } >> "$GITHUB_OUTPUT"
 
       - uses: tauri-apps/tauri-action@action-v1.0.0
+        id: tauri
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -130,3 +131,36 @@ jobs:
           releaseDraft: true
           prerelease: false
           uploadWorkflowArtifacts: true
+
+      # Tauri notarizes the app inside the .dmg, not the disk image itself, so opening the download could still warn.
+      # Notarize and staple the .dmg too, then put it back in place of the one tauri-action uploaded (release and
+      # workflow artifact). Runs only for signed macOS builds.
+      - name: Notarize the disk image
+        id: dmg
+        if: runner.os == 'macOS' && env.APPLE_ID != '' && env.APPLE_PASSWORD != '' && env.APPLE_TEAM_ID != ''
+        shell: bash
+        env:
+          ARTIFACTS: ${{ steps.tauri.outputs.artifactPaths }}
+        run: |
+          dmg=$(node -e 'console.log(JSON.parse(process.env.ARTIFACTS).find(p => p.endsWith(".dmg")) || "")')
+          if [ -z "$dmg" ]; then echo "::error::No .dmg among the build artifacts"; exit 1; fi
+          xcrun notarytool submit "$dmg" --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" \
+            --wait --timeout 30m
+          xcrun stapler staple "$dmg"
+          spctl -a -vv -t open --context context:primary-signature "$dmg"
+          echo "path=$dmg" >> "$GITHUB_OUTPUT"
+
+      - name: Replace the disk image in the release
+        if: steps.dmg.outputs.path != '' && steps.tauri.outputs.releaseId != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "v${{ steps.tauri.outputs.appVersion }}" "${{ steps.dmg.outputs.path }}" --clobber
+
+      - name: Replace the disk image in the workflow artifact
+        if: steps.dmg.outputs.path != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: darwin-universal-dmg
+          path: ${{ steps.dmg.outputs.path }}
+          overwrite: true

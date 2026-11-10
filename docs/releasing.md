@@ -70,7 +70,13 @@ Needs an [Apple Developer Program](https://developer.apple.com/programs/) member
 | `APPLE_TEAM_ID` | Your 10-character team ID |
 
 With these set, the macOS job signs the app with hardened runtime and sends it to Apple for notarization, so it opens
-without a warning. The workflow passes each secret only when it exists.
+without a warning. Tauri notarizes only the app inside the `.dmg`, so a following step notarizes and staples the disk
+image as well and replaces it in the release and the workflow artifact. The workflow passes each secret only when it
+exists.
+
+Check a downloaded build with `spctl -a -vv -t exec /Applications/OpenBone.app` (app) or
+`spctl -a -vv -t open --context context:primary-signature OpenBone_<version>_universal.dmg` (disk image): both should
+print `source=Notarized Developer ID`.
 
 ### Windows
 
