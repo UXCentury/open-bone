@@ -127,6 +127,10 @@ if(OPENBONE_BUILD_TESTS)
   target_link_libraries(openbone_unit PRIVATE openbone)
   target_include_directories(openbone_unit PRIVATE src)
   add_test(NAME unit COMMAND openbone_unit)
+  # The engine samples' shared sound mixer (header-only, engines/common/openbone_audio.hpp).
+  add_executable(openbone_engine_audio tests/engine_audio.cpp)
+  target_link_libraries(openbone_engine_audio PRIVATE openbone)
+  add_test(NAME engine_audio COMMAND openbone_engine_audio ${OPENBONE_REPO_ROOT}/examples/button.obone)
   set(OB_DATA ${CMAKE_CURRENT_SOURCE_DIR}/tests/data)
   add_test(NAME binary COMMAND openbone_unit ${OB_DATA}/interactive.obonb ${OB_DATA}/interactive.decoded.obone
     ${OB_DATA}/dynamics.obonb ${OB_DATA}/dynamics.decoded.obone)

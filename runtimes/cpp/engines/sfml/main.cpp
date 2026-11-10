@@ -6,9 +6,14 @@
 //
 // SFML 2 has no stencil buffer access, so clipping masks are not applied; text uses sf::Text when a font is given with
 // --font path.ttf. Screen blending falls back to additive.
+//
+// Sounds play through sf::SoundBuffer / sf::Sound (built with OPENBONE_SFML_AUDIO): volume × bus × master, rate as
+// pitch, looping and fades stepped every frame (engines/common/openbone_audio.hpp). --mute turns them off; the audio
+// commands are printed either way.
 // SPDX-License-Identifier: MIT
 #include <SFML/Graphics.hpp>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <map>
@@ -17,6 +22,12 @@
 
 #include "openbone/runtime.hpp"
 #include "openbone_assets.hpp"
+
+#if OPENBONE_SFML_AUDIO
+#include <SFML/Audio.hpp>
+
+#include "openbone_audio.hpp"
+#endif
 
 namespace ob = openbone;
 
@@ -129,22 +140,87 @@ class OpenBoneDrawable : public sf::Drawable, public sf::Transformable {
   }
 };
 
+#if OPENBONE_SFML_AUDIO
+/** sf::Sound voices for the shared mixer: one sf::SoundBuffer per asset (WAV, OGG, FLAC, MP3), pitch = rate. */
+struct SfmlAudio : ob::audio::Output {
+  std::string documentPath;
+  std::map<std::string, std::unique_ptr<sf::SoundBuffer>> buffers;  // null = cannot be loaded
+  std::map<int, std::unique_ptr<sf::Sound>> voices;                 // declared after buffers: destroyed first
+
+  explicit SfmlAudio(std::string path) : documentPath(std::move(path)) {}
+
+  const sf::SoundBuffer* buffer(const ob::AudioAsset& a) {
+    auto it = buffers.find(a.id);
+    if (it != buffers.end()) return it->second.get();
+    auto b = std::make_unique<sf::SoundBuffer>();
+    const auto bytes = ob::assets::readSource(a.src, documentPath);
+    if (bytes.empty() || !b->loadFromMemory(bytes.data(), bytes.size())) {
+      std::fprintf(stderr, "cannot load sound \"%s\" (%.60s)\n", a.name.c_str(), a.src.c_str());
+      b.reset();
+    }
+    return (buffers[a.id] = std::move(b)).get();
+  }
+
+  static float volumeOf(double gain) { return float(std::clamp(gain, 0.0, 1.0) * 100); }
+
+  bool start(int voice, const ob::AudioAsset& asset, double gain, double rate, bool loop) override {
+    const sf::SoundBuffer* b = buffer(asset);
+    if (!b) return false;
+    auto s = std::make_unique<sf::Sound>(*b);
+    s->setVolume(volumeOf(gain));
+    s->setPitch(float(rate));
+    s->setLoop(loop);
+    s->play();
+    voices[voice] = std::move(s);
+    return true;
+  }
+
+  void setGain(int voice, double gain) override {
+    auto it = voices.find(voice);
+    if (it != voices.end()) it->second->setVolume(volumeOf(gain));
+  }
+
+  void stop(int voice) override {
+    auto it = voices.find(voice);
+    if (it == voices.end()) return;
+    it->second->stop();
+    voices.erase(it);
+  }
+
+  /** Release voices whose sound reached its end and tell the mixer. */
+  void poll(ob::audio::Mixer& mixer) {
+    for (auto it = voices.begin(); it != voices.end();) {
+      if (it->second->getStatus() != sf::Sound::Stopped) {
+        ++it;
+        continue;
+      }
+      const int voice = it->first;
+      it = voices.erase(it);
+      mixer.voiceFinished(voice);
+    }
+  }
+};
+#endif
+
 }  // namespace
 
 int main(int argc, char** argv) {
   if (argc < 2) {
-    std::fprintf(stderr, "usage: %s file.obone [--animation name] [--skin name] [--font file.ttf]\n", argv[0]);
+    std::fprintf(stderr, "usage: %s file.obone [--animation name] [--skin name] [--font file.ttf] [--mute]\n", argv[0]);
     return 2;
   }
   std::string path = argv[1], animation, skin, fontPath, out;
   int frames = 0;
-  for (int i = 2; i + 1 < argc; i += 2) {
+  bool mute = false;
+  for (int i = 2; i < argc; i++) {
     const std::string k = argv[i];
-    if (k == "--animation") animation = argv[i + 1];
-    else if (k == "--skin") skin = argv[i + 1];
-    else if (k == "--font") fontPath = argv[i + 1];
-    else if (k == "--frames") frames = std::atoi(argv[i + 1]);
-    else if (k == "--out") out = argv[i + 1];
+    if (k == "--mute") mute = true;
+    else if (i + 1 >= argc) break;
+    else if (k == "--animation") animation = argv[++i];
+    else if (k == "--skin") skin = argv[++i];
+    else if (k == "--font") fontPath = argv[++i];
+    else if (k == "--frames") frames = std::atoi(argv[++i]);
+    else if (k == "--out") out = argv[++i];
   }
   std::shared_ptr<const ob::Document> doc;
   try {
@@ -153,11 +229,24 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "%s\n", e.what());
     return 1;
   }
+#if OPENBONE_SFML_AUDIO
+  // Declared before the instance so they outlive its audio callback. Offscreen renders (--out) stay silent.
+  SfmlAudio audioOut(path);
+  std::unique_ptr<ob::audio::Mixer> audio = mute || !out.empty() ? nullptr : std::make_unique<ob::audio::Mixer>(doc, audioOut);
+#else
+  (void)mute;
+#endif
   ob::Instance inst(doc, ob::createQuickJsHost());
   if (!skin.empty()) inst.skeleton->setSkin(skin);
   if (animation.empty() && !doc->stateMachines.empty()) inst.useStateMachine();
   else if (!doc->animations.empty()) inst.play(animation.empty() ? doc->animations[0].name : animation);
   inst.onEvent = [](const ob::FiredEvent& e) { std::printf("event %s\n", e.name.c_str()); };
+  inst.onAudio = [&](const ob::AudioCommand& c) {
+    if (c.type == ob::AudioCommand::Type::Play) std::printf("audio play %s (%s)\n", c.sound.c_str(), c.source.c_str());
+#if OPENBONE_SFML_AUDIO
+    if (audio) audio->handle(c);
+#endif
+  };
   inst.advance(0);
 
   const unsigned W = doc->width > 0 ? unsigned(doc->width) : 800, H = doc->height > 0 ? unsigned(doc->height) : 600;
@@ -197,10 +286,20 @@ int main(int argc, char** argv) {
         inst.pointer(t, w.x - doc->originX, doc->originY - w.y);
       }
     }
-    inst.advance(clock.restart().asSeconds());
+    const float dt = clock.restart().asSeconds();
+    inst.advance(dt);
+#if OPENBONE_SFML_AUDIO
+    if (audio) {
+      audio->update(dt);
+      audioOut.poll(*audio);
+    }
+#endif
     window.clear(sf::Color(40, 44, 52));
     window.draw(drawable);
     window.display();
   }
+#if OPENBONE_SFML_AUDIO
+  if (audio) audio->stopAll();
+#endif
   return 0;
 }
