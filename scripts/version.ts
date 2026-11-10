@@ -1,6 +1,7 @@
 /**
  * One version for the whole repo. The root package.json is the source; this keeps every workspace package, the
- * Tauri config and the desktop crate on the same number.
+ * Tauri config, the desktop crate and the native runtimes (C++ and its C API ob_version(), Java, C#, Unity, Flutter)
+ * on the same number. The Swift package and the Haxe runtime take their version from the git tag.
  *
  *   pnpm version:check            fail if anything is out of sync
  *   pnpm version:set 0.2.0        set an exact version
@@ -34,7 +35,32 @@ export function versionFiles(): { file: string; get: (s: string) => string | nul
     get: (s: string) => new RegExp(`\\[\\[package\\]\\]\\nname = "${crate}"\\nversion = "([^"]+)"`).exec(s)?.[1] ?? null,
     set: (s: string, v: string) => s.replace(lockRe, `$1${v}$2`),
   };
-  return [...pkgs.map(json), json("apps/desktop/src-tauri/tauri.conf.json"), cargoToml, ...(fs.existsSync(rel(cargoLock.file)) ? [cargoLock] : [])];
+  // The native runtimes: one pattern per file, whose first group is the version.
+  const pattern = (file: string, re: RegExp) => ({
+    file,
+    get: (s: string) => re.exec(s)?.[2] ?? null,
+    set: (s: string, v: string) => s.replace(re, (_m, before: string, _old: string, after: string) => `${before}${v}${after}`),
+  });
+  const native = [
+    pattern("runtimes/cpp/CMakeLists.txt", /(project\(openbone_runtime VERSION )([^\s)]+)( )/),
+    pattern("runtimes/cpp/src/c_api.cpp", /(ob_version\(void\) \{ return ")([^"]+)(";)/),
+    pattern("runtimes/java/build.gradle.kts", /(^\s*version = ")([^"]+)(")/m),
+    pattern("runtimes/csharp/src/OpenBone.Runtime/OpenBone.Runtime.csproj", /(<Version>)([^<]+)(<\/Version>)/),
+    pattern("runtimes/csharp/src/OpenBone.Scripting.Jint/OpenBone.Scripting.Jint.csproj", /(<Version>)([^<]+)(<\/Version>)/),
+    pattern("runtimes/csharp/monogame/src/OpenBone.MonoGame/OpenBone.MonoGame.csproj", /(<Version>)([^<]+)(<\/Version>)/),
+    pattern("runtimes/flutter/openbone/pubspec.yaml", /(^version: )(\S+)()/m),
+    pattern("runtimes/flutter/openbone/darwin/openbone.podspec", /(s\.version\s*= ')([^']+)(')/),
+    pattern("runtimes/flutter/openbone/android/build.gradle", /(^version = ")([^"]+)(")/m),
+  ].filter((f) => fs.existsSync(rel(f.file)));
+  const nativeJson = ["runtimes/csharp/unity/com.openbone.runtime/package.json", "conformance/package.json"].filter((f) => fs.existsSync(rel(f))).map(json);
+  return [
+    ...pkgs.map(json),
+    json("apps/desktop/src-tauri/tauri.conf.json"),
+    cargoToml,
+    ...(fs.existsSync(rel(cargoLock.file)) ? [cargoLock] : []),
+    ...nativeJson,
+    ...native,
+  ];
 }
 
 export const currentVersion = () => (JSON.parse(fs.readFileSync(rel("package.json"), "utf8")) as { version: string }).version;

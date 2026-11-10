@@ -1,6 +1,6 @@
 {
   "name": "@openbone/player",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "type": "module",
   "description": "Drop-in <openbone-player> web component and JS API for OpenBone animations",

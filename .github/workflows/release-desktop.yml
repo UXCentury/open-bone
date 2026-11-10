@@ -86,6 +86,28 @@ jobs:
             fi
           done
 
+      # Release notes: this version's section of CHANGELOG.md, then how to open the unsigned installers.
+      - name: Release notes
+        id: notes
+        shell: bash
+        run: |
+          node -e '
+            const fs = require("fs");
+            const v = JSON.parse(fs.readFileSync("apps/desktop/src-tauri/tauri.conf.json", "utf8")).version;
+            const log = fs.readFileSync("CHANGELOG.md", "utf8");
+            const m = log.match(new RegExp("^## " + v.replace(/\./g, "\\.") + "\\b[^\\n]*\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))", "m"));
+            const notes = m ? m[1].trim() : "See CHANGELOG.md for what changed.";
+            const install = [
+              "### Installing",
+              "Download the installer for your system below. These builds are not code-signed yet:",
+              "- **macOS**: right-click OpenBone in Applications and choose **Open** the first time.",
+              "- **Windows**: if SmartScreen appears, choose **More info** then **Run anyway**.",
+              "- **Linux AppImage**: on newer Ubuntu install `libfuse2`, or run it with `--appimage-extract-and-run`.",
+            ].join("\n");
+            fs.writeFileSync(process.env.RUNNER_TEMP + "/notes.md", notes + "\n\n" + install + "\n");
+          '
+          { echo "body<<__NOTES__"; cat "$RUNNER_TEMP/notes.md"; echo "__NOTES__"; } >> "$GITHUB_OUTPUT"
+
       - uses: tauri-apps/tauri-action@action-v1.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -96,7 +118,7 @@ jobs:
           # A release only for tags, or when asked for on a manual run; otherwise just build and keep artifacts.
           tagName: ${{ (startsWith(github.ref, 'refs/tags/v') || inputs.release) && 'v__VERSION__' || '' }}
           releaseName: "OpenBone v__VERSION__"
-          releaseBody: "Desktop installers for OpenBone v__VERSION__. See CHANGELOG.md for what changed. Unsigned builds: on macOS right-click the app and choose Open the first time; on Windows choose More info → Run anyway; for the AppImage on newer Ubuntu, install libfuse2 or run it with --appimage-extract-and-run."
+          releaseBody: ${{ steps.notes.outputs.body }}
           releaseDraft: true
           prerelease: false
           uploadWorkflowArtifacts: true

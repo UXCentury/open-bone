@@ -1,6 +1,6 @@
 {
   "name": "@openbone/canvaskit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "license": "MIT",
   "type": "module",
   "description": "OpenBone runtime for CanvasKit (Skia WebAssembly): renderer and player",

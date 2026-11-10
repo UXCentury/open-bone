@@ -5,7 +5,7 @@
     <Nullable>disable</Nullable>
     <RootNamespace>OpenBone</RootNamespace>
     <AssemblyName>OpenBone.Runtime</AssemblyName>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>OpenBone contributors</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Description>OpenBone runtime for .NET and Unity: skeletons, animations, constraints, particles, text, state machines and audio commands.</Description>

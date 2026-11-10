@@ -77,7 +77,7 @@ ob_item_kind kindOf(const DrawItem& it) {
 extern "C" {
 
 int ob_api_version(void) { return OB_API_VERSION; }
-const char* ob_version(void) { return "0.1.0"; }
+const char* ob_version(void) { return "0.2.0"; }
 const char* ob_last_error(void) { return lastError.c_str(); }
 int ob_has_scripts(void) { return createQuickJsHost() ? 1 : 0; }
 

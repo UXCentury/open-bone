@@ -5,7 +5,7 @@
     <Nullable>disable</Nullable>
     <RootNamespace>OpenBone.MonoGame</RootNamespace>
     <AssemblyName>OpenBone.MonoGame</AssemblyName>
-    <Version>0.1.0</Version>
+    <Version>0.2.0</Version>
     <Authors>OpenBone contributors</Authors>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <Description>MonoGame (DesktopGL) renderer, player and sound bridge for the OpenBone C# runtime.</Description>
