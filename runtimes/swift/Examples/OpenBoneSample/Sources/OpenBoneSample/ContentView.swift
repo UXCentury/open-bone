@@ -22,6 +22,7 @@ final class SampleModel: ObservableObject {
     @Published var skin = ""
     @Published var values: [String: OpenBoneValue] = [:]
     @Published var speed = 1.0
+    @Published var sound = true
 
     enum Mode: String, CaseIterable, Identifiable {
         case stateMachine = "State machine", animation = "Animation"
@@ -62,7 +63,7 @@ final class SampleModel: ObservableObject {
         let inst = try OpenBoneInstance(document: doc)
         inst.onEvent = { [weak self] e in self?.append("event \(e.name)\(e.stringValue.isEmpty ? "" : " “\(e.stringValue)”")") }
         inst.onAudio = { [weak self] c in
-            // A real app hands these to AVAudioEngine; the sample just logs them.
+            // OpenBonePlayer plays them (the Sound toggle); the log shows them too.
             switch c {
             case let .play(id, sound, _, bus, volume, _, loop, _, _):
                 self?.append("audio play \(sound) [\(id)] bus=\(bus ?? "master") vol=\(volume)\(loop ? " loop" : "")")
@@ -123,7 +124,7 @@ struct ContentView: View {
         ZStack {
             Color.gray.opacity(0.15)
             if let inst = model.instance {
-                OpenBonePlayer(instance: inst, speed: model.speed).padding()
+                OpenBonePlayer(instance: inst, speed: model.speed, isAudioEnabled: model.sound).padding()
             } else {
                 Text(model.error ?? "No document")
             }
@@ -160,6 +161,7 @@ struct ContentView: View {
                         .onChange(of: model.skin) { _ in model.restart() }
                     }
                     Slider(value: $model.speed, in: 0 ... 2) { Text("Speed") }
+                    Toggle("Sound", isOn: $model.sound)
                 }
                 if model.mode == .stateMachine, let machine = doc.stateMachines.first {
                     Section("Inputs — \(machine.name)") {

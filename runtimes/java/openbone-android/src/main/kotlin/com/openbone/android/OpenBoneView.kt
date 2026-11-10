@@ -21,11 +21,12 @@ import kotlin.math.min
 
 /**
  * Plays an OpenBone document: a state machine (inputs, pointer listeners from touch, scripts) or plain animations,
- * drawn with [CanvasRenderer] and advanced on the display's frame clock while attached and [isPlaying].
+ * drawn with [CanvasRenderer] and advanced on the display's frame clock while attached and [isPlaying], with its
+ * sounds played by [OpenBoneAudio] ([isAudioEnabled]).
  *
  * ```kotlin
  * val view = OpenBoneView(context)
- * view.load(assets.open("knight/knight.obone").readBytes(), ImageSource.assets(assets, "knight"))
+ * view.load(assets.open("knight/knight.obone").readBytes(), ImageSource.assets(assets, "knight"), SoundSource.assets(assets, "knight"))
  * view.useStateMachine("knight")
  * view.onEvent { e -> if (e.name == "footstep") playStep() }
  * view.onStateChange { layer, from, to -> Log.d("anim", "$layer: $from → $to") }
@@ -61,6 +62,20 @@ open class OpenBoneView @JvmOverloads constructor(
       if (value) scheduleFrame()
     }
 
+  /**
+   * Play the document's sounds through [audio] (on by default). When false nothing is played; [onAudio] handlers get
+   * every command either way.
+   */
+  var isAudioEnabled: Boolean = true
+    set(value) {
+      field = value
+      if (!value) audio?.stopAll()
+    }
+
+  /** The player of the loaded document's sounds (null before [load] and after [release]). */
+  var audio: OpenBoneAudio? = null
+    private set
+
   var instance: OpenBoneInstance? = null
     private set
   var document: OpenBoneDocument? = null
@@ -84,23 +99,32 @@ open class OpenBoneView @JvmOverloads constructor(
   /** Called when a state machine layer changes state. */
   fun onStateChange(handler: (layer: String, from: String?, to: String) -> Unit) = apply { stateHandlers += handler }
 
-  /** Sound commands (play/stop/fade) for your audio backend, e.g. SoundPool or ExoPlayer. */
+  /** Sound commands (play/stop/fade), also while the view plays them itself ([isAudioEnabled]). */
   fun onAudio(handler: (AudioCommand) -> Unit) = apply { audioHandlers += handler }
 
   /** Load a .obone / .obonb document from bytes. */
-  fun load(bytes: ByteArray, images: ImageSource = ImageSource.embedded) = load(DocumentLoader.load(bytes), images)
+  fun load(bytes: ByteArray, images: ImageSource = ImageSource.embedded, sounds: SoundSource = SoundSource.embedded) =
+    load(DocumentLoader.load(bytes), images, sounds)
 
-  /** Load a document. Images (and atlas pages) are read through [images]. */
-  fun load(doc: OpenBoneDocument, images: ImageSource = ImageSource.embedded) = apply {
+  /**
+   * Load a document. Images (and atlas pages) are read through [images], sound files through [sounds] (pass e.g.
+   * `SoundSource.assets(assets, "button")` for sounds stored next to the document rather than embedded).
+   */
+  fun load(doc: OpenBoneDocument, images: ImageSource = ImageSource.embedded, sounds: SoundSource = SoundSource.embedded) = apply {
     instance?.dispose()
     renderer?.release()
+    audio?.release()
     document = doc
     renderer = CanvasRenderer(doc, images)
+    audio = OpenBoneAudio(context, doc, sounds)
     instance = OpenBoneInstance(doc, scriptHost).also { inst ->
       inst.addListener(object : OpenBoneInstance.Listener {
         override fun event(e: FiredEvent) = eventHandlers.forEach { it(e) }
         override fun stateChange(layer: String, from: String?, to: String) = stateHandlers.forEach { it(layer, from, to) }
-        override fun audio(c: AudioCommand) = audioHandlers.forEach { it(c) }
+        override fun audio(c: AudioCommand) {
+          audioHandlers.forEach { it(c) }
+          if (isAudioEnabled) this@OpenBoneView.audio?.handle(c)
+        }
       })
     }
     lastFrameNanos = 0
@@ -153,6 +177,7 @@ open class OpenBoneView @JvmOverloads constructor(
   /** Step time manually (also when not [isPlaying]). */
   fun advance(seconds: Double) {
     instance?.advance(seconds)
+    audio?.update(seconds)
     invalidate()
   }
 
@@ -164,6 +189,7 @@ open class OpenBoneView @JvmOverloads constructor(
     val dt = if (lastFrameNanos == 0L) 0.0 else min((now - lastFrameNanos) / 1e9, 0.1)
     lastFrameNanos = now
     instance?.advance(dt * speed)
+    audio?.update(dt) // fades run in real time
     invalidate()
     scheduleFrame()
   }
@@ -183,15 +209,18 @@ open class OpenBoneView @JvmOverloads constructor(
   override fun onDetachedFromWindow() {
     Choreographer.getInstance().removeFrameCallback(frameCallback)
     frameScheduled = false
+    audio?.stopAll() // leaving the window silences the view
     super.onDetachedFromWindow()
   }
 
-  /** Stop sounds and scripts and free bitmaps. The view can be loaded again afterwards. */
+  /** Stop sounds and scripts and free bitmaps and sounds. The view can be loaded again afterwards. */
   fun release() {
     instance?.dispose()
     renderer?.release()
+    audio?.release()
     instance = null
     renderer = null
+    audio = null
   }
 
   // ---------------- Drawing ----------------

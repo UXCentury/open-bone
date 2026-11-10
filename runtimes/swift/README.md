@@ -1,7 +1,7 @@
 # OpenBone for Swift
 
 A Swift package for iOS and macOS that plays OpenBone documents (`.obone` / `.obonb`): skeletal animation, skins,
-state machines with inputs, triggers and pointer listeners, events, audio commands and scripts. It is a thin layer
+state machines with inputs, triggers and pointer listeners, events, sound (AVFoundation) and scripts. It is a thin layer
 over the [C++ runtime](../cpp) — SwiftPM compiles the C++ sources directly and the Swift API wraps its stable C API
 (`openbone.h`) — so it poses, draws and reacts exactly like the other runtimes. It passes the whole
 [conformance suite](../../conformance) (18 reference files, 82 cases).
@@ -56,8 +56,9 @@ cd runtimes/swift && swift test
 `swift test` runs every case of `conformance/expected/*.json` through the Swift API (`ConformanceTests`, one test
 per reference file, with the suite's tolerances and the C++ runner's comparison rules), API tests (loading and errors,
 `.obonb` = `.obone`, inputs and triggers, pointer → listener events, skins, queueing, clips, text, lifetimes) and
-tests of the platform-neutral renderer geometry (framing, mesh building and batching). Set `OPENBONE_NO_SCRIPTS=1`
-to build without QuickJS even when it is fetched.
+tests of the platform-neutral renderer geometry (framing, mesh building and batching) and sound logic (`AudioTests`:
+the document's audio listings, `OpenBoneAudioMixer` gain, fades and voices with a recording output). Set
+`OPENBONE_NO_SCRIPTS=1` to build without QuickJS even when it is fetched.
 
 ## Usage
 
@@ -68,7 +69,7 @@ let doc = try OpenBoneDocument(contentsOf: Bundle.main.url(forResource: "button"
 let inst = try OpenBoneInstance(document: doc)          // scripts: true by default
 
 inst.onEvent = { e in print("event", e.name, e.stringValue) }
-inst.onAudio = { cmd in audio.handle(cmd) }             // .play / .stop / .fade → your AVAudioEngine
+inst.onAudio = { cmd in print(cmd) }                    // .play / .stop / .fade (OpenBoneView plays them)
 inst.onStateChange = { layer, from, to in print(layer, "→", to) }
 
 try inst.useStateMachine()                              // or: try inst.play("walk", loop: true)
@@ -116,6 +117,29 @@ the running state machine's listeners, using the inverse of the view's framing. 
 - batching: consecutive items with the same texture, blend and clip become one draw call
   (`OpenBoneRenderMesh` — platform-neutral, unit-tested).
 
+### Sound
+
+`OpenBoneView` (and so `OpenBonePlayer`) plays the document's sounds by default through an `OpenBoneAudio`
+(AVFoundation, one `AVAudioPlayer` per voice). Each file is read once, from a `data:` URL or a path relative to the
+document; a voice's gain is `command volume × bus volume (0 if muted) × master (0 if the document is muted)`, with
+the command's rate (AVAudioPlayer's 0.5…2 range), looping and fade-in, stop fades and `fade` commands (the sound's
+new volume, keeping the voice's bus and master gain). Voices stop when the instance is replaced or the view leaves
+its window.
+
+```swift
+view.isAudioEnabled = false                     // opt out; inst.onAudio still gets every command
+OpenBonePlayer(instance: inst, isAudioEnabled: false)
+view.audio?.volume = 0.5                        // extra gain on everything the view plays
+
+let audio = OpenBoneAudio(document: doc)        // without a view
+inst.onAudio = { audio.handle($0) }
+```
+
+`onAudio` is independent of the view's player: setting it does not turn the view's sound off. `OpenBoneAudio` leaves
+`AVAudioSession` alone, so set the category your app needs on iOS. The platform-neutral part — gain, voice
+bookkeeping, fades — is `OpenBoneAudioMixer`, which drives any `OpenBoneAudioOutput` (use it to plug in another
+engine); it is unit-tested on Linux.
+
 `OpenBoneView` waits for each frame's command buffer before the next (one shared vertex buffer); fine for a few
 skeletons, a ring of buffers would be the next step for many.
 
@@ -137,12 +161,14 @@ two files in `Sources/OpenBoneSample` to the target (bundle the documents and th
 
 | Type | What it is |
 | --- | --- |
-| `OpenBoneDocument` | Loaded, immutable document (`init(contentsOf:)`, `init(data:baseURL:)`); `artboard`, `animations` (name, duration), `skins`, `stateMachines` (inputs with type and default), `textures` (atlas pages, images, premultiplied flag), `textureData(for:)`, `artboardToSkeleton` |
+| `OpenBoneDocument` | Loaded, immutable document (`init(contentsOf:)`, `init(data:baseURL:)`); `artboard`, `animations` (name, duration), `skins`, `stateMachines` (inputs with type and default), `textures` (atlas pages, images, premultiplied flag), `textureData(for:)`, `audioAssets`, `audioBuses`, `audioMaster`, `audioData(for:)`, `artboardToSkeleton` |
 | `OpenBoneInstance` | A skeleton of a document: `setSkin`, `setTransform`, `play` / `queue` / `clearTracks`, `useStateMachine`, `setInput`, `fire`, `input(_:)`, `pointer`, `activeStates`, `setText(slot:_:)`, `advance`, `bones` / `bone(named:)`, `slots` / `slot(named:)`, `bounds`, `withDrawList`, `drawList()`; callbacks `onEvent`, `onAudio`, `onStateChange`, `onLog` |
 | `OpenBoneDrawItemView` / `OpenBoneDrawItem` | Draw item (zero-copy view or copy): slot, attachment, kind, blend, texture, vertices, uvs, indices, colour, dark, per-vertex colours, clip, text, stroke |
 | `OpenBoneEvent`, `OpenBoneAudioCommand`, `OpenBoneValue`, `OpenBoneBone`, `OpenBoneSlot` | Value types |
 | `OpenBoneViewport`, `OpenBoneRenderMesh` | Framing (skeleton ↔ view, NDC) and the batched GPU-ready mesh |
 | `OpenBoneMetalRenderer`, `OpenBoneView`, `OpenBonePlayer` | Metal renderer, UIKit / AppKit view, SwiftUI view (Apple platforms) |
+| `OpenBoneAudio` | Plays audio commands with AVFoundation (Apple platforms); `handle(_:)`, `stopAll(fade:)`, `volume` |
+| `OpenBoneAudioMixer`, `OpenBoneAudioOutput` | Platform-neutral gain, voice and fade logic, and the protocol of what plays the voices |
 | `OpenBoneRuntime` | `apiVersion`, `version`, `hasScripts` |
 | `OpenBoneError` | Thrown with the runtime's message (`ob_last_error()`) |
 
@@ -155,7 +181,7 @@ instances may be used from different threads.
 
 Tested here (Linux x86_64, Swift 6.0.3, Ubuntu 22.04):
 
-- `swift build` and `swift test`: all 82 conformance cases pass, plus the API and render-geometry tests (35 tests);
+- `swift build` and `swift test`: all 82 conformance cases pass, plus the API, render-geometry and audio tests (41 tests);
 - the conformance comparison was mutation-checked (perturbed vertices and states make every case fail);
 - `swift test --sanitize=address`: no errors; LeakSanitizer reports only allocations made inside the Swift runtime /
   XCTest themselves (none from the C / C++ runtime or this package's objects); `testLifetimes` checks documents and
@@ -164,8 +190,9 @@ Tested here (Linux x86_64, Swift 6.0.3, Ubuntu 22.04):
   it compiles to a stub, as SwiftUI is missing).
 
 **Not tested: everything that needs Apple frameworks.** `MetalRenderer.swift`, `OpenBoneView.swift`,
-`OpenBonePlayer.swift` and the sample's UI are behind `#if canImport(Metal/MetalKit/SwiftUI/…)` and were neither
-compiled nor run — there was no Apple hardware or SDK. Expect small compile fixes on first build in Xcode, and check
-rendering by eye (blend modes, clipping, two-colour tint, premultiplied pages, text placement, touch mapping) against
-the editor. The ARM64 path (Apple Silicon, iOS devices) is likewise untested here, although the C++ runtime is
-compiled without FMA contraction for it.
+`OpenBonePlayer.swift`, `Audio/OpenBoneAudio.swift` (AVFoundation) and the sample's UI are behind
+`#if canImport(Metal/MetalKit/SwiftUI/AVFoundation/…)` and were neither compiled nor run — there was no Apple hardware
+or SDK. Expect small compile fixes on first build in Xcode, check rendering by eye (blend modes, clipping, two-colour
+tint, premultiplied pages, text placement, touch mapping) against the editor, and listen to the sounds (the button
+and campfire examples). The ARM64 path (Apple Silicon, iOS devices) is likewise untested here, although the C++
+runtime is compiled without FMA contraction for it.

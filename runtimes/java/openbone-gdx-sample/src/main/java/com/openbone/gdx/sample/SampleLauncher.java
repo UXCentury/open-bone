@@ -4,7 +4,8 @@ import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
 
 /**
- * Desktop sample: plays an OpenBone document's state machine (or its first animation) and forwards the mouse.
+ * Desktop sample: plays an OpenBone document's state machine (or its first animation) with its sounds ({@code --mute}
+ * to turn them off) and forwards the mouse.
  *
  * <pre>
  * ./gradlew :openbone-gdx-sample:run --args="../../examples/knight.obone"

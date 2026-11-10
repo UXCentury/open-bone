@@ -18,10 +18,12 @@ public struct OpenBonePlayer {
     public var speed: Double
     public var isPaused: Bool
     public var isPointerEnabled: Bool
+    /// Play the document's sounds (`OpenBoneView.isAudioEnabled`); `instance.onAudio` gets the commands either way.
+    public var isAudioEnabled: Bool
     public var onFrame: ((OpenBoneInstance, Double) -> Void)?
 
     public init(instance: OpenBoneInstance, fit: OpenBoneViewport.Fit = .contain, framing: OpenBoneFraming = .artboard,
-                speed: Double = 1, isPaused: Bool = false, isPointerEnabled: Bool = true,
+                speed: Double = 1, isPaused: Bool = false, isPointerEnabled: Bool = true, isAudioEnabled: Bool = true,
                 onFrame: ((OpenBoneInstance, Double) -> Void)? = nil) {
         self.instance = instance
         self.fit = fit
@@ -29,6 +31,7 @@ public struct OpenBonePlayer {
         self.speed = speed
         self.isPaused = isPaused
         self.isPointerEnabled = isPointerEnabled
+        self.isAudioEnabled = isAudioEnabled
         self.onFrame = onFrame
     }
 
@@ -41,6 +44,7 @@ public struct OpenBonePlayer {
 
     @MainActor
     func update(_ v: OpenBoneView) {
+        v.isAudioEnabled = isAudioEnabled  // before the instance, whose first advance may already play sounds
         if v.instance !== instance { v.instance = instance }
         v.fit = fit
         v.framing = framing

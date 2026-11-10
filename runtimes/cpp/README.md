@@ -4,7 +4,8 @@ A native port of the TypeScript runtime (`packages/runtime`) in C++17, with a st
 Python…) and integrations for Godot 4, SDL2, SFML, GLFW (OpenGL), Unreal Engine 5 and Cocos2d-x. It has no engine dependencies:
 it loads `.obone` / `.obonb` documents, poses skeletons, runs animations and state machines (with scripts in an
 embedded QuickJS sandbox) and hands you a **draw list** — textured triangles in draw order — plus events and audio
-commands. Rendering and audio playback are up to the engine.
+commands. Rendering and audio playback are up to the engine (the Godot, Cocos2d-x, SDL2 and SFML integrations play
+the sounds; `engines/common/openbone_audio.hpp` is the shared, engine-neutral mixer logic).
 
 It follows [docs/runtime-spec.md](../../docs/runtime-spec.md) and passes the whole [conformance suite](../../conformance)
 (18 reference files, 82 cases: setup poses, every animation per skin, scripted state-machine runs), also with
@@ -115,10 +116,10 @@ and the box-to-skeleton matrix. `engines/common/openbone_assets.hpp` decodes `da
 | Engine | Folder | What it is | Status here |
 | --- | --- | --- | --- |
 | Godot 4.4+ | [`engines/godot`](engines/godot) | GDExtension: `OpenBoneSprite` (Node2D) — loads a document, plays animations / state machines, mouse input, signals `animation_event`, `audio_command`, `state_changed`; draws with RenderingServer canvas items (clip-only canvas groups for masks, a canvas shader for two-colour tint and premultiplied pages, blend modes, text with the theme's fallback font) | Built against godot-cpp 4.4; loaded and run in **headless Godot 4.4.1** on the interactive and dynamics fixtures and the knight, rocket and campfire examples (`demo/test_headless.gd`, CTest with `-DGODOT_EXECUTABLE`) |
-| SDL2 | [`engines/sdl2`](engines/sdl2) | `SDL_RenderGeometry` sample with mouse input; `--frames N --out frame.bmp` renders offscreen with the software renderer | Built (SDL 2.30.9 from source) and run headless; frames checked by eye |
+| SDL2 | [`engines/sdl2`](engines/sdl2) | `SDL_RenderGeometry` sample with mouse input and sound (WAV, a software mixer in SDL's audio callback); `--frames N --out frame.bmp` renders offscreen with the software renderer | Built (SDL 2.30.9 from source) and run headless; frames checked by eye; sound checked through SDL's `disk` audio driver (the campfire loop with its fade-in) |
 | GLFW + OpenGL 3.3 | [`engines/glfw`](engines/glfw) | The WebGL2 renderer's shader and blending in plain OpenGL: two-colour tint, premultiplied pages, all four blend modes, stencil clipping masks; mouse input; `--frames N --out frame.png` renders into a hidden window. No GL loader library (functions come from `glfwGetProcAddress`) | Built (GLFW 3.4 from source) and run on Linux: examples, clipping, additive blending and a premultiplied polygon atlas checked by eye. Text is not rasterised; sound commands are printed |
-| SFML 2.6 | [`engines/sfml`](engines/sfml) | `sf::Drawable` with triangle arrays, a GLSL two-colour tint shader, mouse input, `sf::Text` for text with `--font`; `--out frame.png` renders into an `sf::RenderTexture` | Built (SFML 2.6.2 from source, `-DOPENBONE_FETCH_SFML=ON`) and run offscreen |
-| Unreal Engine 5 | [`engines/unreal/OpenBone`](engines/unreal/OpenBone) | Plugin: `UOpenBoneComponent` (ProceduralMeshComponent, one section per draw item) over the C API, Blueprint events and calls | Source and build files only — **not compiled** (no Unreal Engine here) |
+| SFML 2.6 | [`engines/sfml`](engines/sfml) | `sf::Drawable` with triangle arrays, a GLSL two-colour tint shader, mouse input, `sf::Text` for text with `--font`, sound with `sf::Sound` when sfml-audio is available; `--out frame.png` renders into an `sf::RenderTexture` | Built (SFML 2.6.2 from source, `-DOPENBONE_FETCH_SFML=ON`) and run offscreen, without sfml-audio (no OpenAL / Vorbis / FLAC headers here); the sound code only syntax-checked against SFML's headers |
+| Unreal Engine 5 | [`engines/unreal/OpenBone`](engines/unreal/OpenBone) | Plugin: `UOpenBoneComponent` (ProceduralMeshComponent, one section per draw item) over the C API, Blueprint events and calls; emits audio commands (`OnAudio`) but plays no sound | Source and build files only — **not compiled** (no Unreal Engine here) |
 | Cocos2d-x 4.0 | [`engines/cocos2dx`](engines/cocos2dx) | `OpenBoneNode` queuing a `TrianglesCommand` per draw item, touch and mouse input | Built and run with Cocos2d-x 4.0 on Linux (Ubuntu 22.04, GCC 11): the knight with its state machine, textures, meshes and blend modes |
 
 ### Godot
@@ -176,6 +177,20 @@ SFML: the same with `engines/sfml` (`-DOPENBONE_FETCH_SFML=ON` builds SFML 2.6.2
 that needs the X11/Xrandr/Xcursor/udev/OpenGL/FreeType development packages). SDL's renderer has no stencil or
 shaders, so the SDL2 sample skips clipping masks, two-colour tint and text; SFML 2 skips clipping masks.
 
+Both samples play the document's sounds: gain `volume × bus volume (0 if muted) × master (0 if the document is
+muted)`, rate, looping, fade-in, stop fades and `fade` commands (the sound's new volume, keeping the voice's bus and
+master gain), stepped every frame by `ob::audio::Mixer` (`engines/common/openbone_audio.hpp`, unit-tested by the
+`engine_audio` CTest). `--mute` turns sound off; the commands are printed either way, and offscreen renders are silent.
+
+- **SDL2** uses SDL's own audio, no extra library: WAV files are loaded with `SDL_LoadWAV_RW`, converted to the
+  device's float stereo once and mixed in the audio callback (per-voice gain ramped across each buffer, looping, rate
+  by linear-interpolation resampling). Other formats are skipped with a message (the examples are all WAV).
+- **SFML** uses `sf::SoundBuffer` + `sf::Sound` (WAV, OGG, FLAC, MP3; rate as pitch) when sfml-audio is found or
+  can be built (`OPENBONE_SFML_AUDIO`, on by default). SFML 2's audio module links **OpenAL Soft (LGPL-2.1)** as a
+  shared library, plus libogg / libvorbis / libFLAC (BSD); building it from source on Linux needs their development
+  packages, and without them CMake warns and builds the sample silent. `-DOPENBONE_SFML_AUDIO=OFF` leaves sfml-audio
+  out entirely.
+
 ### Unreal Engine 5
 
 Build and install the static library into the plugin, per platform:
@@ -191,6 +206,9 @@ cmake --build build-ue --config Release && cmake --install build-ue --prefix run
 (use `Win64` / `Mac` as the last folder on those platforms), copy `engines/unreal/OpenBone` into your project's
 `Plugins/`, add an `OpenBone` component to an actor, set `DocumentPath` (relative to `Content/`) and a translucent
 unlit two-sided `Material` with a `Texture` parameter (× vertex colour; optional `Dark` vector for two-colour tint).
+
+Sound: the plugin **only emits audio commands** — the `OnAudio` Blueprint event (command, sound, volume); it does not
+play them. Play them with your own `USoundBase` / `UAudioComponent` setup.
 
 ### Cocos2d-x
 
