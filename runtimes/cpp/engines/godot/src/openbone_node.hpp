@@ -4,6 +4,8 @@
 #pragma once
 
 #include <godot_cpp/classes/input_event.hpp>
+#include <godot_cpp/classes/audio_stream.hpp>
+#include <godot_cpp/classes/audio_stream_player.hpp>
 #include <godot_cpp/classes/node2d.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
 #include <godot_cpp/variant/rid.hpp>
@@ -26,6 +28,7 @@ class OpenBoneSprite : public Node2D {
   ~OpenBoneSprite() override;
 
   void _ready() override;
+  void _exit_tree() override;
   void _process(double delta) override;
   void _unhandled_input(const Ref<InputEvent>& event) override;
 
@@ -48,6 +51,12 @@ class OpenBoneSprite : public Node2D {
   bool get_scripts_enabled() const { return scripts_enabled; }
   void set_handle_input(bool v) { handle_input = v; }
   bool get_handle_input() const { return handle_input; }
+  /** Play the document's sounds through AudioStreamPlayer children (on by default; the audio_command signal fires either way). */
+  void set_audio_enabled(bool v);
+  bool get_audio_enabled() const { return audio_enabled; }
+  void set_audio_bus(const String& v) { audio_bus = v; }
+  String get_audio_bus() const { return audio_bus; }
+  void stop_all_audio();
 
   // Methods
   bool load(const String& path);
@@ -74,7 +83,14 @@ class OpenBoneSprite : public Node2D {
 
  private:
   String document_path, animation, state_machine, skin;
-  bool looping = true, playing = true, scripts_enabled = true, handle_input = true;
+  bool looping = true, playing = true, scripts_enabled = true, handle_input = true, audio_enabled = true;
+  String audio_bus = "Master";
+  std::unordered_map<std::string, Ref<AudioStream>> streams;           // by audio asset id
+  std::unordered_map<std::string, AudioStreamPlayer*> voices;           // by play id
+  void handle_audio(const openbone::AudioCommand& c);
+  Ref<AudioStream> stream_for(const std::string& asset_id);
+  double bus_gain(const std::optional<std::string>& bus) const;
+  void _on_voice_finished(const String& id);
   double speed = 1;
   std::shared_ptr<const openbone::Document> doc;
   std::unique_ptr<openbone::Instance> instance;

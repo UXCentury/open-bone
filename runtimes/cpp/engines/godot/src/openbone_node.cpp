@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 #include "openbone_node.hpp"
 
+#include <godot_cpp/classes/audio_stream_mp3.hpp>
+#include <godot_cpp/classes/audio_stream_ogg_vorbis.hpp>
+#include <godot_cpp/classes/audio_stream_wav.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/classes/font.hpp>
@@ -12,6 +15,9 @@
 #include <godot_cpp/classes/rendering_server.hpp>
 #include <godot_cpp/classes/resource_loader.hpp>
 #include <godot_cpp/classes/theme_db.hpp>
+#include <godot_cpp/classes/tween.hpp>
+#include <godot_cpp/classes/property_tweener.hpp>
+#include <godot_cpp/classes/callback_tweener.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
@@ -60,6 +66,123 @@ void fragment() {
 OpenBoneSprite::OpenBoneSprite() {}
 
 OpenBoneSprite::~OpenBoneSprite() { free_resources(); }
+
+// ---------------- Audio ----------------
+
+void OpenBoneSprite::set_audio_enabled(bool v) {
+  audio_enabled = v;
+  if (!v) stop_all_audio();
+}
+
+void OpenBoneSprite::stop_all_audio() {
+  for (auto& v : voices)
+    if (v.second) {
+      v.second->stop();  // releases the stream playback now, not when the audio server next mixes
+      v.second->queue_free();
+    }
+  voices.clear();
+}
+
+void OpenBoneSprite::_exit_tree() { stop_all_audio(); }
+
+double OpenBoneSprite::bus_gain(const std::optional<std::string>& bus) const {
+  if (!doc || !doc->audio) return 1;
+  const ob::AudioData& a = *doc->audio;
+  if (a.muted) return 0;
+  double g = a.master;
+  if (bus)
+    for (const auto& b : a.buses)
+      if (b.id == *bus) g *= b.muted ? 0 : b.volume;
+  return g;
+}
+
+Ref<AudioStream> OpenBoneSprite::stream_for(const std::string& asset_id) {
+  auto it = streams.find(asset_id);
+  if (it != streams.end()) return it->second;
+  Ref<AudioStream> s;
+  const ob::AudioAsset* asset = nullptr;
+  if (doc && doc->audio)
+    for (const auto& a : doc->audio->assets)
+      if (a.id == asset_id) asset = &a;
+  if (asset) {
+    const std::string& src = asset->src;
+    PackedByteArray raw;
+    std::string kind;  // wav | ogg | mp3
+    if (src.rfind("data:", 0) == 0) {
+      const size_t comma = src.find(',');
+      const std::string meta = src.substr(5, comma == std::string::npos ? 0 : comma - 5);
+      raw = Marshalls::get_singleton()->base64_to_raw(S(comma == std::string::npos ? "" : src.substr(comma + 1)));
+      kind = meta.find("ogg") != std::string::npos ? "ogg" : meta.find("mp") != std::string::npos ? "mp3" : "wav";
+    } else if (!src.empty()) {
+      const String path = document_path.get_base_dir().path_join(S(src));
+      const String ext = path.get_extension().to_lower();
+      kind = ext == "ogg" || ext == "oga" ? "ogg" : ext == "mp3" ? "mp3" : "wav";
+      if (ResourceLoader::get_singleton()->exists(path)) s = ResourceLoader::get_singleton()->load(path);
+      else raw = FileAccess::get_file_as_bytes(path);
+    }
+    if (s.is_null() && !raw.is_empty()) {
+      if (kind == "ogg") s = AudioStreamOggVorbis::load_from_buffer(raw);
+      else if (kind == "mp3") s = AudioStreamMP3::load_from_buffer(raw);
+      else s = AudioStreamWAV::load_from_buffer(raw);
+    }
+    if (s.is_null()) UtilityFunctions::push_warning("OpenBone: cannot load sound ", S(asset->name), " (", S(src), ")");
+  }
+  streams[asset_id] = s;
+  return s;
+}
+
+void OpenBoneSprite::handle_audio(const ob::AudioCommand& c) {
+  if (!audio_enabled || !is_inside_tree()) return;
+  if (c.type == ob::AudioCommand::Type::Play) {
+    Ref<AudioStream> stream = stream_for(c.asset);
+    if (stream.is_null()) return;
+    AudioStreamPlayer* p = memnew(AudioStreamPlayer);
+    p->set_stream(stream);
+    p->set_bus(audio_bus);
+    p->set_pitch_scale((float)std::max(0.01, c.rate));
+    const float target = (float)(c.volume * bus_gain(c.bus));
+    p->set_volume_linear(c.fadeIn > 0 ? 0.f : target);
+    p->set_meta("openbone_loop", c.loop);
+    add_child(p);
+    p->connect("finished", callable_mp(this, &OpenBoneSprite::_on_voice_finished).bind(S(c.id)));
+    p->play();
+    if (c.fadeIn > 0) p->create_tween()->tween_property(p, "volume_linear", target, c.fadeIn);
+    voices[c.id] = p;
+    return;
+  }
+  auto it = voices.find(c.id);
+  if (it == voices.end() || !it->second) return;
+  AudioStreamPlayer* p = it->second;
+  if (c.type == ob::AudioCommand::Type::Stop) {
+    voices.erase(it);
+    if (c.fade > 0) {
+      Ref<Tween> t = p->create_tween();
+      t->tween_property(p, "volume_linear", 0.f, c.fade);
+      t->tween_callback(Callable(p, "queue_free"));
+    } else
+      p->queue_free();
+  } else {
+    // Fade: c.volume is the sound's new volume; keep the bus and master gain of the voice.
+    const ob::SoundData* sound = nullptr;
+    if (doc && doc->audio)
+      for (const auto& snd : doc->audio->sounds)
+        if (snd.id == c.sound) sound = &snd;
+    const float target = (float)(c.volume * bus_gain(sound ? sound->bus : std::nullopt));
+    p->create_tween()->tween_property(p, "volume_linear", target, std::max(0.0, c.duration));
+  }
+}
+
+void OpenBoneSprite::_on_voice_finished(const String& id) {
+  auto it = voices.find(U(id));
+  if (it == voices.end() || !it->second) return;
+  AudioStreamPlayer* p = it->second;
+  if ((bool)p->get_meta("openbone_loop", false)) {
+    p->play();
+    return;
+  }
+  voices.erase(it);
+  p->queue_free();
+}
 
 void OpenBoneSprite::free_resources() {
   RenderingServer* rs = RenderingServer::get_singleton();
@@ -110,6 +233,12 @@ void OpenBoneSprite::_bind_methods() {
   ClassDB::bind_method(D_METHOD("get_draw_items"), &OpenBoneSprite::get_draw_items);
   ClassDB::bind_method(D_METHOD("get_bounds"), &OpenBoneSprite::get_bounds);
   ClassDB::bind_method(D_METHOD("set_text", "slot", "text"), &OpenBoneSprite::set_text);
+  ClassDB::bind_method(D_METHOD("set_audio_enabled", "enabled"), &OpenBoneSprite::set_audio_enabled);
+  ClassDB::bind_method(D_METHOD("get_audio_enabled"), &OpenBoneSprite::get_audio_enabled);
+  ClassDB::bind_method(D_METHOD("set_audio_bus", "bus"), &OpenBoneSprite::set_audio_bus);
+  ClassDB::bind_method(D_METHOD("get_audio_bus"), &OpenBoneSprite::get_audio_bus);
+  ClassDB::bind_method(D_METHOD("stop_all_audio"), &OpenBoneSprite::stop_all_audio);
+  ClassDB::bind_method(D_METHOD("_on_voice_finished", "id"), &OpenBoneSprite::_on_voice_finished);
 
   ADD_PROPERTY(PropertyInfo(Variant::STRING, "document", PROPERTY_HINT_FILE, "*.obone,*.obonb"), "set_document", "get_document");
   ADD_PROPERTY(PropertyInfo(Variant::STRING, "animation"), "set_animation", "get_animation");
@@ -120,6 +249,8 @@ void OpenBoneSprite::_bind_methods() {
   ADD_PROPERTY(PropertyInfo(Variant::FLOAT, "speed"), "set_speed", "get_speed");
   ADD_PROPERTY(PropertyInfo(Variant::BOOL, "scripts_enabled"), "set_scripts_enabled", "get_scripts_enabled");
   ADD_PROPERTY(PropertyInfo(Variant::BOOL, "handle_input"), "set_handle_input", "get_handle_input");
+  ADD_PROPERTY(PropertyInfo(Variant::BOOL, "audio_enabled"), "set_audio_enabled", "get_audio_enabled");
+  ADD_PROPERTY(PropertyInfo(Variant::STRING, "audio_bus"), "set_audio_bus", "get_audio_bus");
 
   ADD_SIGNAL(MethodInfo("animation_event", PropertyInfo(Variant::STRING, "name"), PropertyInfo(Variant::FLOAT, "time"), PropertyInfo(Variant::INT, "int_value"),
                         PropertyInfo(Variant::FLOAT, "float_value"), PropertyInfo(Variant::STRING, "string_value")));
@@ -171,6 +302,8 @@ bool OpenBoneSprite::load(const String& path) {
   }
   textures.clear();
   premultiplied.clear();
+  stop_all_audio();
+  streams.clear();
   instance = std::make_unique<ob::Instance>(doc, scripts_enabled ? ob::createQuickJsHost() : nullptr);
   instance->onEvent = [this](const ob::FiredEvent& e) {
     emit_signal("animation_event", S(e.name), e.time, (int64_t)e.intValue, e.floatValue, S(e.stringValue));
@@ -195,6 +328,7 @@ bool OpenBoneSprite::load(const String& path) {
       d["duration"] = c.duration;
     }
     emit_signal("audio_command", d);
+    handle_audio(c);
   };
   instance->onStateChange = [this](const std::string& layer, const std::string* from, const std::string& to) {
     emit_signal("state_changed", S(layer), from ? S(*from) : String(), S(to));

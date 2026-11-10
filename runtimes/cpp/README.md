@@ -131,7 +131,7 @@ cmake --build build-godot -j
 ```
 
 The library lands in `engines/godot/demo/bin/`; copy `demo/openbone.gdextension` and `demo/bin/` into your project
-(or open `demo/`, after copying `examples/knight.obone` into it). Then:
+(or open `demo/`, after copying `examples/knight.obone` into it and linking its art: `ln -s ../../../../../examples/assets demo/assets`). Then:
 
 ```gdscript
 var knight := OpenBoneSprite.new()
