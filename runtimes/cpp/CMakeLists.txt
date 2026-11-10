@@ -141,6 +141,11 @@ if(OPENBONE_BUILD_TESTS)
     add_executable(openbone_c_example examples/c/play.c)
     target_link_libraries(openbone_c_example PRIVATE openbone_shared)
     add_test(NAME c_example COMMAND openbone_c_example ${OPENBONE_REPO_ROOT}/conformance/fixtures/interactive.obone)
+    # Bounding-box queries through the C API (ob_bounds_*), against the conformance expectations.
+    add_executable(openbone_c_bounds tests/c_bounds.cpp)
+    target_link_libraries(openbone_c_bounds PRIVATE openbone_shared)
+    target_include_directories(openbone_c_bounds PRIVATE third_party)
+    add_test(NAME c_bounds COMMAND openbone_c_bounds ${OPENBONE_REPO_ROOT} ${OPENBONE_REPO_ROOT}/conformance/expected/bounds.json)
   endif()
 endif()
 

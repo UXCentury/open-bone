@@ -94,7 +94,13 @@ Members: `advance(dt)` (scaled by `speed`), `refresh()` (re-pose without advanci
 `setText`, `setSkin`, `skins`, `animations`, `play(animation, loop?, track?)`, `useStateMachine(name?)`,
 `pointer(type, x, y)` in skeleton space (y up), `pointerLeave()` (ends hovers), `on("event" | "stateChange" |
 "audio", fn)` (returns an unsubscribe function), `pause()` / `resume()` / `setMuted()` (sound only: stop calling
-`advance` to freeze time), `instance`, `skeleton`, `stateMachine`, `audio` and `dispose()`.
+`advance` to freeze time), `instance`, `skeleton`, `stateMachine`, `audio`, `boundingBoxes()` and `dispose()`.
+
+`boundingBoxes()` returns the active bounding boxes in skeleton space (y up) with `containsPoint`,
+`intersectsSegment`, `aabbIntersects` and `intersectsBounds(other)` (see `@openbone/runtime`). Convert engine
+coordinates to skeleton space first: the adapters have `toSkeleton(global)` (pixi), `worldToSkeleton(x, y)` (phaser),
+`rayToSkeleton(ray)` (three) and `clientToSkeleton(clientX, clientY)` (canvaskit). In your own integration it is the
+inverse of the transform you draw the skeleton with, with y flipped if your engine is y-down.
 
 `setEngineScriptHostFactory(factory)` replaces how `create` makes the sandbox, for example to supply a bundled
 QuickJS build.

@@ -64,6 +64,307 @@ class OpenBoneBindings {
         )
       >();
 
+  /// Overall AABB (min x, min y, max x, max y); returns 0 (and writes zeros) when there is no box.
+  int ob_bounds_aabb(
+    ffi.Pointer<ob_bounds> bounds,
+    ffi.Pointer<ffi.Double> out,
+  ) {
+    return _ob_bounds_aabb(bounds, out);
+  }
+
+  late final _ob_bounds_aabbPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<ob_bounds>, ffi.Pointer<ffi.Double>)
+        >
+      >('ob_bounds_aabb');
+  late final _ob_bounds_aabb = _ob_bounds_aabbPtr
+      .asFunction<
+        int Function(ffi.Pointer<ob_bounds>, ffi.Pointer<ffi.Double>)
+      >();
+
+  /// 1 when the point is inside the overall AABB (edges included).
+  int ob_bounds_aabb_contains_point(
+    ffi.Pointer<ob_bounds> bounds,
+    double x,
+    double y,
+  ) {
+    return _ob_bounds_aabb_contains_point(bounds, x, y);
+  }
+
+  late final _ob_bounds_aabb_contains_pointPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<ob_bounds>, ffi.Double, ffi.Double)
+        >
+      >('ob_bounds_aabb_contains_point');
+  late final _ob_bounds_aabb_contains_point = _ob_bounds_aabb_contains_pointPtr
+      .asFunction<int Function(ffi.Pointer<ob_bounds>, double, double)>();
+
+  /// 1 when the overall AABB overlaps the rectangle (edges included).
+  int ob_bounds_aabb_intersects(
+    ffi.Pointer<ob_bounds> bounds,
+    double min_x,
+    double min_y,
+    double max_x,
+    double max_y,
+  ) {
+    return _ob_bounds_aabb_intersects(bounds, min_x, min_y, max_x, max_y);
+  }
+
+  late final _ob_bounds_aabb_intersectsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<ob_bounds>,
+            ffi.Double,
+            ffi.Double,
+            ffi.Double,
+            ffi.Double,
+          )
+        >
+      >('ob_bounds_aabb_intersects');
+  late final _ob_bounds_aabb_intersects = _ob_bounds_aabb_intersectsPtr
+      .asFunction<
+        int Function(ffi.Pointer<ob_bounds>, double, double, double, double)
+      >();
+
+  int ob_bounds_box(
+    ffi.Pointer<ob_bounds> bounds,
+    int index,
+    ffi.Pointer<ob_bounding_box> out,
+  ) {
+    return _ob_bounds_box(bounds, index, out);
+  }
+
+  late final _ob_bounds_boxPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<ob_bounds>,
+            ffi.Int,
+            ffi.Pointer<ob_bounding_box>,
+          )
+        >
+      >('ob_bounds_box');
+  late final _ob_bounds_box = _ob_bounds_boxPtr
+      .asFunction<
+        int Function(ffi.Pointer<ob_bounds>, int, ffi.Pointer<ob_bounding_box>)
+      >();
+
+  /// Index of the first box containing the point (even-odd rule), or -1.
+  int ob_bounds_contains_point(
+    ffi.Pointer<ob_bounds> bounds,
+    double x,
+    double y,
+  ) {
+    return _ob_bounds_contains_point(bounds, x, y);
+  }
+
+  late final _ob_bounds_contains_pointPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<ob_bounds>, ffi.Double, ffi.Double)
+        >
+      >('ob_bounds_contains_point');
+  late final _ob_bounds_contains_point = _ob_bounds_contains_pointPtr
+      .asFunction<int Function(ffi.Pointer<ob_bounds>, double, double)>();
+
+  /// Every box containing the point: writes up to `capacity` indices to `out` (may be NULL) and returns the full count.
+  int ob_bounds_contains_point_all(
+    ffi.Pointer<ob_bounds> bounds,
+    double x,
+    double y,
+    ffi.Pointer<ffi.Int> out,
+    int capacity,
+  ) {
+    return _ob_bounds_contains_point_all(bounds, x, y, out, capacity);
+  }
+
+  late final _ob_bounds_contains_point_allPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<ob_bounds>,
+            ffi.Double,
+            ffi.Double,
+            ffi.Pointer<ffi.Int>,
+            ffi.Int,
+          )
+        >
+      >('ob_bounds_contains_point_all');
+  late final _ob_bounds_contains_point_all = _ob_bounds_contains_point_allPtr
+      .asFunction<
+        int Function(
+          ffi.Pointer<ob_bounds>,
+          double,
+          double,
+          ffi.Pointer<ffi.Int>,
+          int,
+        )
+      >();
+
+  int ob_bounds_count(ffi.Pointer<ob_bounds> bounds) {
+    return _ob_bounds_count(bounds);
+  }
+
+  late final _ob_bounds_countPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ob_bounds>)>>(
+        'ob_bounds_count',
+      );
+  late final _ob_bounds_count = _ob_bounds_countPtr
+      .asFunction<int Function(ffi.Pointer<ob_bounds>)>();
+
+  ffi.Pointer<ob_bounds> ob_bounds_create() {
+    return _ob_bounds_create();
+  }
+
+  late final _ob_bounds_createPtr =
+      _lookup<ffi.NativeFunction<ffi.Pointer<ob_bounds> Function()>>(
+        'ob_bounds_create',
+      );
+  late final _ob_bounds_create = _ob_bounds_createPtr
+      .asFunction<ffi.Pointer<ob_bounds> Function()>();
+
+  void ob_bounds_free(ffi.Pointer<ob_bounds> bounds) {
+    return _ob_bounds_free(bounds);
+  }
+
+  late final _ob_bounds_freePtr =
+      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Pointer<ob_bounds>)>>(
+        'ob_bounds_free',
+      );
+  late final _ob_bounds_free = _ob_bounds_freePtr
+      .asFunction<void Function(ffi.Pointer<ob_bounds>)>();
+
+  /// First overlapping pair between two snapshots (e.g. two characters): returns 1 and sets *mine / *theirs
+  /// (either may be NULL), or 0 when none overlap. Mine is the outer loop, both in draw order.
+  int ob_bounds_intersects_bounds(
+    ffi.Pointer<ob_bounds> bounds,
+    ffi.Pointer<ob_bounds> other,
+    ffi.Pointer<ffi.Int> mine,
+    ffi.Pointer<ffi.Int> theirs,
+  ) {
+    return _ob_bounds_intersects_bounds(bounds, other, mine, theirs);
+  }
+
+  late final _ob_bounds_intersects_boundsPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<ob_bounds>,
+            ffi.Pointer<ob_bounds>,
+            ffi.Pointer<ffi.Int>,
+            ffi.Pointer<ffi.Int>,
+          )
+        >
+      >('ob_bounds_intersects_bounds');
+  late final _ob_bounds_intersects_bounds = _ob_bounds_intersects_boundsPtr
+      .asFunction<
+        int Function(
+          ffi.Pointer<ob_bounds>,
+          ffi.Pointer<ob_bounds>,
+          ffi.Pointer<ffi.Int>,
+          ffi.Pointer<ffi.Int>,
+        )
+      >();
+
+  /// Index of the first box the segment touches (crosses an edge, or starts inside), or -1.
+  int ob_bounds_intersects_segment(
+    ffi.Pointer<ob_bounds> bounds,
+    double x1,
+    double y1,
+    double x2,
+    double y2,
+  ) {
+    return _ob_bounds_intersects_segment(bounds, x1, y1, x2, y2);
+  }
+
+  late final _ob_bounds_intersects_segmentPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<ob_bounds>,
+            ffi.Double,
+            ffi.Double,
+            ffi.Double,
+            ffi.Double,
+          )
+        >
+      >('ob_bounds_intersects_segment');
+  late final _ob_bounds_intersects_segment = _ob_bounds_intersects_segmentPtr
+      .asFunction<
+        int Function(ffi.Pointer<ob_bounds>, double, double, double, double)
+      >();
+
+  /// Every box the segment touches; same out/capacity/return convention as ob_bounds_contains_point_all.
+  int ob_bounds_intersects_segment_all(
+    ffi.Pointer<ob_bounds> bounds,
+    double x1,
+    double y1,
+    double x2,
+    double y2,
+    ffi.Pointer<ffi.Int> out,
+    int capacity,
+  ) {
+    return _ob_bounds_intersects_segment_all(
+      bounds,
+      x1,
+      y1,
+      x2,
+      y2,
+      out,
+      capacity,
+    );
+  }
+
+  late final _ob_bounds_intersects_segment_allPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<ob_bounds>,
+            ffi.Double,
+            ffi.Double,
+            ffi.Double,
+            ffi.Double,
+            ffi.Pointer<ffi.Int>,
+            ffi.Int,
+          )
+        >
+      >('ob_bounds_intersects_segment_all');
+  late final _ob_bounds_intersects_segment_all =
+      _ob_bounds_intersects_segment_allPtr
+          .asFunction<
+            int Function(
+              ffi.Pointer<ob_bounds>,
+              double,
+              double,
+              double,
+              double,
+              ffi.Pointer<ffi.Int>,
+              int,
+            )
+          >();
+
+  /// Recompute from the instance's current pose; returns the box count (0 on failure, see ob_last_error).
+  int ob_bounds_update(
+    ffi.Pointer<ob_bounds> bounds,
+    ffi.Pointer<ob_instance> inst,
+  ) {
+    return _ob_bounds_update(bounds, inst);
+  }
+
+  late final _ob_bounds_updatePtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<ob_bounds>, ffi.Pointer<ob_instance>)
+        >
+      >('ob_bounds_update');
+  late final _ob_bounds_update = _ob_bounds_updatePtr
+      .asFunction<
+        int Function(ffi.Pointer<ob_bounds>, ffi.Pointer<ob_instance>)
+      >();
+
   int ob_document_animation_count(ffi.Pointer<ob_document> doc) {
     return _ob_document_animation_count(doc);
   }
@@ -1383,6 +1684,55 @@ final class ob_bone_info extends ffi.Struct {
     ..ref.y = y
     ..ref.active = active;
 }
+
+/// One bounding box: names (valid while the ob_bounds lives), world polygon (valid until the next update).
+final class ob_bounding_box extends ffi.Struct {
+  /// slot name
+  external ffi.Pointer<ffi.Char> slot;
+
+  /// attachment name
+  external ffi.Pointer<ffi.Char> attachment;
+
+  /// x,y pairs, skeleton space
+  external ffi.Pointer<ffi.Float> vertices;
+
+  @ffi.Int()
+  external int vertex_count;
+
+  @ffi.Double()
+  external double min_x;
+
+  @ffi.Double()
+  external double min_y;
+
+  @ffi.Double()
+  external double max_x;
+
+  @ffi.Double()
+  external double max_y;
+
+  static ffi.Pointer<ob_bounding_box> $allocate(
+    ffi.Allocator $allocator, {
+    required ffi.Pointer<ffi.Char> slot,
+    required ffi.Pointer<ffi.Char> attachment,
+    required ffi.Pointer<ffi.Float> vertices,
+    required int vertex_count,
+    required double min_x,
+    required double min_y,
+    required double max_x,
+    required double max_y,
+  }) => $allocator<ob_bounding_box>()
+    ..ref.slot = slot
+    ..ref.attachment = attachment
+    ..ref.vertices = vertices
+    ..ref.vertex_count = vertex_count
+    ..ref.min_x = min_x
+    ..ref.min_y = min_y
+    ..ref.max_x = max_x
+    ..ref.max_y = max_y;
+}
+
+final class ob_bounds extends ffi.Opaque {}
 
 final class ob_clip extends ffi.Struct {
   external ffi.Pointer<ffi.Char> slot;

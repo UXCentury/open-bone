@@ -216,6 +216,7 @@ namespace OpenBone
                     PositionMode = c.Str("positionMode", "fixed"),
                     SpacingMode = c.Str("spacingMode", "length"),
                     RotateMode = c.Str("rotateMode", "tangent"),
+                    ConstantSpeed = ConstantSpeed(c),
                     OffsetRotation = c.Num("offsetRotation"),
                     Position = c.Num("position"),
                     Spacing = c.Num("spacing"),
@@ -267,6 +268,13 @@ namespace OpenBone
             c.Order = j.NumOpt("order");
             c.Json = j;
             return c;
+        }
+
+        /// <summary>Path constraint `constantSpeed`: only an explicit `false` turns it off (unset = true).</summary>
+        static bool ConstantSpeed(JsonValue c)
+        {
+            var v = c.Get("constantSpeed");
+            return !(v != null && v.Kind == JsonKind.Bool && !v.Truthy);
         }
 
         static VertexWeight[][] Weights(JsonValue a)
@@ -348,7 +356,7 @@ namespace OpenBone
                     };
                     break;
                 case "boundingBox":
-                    r = new BoundingBoxAttachment { Vertices = Nums(a, "vertices") };
+                    r = new BoundingBoxAttachment { Vertices = Nums(a, "vertices"), Weights = Weights(a) };
                     break;
                 case "point":
                     r = new PointAttachment { X = a.Num("x"), Y = a.Num("y"), Rotation = a.Num("rotation") };

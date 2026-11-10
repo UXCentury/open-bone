@@ -41,7 +41,8 @@ A port is conformant when, for every case of every `expected/*.json`, each sampl
 | colours (`slots` colours, `color`, `dark`, `colors`) | 1/255 |
 | particle draw `vertices` | 1e-2 (single-precision drift over many steps) |
 | event `float`, audio numbers | 1e-4 |
-| names, attachment names, `type`, `blend`, `texture`, `indices`, `clip`, `text`, event order, audio command order, `states` | exact |
+| bounding-box `vertices` and `aabb` (§8.10) | 1e-3 |
+| names, attachment names, `type`, `blend`, `texture`, `indices`, `clip`, `text`, event order, audio command order, `states`, bounding-box query results | exact |
 
 Reference numbers are rounded to 4 decimals (`Math.round(n·1e4)/1e4`, `-0` → `0`), so compare after rounding the
 same way or allow the extra ±5e-5. Out of scope: rendering itself (blending, texture filtering, text rasterising,
@@ -410,6 +411,11 @@ Spline from the attachment's **world** vertices (§8.3, deform and weights inclu
   `dist` or `dist − L`. Otherwise binary-search the table for the last entry `≤ dist` (`lo`, `hi = lo+1`),
   `f = (dist − T[lo]) / (T[hi] − T[lo])` (0 if span 0), `seg = min(segs−1, floor(lo/32))`,
   `t = (lo − seg·32 + f) / 32`, return `point(seg, min(1, t))`.
+- **Constant speed off** (`constantSpeed === false`; unset or `true` is the arc-length rule above): same table,
+  extension and wrapping, but after them `seg` = the first segment with `seg == segs−1` or `T[(seg+1)·32] > dist`
+  (linear scan from 0), `start = T[seg·32]`, `span = T[(seg+1)·32] − start`, and
+  `point(seg, span > 0 ? min(1, (dist − start)/span) : 0)`: the raw bezier parameter inside the segment, as Spine
+  does with "constant speed" off. The total length and so `percent` positions and spacing are unchanged.
 - `point` = cubic bezier position; tangent = derivative, or if its squared length < 1e-12 the difference across
   `t ± 1e-3` (clamped), or if that is < 1e-18 the chord anchor→anchor; `angle = atan2`.
 
@@ -498,7 +504,8 @@ Deform offsets: for a mesh with `linked.deform`, `slot.deform[linked.mesh]` if p
 - Weighted: `Σ_inf weight · bone(inf).world·(inf.x + dx, inf.y + dy)` (missing bone ⇒ slot bone); the same `dx, dy`
   is added to every influence.
 Deform values missing at the end of a short array count as 0. Mesh uvs are the file's `uvs`; indices its `triangles`.
-Other polygons: shape outline (§8.5), `boundingBox`/`clipping` vertices, point `(x, y)` — all through the slot bone.
+`boundingBox` attachments are posed the same way as meshes and paths (optional `weights`, deform offsets by name).
+Other polygons: shape outline (§8.5), `clipping` vertices, point `(x, y)` — all through the slot bone.
 World vertices and uvs are stored as **float32**.
 
 ### 8.4 Draw list (`Skeleton.drawList`)
@@ -657,6 +664,26 @@ sign `-` only if negative and some digit is non-zero, else `+` if `plus` and not
 
 Also emitted (not compared by the suite): font, size, weight, align, box size, fill/outline colours,
 `matrix = bone.world · [cos −sin; sin cos | x, y]`.
+
+### 8.10 Bounding-box queries (`bounds.ts:SkeletonBounds`, `Skeleton.boundingBoxes()`)
+A snapshot of the current world pose, in skeleton space (y up, the draw list's coordinates):
+- `boxes`: for each slot in `drawOrder` whose bone is active and whose **current** attachment is a `boundingBox` with
+  ≥ 6 vertex numbers: `{slot, attachment name, vertices}` (world vertices per §8.3, float32) and the box's own
+  min/max. (Listeners use a wider hit rule, §9.5; the query API only sees current bounding boxes.)
+- overall `minX, minY, maxX, maxY` over all boxes; all `0` when there is none.
+- `aabbContainsPoint(x, y)`: boxes not empty and `minX ≤ x ≤ maxX`, `minY ≤ y ≤ maxY`.
+- `aabbIntersects(x0, y0, x1, y1)`: boxes not empty and `x0 ≤ maxX && x1 ≥ minX && y0 ≤ maxY && y1 ≥ minY`.
+- `containsPoint(x, y)` / `containsPointAll`: the first / every box (in order) with the point inside its own min/max
+  (inclusive) and `pointInPolygon` (even-odd, §9.5); null / empty if none.
+- `intersectsSegment(x1, y1, x2, y2)` / `intersectsSegmentAll`: a box is touched when the segment's bounding rect is
+  not strictly outside the box's min/max, and some edge (`v[j] → v[i]`, `j` the previous vertex, starting with
+  `j = last`) satisfies `segmentsIntersect`, or `pointInPolygon(x1, y1)`.
+- `segmentsIntersect(p1, p2, p3, p4)` (doubles): `d = (x2−x1)(y4−y3) − (y2−y1)(x4−x3)`; `d == 0` ⇒ false;
+  `ua = ((x3−x1)(y4−y3) − (y3−y1)(x4−x3))/d`, `ub = ((x3−x1)(y2−y1) − (y3−y1)(x2−x1))/d`; true if both in [0, 1].
+- `intersectsBounds(other)`: null unless `aabbIntersects(other.minX, other.minY, other.maxX, other.maxY)`; else the
+  first pair `[mine, theirs]` (mine outer loop, theirs inner, both in order) whose min/max overlap (inclusive) and
+  where some edge of mine (`segmentsIntersect` against each edge of theirs) crosses, or mine's first vertex is
+  inside theirs, or theirs' first vertex is inside mine.
 
 ## 9. State machines
 

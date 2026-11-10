@@ -80,13 +80,13 @@ std::vector<double> shapeOutline(const Attachment& s, int segments = 32);
 struct PathSample { double x, y, angle; };
 class Spline {
  public:
-  Spline(const std::vector<float>& vertices, bool closed);
+  Spline(const std::vector<float>& vertices, bool closed, bool constantSpeed = true);
   double length = 0;
   int segments = 0;
   PathSample sample(double distance) const;
 
  private:
-  bool closed;
+  bool closed, constantSpeed;
   int knots;
   std::vector<double> ctrl, table;
   double v2 = 0, v3 = 0;

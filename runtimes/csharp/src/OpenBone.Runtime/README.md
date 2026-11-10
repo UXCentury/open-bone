@@ -77,7 +77,8 @@ Without a script host, scripts attached to the document are skipped and everythi
 | `Document` | The loaded data: artboard size and origin, images, atlas, skeleton, animations, state machines, scripts, audio. |
 | `OpenBoneInstance` | The usual entry point. `Play`, `UseStateMachine`, `Advance(dt)`, `DrawList()`, `Pointer`, `ArtboardToSkeleton`, events `Event`, `StateChanged`, `AudioCommand`. `OpenBoneInstance.Load(bytes)` loads and creates in one call. |
 | `AnimationState` | Tracks and mixing: `SetAnimation`, `AddAnimation` (with delay and mix), `ClearTrack`, `ClearTracks`. |
-| `Skeleton` | Bones, slots and draw order: `FindBone`, `FindSlot`, `SetSkin`, `SetToSetupPose`, `UpdateWorldTransform`. |
+| `Skeleton` | Bones, slots and draw order: `FindBone`, `FindSlot`, `SetSkin`, `SetToSetupPose`, `UpdateWorldTransform`, `BoundingBoxes()`. |
+| `SkeletonBounds` | Active bounding boxes of one pose (skeleton space, y up): `Boxes`, `MinX`..`MaxY`, `Update`, `AabbContainsPoint`, `AabbIntersects`, `ContainsPoint(All)`, `IntersectsSegment(All)`, `IntersectsBounds(other)`. |
 | `StateMachineInstance` | `SetInput`, `SetBool`, `SetNumber`, `SetString`, `Fire`, `SetText`, `GetInput`, `ActiveStates`, events `StateChanged`, `InputChanged`, `Event`, `AudioCommand`, `Log`, `Error`. |
 | `DrawItem` | One piece of geometry: `Vertices`, `Uvs`, `Indices`, `Texture`, `TextureRect`, `Color`, `Colors` (per vertex), `Dark` (two-colour tint), `Blend`, `Clip`, `Text`, `Particles`. |
 | `AudioCommand` | A sound instruction for your audio backend: `Type` is `play`, `stop` or `fade`, with the sound id, asset, bus, volume, rate, loop and fade times. |

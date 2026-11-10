@@ -102,6 +102,7 @@ The document's images (or atlas pages) are queued on the same loader, so `create
 | `pause()`, `resume()`, `paused`, `speed` | Playback; pausing also pauses sounds. |
 | `onOpenBone(name, fn)` | Listen to `"event"`, `"stateChange"` or `"audio"`. Returns an unsubscribe function. |
 | `artboard` | The artboard rectangle in local space (y down). |
+| `boundingBoxes()`, `worldToSkeleton(x, y)`, `skeletonToWorld(x, y)` | Bounding-box queries in skeleton space (y up), and conversion from / to Phaser world coordinates: `const w = cam.getWorldPoint(p.x, p.y); obj.boundingBoxes().containsPoint(...obj.worldToSkeleton(w.x, w.y))`. |
 | `batches` | Batches drawn in the last WebGL frame. |
 | `driver`, `instance`, `skeleton`, `stateMachine` | Lower-level access. |
 | `destroy()` | Unbinds pointer handlers, stops sounds and removes its text textures. |

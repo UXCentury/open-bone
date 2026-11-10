@@ -836,7 +836,7 @@ public final class Skeleton {
     if (slot == null) return;
     Attachment att = getAttachment(slot);
     if (!(att instanceof PathAttachment)) return;
-    Spline spline = new Spline(attachmentWorldVertices(slot, att), ((PathAttachment) att).closed);
+    Spline spline = new Spline(attachmentWorldVertices(slot, att), ((PathAttachment) att).closed, c.constantSpeed);
     double total = spline.length;
     if (total <= 1e-9) return;
     List<Bone> bs = new ArrayList<>();
@@ -1112,7 +1112,7 @@ public final class Skeleton {
     return def != null ? def.get(id, name) : null;
   }
 
-  /** World-space vertices (float32 values) of a slot's attachment. */
+  /** World-space vertices (float32 values) of a slot's attachment (bounding boxes and paths pose like meshes: weights, deform). */
   public double[] attachmentWorldVertices(Slot slot, Attachment att) {
     Affine m = slot.bone.world;
     if (att instanceof RegionAttachment || att instanceof SequenceAttachment || att instanceof TextAttachment) {
@@ -1148,7 +1148,7 @@ public final class Skeleton {
       }
       return out;
     }
-    if (att instanceof MeshAttachment || att instanceof PathAttachment) {
+    if (att instanceof MeshAttachment || att instanceof PathAttachment || att instanceof BoundingBoxAttachment) {
       double[] verts;
       MeshAttachment.VertexWeight[][] weights;
       String linked = null;
@@ -1157,9 +1157,12 @@ public final class Skeleton {
         verts = mesh.vertices;
         weights = mesh.weights;
         if (mesh.linked != null && mesh.linked.deform) linked = mesh.linked.mesh;
-      } else {
+      } else if (att instanceof PathAttachment) {
         verts = ((PathAttachment) att).vertices;
         weights = ((PathAttachment) att).weights;
+      } else {
+        verts = ((BoundingBoxAttachment) att).vertices;
+        weights = ((BoundingBoxAttachment) att).weights;
       }
       int n = verts.length / 2;
       double[] deform = linked != null ? slot.deform.get(linked) : null;
@@ -1192,7 +1195,6 @@ public final class Skeleton {
     }
     double[] local;
     if (att instanceof ShapeAttachment) local = shapeOutline((ShapeAttachment) att);
-    else if (att instanceof BoundingBoxAttachment) local = ((BoundingBoxAttachment) att).vertices;
     else if (att instanceof ClippingAttachment) local = ((ClippingAttachment) att).vertices;
     else if (att instanceof PointAttachment) local = new double[] {((PointAttachment) att).x, ((PointAttachment) att).y};
     else if (att instanceof ParticlesAttachment) local = new double[] {((ParticlesAttachment) att).x, ((ParticlesAttachment) att).y};
@@ -1454,6 +1456,14 @@ public final class Skeleton {
     if (k.length() > 1 && k.charAt(0) == '0') return false;
     for (int i = 0; i < k.length(); i++) if (k.charAt(i) < '0' || k.charAt(i) > '9') return false;
     return Long.parseLong(k) < 4294967295L;
+  }
+
+  /**
+   * The active bounding boxes in the current pose (world polygons, their AABB, point / segment / AABB / skeleton
+   * overlap queries). A snapshot: take a new one, or call {@link SkeletonBounds#update} on it, after the pose changes.
+   */
+  public SkeletonBounds boundingBoxes() {
+    return new SkeletonBounds(this);
   }
 
   public boolean hitTest(Slot slot, double px, double py) {

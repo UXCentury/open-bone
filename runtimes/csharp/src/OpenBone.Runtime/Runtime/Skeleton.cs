@@ -734,7 +734,7 @@ namespace OpenBone
             var slot = SlotById(c.Target);
             if (slot == null) return;
             if (!(GetAttachment(slot) is PathAttachment att)) return;
-            var spline = new Spline(AttachmentWorldVertices(slot, att), att.Closed);
+            var spline = new Spline(AttachmentWorldVertices(slot, att), att.Closed, c.ConstantSpeed);
             double total = spline.Length;
             if (total <= 1e-9) return;
             var bones = new List<Bone>();
@@ -1015,7 +1015,7 @@ namespace OpenBone
                 }
                 return o;
             }
-            if (att is MeshAttachment || att is PathAttachment)
+            if (att is MeshAttachment || att is PathAttachment || att is BoundingBoxAttachment)
             {
                 double[] verts;
                 VertexWeight[][] weights;
@@ -1025,10 +1025,14 @@ namespace OpenBone
                     verts = ma.Vertices; weights = ma.Weights;
                     if (ma.Linked != null && ma.Linked.Deform) linked = ma.Linked.Mesh;
                 }
+                else if (att is PathAttachment pa)
+                {
+                    verts = pa.Vertices; weights = pa.Weights;
+                }
                 else
                 {
-                    var pa = (PathAttachment)att;
-                    verts = pa.Vertices; weights = pa.Weights;
+                    var bba = (BoundingBoxAttachment)att;
+                    verts = bba.Vertices; weights = bba.Weights;
                 }
                 int n = verts.Length / 2;
                 double[] deform = null;
@@ -1070,7 +1074,6 @@ namespace OpenBone
             switch (att)
             {
                 case ShapeAttachment sh: local = Geometry.ShapeOutline(sh); break;
-                case BoundingBoxAttachment bb: local = bb.Vertices; break;
                 case ClippingAttachment cl: local = cl.Vertices; break;
                 case PointAttachment pt: local = new[] { pt.X, pt.Y }; break;
                 default: return new float[0];
@@ -1346,6 +1349,12 @@ namespace OpenBone
                 if (merged.Get(k) is BoundingBoxAttachment bb) return bb;
             return null;
         }
+
+        /// <summary>
+        /// The active bounding boxes in the current pose (world polygons, their AABB, point / segment / AABB / skeleton
+        /// overlap queries). A snapshot: take a new one, or call <see cref="SkeletonBounds.Update"/> on it, after the pose changes.
+        /// </summary>
+        public SkeletonBounds BoundingBoxes() => new SkeletonBounds(this);
 
         public bool HitTest(Slot slot, double x, double y)
         {

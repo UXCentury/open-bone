@@ -1,0 +1,474 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "bounds",
+  "width": 400,
+  "height": 400,
+  "originX": 200,
+  "originY": 300,
+  "background": null,
+  "fps": 30,
+  "images": [
+    {
+      "id": "img_plate",
+      "name": "plate",
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==",
+      "width": 40,
+      "height": 40
+    }
+  ],
+  "skeleton": {
+    "bones": [
+      {
+        "id": "bone_iydwa39",
+        "name": "root",
+        "parent": null,
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_rf5gv3a",
+        "name": "body",
+        "parent": "bone_iydwa39",
+        "length": 80,
+        "x": 0,
+        "y": 100,
+        "rotation": 90,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_qoth43b",
+        "name": "arm",
+        "parent": "bone_rf5gv3a",
+        "length": 60,
+        "x": 60,
+        "y": 0,
+        "rotation": -90,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_rqn5g3c",
+        "name": "hand",
+        "parent": "bone_qoth43b",
+        "length": 40,
+        "x": 60,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_z1z6v3d",
+        "name": "tail",
+        "parent": "bone_rf5gv3a",
+        "length": 50,
+        "x": 0,
+        "y": 0,
+        "rotation": 180,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot_sf9z33e",
+        "name": "torso",
+        "bone": "bone_rf5gv3a",
+        "color": "#ffffff",
+        "attachment": "hitbox",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_8db1t3f",
+        "name": "decor",
+        "bone": "bone_rf5gv3a",
+        "color": "#ffffff",
+        "attachment": "plate",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_s5m503g",
+        "name": "arm",
+        "bone": "bone_qoth43b",
+        "color": "#ffffff",
+        "attachment": "sleeve",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_p5nwb3h",
+        "name": "shield",
+        "bone": "bone_rqn5g3c",
+        "color": "#ffffff",
+        "attachment": null,
+        "blend": "normal"
+      },
+      {
+        "id": "slot_e2jia3i",
+        "name": "tail",
+        "bone": "bone_z1z6v3d",
+        "color": "#ffffff",
+        "attachment": "tail",
+        "blend": "normal"
+      }
+    ],
+    "skins": [
+      {
+        "id": "skin_default",
+        "name": "default",
+        "attachments": {
+          "slot_sf9z33e": {
+            "hitbox": {
+              "type": "boundingBox",
+              "name": "hitbox",
+              "vertices": [
+                0,
+                -30,
+                70,
+                -25,
+                95,
+                0,
+                70,
+                28,
+                0,
+                32,
+                -10,
+                0
+              ]
+            }
+          },
+          "slot_8db1t3f": {
+            "plate": {
+              "type": "region",
+              "name": "plate",
+              "image": "img_plate",
+              "x": 40,
+              "y": 0,
+              "rotation": 0,
+              "scaleX": 1,
+              "scaleY": 1,
+              "width": 40,
+              "height": 40,
+              "color": "#ffffff"
+            }
+          },
+          "slot_s5m503g": {
+            "sleeve": {
+              "type": "boundingBox",
+              "name": "sleeve",
+              "vertices": [
+                0,
+                -12,
+                50,
+                -14,
+                100,
+                -10,
+                100,
+                10,
+                50,
+                14,
+                0,
+                12
+              ],
+              "weights": [
+                [
+                  {
+                    "bone": "bone_qoth43b",
+                    "x": 1.5777218104420236e-30,
+                    "y": -12,
+                    "weight": 0.9581307637366938
+                  },
+                  {
+                    "bone": "bone_rqn5g3c",
+                    "x": -60,
+                    "y": -12,
+                    "weight": 0.04186923626330613
+                  }
+                ],
+                [
+                  {
+                    "bone": "bone_qoth43b",
+                    "x": 50,
+                    "y": -14,
+                    "weight": 0.5956214255080662
+                  },
+                  {
+                    "bone": "bone_rqn5g3c",
+                    "x": -10,
+                    "y": -14,
+                    "weight": 0.40437857449193376
+                  }
+                ],
+                [
+                  {
+                    "bone": "bone_rqn5g3c",
+                    "x": 40,
+                    "y": -10,
+                    "weight": 0.9364650001672242
+                  },
+                  {
+                    "bone": "bone_qoth43b",
+                    "x": 100,
+                    "y": -10,
+                    "weight": 0.06353499983277569
+                  }
+                ],
+                [
+                  {
+                    "bone": "bone_rqn5g3c",
+                    "x": 40,
+                    "y": 10,
+                    "weight": 0.9364650001672242
+                  },
+                  {
+                    "bone": "bone_qoth43b",
+                    "x": 100,
+                    "y": 10,
+                    "weight": 0.06353499983277569
+                  }
+                ],
+                [
+                  {
+                    "bone": "bone_qoth43b",
+                    "x": 50,
+                    "y": 14,
+                    "weight": 0.5956214255080662
+                  },
+                  {
+                    "bone": "bone_rqn5g3c",
+                    "x": -10,
+                    "y": 14,
+                    "weight": 0.40437857449193376
+                  }
+                ],
+                [
+                  {
+                    "bone": "bone_qoth43b",
+                    "x": 3.1554436208840472e-30,
+                    "y": 12,
+                    "weight": 0.9581307637366938
+                  },
+                  {
+                    "bone": "bone_rqn5g3c",
+                    "x": -60,
+                    "y": 12,
+                    "weight": 0.04186923626330613
+                  }
+                ]
+              ]
+            }
+          },
+          "slot_p5nwb3h": {
+            "shield": {
+              "type": "boundingBox",
+              "name": "shield",
+              "vertices": [
+                20,
+                -40,
+                60,
+                0,
+                20,
+                40
+              ]
+            }
+          },
+          "slot_e2jia3i": {
+            "tail": {
+              "type": "boundingBox",
+              "name": "tail",
+              "vertices": [
+                0,
+                -8,
+                50,
+                -8,
+                50,
+                8,
+                0,
+                8
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": "skin_bsdpt3j",
+        "name": "tailed",
+        "attachments": {},
+        "bones": [
+          "bone_z1z6v3d"
+        ]
+      }
+    ],
+    "ik": [],
+    "transform": [],
+    "path": [],
+    "physics": []
+  },
+  "events": [],
+  "animations": [
+    {
+      "id": "anim_wzxy53k",
+      "name": "swing",
+      "duration": 0,
+      "timelines": [
+        {
+          "target": "bone",
+          "id": "bone_rf5gv3a",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 90,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": 60,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 90,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_qoth43b",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": -90,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": -20,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": -90,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_rqn5g3c",
+          "property": "rotation",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": 60,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 0,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "bone",
+          "id": "bone_iydwa39",
+          "property": "x",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 40,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "slot",
+          "id": "slot_p5nwb3h",
+          "property": "attachment",
+          "keys": [
+            {
+              "time": 0,
+              "value": null,
+              "curve": "linear"
+            },
+            {
+              "time": 0.5,
+              "value": "shield",
+              "curve": "linear"
+            },
+            {
+              "time": 1.5,
+              "value": null,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "drawOrder",
+          "id": "skeleton",
+          "property": "order",
+          "keys": [
+            {
+              "time": 0,
+              "value": [
+                "slot_sf9z33e",
+                "slot_8db1t3f",
+                "slot_s5m503g",
+                "slot_p5nwb3h",
+                "slot_e2jia3i"
+              ],
+              "curve": "linear"
+            },
+            {
+              "time": 1,
+              "value": [
+                "slot_p5nwb3h",
+                "slot_s5m503g",
+                "slot_sf9z33e",
+                "slot_8db1t3f",
+                "slot_e2jia3i"
+              ],
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    }
+  ],
+  "stateMachines": [],
+  "scripts": []
+}

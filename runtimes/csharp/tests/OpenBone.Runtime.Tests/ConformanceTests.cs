@@ -12,7 +12,7 @@ namespace OpenBone.Tests
         public void HasEveryReferenceFile()
         {
             var files = Conformance.ExpectedFiles().ToList();
-            Assert.True(files.Count >= 18, $"only {files.Count} expected files");
+            Assert.True(files.Count >= 20, $"only {files.Count} expected files");
         }
 
         [Theory]

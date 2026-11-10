@@ -76,6 +76,11 @@ export function validate(d: OpenBoneDocument): Issue[] {
           if (a.vertices.length < 6 || a.vertices.length % 2) err(`clipping ${a.name}`, "needs at least 3 points");
           if (a.end && !slotIds.has(a.end)) err(`clipping ${a.name}`, `end slot ${a.end} missing`);
         }
+        if (a.type === "boundingBox") {
+          if (a.vertices.length < 6 || a.vertices.length % 2) warn(`bounding box ${a.name}`, "needs at least 3 points");
+          if (a.weights && a.weights.length !== a.vertices.length / 2) err(`bounding box ${a.name}`, "weights length mismatch");
+          a.weights?.forEach((w) => w.forEach((x) => !boneIds.has(x.bone) && err(`bounding box ${a.name}`, `weight bone ${x.bone} missing`)));
+        }
         if (a.type === "path") {
           if (a.vertices.length < 12 || a.vertices.length % 6) err(`path ${a.name}`, "needs 6 numbers per knot and at least 2 knots");
           if (a.weights && a.weights.length !== a.vertices.length / 2) err(`path ${a.name}`, "weights length mismatch");

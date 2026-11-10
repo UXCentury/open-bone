@@ -21,15 +21,19 @@ class Spline {
 	public final length:Float;
 	public final segments:Int;
 
+	/** False: the point inside a segment is at the raw bezier parameter (the segment is still found by arc length). */
+	public final constantSpeed:Bool;
+
 	final knots:Int;
 	final ctrl:Array<Float>;
 	final table:Array<Float>;
 	final vertices:Array<Float>;
 
 	/** Knots are `[inX, inY, x, y, outX, outY]` each. */
-	public function new(vertices:Array<Float>, closed:Bool) {
+	public function new(vertices:Array<Float>, closed:Bool, constantSpeed = true) {
 		this.vertices = vertices;
 		this.closed = closed;
+		this.constantSpeed = constantSpeed;
 		knots = Std.int(vertices.length / 6);
 		var segCount = knots < 2 ? 0 : closed ? knots : knots - 1;
 		segments = segCount;
@@ -104,6 +108,15 @@ class Spline {
 			var end = d <= 0 ? point(0, 0) : point(segments - 1, 1);
 			var over = d <= 0 ? d : d - length;
 			return new SplineSample(end.x + Math.cos(end.angle) * over, end.y + Math.sin(end.angle) * over, end.angle);
+		}
+		if (!constantSpeed) {
+			// Segment by arc length (the first whose end is past d), then the raw parameter inside it.
+			var seg = 0;
+			while (seg < segments - 1 && table[(seg + 1) * STEPS] <= d)
+				seg++;
+			var start = table[seg * STEPS];
+			var span = table[(seg + 1) * STEPS] - start;
+			return point(seg, span > 0 ? Math.min(1, (d - start) / span) : 0);
 		}
 		var lo = 0, hi = table.length - 1;
 		while (hi - lo > 1) {

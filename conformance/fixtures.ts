@@ -231,4 +231,118 @@ function mixing(): OpenBoneDocument {
   return s.doc;
 }
 
-export const FIXTURES: Record<string, () => OpenBoneDocument> = { transforms, constraints, meshes, dynamics, interactive, rigging, mixing };
+/**
+ * Bounding-box queries: an unweighted polygon box, a box weighted to two bones, a box switched on and off by
+ * attachment keys, a box on a skin-only bone, a draw-order key, and a region that must be ignored. The queries
+ * are in `BOUNDS_QUERIES`.
+ */
+function bounds(): OpenBoneDocument {
+  const s = store("bounds");
+  image(s, "plate", 40, 40);
+  s.apply("addBone", { name: "body", y: 100, rotation: 90, length: 80 });
+  s.apply("addBone", { name: "arm", parent: "body", x: 60, rotation: -90, length: 60 });
+  s.apply("addBone", { name: "hand", parent: "arm", x: 60, length: 40 });
+  s.apply("addBone", { name: "tail", parent: "body", rotation: 180, length: 50 });
+  s.apply("addSlot", { name: "torso", bone: "body" });
+  s.apply("addBoundingBox", { slot: "torso", activate: true, vertices: [0, -30, 70, -25, 95, 0, 70, 28, 0, 32, -10, 0] });
+  s.apply("addSlot", { name: "decor", bone: "body" });
+  s.apply("addRegion", { slot: "decor", image: "plate", x: 40 });
+  s.apply("addSlot", { name: "arm", bone: "arm" });
+  s.apply("addBoundingBox", { slot: "arm", name: "sleeve", activate: true, vertices: [0, -12, 50, -14, 100, -10, 100, 10, 50, 14, 0, 12] });
+  s.apply("autoWeights", { slot: "arm", attachment: "sleeve", bones: ["arm", "hand"] });
+  s.apply("addSlot", { name: "shield", bone: "hand" });
+  s.apply("addBoundingBox", { slot: "shield", name: "shield", activate: false, vertices: [20, -40, 60, 0, 20, 40] });
+  s.apply("addSlot", { name: "tail", bone: "tail" });
+  s.apply("addBoundingBox", { slot: "tail", name: "tail", activate: true, x: 25, width: 50, height: 16 });
+  s.apply("addSkin", { name: "tailed" });
+  s.apply("addToSkin", { skin: "tailed", bones: ["tail"] });
+  s.apply("createAnimation", { name: "swing" });
+  const k = (id: string, property: string, keys: unknown[]) => s.apply("setKeys", { animation: "swing", target: "bone", id, property, keys });
+  k("body", "rotation", [{ time: 0, value: 90 }, { time: 1, value: 60 }, { time: 2, value: 90 }]);
+  k("arm", "rotation", [{ time: 0, value: -90 }, { time: 1, value: -20 }, { time: 2, value: -90 }]);
+  k("hand", "rotation", [{ time: 0, value: 0 }, { time: 1, value: 60 }, { time: 2, value: 0 }]);
+  k("root", "x", [{ time: 0, value: 0 }, { time: 2, value: 40 }]);
+  s.apply("setKeys", { animation: "swing", target: "slot", id: "shield", property: "attachment", keys: [{ time: 0, value: null }, { time: 0.5, value: "shield" }, { time: 1.5, value: null }] });
+  s.apply("setKeys", { animation: "swing", target: "drawOrder", keys: [{ time: 0, value: ["torso", "decor", "arm", "shield", "tail"] }, { time: 1, value: ["shield", "arm", "torso", "decor", "tail"] }] });
+  return s.doc;
+}
+
+/**
+ * Path constraints on a curve with very uneven handles: the same path and chain with constant speed on (the
+ * default) and off, an open and a closed path, keyed positions that run off the ends (and wrap on the closed one).
+ */
+function paths(): OpenBoneDocument {
+  const s = store("paths");
+  s.apply("addSlot", { name: "rail", bone: "root" });
+  // Knots [in, anchor, out]: the first segment has one long and one tiny handle, the second the reverse.
+  s.apply("addPath", { slot: "rail", vertices: [-180, 0, -150, 20, -40, 160, 0, 60, 10, 80, 20, 100, 150, 10, 170, 200, 190, 220] });
+  s.apply("addSlot", { name: "loop", bone: "root" });
+  s.apply("addPath", { slot: "loop", closed: true, vertices: [-60, 260, -40, 240, 20, 240, 60, 200, 70, 180, 60, 120, 10, 150, -60, 160, -70, 175] });
+  const chain = (prefix: string, n: number, len: number) => {
+    const out: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const name = `${prefix}${i + 1}`;
+      s.apply("addBone", { name, parent: i ? out[i - 1] : "root", x: i ? len : 0, length: len });
+      out.push(name);
+    }
+    return out;
+  };
+  const even = chain("even", 5, 40);
+  const raw = chain("raw", 5, 40);
+  const loopEven = chain("loop-even", 4, 30);
+  const loopRaw = chain("loop-raw", 4, 30);
+  s.apply("addPathConstraint", { name: "even", bones: even, target: "rail", rotateMode: "chain", position: 0.05 });
+  s.apply("addPathConstraint", { name: "raw", bones: raw, target: "rail", rotateMode: "chain", position: 0.05, constantSpeed: false });
+  s.apply("addPathConstraint", { name: "loop-even", bones: loopEven, target: "loop", rotateMode: "tangent", spacingMode: "percent", spacing: 0.1, position: 0.1 });
+  s.apply("addPathConstraint", { name: "loop-raw", bones: loopRaw, target: "loop", rotateMode: "chainScale", spacingMode: "percent", spacing: 0.1, position: 0.1 });
+  s.apply("updatePathConstraint", { constraint: "loop-raw", constantSpeed: false });
+  s.apply("createAnimation", { name: "slide" });
+  for (const c of ["even", "raw"]) s.apply("setKeys", { animation: "slide", target: "path", id: c, property: "position", keys: [{ time: 0, value: -0.1 }, { time: 2, value: 0.9 }] });
+  for (const c of ["loop-even", "loop-raw"]) s.apply("setKeys", { animation: "slide", target: "path", id: c, property: "position", keys: [{ time: 0, value: 0.1 }, { time: 2, value: 1.6 }] });
+  return s.doc;
+}
+
+export const FIXTURES: Record<string, () => OpenBoneDocument> = { transforms, constraints, meshes, dynamics, interactive, rigging, mixing, bounds, paths };
+
+/** Bounding-box queries recorded for a fixture (see conformance/README.md). Candidates unstable under a tiny nudge are dropped. */
+export interface BoundsQueries {
+  points: [number, number][];
+  segments: [number, number, number, number][];
+  aabbs: [number, number, number, number][];
+  /** Placements (skeleton x, y) of a second copy of the document in its setup pose, for skeleton-skeleton overlap. */
+  others: [number, number][];
+}
+
+/** Deterministic pseudo-random numbers (mulberry32), so the query candidates are the same on every run. */
+function rng(seed: number) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function boundsQueries(): BoundsQueries {
+  const r = rng(7);
+  const q = (v: number) => Math.round(v * 100) / 100;
+  const x = () => q(-80 + r() * 300);
+  const y = () => q(60 + r() * 240);
+  const points: [number, number][] = [];
+  for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) points.push([q(-80 + i * 25.3), q(60 + j * 20.7)]);
+  const segments: [number, number, number, number][] = [];
+  for (let i = 0; i < 40; i++) segments.push([x(), y(), x(), y()]);
+  for (let i = 0; i < 20; i++) {
+    const [x0, y0] = [x(), y()];
+    segments.push([x0, y0, q(x0 + (r() - 0.5) * 16), q(y0 + (r() - 0.5) * 16)]);
+  }
+  const aabbs: [number, number, number, number][] = [];
+  for (let i = 0; i < 30; i++) {
+    const [x0, y0] = [x() - 60, y() - 40];
+    aabbs.push([x0, y0, q(x0 + 5 + r() * 40), q(y0 + 5 + r() * 40)]);
+  }
+  const others: [number, number][] = [[0, 0], [30, 0], [90, 20], [150, 60], [-160, 0], [0, 190], [60, -110], [200, 200]];
+  return { points, segments, aabbs, others };
+}
+
+export const BOUNDS_QUERIES: Record<string, () => BoundsQueries> = { bounds: boundsQueries };

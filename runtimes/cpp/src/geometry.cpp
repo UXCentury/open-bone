@@ -418,7 +418,7 @@ inline double bezD(double a, double b, double c, double d, double t) {
 }
 }  // namespace
 
-Spline::Spline(const std::vector<float>& v, bool closed_) : closed(closed_) {
+Spline::Spline(const std::vector<float>& v, bool closed_, bool constantSpeed_) : closed(closed_), constantSpeed(constantSpeed_) {
   knots = (int)(v.size() / 6);
   segments = knots < 2 ? 0 : closed ? knots : knots - 1;
   if (knots) {
@@ -475,6 +475,14 @@ PathSample Spline::sample(double distance) const {
     const PathSample end = d <= 0 ? point(0, 0) : point(segments - 1, 1);
     const double over = d <= 0 ? d : d - total;
     return {end.x + std::cos(end.angle) * over, end.y + std::sin(end.angle) * over, end.angle};
+  }
+  if (!constantSpeed) {
+    // Segment by arc length (the first whose end is past d), then the raw bezier parameter inside it.
+    int seg = 0;
+    while (seg < segments - 1 && table[(seg + 1) * STEPS] <= d) seg++;
+    const double start = table[seg * STEPS];
+    const double span = table[(seg + 1) * STEPS] - start;
+    return point(seg, span > 0 ? std::min(1.0, (d - start) / span) : 0);
   }
   size_t lo = 0, hi = table.size() - 1;
   while (hi - lo > 1) {

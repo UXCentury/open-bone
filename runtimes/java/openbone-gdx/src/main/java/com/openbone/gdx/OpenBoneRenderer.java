@@ -1,12 +1,15 @@
 package com.openbone.gdx;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Disposable;
 import com.openbone.runtime.Affine;
@@ -51,6 +54,17 @@ public class OpenBoneRenderer implements Disposable {
       ownFont = true;
     }
     return font;
+  }
+
+  /**
+   * Screen pixels (libGDX input: origin top-left, y down) to skeleton space, for the camera you draw with. The result
+   * is what {@code instance.pointer(...)} and the bounding-box queries take, e.g.
+   * {@code instance.skeleton.boundingBoxes().containsPoint(p.x, p.y)}. With a {@code Viewport}, use
+   * {@code viewport.unproject(...)} instead (it accounts for the letterbox).
+   */
+  public static Vector2 screenToSkeleton(Camera camera, float screenX, float screenY, Vector2 out) {
+    Vector3 v = camera.unproject(new Vector3(screenX, screenY, 0));
+    return out.set(v.x, v.y);
   }
 
   public void draw(OpenBoneInstance instance, DocumentTextures textures, Matrix4 projection) {

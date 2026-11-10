@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 
 import 'bindings.g.dart';
+import 'bounds.dart';
 import 'document.dart';
 import 'native.dart';
 import 'types.dart';
@@ -374,6 +375,10 @@ class OpenBoneInstance {
         _b.ob_instance_bounds(handle, out);
         return (out[0], out[1], out[2], out[3]);
       });
+
+  /// The active bounding boxes in the current pose (world polygons, their AABB, point / segment / AABB / skeleton
+  /// overlap queries). A snapshot: take a new one, or call [OpenBoneSkeletonBounds.update], after the pose changes.
+  OpenBoneSkeletonBounds boundingBoxes() => OpenBoneSkeletonBounds(this);
 
   // ---------- helpers ----------
 

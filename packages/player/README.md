@@ -135,7 +135,18 @@ player.speed = 0.5;
 
 Members: `ready` (promise), `play()`, `pause()`, `playing`, `speed` (sounds follow it), `setInput`, `getInput`,
 `fire`, `setText`, `setSkin`, `skins`, `playAnimation(name, loop?)`, `setFit(fit)`, `setMuted(muted)`, `muted`,
-`audio`, `instance` (the runtime `OpenBoneInstance`), `stateMachine`, `doc` and `dispose()`.
+`audio`, `instance` (the runtime `OpenBoneInstance`), `stateMachine`, `doc`, `clientToSkeleton(clientX, clientY)`,
+`boundingBoxes()` and `dispose()`.
+
+`boundingBoxes()` returns the active bounding boxes in skeleton space with point, segment, AABB and overlap queries
+(see `@openbone/runtime`); `clientToSkeleton` converts page coordinates through the current fit:
+
+```ts
+canvas.addEventListener("click", (e) => {
+  const hit = player.boundingBoxes().containsPoint(...player.clientToSkeleton(e.clientX, e.clientY));
+  if (hit) console.log("clicked", hit.slot.data.name);
+});
+```
 
 ### Pointer input
 

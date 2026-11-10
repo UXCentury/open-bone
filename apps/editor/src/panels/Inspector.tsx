@@ -705,6 +705,7 @@ function PathInspector(p: { id: string }) {
         <SelectField label="Position" value={c()!.positionMode} options={opts(["percent", "fixed"])} onCommit={(v) => set({ positionMode: v })} />
         <SelectField label="Spacing" value={c()!.spacingMode} options={opts(["length", "fixed", "percent", "proportional"])} onCommit={(v) => set({ spacingMode: v })} />
         <SelectField label="Rotate" value={c()!.rotateMode} options={opts(["tangent", "chain", "chainScale"])} onCommit={(v) => set({ rotateMode: v })} />
+        <Check label="Constant speed" title="Space bones by arc length along each curve segment. Off: by the raw bezier parameter, so bones bunch where handles are short" checked={c()!.constantSpeed !== false} onChange={(v) => set({ constantSpeed: v })} />
         <CNumber kind="path" id={p.id} prop="position" label={c()!.positionMode === "percent" ? "Position %" : "Position"} step={c()!.positionMode === "percent" ? 0.01 : 1} value={c()!.position} />
         <CNumber kind="path" id={p.id} prop="spacing" label="Spacing" step={c()!.spacingMode === "percent" || c()!.spacingMode === "proportional" ? 0.01 : 1} value={c()!.spacing} />
         <CNumber kind="path" id={p.id} prop="mixRotate" label="Mix rotate" step={0.01} min={0} max={1} value={c()!.mixRotate} />

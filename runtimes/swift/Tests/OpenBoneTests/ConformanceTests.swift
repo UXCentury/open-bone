@@ -21,6 +21,10 @@ private func r4(_ n: Double) -> Double {
 
 /// Samples a running instance the way generate.ts does.
 private final class Recorder {
+    /// Bounding-box queries of the file (`queries`), and the other skeleton per `queries.others` placement.
+    var queries: JSON?
+    var others: [OpenBoneSkeletonBounds] = []
+    var boundsErrors: [String] = []
     var events: [JSON] = []
     var audio: [JSON] = []
     var ids: [String: String] = [:]
@@ -87,9 +91,45 @@ private final class Recorder {
             for l in inst.activeStates { st[l.layer] = .opt(l.state) }
             s["states"] = .object(st)
         }
+        if let q = queries { s["bounds"] = recordBounds(inst, q) }
         events = []
         audio = []
         return .object(s)
+    }
+}
+
+extension Recorder {
+    /// conformance/README.md "Bounding-box queries": the record of one sample.
+    func recordBounds(_ inst: OpenBoneInstance, _ q: JSON) -> JSON {
+        let b = inst.boundingBoxes()
+        let idx = { (list: [OpenBoneBoundingBox]) -> JSON in .ints(list.map(\.index)) }
+        var r: [String: JSON] = [:]
+        r["boxes"] = .array(b.boxes.map { x in
+            .object(["slot": .string(x.slot), "attachment": .string(x.attachment), "vertices": .nums(x.vertices)])
+        })
+        r["aabb"] = b.aabb.map { .nums([$0.minX, $0.minY, $0.maxX, $0.maxY]) } ?? .null
+        r["points"] = .array(q["points"].array.map { p in
+            let x = p[0].double ?? 0, y = p[1].double ?? 0
+            let all = b.containsPointAll(x: x, y: y)
+            if b.containsPoint(x: x, y: y)?.index != all.first?.index { boundsErrors.append("containsPoint disagrees with containsPointAll") }
+            return idx(all)
+        })
+        r["segments"] = .array(q["segments"].array.map { s in
+            let v = (0 ..< 4).map { s[$0].double ?? 0 }
+            let all = b.intersectsSegmentAll(x1: v[0], y1: v[1], x2: v[2], y2: v[3])
+            if b.intersectsSegment(x1: v[0], y1: v[1], x2: v[2], y2: v[3])?.index != all.first?.index {
+                boundsErrors.append("intersectsSegment disagrees with intersectsSegmentAll")
+            }
+            return idx(all)
+        })
+        r["aabbs"] = .array(q["aabbs"].array.map { a in
+            .bool(b.aabbIntersects(OpenBoneRect(minX: a[0].double ?? 0, minY: a[1].double ?? 0,
+                                                maxX: a[2].double ?? 0, maxY: a[3].double ?? 0)))
+        })
+        r["others"] = .array(others.map { o in
+            b.intersectsBounds(o).map { .ints([$0.mine.index, $0.theirs.index]) } ?? .null
+        })
+        return .object(r)
     }
 }
 
@@ -204,16 +244,37 @@ private struct Compare {
                 if ma[i].count != ra[i].count { fail(q, "\(Compare.show(ma[i])) vs reference \(Compare.show(ra[i]))") }
             }
         }
+        if r.has("bounds") != m.has("bounds") { fail("\(p).bounds", m.has("bounds") ? "unexpected" : "missing") }
+        else if r.has("bounds") {
+            let mb = m["bounds"], rb = r["bounds"]
+            let mx = mb["boxes"].array, rx = rb["boxes"].array
+            if mx.count != rx.count { fail("\(p).bounds.boxes", "\(Compare.show(mb["boxes"])) vs reference \(Compare.show(rb["boxes"]))") }
+            else {
+                for i in 0 ..< rx.count {
+                    let q = "\(p).bounds.boxes[\(i)]"
+                    exact("\(q).slot", mx[i]["slot"], rx[i]["slot"])
+                    exact("\(q).attachment", mx[i]["attachment"], rx[i]["attachment"])
+                    nums("\(q).vertices", mx[i]["vertices"], rx[i]["vertices"], 1e-3)
+                }
+            }
+            if rb["aabb"].isNull || mb["aabb"].isNull { exact("\(p).bounds.aabb", mb["aabb"], rb["aabb"]) }
+            else { nums("\(p).bounds.aabb", mb["aabb"], rb["aabb"], 1e-3) }
+            for k in ["points", "segments", "aabbs", "others"] { exact("\(p).bounds.\(k)", mb[k], rb[k]) }
+        }
         if r.has("states") || m.has("states") { exact("\(p).states", m["states"], r["states"]) }
     }
 }
 
 /// Runs one case and returns its samples.
-private func runCase(_ doc: OpenBoneDocument, _ c: JSON) throws -> [JSON] {
+private func runCase(_ doc: OpenBoneDocument, _ c: JSON, queries: JSON?, others: [OpenBoneSkeletonBounds],
+                     boundsErrors: inout [String]) throws -> [JSON] {
     let kind = c["kind"].string ?? ""
     let steps = Int((c["duration"].double ?? 0) / dt + 0.5)
     let inst = try OpenBoneInstance(document: doc)
     let rec = Recorder()
+    rec.queries = queries
+    rec.others = others
+    defer { boundsErrors = rec.boundsErrors }
     let machine = kind == "stateMachine"
     if !machine, let skin = c["skin"].string { try inst.setSkin(skin) }
     if kind == "animation" { try inst.play(c["animation"].string ?? "", loop: true) }
@@ -254,9 +315,9 @@ final class ConformanceTests: XCTestCase {
 
     /// Every reference file, by name. `testEveryFileIsListed` keeps this list in step with the directory.
     static let files = [
-        "atlas-knight", "atlas-polygons", "atlas-walker", "constraints", "dynamics", "example-button",
+        "atlas-knight", "atlas-polygons", "atlas-walker", "bounds", "constraints", "dynamics", "example-button",
         "example-campfire", "example-crash", "example-fox", "example-knight", "example-robot", "example-rocket",
-        "example-tail", "example-walker", "interactive", "meshes", "rigging", "transforms",
+        "example-tail", "example-walker", "interactive", "meshes", "paths", "rigging", "transforms",
     ]
 
     func testEveryFileIsListed() throws {
@@ -277,13 +338,23 @@ final class ConformanceTests: XCTestCase {
         let expected = try JSONDecoder().decode(JSON.self, from: data)
         let docURL = repoRoot.appendingPathComponent(expected["document"].string ?? "")
         let doc = try OpenBoneDocument(contentsOf: docURL)
+        let queries: JSON? = expected.has("queries") ? expected["queries"] : nil
+        // `others`: the same document in a second instance at each placement, setup pose, default skin.
+        let others = try (queries?["others"].array ?? []).map { xy -> OpenBoneSkeletonBounds in
+            let o = try OpenBoneInstance(document: doc)
+            o.setTransform(x: xy[0].double ?? 0, y: xy[1].double ?? 0)
+            o.advance(0)
+            return o.boundingBoxes()
+        }
         var passed = 0
         let cases = expected["cases"].array
         for c in cases {
             let caseName = c["name"].string ?? "?"
             var cmp = Compare()
             do {
-                let mine = try runCase(doc, c)
+                var boundsErrors: [String] = []
+                let mine = try runCase(doc, c, queries: queries, others: others, boundsErrors: &boundsErrors)
+                for e in boundsErrors { cmp.fail("bounds", e) }
                 let ref = c["samples"].array
                 if mine.count != ref.count { cmp.fail("samples", "count \(mine.count) vs \(ref.count)") }
                 for i in 0 ..< min(mine.count, ref.count) {
@@ -303,6 +374,7 @@ final class ConformanceTests: XCTestCase {
     func testAtlasKnight() throws { try run("atlas-knight") }
     func testAtlasPolygons() throws { try run("atlas-polygons") }
     func testAtlasWalker() throws { try run("atlas-walker") }
+    func testBounds() throws { try run("bounds") }
     func testConstraints() throws { try run("constraints") }
     func testDynamics() throws { try run("dynamics") }
     func testExampleButton() throws { try run("example-button") }
@@ -316,6 +388,7 @@ final class ConformanceTests: XCTestCase {
     func testExampleWalker() throws { try run("example-walker") }
     func testInteractive() throws { try run("interactive") }
     func testMeshes() throws { try run("meshes") }
+    func testPaths() throws { try run("paths") }
     func testRigging() throws { try run("rigging") }
     func testTransforms() throws { try run("transforms") }
 }

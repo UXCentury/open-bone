@@ -13,6 +13,12 @@ public class PathConstraintData extends ConstraintData {
   public String spacingMode = "length";
   /** "tangent", "chain" or "chainScale". */
   public String rotateMode = "tangent";
+  /**
+   * True (default): distances inside each bezier segment are measured by arc length, so bones stay evenly spaced.
+   * False: the segment is still found by arc length, but the point within it is at the raw bezier parameter (Spine
+   * with "constant speed" off), so bones bunch up where the handles are short.
+   */
+  public boolean constantSpeed = true;
   public double offsetRotation, position, spacing, mixRotate, mixX, mixY;
 
   @Override

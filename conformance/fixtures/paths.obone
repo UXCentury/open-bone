@@ -1,0 +1,534 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "paths",
+  "width": 400,
+  "height": 400,
+  "originX": 200,
+  "originY": 300,
+  "background": null,
+  "fps": 30,
+  "images": [],
+  "skeleton": {
+    "bones": [
+      {
+        "id": "bone_4luyi3l",
+        "name": "root",
+        "parent": null,
+        "length": 0,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_ux7vv3o",
+        "name": "even1",
+        "parent": "bone_4luyi3l",
+        "length": 40,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_uxyyc3p",
+        "name": "even2",
+        "parent": "bone_ux7vv3o",
+        "length": 40,
+        "x": 40,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_wynmz3q",
+        "name": "even3",
+        "parent": "bone_uxyyc3p",
+        "length": 40,
+        "x": 40,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_hvja33r",
+        "name": "even4",
+        "parent": "bone_wynmz3q",
+        "length": 40,
+        "x": 40,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_zvz2i3s",
+        "name": "even5",
+        "parent": "bone_hvja33r",
+        "length": 40,
+        "x": 40,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_tv96x3t",
+        "name": "raw1",
+        "parent": "bone_4luyi3l",
+        "length": 40,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_f84043u",
+        "name": "raw2",
+        "parent": "bone_tv96x3t",
+        "length": 40,
+        "x": 40,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_9f00i3v",
+        "name": "raw3",
+        "parent": "bone_f84043u",
+        "length": 40,
+        "x": 40,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_7thmz3w",
+        "name": "raw4",
+        "parent": "bone_9f00i3v",
+        "length": 40,
+        "x": 40,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_ip6wk3x",
+        "name": "raw5",
+        "parent": "bone_7thmz3w",
+        "length": 40,
+        "x": 40,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_a05463y",
+        "name": "loop-even1",
+        "parent": "bone_4luyi3l",
+        "length": 30,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_rmiav3z",
+        "name": "loop-even2",
+        "parent": "bone_a05463y",
+        "length": 30,
+        "x": 30,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_zxhfw40",
+        "name": "loop-even3",
+        "parent": "bone_rmiav3z",
+        "length": 30,
+        "x": 30,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_nsnd841",
+        "name": "loop-even4",
+        "parent": "bone_zxhfw40",
+        "length": 30,
+        "x": 30,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_w3sfp42",
+        "name": "loop-raw1",
+        "parent": "bone_4luyi3l",
+        "length": 30,
+        "x": 0,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_ddzxk43",
+        "name": "loop-raw2",
+        "parent": "bone_w3sfp42",
+        "length": 30,
+        "x": 30,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_5rm9s44",
+        "name": "loop-raw3",
+        "parent": "bone_ddzxk43",
+        "length": 30,
+        "x": 30,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      },
+      {
+        "id": "bone_4fc6g45",
+        "name": "loop-raw4",
+        "parent": "bone_5rm9s44",
+        "length": 30,
+        "x": 30,
+        "y": 0,
+        "rotation": 0,
+        "scaleX": 1,
+        "scaleY": 1,
+        "shearX": 0,
+        "shearY": 0,
+        "inherit": "normal"
+      }
+    ],
+    "slots": [
+      {
+        "id": "slot_ejcg33m",
+        "name": "rail",
+        "bone": "bone_4luyi3l",
+        "color": "#ffffff",
+        "attachment": "path",
+        "blend": "normal"
+      },
+      {
+        "id": "slot_g4axv3n",
+        "name": "loop",
+        "bone": "bone_4luyi3l",
+        "color": "#ffffff",
+        "attachment": "path",
+        "blend": "normal"
+      }
+    ],
+    "skins": [
+      {
+        "id": "skin_default",
+        "name": "default",
+        "attachments": {
+          "slot_ejcg33m": {
+            "path": {
+              "type": "path",
+              "name": "path",
+              "vertices": [
+                -180,
+                0,
+                -150,
+                20,
+                -40,
+                160,
+                0,
+                60,
+                10,
+                80,
+                20,
+                100,
+                150,
+                10,
+                170,
+                200,
+                190,
+                220
+              ],
+              "closed": false,
+              "color": "#ff7a00"
+            }
+          },
+          "slot_g4axv3n": {
+            "path": {
+              "type": "path",
+              "name": "path",
+              "vertices": [
+                -60,
+                260,
+                -40,
+                240,
+                20,
+                240,
+                60,
+                200,
+                70,
+                180,
+                60,
+                120,
+                10,
+                150,
+                -60,
+                160,
+                -70,
+                175
+              ],
+              "closed": true,
+              "color": "#ff7a00"
+            }
+          }
+        }
+      }
+    ],
+    "ik": [],
+    "transform": [],
+    "path": [
+      {
+        "id": "path_auwom46",
+        "name": "even",
+        "bones": [
+          "bone_ux7vv3o",
+          "bone_uxyyc3p",
+          "bone_wynmz3q",
+          "bone_hvja33r",
+          "bone_zvz2i3s"
+        ],
+        "target": "slot_ejcg33m",
+        "positionMode": "percent",
+        "spacingMode": "length",
+        "rotateMode": "chain",
+        "offsetRotation": 0,
+        "position": 0.05,
+        "spacing": 0,
+        "mixRotate": 1,
+        "mixX": 1,
+        "mixY": 1
+      },
+      {
+        "id": "path_jm9dn47",
+        "name": "raw",
+        "bones": [
+          "bone_tv96x3t",
+          "bone_f84043u",
+          "bone_9f00i3v",
+          "bone_7thmz3w",
+          "bone_ip6wk3x"
+        ],
+        "target": "slot_ejcg33m",
+        "positionMode": "percent",
+        "spacingMode": "length",
+        "rotateMode": "chain",
+        "constantSpeed": false,
+        "offsetRotation": 0,
+        "position": 0.05,
+        "spacing": 0,
+        "mixRotate": 1,
+        "mixX": 1,
+        "mixY": 1
+      },
+      {
+        "id": "path_tmll348",
+        "name": "loop-even",
+        "bones": [
+          "bone_a05463y",
+          "bone_rmiav3z",
+          "bone_zxhfw40",
+          "bone_nsnd841"
+        ],
+        "target": "slot_g4axv3n",
+        "positionMode": "percent",
+        "spacingMode": "percent",
+        "rotateMode": "tangent",
+        "offsetRotation": 0,
+        "position": 0.1,
+        "spacing": 0.1,
+        "mixRotate": 1,
+        "mixX": 1,
+        "mixY": 1
+      },
+      {
+        "id": "path_q1mmv49",
+        "name": "loop-raw",
+        "bones": [
+          "bone_w3sfp42",
+          "bone_ddzxk43",
+          "bone_5rm9s44",
+          "bone_4fc6g45"
+        ],
+        "target": "slot_g4axv3n",
+        "positionMode": "percent",
+        "spacingMode": "percent",
+        "rotateMode": "chainScale",
+        "offsetRotation": 0,
+        "position": 0.1,
+        "spacing": 0.1,
+        "mixRotate": 1,
+        "mixX": 1,
+        "mixY": 1,
+        "constantSpeed": false
+      }
+    ],
+    "physics": []
+  },
+  "events": [],
+  "animations": [
+    {
+      "id": "anim_t9uui4a",
+      "name": "slide",
+      "duration": 0,
+      "timelines": [
+        {
+          "target": "path",
+          "id": "path_auwom46",
+          "property": "position",
+          "keys": [
+            {
+              "time": 0,
+              "value": -0.1,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 0.9,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "path",
+          "id": "path_jm9dn47",
+          "property": "position",
+          "keys": [
+            {
+              "time": 0,
+              "value": -0.1,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 0.9,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "path",
+          "id": "path_tmll348",
+          "property": "position",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.1,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 1.6,
+              "curve": "linear"
+            }
+          ]
+        },
+        {
+          "target": "path",
+          "id": "path_q1mmv49",
+          "property": "position",
+          "keys": [
+            {
+              "time": 0,
+              "value": 0.1,
+              "curve": "linear"
+            },
+            {
+              "time": 2,
+              "value": 1.6,
+              "curve": "linear"
+            }
+          ]
+        }
+      ],
+      "events": []
+    }
+  ],
+  "stateMachines": [],
+  "scripts": []
+}

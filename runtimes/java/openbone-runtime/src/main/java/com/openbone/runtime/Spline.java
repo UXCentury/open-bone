@@ -1,9 +1,14 @@
 package com.openbone.runtime;
 
-/** Cubic bezier path for path attachments, measured by arc length (core/path.ts buildSpline). */
+/**
+ * Cubic bezier path for path attachments, measured by arc length (core/path.ts buildSpline). With constant speed off
+ * only the segment is found by arc length; the point inside it is at the raw bezier parameter.
+ */
 public final class Spline {
   private static final int STEPS = 32;
   public final boolean closed;
+  /** True (default): positions inside a segment by arc length; false: by the raw bezier parameter. */
+  public final boolean constantSpeed;
   public final double length;
   public final int segments;
   private final int knots;
@@ -20,10 +25,16 @@ public final class Spline {
     }
   }
 
-  /** Knots are {@code [inX, inY, x, y, outX, outY]} each. */
+  /** Knots are {@code [inX, inY, x, y, outX, outY]} each. Constant speed on. */
   public Spline(double[] vertices, boolean closed) {
+    this(vertices, closed, true);
+  }
+
+  /** Knots are {@code [inX, inY, x, y, outX, outY]} each. */
+  public Spline(double[] vertices, boolean closed, boolean constantSpeed) {
     this.vertices = vertices;
     this.closed = closed;
+    this.constantSpeed = constantSpeed;
     knots = vertices.length / 6;
     int segCount = knots < 2 ? 0 : closed ? knots : knots - 1;
     segments = segCount;
@@ -97,6 +108,14 @@ public final class Spline {
       Sample end = d <= 0 ? point(0, 0) : point(segments - 1, 1);
       double over = d <= 0 ? d : d - length;
       return new Sample(end.x + Math.cos(end.angle) * over, end.y + Math.sin(end.angle) * over, end.angle);
+    }
+    if (!constantSpeed) {
+      // Segment by arc length (the first whose end is past d), then the raw parameter inside it.
+      int seg = 0;
+      while (seg < segments - 1 && table[(seg + 1) * STEPS] <= d) seg++;
+      double start = table[seg * STEPS];
+      double span = table[(seg + 1) * STEPS] - start;
+      return point(seg, span > 0 ? Math.min(1, (d - start) / span) : 0);
     }
     int lo = 0, hi = table.length - 1;
     while (hi - lo > 1) {

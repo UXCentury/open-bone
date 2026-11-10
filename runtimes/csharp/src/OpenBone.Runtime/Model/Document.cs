@@ -189,6 +189,13 @@ namespace OpenBone
         public List<string> Bones = new List<string>();
         public string Target;
         public string PositionMode = "fixed", SpacingMode = "length", RotateMode = "tangent";
+        /// <summary>
+        /// True (default, unset in the file): distances inside each bezier segment are measured by arc length, so bones
+        /// stay evenly spaced however the handles are placed. False: the segment is still found by arc length, but the
+        /// point inside it is at the raw bezier parameter (Spine's "constant speed" off), so bones bunch up where the
+        /// handles are short.
+        /// </summary>
+        public bool ConstantSpeed = true;
         public double OffsetRotation, Position, Spacing, MixRotate, MixX, MixY;
     }
 

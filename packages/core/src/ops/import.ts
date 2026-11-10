@@ -301,7 +301,7 @@ class Importer {
       // Inputs belong to state machines, which aren't imported.
       if (a.input) a.input = null;
     }
-    if ((a.type === "mesh" || a.type === "path") && a.weights) {
+    if ((a.type === "mesh" || a.type === "path" || a.type === "boundingBox") && a.weights) {
       for (const v of a.weights)
         for (const inf of v) {
           const b = this.bone.get(inf.bone);

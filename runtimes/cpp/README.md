@@ -8,7 +8,7 @@ commands. Rendering and audio playback are up to the engine (the Godot, Cocos2d-
 the sounds; `engines/common/openbone_audio.hpp` is the shared, engine-neutral mixer logic).
 
 It follows [docs/runtime-spec.md](../../docs/runtime-spec.md) and passes the whole [conformance suite](../../conformance)
-(19 reference files, 86 cases: setup poses, every animation per skin, scripted state-machine runs), also with
+(21 reference files, 92 cases: setup poses, every animation per skin, scripted state-machine runs), also with
 `--strict`, i.e. within the reference's 4-decimal rounding rather than the suite's tolerances.
 
 | | |
@@ -34,7 +34,8 @@ ctest --test-dir runtimes/cpp/build --output-on-failure
 ```
 
 CTest runs one conformance test per `conformance/expected/*.json`, unit tests for the JS-semantics helpers, a binary
-(`.obonb`) decoding check against the TypeScript decoder's output (`tests/data`), and the C example. To see the
+(`.obonb`) decoding check against the TypeScript decoder's output (`tests/data`), the C example, and `c_bounds` (the
+bounding-box queries through the C API, against `conformance/expected/bounds.json`). To see the
 details of a case, or to compare without the suite's tolerances:
 
 ```bash
@@ -100,6 +101,33 @@ ob_document_free(doc);
 Also: animation / skin / state machine / input / texture listings on the document, `ob_instance_play` / `queue`,
 `set_bool` / `set_number` / `set_string` / `fire` / `get_input`, `active_state`, `set_text`, `set_transform`, bones, slots,
 clipping masks (`ob_instance_clip`), bounds. [`examples/c/play.c`](examples/c/play.c) is a complete program.
+
+## Bounding boxes and path constant speed
+
+`Skeleton::boundingBoxes()` returns a `SkeletonBounds` snapshot of the current pose (like Spine's SkeletonBounds,
+docs/runtime-spec.md §8.10): `boxes` (every slot in draw order whose bone is active and whose current attachment is a
+bounding box: slot data, attachment, float32 world `vertices`, own min/max) and the overall `minX/minY/maxX/maxY`
+(all 0 with no box). Queries, in skeleton space: `aabbContainsPoint`, `aabbIntersects`, `containsPoint` /
+`containsPointAll`, `intersectsSegment` / `intersectsSegmentAll` (box indices, -1 / empty for none) and
+`intersectsBounds(other)` (first overlapping `{mine, theirs}` pair, e.g. between two characters). Call `update(skeleton)`
+or take a new snapshot after the pose changes. Bounding boxes may be weighted and deformed like meshes and paths.
+
+```cpp
+openbone::SkeletonBounds hits = inst.skeleton->boundingBoxes();
+int i = hits.containsPoint(x, y);
+if (i >= 0) std::printf("hit %s\n", hits.boxes[i].attachment->name.c_str());
+```
+
+C API: `ob_bounds_create` / `ob_bounds_free`, `ob_bounds_update(bounds, inst)` (returns the box count), `ob_bounds_count`,
+`ob_bounds_box` (`ob_bounding_box`: slot, attachment, vertices), `ob_bounds_aabb` (0 when empty),
+`ob_bounds_aabb_contains_point`, `ob_bounds_aabb_intersects`, `ob_bounds_contains_point` (index or -1),
+`ob_bounds_contains_point_all(b, x, y, out, capacity)` (returns the full count), `ob_bounds_intersects_segment` /
+`_all`, `ob_bounds_intersects_bounds(a, b, &mine, &theirs)`. A snapshot keeps the document alive and may outlive its
+instance. These are additive, so `OB_API_VERSION` stays 1.
+
+Path constraints read `constantSpeed` (default true: bones are placed by arc length inside each bezier segment). With
+`constantSpeed: false` only the segment is found by arc length and the point inside it is at the raw bezier parameter
+(Spine with "constant speed" off; spec §7.3). `PathConstraintData::constantSpeed` holds it.
 
 ## Drawing the draw list
 

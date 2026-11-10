@@ -6,7 +6,7 @@ skeletons, skins and skin bones, every attachment type, animation mixing, IK / t
 in custom order, sliders, sprite sequences, particles (same RNG), text templates, the draw list, state machines with
 listeners and input bindings, events, audio commands (played by the libGDX and Android modules) and scripts.
 
-It passes the whole conformance suite: all 86 cases of the 19 files in [`conformance/expected`](../../conformance/expected),
+It passes the whole conformance suite: all 92 cases of the 21 files in [`conformance/expected`](../../conformance/expected),
 on the JVM and on an Android emulator.
 
 | Module | Language | What it is |
@@ -102,6 +102,31 @@ for (DrawItem it : inst.drawList()) { /* vertices, uvs, indices, color, dark, bl
 `inst.skeleton` gives bones (`world` matrices), slots, `setSkin`, `findBone`, `hitTest`, particle controls and
 `setText`. `inst.animationState` queues and mixes animations on tracks (`setAnimation`, `addAnimation`).
 Draw item vertices are skeleton space (y up); uvs are in the item's texture (an image, or an atlas page when packed).
+
+### Bounding-box queries
+
+`skeleton.boundingBoxes()` returns a `SkeletonBounds` (like Spine's): a snapshot of the active bounding boxes, in draw
+order, for the current pose (spec §8.10). Each `SkeletonBounds.Box` has its `slot`, `attachment` name, world
+`vertices` (skeleton space, y up, float32 values) and its own `minX`…`maxY`; the bounds have the overall
+`minX`, `minY`, `maxX`, `maxY` (all 0 with no box). Call `update(skeleton)` on it after the pose changes.
+
+```java
+SkeletonBounds b = inst.skeleton.boundingBoxes();          // after inst.advance(dt)
+if (b.aabbContainsPoint(x, y)) {
+  SkeletonBounds.Box hit = b.containsPoint(x, y);           // first box in draw order, or null
+  List<SkeletonBounds.Box> all = b.containsPointAll(x, y);  // every box containing the point
+}
+b.intersectsSegment(x1, y1, x2, y2);    // first box the segment crosses or starts in (…All for every one)
+b.aabbIntersects(minX, minY, maxX, maxY);
+SkeletonBounds.Pair p = b.intersectsBounds(enemy.skeleton.boundingBoxes()); // p.mine / p.theirs, or null
+```
+
+Bounding boxes may be weighted to several bones and deformed, posed exactly like meshes and paths. In libGDX,
+`OpenBoneRenderer.screenToSkeleton(camera, screenX, screenY, out)` turns input coordinates into skeleton space.
+
+Path constraints read `constantSpeed` (default true: points are placed by arc length, evenly spaced). With
+`constantSpeed: false` the segment is still found by arc length but the point inside it is at the raw bezier
+parameter, so bones bunch up where the handles are short (Spine's "constant speed" off).
 
 Audio: the runtime itself never plays sound. It emits `AudioCommand`s (`play` with sound, asset, bus, volume, rate,
 loop, fade-in; `stop` with a fade; `fade`). `AudioMixer` (in `openbone-runtime`, no dependencies) turns them into calls

@@ -4,6 +4,7 @@
 library;
 
 export 'src/bindings.g.dart' show OpenBoneBindings;
+export 'src/bounds.dart';
 export 'src/document.dart';
 export 'src/instance.dart';
 export 'src/native.dart' show OpenBoneException, OpenBoneNative;

@@ -32,8 +32,81 @@ double r4(num n) {
 }
 
 /// Records callbacks between samples, like the reference recorder.
+/// Bounding-box queries of a file (conformance/README.md "Bounding-box queries"): the queries, and the other
+/// skeleton per `queries.others` placement.
+class BoundsProbe {
+  BoundsProbe(OpenBoneDocument doc, this.q) {
+    for (final xy in (q['others'] as List).cast<List>()) {
+      // The same document in a second instance at the placement: setup pose, default skin.
+      final o = doc.createInstance(scripts: true);
+      o.setTransform(x: (xy[0] as num).toDouble(), y: (xy[1] as num).toDouble());
+      o.advance(0);
+      others.add(o.boundingBoxes());
+      o.dispose(); // the snapshot outlives its instance
+    }
+  }
+
+  final Map<String, dynamic> q;
+  final List<OpenBoneSkeletonBounds> others = [];
+  final List<String> errors = [];
+
+  void dispose() {
+    for (final o in others) {
+      o.dispose();
+    }
+  }
+
+  static List<double> _d(Object? list) => [for (final v in list as List) (v as num).toDouble()];
+
+  Map<String, Object?> record(OpenBoneInstance inst) {
+    final b = inst.boundingBoxes();
+    try {
+      List<int> idx(List<OpenBoneBoundingBox> l) => [for (final x in l) x.index];
+      final aabb = b.aabb;
+      return {
+        'boxes': [
+          for (final x in b.boxes) {'slot': x.slot, 'attachment': x.attachment, 'vertices': x.vertices},
+        ],
+        'aabb': aabb == null ? null : [aabb.$1, aabb.$2, aabb.$3, aabb.$4],
+        'points': [
+          for (final p in (q['points'] as List).map(_d))
+            () {
+              final all = b.containsPointAll(p[0], p[1]);
+              if (b.containsPoint(p[0], p[1])?.index != (all.isEmpty ? null : all.first.index)) {
+                errors.add('containsPoint disagrees with containsPointAll');
+              }
+              return idx(all);
+            }(),
+        ],
+        'segments': [
+          for (final s in (q['segments'] as List).map(_d))
+            () {
+              final all = b.intersectsSegmentAll(s[0], s[1], s[2], s[3]);
+              if (b.intersectsSegment(s[0], s[1], s[2], s[3])?.index != (all.isEmpty ? null : all.first.index)) {
+                errors.add('intersectsSegment disagrees with intersectsSegmentAll');
+              }
+              return idx(all);
+            }(),
+        ],
+        'aabbs': [
+          for (final a in (q['aabbs'] as List).map(_d)) b.aabbIntersects(a[0], a[1], a[2], a[3]),
+        ],
+        'others': [
+          for (final o in others)
+            () {
+              final pair = b.intersectsBounds(o);
+              return pair == null ? null : [pair.$1.index, pair.$2.index];
+            }(),
+        ],
+      };
+    } finally {
+      b.dispose();
+    }
+  }
+}
+
 class Recorder {
-  Recorder(OpenBoneInstance inst) {
+  Recorder(OpenBoneInstance inst, [this.bounds]) {
     inst.events.listen((e) => events.add({
           'name': e.name,
           'time': r4(e.time),
@@ -62,6 +135,7 @@ class Recorder {
     });
   }
 
+  final BoundsProbe? bounds;
   List<Map<String, Object?>> events = [];
   List<Map<String, Object?>> audio = [];
   final Map<String, String> ids = {};
@@ -106,6 +180,7 @@ class Recorder {
       'events': events,
       'audio': audio,
       if (machine) 'states': inst.activeStates,
+      if (bounds != null) 'bounds': bounds!.record(inst),
     };
     events = [];
     audio = [];
@@ -259,17 +334,41 @@ class Compare {
         if (mi.length != ri.length) fail(q, '${show(mi)} vs reference ${show(ri)}');
       }
     }
+    if (r.containsKey('bounds') != m.containsKey('bounds')) {
+      fail('$p.bounds', m.containsKey('bounds') ? 'unexpected' : 'missing');
+    } else if (r.containsKey('bounds')) {
+      final mb = m['bounds'] as Map<String, Object?>, rb = r['bounds'] as Map<String, dynamic>;
+      final mx = mb['boxes'] as List, rx = rb['boxes'] as List;
+      if (mx.length != rx.length) {
+        fail('$p.bounds.boxes', '${show(mx)} vs reference ${show(rx)}');
+      } else {
+        for (var i = 0; i < rx.length; i++) {
+          final q = '$p.bounds.boxes[$i]';
+          exact('$q.slot', mx[i]['slot'], rx[i]['slot']);
+          exact('$q.attachment', mx[i]['attachment'], rx[i]['attachment']);
+          numbers('$q.vertices', mx[i]['vertices'], rx[i]['vertices'], 1e-3);
+        }
+      }
+      if (rb['aabb'] == null || mb['aabb'] == null) {
+        exact('$p.bounds.aabb', mb['aabb'], rb['aabb']);
+      } else {
+        numbers('$p.bounds.aabb', mb['aabb'], rb['aabb'], 1e-3);
+      }
+      for (final k in ['points', 'segments', 'aabbs', 'others']) {
+        exact('$p.bounds.$k', mb[k], rb[k]);
+      }
+    }
     if (r.containsKey('states') || m.containsKey('states')) exact('$p.states', m['states'], r['states']);
   }
 }
 
-List<Map<String, Object?>> runCase(OpenBoneDocument doc, Map<String, dynamic> c) {
+List<Map<String, Object?>> runCase(OpenBoneDocument doc, Map<String, dynamic> c, [BoundsProbe? bounds]) {
   final kind = c['kind'] as String;
   final duration = (c['duration'] as num).toDouble();
   final steps = (duration / dt).round();
   final inst = doc.createInstance(scripts: true);
   try {
-    final rec = Recorder(inst);
+    final rec = Recorder(inst, bounds);
     if (kind != 'stateMachine' && c['skin'] is String) inst.setSkin(c['skin'] as String);
     if (kind == 'animation') inst.play(c['animation'] as String, loop: true);
     final machine = kind == 'stateMachine';
@@ -330,14 +429,25 @@ void main() {
     total += cases.length;
     group(fixture, () {
       late OpenBoneDocument doc;
-      setUpAll(() => doc = OpenBoneDocument.file('$repoRoot/${expected['document']}'));
-      tearDownAll(() => doc.dispose());
+      BoundsProbe? bounds;
+      setUpAll(() {
+        doc = OpenBoneDocument.file('$repoRoot/${expected['document']}');
+        if (expected['queries'] != null) bounds = BoundsProbe(doc, expected['queries'] as Map<String, dynamic>);
+      });
+      tearDownAll(() {
+        bounds?.dispose();
+        doc.dispose();
+      });
       for (final c in cases) {
         test(c['name'] as String, () {
-          final mine = runCase(doc, c);
+          bounds?.errors.clear();
+          final mine = runCase(doc, c, bounds);
           final ref = (c['samples'] as List).cast<Map<String, dynamic>>();
           final cmp = Compare();
           if (mine.length != ref.length) cmp.fail('samples', 'count ${mine.length} vs ${ref.length}');
+          for (final e in bounds?.errors ?? const <String>[]) {
+            cmp.fail('bounds', e);
+          }
           for (var i = 0; i < math.min(mine.length, ref.length); i++) {
             cmp.sample('t=${(ref[i]['t'] as num).toStringAsFixed(4)}', mine[i], ref[i]);
           }
@@ -347,8 +457,8 @@ void main() {
     });
   }
 
-  test('suite has 19 files / 86 cases', () {
-    expect(files.length, 19);
-    expect(total, 86);
+  test('suite has 21 files / 92 cases', () {
+    expect(files.length, 21);
+    expect(total, 92);
   });
 }

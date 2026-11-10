@@ -4,6 +4,7 @@ import openbone.JsNum;
 import openbone.Json;
 import openbone.OpenBoneInstance;
 import openbone.ScriptHost;
+import openbone.SkeletonBounds;
 import openbone.StateMachineInstance;
 import openbone.data.DocumentLoader;
 import openbone.data.Model;
@@ -29,6 +30,37 @@ private class Recorder extends InstanceListener {
 		var m = c.toObject();
 		m.set("id", id);
 		commands.push(m);
+	}
+}
+
+/** A file's top-level bounding-box `queries`, with the other skeletons for `others` posed once. */
+private class BoundsQueries {
+	public final points:Array<Array<Float>> = [];
+	public final segments:Array<Array<Float>> = [];
+	public final aabbs:Array<Array<Float>> = [];
+	public final others:Array<SkeletonBounds> = [];
+
+	public function new(q:JObject, doc:OpenBoneDocument, host:ScriptHost) {
+		for (p in list(q, "points"))
+			points.push(p);
+		for (p in list(q, "segments"))
+			segments.push(p);
+		for (p in list(q, "aabbs"))
+			aabbs.push(p);
+		for (p in list(q, "others")) {
+			var xy:Array<Float> = p;
+			var o = new OpenBoneInstance(doc, host);
+			o.skeleton.x = xy[0];
+			o.skeleton.y = xy[1];
+			o.advance(0);
+			others.push(o.skeleton.boundingBoxes());
+			o.dispose();
+		}
+	}
+
+	static function list(q:JObject, k:String):Array<Dynamic> {
+		var v:Dynamic = q.get(k);
+		return v == null ? [] : v;
 	}
 }
 
@@ -97,6 +129,7 @@ class Conformance {
 			var exp:JObject = Json.parse(Platform.readText(dir + "/" + f));
 			var doc = DocumentLoader.load(Platform.readBytes(repo + "/" + exp.get("document")));
 			var cases:Array<Dynamic> = exp.get("cases");
+			var queries = exp.exists("queries") ? new BoundsQueries(exp.get("queries"), doc, host) : null;
 			var filePass = 0;
 			for (c in cases) {
 				var cm:JObject = c;
@@ -107,7 +140,7 @@ class Conformance {
 					continue;
 				}
 				try {
-					runCase(name, doc, host, cm);
+					runCase(name, doc, host, cm, queries);
 					passed++;
 					filePass++;
 					if (verbose)
@@ -158,7 +191,7 @@ class Conformance {
 		return v == 0 ? 0 : v;
 	}
 
-	static function runCase(file:String, doc:OpenBoneDocument, host:ScriptHost, c:JObject):Void {
+	static function runCase(file:String, doc:OpenBoneDocument, host:ScriptHost, c:JObject, queries:BoundsQueries):Void {
 		var kind:String = c.get("kind");
 		var name:String = c.get("name");
 		var samples:Array<Dynamic> = c.get("samples");
@@ -182,7 +215,7 @@ class Conformance {
 		inst.addListener(rec);
 		var si = 0;
 		inst.advance(0);
-		compare(file + " " + name, 0, inst, rec, samples[si++]);
+		compare(file + " " + name, 0, inst, rec, samples[si++], queries);
 		for (i in 1...steps + 1) {
 			var t = (i - 1) * DT;
 			for (a in actions) {
@@ -197,7 +230,7 @@ class Conformance {
 			}
 			inst.advance(DT);
 			if (i % SAMPLE_EVERY == 0)
-				compare(file + " " + name, i * DT, inst, rec, samples[si++]);
+				compare(file + " " + name, i * DT, inst, rec, samples[si++], queries);
 		}
 		inst.dispose();
 		if (si != samples.length)
@@ -206,7 +239,7 @@ class Conformance {
 			throw file + " " + name + ": script errors " + errors.errors;
 	}
 
-	static function compare(caseName:String, t:Float, inst:OpenBoneInstance, rec:Recorder, exp:JObject):Void {
+	static function compare(caseName:String, t:Float, inst:OpenBoneInstance, rec:Recorder, exp:JObject, queries:BoundsQueries):Void {
 		var where = caseName + " t=" + r4(t);
 		num(where + " t", r4(t), exp.get("t"), 1e-9);
 		var sk = inst.skeleton;
@@ -323,8 +356,87 @@ class Conformance {
 			if (!same)
 				throw where + " states: got " + [for (k in got.keys) k + "=" + got.get(k)] + " expected " + Json.stringify(es);
 		}
+		if (exp.exists("bounds") != (queries != null))
+			throw where + " bounds presence: got " + (queries != null) + " expected " + exp.exists("bounds");
+		if (queries != null)
+			compareBounds(where + " bounds", sk.boundingBoxes(), exp.get("bounds"), queries);
 		rec.events.resize(0);
 		rec.commands.resize(0);
+	}
+
+	/** Bounding-box queries (conformance/README.md "Bounding-box queries", docs/runtime-spec.md §8.10). */
+	static function compareBounds(where:String, b:SkeletonBounds, e:JObject, q:BoundsQueries):Void {
+		var eb:Array<Dynamic> = e.get("boxes");
+		if (b.boxes.length != eb.length)
+			throw where + " boxes: got " + [for (x in b.boxes) x.slot.data.name + ":" + x.attachment] + " expected "
+				+ [for (o in eb) (o : JObject).get("slot") + ":" + (o : JObject).get("attachment")];
+		for (i in 0...eb.length) {
+			var box = b.boxes[i];
+			var o:JObject = eb[i];
+			var w = where + " box[" + i + "]";
+			eq(w + " slot", box.slot.data.name, o.get("slot"));
+			eq(w + " attachment", box.attachment, o.get("attachment"));
+			nums(w + " vertices", box.vertices, o.get("vertices"), TOL_VERT, -1);
+		}
+		var ea:Array<Dynamic> = e.get("aabb");
+		if (ea == null) {
+			if (b.boxes.length > 0)
+				throw where + " aabb: got [" + b.minX + ", " + b.minY + ", " + b.maxX + ", " + b.maxY + "] expected null";
+		} else
+			nums(where + " aabb", [b.minX, b.minY, b.maxX, b.maxY], ea, TOL_VERT, -1);
+		var idx = (list:Array<BoundingBoxPolygon>) -> [for (x in list) b.boxes.indexOf(x)];
+		var first = (x:Null<BoundingBoxPolygon>) -> x == null ? -1 : b.boxes.indexOf(x);
+		var ep:Array<Dynamic> = e.get("points");
+		eq(where + " point count", ep.length, q.points.length);
+		for (i in 0...ep.length) {
+			var p = q.points[i];
+			var w = where + " point " + Json.stringify(p);
+			var got = idx(b.containsPointAll(p[0], p[1]));
+			ints(w + " containsPointAll", got, ep[i]);
+			eq(w + " containsPoint", first(b.containsPoint(p[0], p[1])), got.length > 0 ? got[0] : -1);
+		}
+		var es:Array<Dynamic> = e.get("segments");
+		eq(where + " segment count", es.length, q.segments.length);
+		for (i in 0...es.length) {
+			var p = q.segments[i];
+			var w = where + " segment " + Json.stringify(p);
+			var got = idx(b.intersectsSegmentAll(p[0], p[1], p[2], p[3]));
+			ints(w + " intersectsSegmentAll", got, es[i]);
+			eq(w + " intersectsSegment", first(b.intersectsSegment(p[0], p[1], p[2], p[3])), got.length > 0 ? got[0] : -1);
+		}
+		var er:Array<Dynamic> = e.get("aabbs");
+		eq(where + " aabb query count", er.length, q.aabbs.length);
+		for (i in 0...er.length) {
+			var p = q.aabbs[i];
+			eq(where + " aabbIntersects " + Json.stringify(p), b.aabbIntersects(p[0], p[1], p[2], p[3]), er[i]);
+		}
+		var eo:Array<Dynamic> = e.get("others");
+		eq(where + " others count", eo.length, q.others.length);
+		for (i in 0...eo.length) {
+			var o = q.others[i];
+			var pair = b.intersectsBounds(o);
+			var got = pair == null ? null : [b.boxes.indexOf(pair[0]), o.boxes.indexOf(pair[1])];
+			var w = where + " others[" + i + "] intersectsBounds";
+			if (eo[i] == null) {
+				if (got != null)
+					throw w + ": got " + got + " expected null";
+			} else {
+				if (got == null)
+					throw w + ": got null expected " + Json.stringify(eo[i]);
+				ints(w, got, eo[i]);
+			}
+		}
+	}
+
+	/** Index lists compared exactly. */
+	static function ints(what:String, got:Array<Int>, want:Array<Dynamic>):Void {
+		var same = got.length == want.length;
+		if (same)
+			for (k in 0...want.length)
+				if (got[k] != Std.int(want[k]))
+					same = false;
+		if (!same)
+			throw what + ": got " + got + " expected " + Json.stringify(want);
 	}
 
 	static function eq(what:String, got:Dynamic, want:Dynamic):Void {

@@ -41,6 +41,11 @@ struct ob_instance {
   }
 };
 
+struct ob_bounds {
+  std::shared_ptr<const Document> doc;  // keeps the slot / attachment names alive
+  SkeletonBounds bounds;
+};
+
 namespace {
 thread_local std::string lastError;
 
@@ -73,6 +78,12 @@ ob_item_kind kindOf(const DrawItem& it) {
   if (t == "text") return OB_ITEM_TEXT;
   if (t == "particles") return OB_ITEM_PARTICLES;
   return OB_ITEM_REGION;
+}
+
+/** Writes up to `capacity` indices (out may be NULL) and returns the full count. */
+int copyIndices(const std::vector<int>& list, int* out, int capacity) {
+  for (int k = 0; out && k < capacity && k < (int)list.size(); k++) out[k] = list[k];
+  return (int)list.size();
 }
 }  // namespace
 
@@ -514,6 +525,62 @@ void ob_instance_bounds(ob_instance* o, double out[4]) {
   if (!o || !out) return;
   const auto b = o->inst->skeleton->bounds();
   for (int i = 0; i < 4; i++) out[i] = b[i];
+}
+
+ob_bounds* ob_bounds_create(void) { return new ob_bounds(); }
+void ob_bounds_free(ob_bounds* b) { delete b; }
+
+int ob_bounds_update(ob_bounds* b, const ob_instance* o) {
+  if (!b || !o) return fail("bounds or instance is NULL");
+  lastError.clear();
+  b->bounds.update(*o->inst->skeleton);
+  b->doc = o->doc;
+  return (int)b->bounds.boxes.size();
+}
+
+int ob_bounds_count(const ob_bounds* b) { return b ? (int)b->bounds.boxes.size() : 0; }
+
+int ob_bounds_box(const ob_bounds* b, int i, ob_bounding_box* out) {
+  if (!b || !out || i < 0 || i >= (int)b->bounds.boxes.size()) return fail("no such bounding box");
+  const BoundingBoxPolygon& x = b->bounds.boxes[i];
+  *out = {x.slot->name.c_str(), x.attachment->name.c_str(), x.vertices.data(), (int)x.vertices.size() / 2, x.minX, x.minY, x.maxX, x.maxY};
+  return 1;
+}
+
+int ob_bounds_aabb(const ob_bounds* b, double out[4]) {
+  const bool any = b && !b->bounds.boxes.empty();
+  if (out) {
+    out[0] = any ? b->bounds.minX : 0;
+    out[1] = any ? b->bounds.minY : 0;
+    out[2] = any ? b->bounds.maxX : 0;
+    out[3] = any ? b->bounds.maxY : 0;
+  }
+  return any ? 1 : 0;
+}
+
+int ob_bounds_aabb_contains_point(const ob_bounds* b, double x, double y) { return b && b->bounds.aabbContainsPoint(x, y) ? 1 : 0; }
+int ob_bounds_aabb_intersects(const ob_bounds* b, double x0, double y0, double x1, double y1) {
+  return b && b->bounds.aabbIntersects(x0, y0, x1, y1) ? 1 : 0;
+}
+
+int ob_bounds_contains_point(const ob_bounds* b, double x, double y) { return b ? b->bounds.containsPoint(x, y) : -1; }
+int ob_bounds_contains_point_all(const ob_bounds* b, double x, double y, int* out, int capacity) {
+  return b ? copyIndices(b->bounds.containsPointAll(x, y), out, capacity) : 0;
+}
+int ob_bounds_intersects_segment(const ob_bounds* b, double x1, double y1, double x2, double y2) {
+  return b ? b->bounds.intersectsSegment(x1, y1, x2, y2) : -1;
+}
+int ob_bounds_intersects_segment_all(const ob_bounds* b, double x1, double y1, double x2, double y2, int* out, int capacity) {
+  return b ? copyIndices(b->bounds.intersectsSegmentAll(x1, y1, x2, y2), out, capacity) : 0;
+}
+
+int ob_bounds_intersects_bounds(const ob_bounds* b, const ob_bounds* other, int* mine, int* theirs) {
+  if (!b || !other) return 0;
+  const auto pair = b->bounds.intersectsBounds(other->bounds);
+  if (!pair) return 0;
+  if (mine) *mine = pair->first;
+  if (theirs) *theirs = pair->second;
+  return 1;
 }
 
 }  // extern "C"

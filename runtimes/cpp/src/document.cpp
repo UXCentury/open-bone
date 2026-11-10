@@ -234,7 +234,10 @@ std::unique_ptr<Attachment> attachment(const std::string& key, const json& a) {
     t.fill = str(a, "fill", "#ffffff");
     t.stroke = optStr(a, "stroke");
     t.strokeWidth = num(a, "strokeWidth");
-  } else if (type == "boundingBox") t.type = AttachmentType::BoundingBox;
+  } else if (type == "boundingBox") {
+    t.type = AttachmentType::BoundingBox;
+    t.weights = weights(a, t.weighted);
+  }
   else if (type == "point") t.type = AttachmentType::Point;
   else if (type == "clipping") {
     t.type = AttachmentType::Clipping;
@@ -562,6 +565,7 @@ std::shared_ptr<const Document> build(const json& j) {
       x.spacingMode = sm == "fixed" ? SpacingMode::Fixed : sm == "percent" ? SpacingMode::Percent : sm == "proportional" ? SpacingMode::Proportional : SpacingMode::Length;
       const std::string rm = str(c, "rotateMode", "tangent");
       x.rotateMode = rm == "chain" ? RotateMode::Chain : rm == "chainScale" ? RotateMode::ChainScale : RotateMode::Tangent;
+      if (const json* cs = get(c, "constantSpeed")) x.constantSpeed = !(cs->is_boolean() && !cs->get<bool>());  // only `false` turns it off
       x.offsetRotation = num(c, "offsetRotation");
       x.position = num(c, "position");
       x.spacing = num(c, "spacing");

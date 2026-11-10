@@ -1,7 +1,7 @@
 import { type AudioAsset, type OpenBoneDocument, parseDocument, textureAssets } from "@openbone/core";
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { WebGLRenderer } from "@openbone/render-webgl";
-import { type FiredEvent, OpenBoneInstance, type ScriptHost, type StateMachineInstance } from "@openbone/runtime";
+import { type FiredEvent, OpenBoneInstance, type ScriptHost, type SkeletonBounds, type StateMachineInstance } from "@openbone/runtime";
 import { WebAudioBackend } from "./audio.ts";
 
 export interface PlayerOptions {
@@ -174,10 +174,23 @@ export class Player {
   }
 
   private toSkeleton(e: PointerEvent): [number, number] {
+    return this.clientToSkeleton(e.clientX, e.clientY);
+  }
+
+  /** Page (client) coordinates, e.g. a pointer event's clientX/clientY, to skeleton space (y up), through the current fit. */
+  clientToSkeleton(clientX: number, clientY: number): [number, number] {
     const r = this.opts.canvas.getBoundingClientRect();
-    const ax = (e.clientX - r.left - this.view.x) / this.view.zoom;
-    const ay = (e.clientY - r.top - this.view.y) / this.view.zoom;
+    const ax = (clientX - r.left - this.view.x) / this.view.zoom;
+    const ay = (clientY - r.top - this.view.y) / this.view.zoom;
     return this.instance.artboardToSkeleton(ax, ay);
+  }
+
+  /**
+   * The active bounding boxes in the current pose (skeleton space), with point / segment / AABB / overlap queries:
+   * `player.boundingBoxes().containsPoint(...player.clientToSkeleton(e.clientX, e.clientY))`.
+   */
+  boundingBoxes(): SkeletonBounds {
+    return this.instance.boundingBoxes();
   }
 
   private bindPointer() {

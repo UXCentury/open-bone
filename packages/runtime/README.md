@@ -229,6 +229,29 @@ Each `DrawItem` holds a `slot`, world `vertices`, `uvs`, `indices`, `color`, opt
 `blend`, the `texture` to bind (image or atlas page), and optional `clip` (clipping mask), `colors` and `particles`
 (particle batches) and `text` (text attachments).
 
+### Bounding boxes
+
+`instance.boundingBoxes()` (or `skeleton.boundingBoxes()`) is a snapshot of the active bounding boxes, the slots
+whose current attachment is a bounding box, in draw order, in skeleton space (y up: the coordinates of `pointer()`
+and the draw list). Take a new one, or call `update(skeleton)` on it, after each `advance`.
+
+```ts
+const hero = new OpenBoneInstance(doc);
+hero.advance(1 / 60);
+const boxes = hero.boundingBoxes();
+for (const b of boxes.boxes) console.log(b.slot.data.name, b.attachment, b.vertices); // world x,y pairs
+console.log(boxes.minX, boxes.minY, boxes.maxX, boxes.maxY); // overall AABB (all 0 with no box)
+
+const [x, y] = hero.artboardToSkeleton(px, py); // artboard pixels (y down) → skeleton space
+boxes.containsPoint(x, y); // first box containing the point, or null (containsPointAll: every one)
+boxes.intersectsSegment(x1, y1, x2, y2); // first box the segment crosses or lies in (intersectsSegmentAll)
+boxes.aabbIntersects(minX, minY, maxX, maxY); // overall AABB against a rectangle
+boxes.intersectsBounds(enemy.boundingBoxes()); // [mine, theirs] for the first overlapping pair, or null
+```
+
+Bounding boxes can be weighted to bones (`autoWeights`, `setWeights`) like meshes and paths, so they bend with the
+rig. Listeners in state machines use a wider hit area (they also fall back to a slot's region or mesh).
+
 ### Skeleton without OpenBoneInstance
 
 ```ts
