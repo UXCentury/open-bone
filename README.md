@@ -2,85 +2,27 @@
 
 <h1 align="center">OpenBone</h1>
 
-**Open-source 2D skeletal animation (Spine-style rigging) + Rive-style interactivity + an MCP server so AI agents can build animations for you.**
+<p align="center">
+  <b>Open-source 2D skeletal animation: Spine-style rigging, Rive-style interactivity, and an MCP server so AI agents can animate for you.</b>
+</p>
 
-![The OpenBone editor: the painted Knight example mid-wave in Animate mode, with the skeleton tree, the grouped dopesheet and the Inspector](docs/editor.webp)
+<p align="center">
+  <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-blue" /></a>
+  <a href="https://github.com/UXCentury/open-bone/actions/workflows/web.yml"><img alt="Web" src="https://github.com/UXCentury/open-bone/actions/workflows/web.yml/badge.svg" /></a>
+  <a href="https://github.com/UXCentury/open-bone/actions/workflows/runtime-cpp.yml"><img alt="C++ runtime" src="https://github.com/UXCentury/open-bone/actions/workflows/runtime-cpp.yml/badge.svg" /></a>
+  <a href="https://github.com/UXCentury/open-bone/actions/workflows/runtime-csharp.yml"><img alt="C# runtime" src="https://github.com/UXCentury/open-bone/actions/workflows/runtime-csharp.yml/badge.svg" /></a>
+  <a href="https://github.com/UXCentury/open-bone/actions/workflows/runtime-java.yml"><img alt="Java runtime" src="https://github.com/UXCentury/open-bone/actions/workflows/runtime-java.yml/badge.svg" /></a>
+  <a href="https://github.com/UXCentury/open-bone/actions/workflows/runtime-swift.yml"><img alt="Swift runtime" src="https://github.com/UXCentury/open-bone/actions/workflows/runtime-swift.yml/badge.svg" /></a>
+  <a href="https://github.com/UXCentury/open-bone/actions/workflows/runtime-flutter.yml"><img alt="Flutter runtime" src="https://github.com/UXCentury/open-bone/actions/workflows/runtime-flutter.yml/badge.svg" /></a>
+</p>
 
-## Features
+![The OpenBone editor in Animate mode: the painted Knight mid-salute with his sword raised, the skeleton tree, the dopesheet with the voice line's waveform, and the bone Inspector](docs/editor.webp)
 
-### Rigging
-- **Bones** with parent/child hierarchy, length, rotation, translation, scale and shear, and inherit modes (normal, only translation, no rotation, no scale) that can be keyed per frame.
-- **Slots** with draw order, colour/alpha tint, **two-colour tint** (a keyable dark colour for the image's shadows, like Spine's tint black; drawn by every renderer and engine runtime) and blend modes (normal, additive, multiply, screen).
-- **Skins**: create, duplicate, rename and delete outfits, switch them live in the viewport, player and previews; attachments can override the default skin per outfit. **Skin bones and skin constraints** exist only in the skins that list them (a cape's bones and physics only in the knight outfit).
-- **Constraints**, applied in a default or custom order (reorder them in the Inspector)
-  - **IK**: 1- and 2-bone, mix, bend direction, softness, stretch, compress and uniform scaling; mix and softness blend between keys, bend/stretch/compress key in steps (like Spine's IK timeline).
-  - **Transform**: rotate/translate/scale/shear mixes, world or local space, absolute or relative.
-  - **Path**: place and rotate a bone chain along a bezier path, with position, spacing and rotate modes.
-  - **Physics**: secondary motion (hair, cloth, tails) with inertia, strength, damping, gravity and wind; deterministic fixed timestep. Gravity, wind and IK softness follow the rig's **reference scale**, so a rig exported at another size behaves the same.
-  - **Sliders**: a bone's property (e.g. shoulder rotation) or a number input scrubs an animation: corrective shapes, shadows, dials. Range-to-time mapping, mix, loop and additive; applied before the other constraints.
-
-### Attachments
-- **Regions** (images), **vector shapes** (rect, rounded rect, ellipse, polygon with fill and stroke), **points** and **bounding boxes** (hit areas).
-- **Meshes**: deformable, weighted to bones, with free-form deform keys. **Linked meshes** reuse a mesh's vertices, triangles and weights with another image (the same rigged sleeve in every outfit) and can follow its deform keys; edit the parent and they all update. **Trace mesh** builds one automatically from an image's visible pixels (outline detail, padding and inner vertices to choose; honours the region's rotation and scale), so less transparent area is drawn and the mesh bends with the art.
-- **Clipping masks**: slots after the mask, up to an end slot, are drawn only inside its outline (Canvas2D clip, WebGL2 stencil).
-- **Bezier paths** for path constraints, optionally weighted to bones.
-- **Sprite sequences**: frame-by-frame animation from numbered image files (After Effects / render output, sorted naturally), sprite sheets cut by a grid or read from TexturePacker / Aseprite JSON (hash or array, trimmed frames), or a ZIP of frames. Own fps, loop / once / ping-pong / hold-last, start offset; driven by animation or state time, by frame keys, or by a number input. Works with skins, clipping, draw order and the atlas.
-- **Particle emitters** on any slot: rate and bursts, point/circle/box/cone shapes, world or local space, lifetime, speed, gravity, drag, size, rotation and colour-over-life ranges, soft circle / square / spark streak / image looks, blend modes, and presets (fire, smoke, sparks, confetti, exhaust, coins). Seeded and deterministic, so the editor preview and image/video exports show the same particles; emitting and rate are keyable, and state machines can start, stop or burst them.
-- **Text attachments** (font, size, weight, colour, alignment, outline) whose content can be a live template bound to inputs.
-- **Texture atlas packing** (MaxRects): fewer GPU draw calls and single-file exports; optional **rotation** (images turn 90° when that packs tighter) and **scaling** (store images at 75/50/25%, or *Auto* to shrink just enough to fit one page), **whitespace stripping** (only each image's visible pixels are packed), **polygon outlines** (regions draw a tight outline instead of the full rectangle, so less transparent area is filled) and **premultiplied alpha** pages (every runtime switches to the matching blend).
-
-### Animation
-- Per-property timelines: bone rotate/translate/scale/shear, slot colour and attachment, IK/transform/path/physics constraint values, mesh and path deform, sequence frame, particle emitting and rate, draw order.
-- **Key editing**: select many keys (Shift/Ctrl-click, Shift-drag a box, Ctrl/⌘+A), drag or nudge them together, **copy and paste** them at the playhead (into this or another animation), **scale** them in time around a pivot, change their curve or delete them at once.
-- Linear, stepped and bezier curves. The Timeline's **Graph view** shows every numeric timeline as value curves over time: drag keys in time and value, shape bezier handles on the curve, pan, zoom, fit, and normalize curves of different units; a per-key ease editor sits beside the dopesheet.
-- **Full-width dopesheet timeline** with a **● Rec** button (keys past the end extend the animation), grouped by bone, slot and constraint (collapsible, with summary keys that move a group's keys together), keys coloured per property and shaped by curve type, hold bars where a value stays the same, auto-key, key dragging, events (with int/float/string payloads and audio references).
-- Per-animation **Export** switch (helper animations stay out of exports) and **colour**.
-- Track mixing and cross-fades at runtime.
-- **Onion skin**: ghost poses before (red) and after (green) the current frame.
-
-### Interactivity (Rive-style)
-- **State machines** with layers, bool/number/string/trigger inputs, animation and 1D blend states, any-state transitions, conditions, exit times, cross-fades, **"on complete" hand-offs** for staged flows (play once, then continue) and **inputs set on enter** (reset a round when going back to idle). The graph pans, zooms and fits to view.
-- **Live data**: **text attachments** whose content is a template bound to inputs (`{multiplier:0.00}x`, thousands separators, signs, percent), and **input bindings** that drive bone, slot (colour, alpha) and constraint properties from a number input with a clamped linear mapping. See the crash-game example.
-- **Pointer listeners** on hit boxes (down, up, enter, exit, move, click) that set inputs, fire triggers, report events, play or stop sounds, start or stop particles, or run scripts.
-- **Sandboxed scripts** (QuickJS-WASM, memory cap and per-call deadline) with an `ob` API: `onStart`, `onUpdate`, `onEvent`, `onPointer`.
-
-### Audio
-- **Sounds** from WAV, MP3 or OGG files (embedded or by path), each with a bus, volume, rate (pitch), loop and fade in/out.
-- The timeline's audio lane shows each sound's **waveform**, so keys can be timed by eye. **Lip sync** analyses a voice recording and keys a mouth slot's images to it (rest, closed M/B/P, small, open, wide, round), from the current time, in one undo step; see the Fox and Robot examples.
-- Played by **audio keys** on an animation's timeline, by **events** (every time the event fires), by **state hooks** (play/stop on enter or exit) and by **listener actions**. Looping sounds fade out when their state or animation ends.
-- **Mixer**: named buses (sfx, music, ui, or your own) with volume and mute, and a master volume. The runtime only emits play/stop/fade commands; the player and editor play them with Web Audio, unlocking on the first click or key press.
-
-### Editor
-- **Selection**: drag a box on empty space to select many bones (Shift adds, Ctrl/⌘ removes, Shift-click toggles); drag, rotate, scale or key (`K`) them together.
-- **Tools**: select/rotate, translate, scale, **Pose** (`I`: drag any bone and it plus its parents bend to follow, inverse kinematics without setting up a constraint; chain length 1–5 or to the root, Shift for just the grabbed bone; keys in Animate mode), create bone, **mesh vertex editing** (select, drag, add, delete, nudge; re-triangulates) with **soft selection** (nearby vertices follow with a falloff), and **weights** (brush with add/remove, radius and strength, heat-map; **Direct** mode sets selected vertices' weights per bone; **lock bones** so their weights stay put while the others renormalise around them; **Smooth**, **Auto**, **Prune** and **Swap** two bones' weights on the mesh or its selected vertices).
-- **Setup and Animate modes**, undo/redo for every change. **Compensate** (`J`): move, rotate or scale a bone while its child bones stay where they are.
-- **Photoshop import**: drop a `.psd` (or pick it with + Image) and every layer becomes an image, slot and region in place, in the same stacking order, with opacity and blend modes; groups can become bones and hidden layers can be skipped.
-- **Folders** (like Spine's) for slots, skins, animations, events, constraints and state machines: drag items in, create, rename and delete folders (deleting moves the contents up a level); collapsed folders are remembered. Folders only organise the lists, never drawing or posing.
-- **Import from project…** (☰ Menu, like Spine's Import data): pick animations and skins from another `.obone`/`.obonb` (bones, slots, constraints and events matched by name, images and sounds brought along, name conflicts renamed, replaced or skipped) or bring in its whole skeleton under a new root bone, as one undo step.
-- **Skeleton tree** with parent/child guide lines, collapsible bones and slots (Alt-click: a whole branch), **search** (matches shown with their parents; Enter selects the first) and auto-scroll to whatever you select in the viewport.
-- **Viewport aids**: checkerboard (transparent backgrounds supported), origin lines, red/green **move arrows** on the selected bone (axis-locked dragging), grid, rulers, draggable guides (saved per project) and **smart snapping** to the artboard centre/edges/origin, guides, grid, other bone joints and mesh vertices (hold Ctrl/⌘ to bypass).
-- **Dockable workspace**: resize panels, drag panel tabs to any side or group them, split a dock in two (drop a tab on its lower or right part; Layout → "Preview under the Inspector"), collapse sections; the layout is remembered and can be reset. File commands, Examples (a gallery with live previews) and Layout live under the ☰ Menu button, and right-click opens editor context menus (bone and slot actions, tools, view toggles).
-- **Live art reloading**: ☰ Menu → *Watch art for changes*. Save a PNG or WAV in your paint or audio app and the editor picks it up (new size included) without undo steps. Desktop watches the folders the project's art comes from; on the web pick a folder with *Watch folder…* (Chrome/Edge), checked while the editor tab is in front.
-- **Play mode** (▶ Play, `P`): run the result in the editor exactly as shipped, with a floating panel to toggle inputs, fire triggers and watch events, state changes and script logs; pick the state machine or animation, skin and speed, fit or 1:1, full window. Stop returns to the exact editing state.
-- **Keyboard shortcuts** that use ⌘ on macOS and Ctrl on Windows/Linux, with a searchable reference (`?`) where every key can be rebound (conflict-checked, saved per browser).
-- **Preview** panel (plays an animation or runs a state machine live, clickable, while you edit), **Outline** minimap (click to move the view) and **Stats** (bones, vertices, vertex transforms, triangles, clipping, estimated draw calls).
-- In-app dialogs and a live MCP connection that shows an agent's edits as they happen.
-
-### Export
-- **OpenBone project** (`.obone`): the whole project, to open and keep editing later.
-- **Data**: JSON (`.json`) or compact **binary** (`.obonb`, about 40% of JSON), with a choice of animations, state machines, scripts and skins, plus nonessential-data stripping, animation clean-up, embedded images and atlas packing.
-- **Images**: PNG and JPEG (one frame or a ZIP of every frame), animated **GIF** and **APNG**, layered **PSD** (one layer per frame).
-- **Video**: **AVI** and **MOV** (Motion-JPEG).
-- **Web**: the `<openbone-player>` web component as a classic script (`window.OpenBone`) or an ES module, **minified (≈ 90 KB, 32 KB gzipped) or readable**, plus your animation, a demo page with controls for the inputs and a README with embed snippets (ZIP), or **one self-contained HTML file** that works without a server. In ZIPs the script sandbox ships as separate files (`openbone-scripts.js` + `quickjs.wasm`) that are downloaded only when an animation has scripts. Embedded images are re-encoded as **WebP** when smaller (the knight example: 470 KB → 71 KB), or kept lossless.
-- **Engines**: sprite-sheet packs (trimmed, packed sheets with frame metadata) for **Unity** (TexturePacker/Unity JSON + import guide), **Godot 4** (ready `SpriteFrames` `.tres` and an `AnimatedSprite2D` scene), **Flutter** (sheet + JSON + Flame snippet) and generic engines (TexturePacker hash/array JSON for Phaser, PixiJS, Cocos); plus **interactive WebView packages** for **Flutter**, **Android** (Kotlin `OpenBoneView`) and **iOS** (Swift, UIKit and SwiftUI) that run the full file (state machines, inputs, scripts) through a small JS bridge (`setInput`, `fire`, `play`, events back to the app). The native templates are not compiled in CI; see their READMEs.
-- Animation, skin, frame rate, scale, artboard or fit-to-content area, transparent or coloured background, quality and looping options; a live preview; export settings can be saved to a file and loaded again.
-
-### Runtime and tools
-- Renderer-agnostic TypeScript runtime with **WebGL2** (batched) and **Canvas2D** renderers, and runtimes for **PixiJS**, **Phaser**, **Three.js** and **CanvasKit** (see [Runtimes](#runtimes)).
-- **`<openbone-player>`** web component and a `Player` class (loads `.obone`, `.json` and `.obonb`).
-- **MCP server** (120 tools; every editing op becomes a tool automatically) covering everything the editor does: render/simulate, every export format, trace mesh, lip sync, the Pose tool, weight clean-up and stats, plus a live WebSocket bridge to the editor.
-- **CLI**: validate, summarize, render PNG/GIF, simulate state machines, apply any op, and **batch export** many files to any format with the same code as the editor and the MCP server.
-- **Desktop app** (Tauri 2) with native file dialogs.
+- **Rig like Spine**: bones, weighted meshes, IK, transform, path and physics constraints, skins, clipping, two-colour tint, texture atlases.
+- **Make it interactive like Rive**: state machines with inputs, pointer listeners, live text, input bindings and sandboxed scripts.
+- **Sound built in**: sounds on the timeline, events and states, a mixer with buses, and lip sync from a voice recording.
+- **Play it anywhere**: web (WebGL, Canvas, PixiJS, Phaser, Three.js, CanvasKit) and native runtimes for C/C++ (Godot, Unreal, Cocos2d-x, SDL2, SFML), C# (Unity), Java (libGDX, Android), Swift and Flutter, all checked against one conformance suite.
+- **Let an agent do it**: every edit is an MCP tool, and the editor shows an agent's work live.
 
 Everything in this repository is **MIT** and built only on permissively licensed open-source dependencies.
 
@@ -94,11 +36,42 @@ pnpm install
 pnpm dev
 ```
 
-The editor opens at http://localhost:5180 with the *Walker* example: a painted adventurer with IK legs, a scarf mesh, an idle/walk blend eased by a script, a crouch-tuck-land jump and a forest that scrolls in parallax as he walks (click the path to walk, click him to jump). The *Examples* gallery (☰ Menu → Examples…) also has a side-view **knight** with sword and shield (walk along a scrolling castle road, attack with swing and clang, salute with a spoken greeting), **Pip the fox** (lip sync with a real voice), a painted **robot** (lip sync with a robot voice), a **tail** creature (a painted tail mesh bending along a path, spring antennae, a hop, and a slow camera pan on a second state-machine layer that moves the meadow, the creature and the grass at different depths), a **rocket** on its launch pad (click to launch: it flies out of frame as the space centre falls away, then lands back on the pad; particles, ignition and engine sounds), a **crash game** (staged flow idle → fly-out → flying → crash or cash-out, a live multiplier text, input bindings that also move the sky, clouds and ground in parallax), an interactive button (state machine, clipping mask, hover and click sounds) and a campfire (sprite-sequence flames on painted logs, flickering firelight, a bending flame mesh, a crackle loop). Every example has sound. All the characters, backgrounds, sounds and voices were made with ElevenLabs (see [examples/assets/eleven/LICENSE.md](examples/assets/eleven/LICENSE.md)), except the button and the explosion frames, made with Canva ([examples/assets/canva/LICENSE.md](examples/assets/canva/LICENSE.md)). All of it is MIT like the rest of the repo. Press **▶ Play** to try any of them. Each card in the gallery also has **⬇ Download**, which saves the example as one `.obone` file with all its art and sound inside. A deployment can host the examples elsewhere (a GitHub Release, a CDN): build with `VITE_OPENBONE_EXAMPLES_URL=https://…/` and the editor loads them from there, and the build no longer copies them. The player demo is at http://localhost:5180/player.html.
+The editor opens at http://localhost:5180 with the *Walker* example. **☰ Menu → Examples…** opens the others; press **▶ Play** to run one, or **⬇ Download** to save it as a single `.obone` file with its art and sound inside.
+
+| Example | What it shows |
+|---|---|
+| **Walker** | IK legs, a scarf mesh, an idle/walk blend eased by a script, a jump, a forest scrolling in parallax (click the path to walk, click him to jump) |
+| **Knight** | Walk along a scrolling castle road, attack with swing and clang, salute with a spoken greeting |
+| **Pip the fox**, **Robot** | Lip sync to a real voice and to a robot voice |
+| **Tail** | A painted tail mesh bending along a path, spring antennae, a camera pan on a second state-machine layer |
+| **Rocket** | Click to launch: particles, ignition and engine sounds, a landing back on the pad |
+| **Crash game** | A staged flow (idle → fly-out → flying → crash or cash-out), a live multiplier text, input bindings driving the parallax |
+| **Button** | A state machine with a clipping mask, hover and click sounds |
+| **Campfire** | Sprite-sequence flames, flickering firelight, a bending flame mesh, a crackle loop |
+
+The characters, backgrounds, sounds and voices were made with ElevenLabs ([licence](examples/assets/eleven/LICENSE.md)); the button and the explosion frames with Canva ([licence](examples/assets/canva/LICENSE.md)). The player demo is at http://localhost:5180/player.html. To host the examples elsewhere (a GitHub Release, a CDN), build with `VITE_OPENBONE_EXAMPLES_URL=https://…/`.
 
 ```bash
 pnpm test
 ```
+
+## Runtimes
+
+| Platform | Package | Engines | Notes |
+|---|---|---|---|
+| TypeScript | `@openbone/runtime` | any | The reference runtime: posing, constraints, mixing, state machines, listeners, particles, text, audio commands |
+| Web player | `@openbone/player` | browser | `<openbone-player>` element and `Player` class, WebGL2 or Canvas2D, Web Audio |
+| Web renderers | `@openbone/render-webgl`, `@openbone/render-canvas` | browser, Node | Batched WebGL2 with stencil clipping; Canvas2D for the editor and headless PNG/GIF |
+| Web engines | [`@openbone/pixi`](packages/pixi), [`phaser`](packages/phaser), [`three`](packages/three), [`canvaskit`](packages/canvaskit) | PixiJS v8, Phaser 3, Three.js r160+, CanvasKit | Same batches as the WebGL renderer, checked frame for frame; engine pointer events |
+| C / C++ | [`runtimes/cpp`](runtimes/cpp) | Godot 4, Cocos2d-x 4, SDL2, SFML, Unreal 5, any | C++17 port with a stable C API (`openbone.h`); scripts in embedded QuickJS; plays sound in Godot and Cocos2d-x |
+| C# / Unity | [`runtimes/csharp`](runtimes/csharp) | .NET Standard 2.1, Unity 2021.3+ | `OpenBone.Runtime` (scripts in Jint) and the `com.openbone.runtime` package: importer, components, mesh, AudioSource bridge (tested in Unity 6) |
+| Java / Android | [`runtimes/java`](runtimes/java) | any JVM (Java 11+), libGDX 1.14, Android 7+ | Pure Java port; libGDX renderer; Kotlin `OpenBoneView` |
+| Swift | [`runtimes/swift`](runtimes/swift) | iOS 15+, macOS 12+ | Swift API over the C API; Metal `OpenBoneView` (UIKit, AppKit) and SwiftUI `OpenBonePlayer` |
+| Flutter | [`runtimes/dart`](runtimes/dart) | Flutter 3.41+ (Android, iOS, macOS, Linux, Windows) | `dart:ffi` plugin over the C API; `OpenBoneWidget` with sound (flutter_soloud); Swift Package Manager and CocoaPods |
+
+Every native runtime implements [docs/runtime-spec.md](docs/runtime-spec.md) and passes the [conformance suite](conformance): the same poses, draw lists, events, audio commands and state-machine steps as the TypeScript runtime, for every example. CI runs each one on Linux, macOS and Windows where it applies. Demos of the knight in each web engine: `pnpm --filter @openbone/examples engines`, then http://localhost:5190.
+
+## Tools
 
 ### Let an agent animate (MCP)
 
@@ -108,7 +81,7 @@ This repo ships `.mcp.json`, so Claude Code picks up the `openbone` server autom
 { "mcpServers": { "openbone": { "command": "pnpm", "args": ["exec", "tsx", "/path/to/OpenBone/packages/mcp/src/bin.ts"] } } }
 ```
 
-Then ask: *"Create a project at ~/anim/robot.obone: a robot with IK arms, an idle and a wave animation, and a state machine that waves when clicked."* Click **⚡ Connect MCP** in the editor to watch it happen live (the bridge listens on `ws://127.0.0.1:7717`). See [docs/mcp.md](docs/mcp.md).
+Then ask: *"Create a project at ~/anim/robot.obone: a robot with IK arms, an idle and a wave animation, and a state machine that waves when clicked."* Click **⚡ Connect MCP** in the editor to watch it happen live. See [docs/mcp.md](docs/mcp.md).
 
 ### CLI
 
@@ -117,28 +90,18 @@ pnpm cli render examples/walker.obone --animation walk --time 0.25 --out walk.pn
 ```
 
 ```bash
-pnpm cli simulate examples/walker.obone --steps '[{"setInputs":{"speed":1},"advance":1},{"fire":["jump"],"advance":1}]'
-```
-
-Batch export every example as runtime JSON plus atlas pages (premultiplied, trimmed, polygon outlines), and as videos:
-
-```bash
 pnpm cli export 'examples/*.obone' --format atlas --out build/atlas --strip-whitespace --polygons --premultiplied
 ```
 
-```bash
-pnpm cli export 'examples/**/*.obone' --format mov --out build/video --animation walk --scale 0.5 --fps 30
-```
+Formats: `json`, `obonb`, `atlas`, `png`, `jpeg`, `gif`, `apng`, `psd`, `avi`, `mov`, `spritesheet`, `web`. Quote globs; the CLI expands them. `pnpm cli` lists every command (validate, summary, render, gif, simulate, export, apply, ops, mcp).
 
-Formats: `json`, `obonb`, `atlas`, `png`, `jpeg`, `gif`, `apng`, `psd`, `avi`, `mov`, `spritesheet`, `web`. Globs (`*`, `**`, `?`, `[ab]`, `{a,b}`) are expanded by the CLI, so quote them. `pnpm cli` with no arguments lists every command and option (validate, summary, render, gif, simulate, export, apply, ops, mcp).
-
-### Desktop
+### Desktop app
 
 ```bash
 pnpm desktop
 ```
 
-Requires Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3).
+Needs Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3).
 
 ### Embed in a website
 
@@ -155,68 +118,131 @@ Requires Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3
 </script>
 ```
 
-## Runtimes
+## Features
 
-The web runtimes build on the TypeScript runtime (`OpenBoneInstance` for posing, animations, state machines, listeners, events and scripts) and draws `Skeleton.drawList()` in the same batches as the WebGL renderer, with tests that check its geometry against it frame for frame.
+<details>
+<summary><b>Rigging</b>: bones, slots, skins, constraints</summary>
 
-| Runtime | Package | Engine | Notes |
-|---|---|---|---|
-| TypeScript | `@openbone/runtime` | any | Posing, constraints, animation mixing, state machines, listeners, particles, text, audio commands |
-| Web player | `@openbone/player` | browser | `<openbone-player>` element and `Player` class, WebGL2 or Canvas2D, Web Audio |
-| WebGL2 | `@openbone/render-webgl` | browser | Batched reference renderer, stencil clipping |
-| Canvas2D | `@openbone/render-canvas` | browser, Node | Editor viewport, headless PNG/GIF |
-| PixiJS | [`@openbone/pixi`](packages/pixi) | PixiJS v8 | A `Container`; stencil-mask clipping, Pixi pointer events |
-| Phaser | [`@openbone/phaser`](packages/phaser) | Phaser 3 | Scene plugin: `this.load.openbone()`, `this.add.openbone()`; WebGL (MultiPipeline) and Canvas |
-| Three.js | [`@openbone/three`](packages/three) | Three.js r160+ | An `Object3D` with one material per atlas page; raycast pointers |
-| CanvasKit | [`@openbone/canvaskit`](packages/canvaskit) | CanvasKit (Skia WASM) | Renderer for any Skia canvas (browser or Node) and a player |
-| C++ | [`runtimes/cpp`](runtimes/cpp) | Godot 4, SDL2, SFML, Unreal 5, Cocos2d-x, any | Native port (C++17) passing the conformance suite: rig, state machines, particles, text, audio commands, scripts in embedded QuickJS. Stable C API (`openbone.h`) for Swift/Dart/C# FFI; Godot GDExtension, SDL2/SFML samples, Unreal plugin and Cocos2d-x node |
-| C# | [`OpenBone.Runtime`](runtimes/csharp) | .NET Standard 2.1 / .NET 8 | Native port that passes the [conformance suite](conformance/README.md): rig, constraints, particles, text, state machines, audio commands; scripts in Jint |
-| Unity | [`com.openbone.runtime`](runtimes/csharp/unity/com.openbone.runtime) | Unity 2021.3+ | `.obone`/`.obonb` importer, animation and state-machine components, mesh with blend modes, stencil clipping and two-colour tint, AudioSource bridge (tested in Unity 6) |
-| Java | [`runtimes/java`](runtimes/java) `openbone-runtime` | any JVM (Java 11+), Android | Full port, no dependencies; scripts in QuickJS (`openbone-scripting`) |
-| libGDX | [`runtimes/java`](runtimes/java) `openbone-gdx` | libGDX 1.14 | Two-colour tint shader, blend modes, stencil clipping; LWJGL3 sample |
-| Android | [`runtimes/java`](runtimes/java) `openbone-android` | Android 7+ (Kotlin) | `OpenBoneView`: touch → listeners, inputs and events as lambdas |
-| Swift | [`runtimes/swift`](runtimes/swift) `OpenBone` | iOS 15+, macOS 12+ (SwiftPM) | Swift API over the C++ runtime's C API (passes the conformance suite); Metal `OpenBoneView` for UIKit / AppKit and SwiftUI `OpenBonePlayer` with blend modes, stencil clipping, two-colour tint, touch → listeners (preview: views not yet run on Apple hardware) |
-| Flutter / Dart | [`runtimes/dart`](runtimes/dart) `openbone` | Flutter 3.41+ (Android, iOS, macOS, Linux, Windows) | FFI plugin over the C++ runtime's C API (`dart:ffi`): `OpenBoneDocument` / `OpenBoneInstance` in pure Dart, `OpenBoneWidget` drawing with `Canvas.drawVertices` (blend modes, clipping, two-colour tint), pointer → listeners. All 82 conformance cases pass through the Dart API |
+- **Bones** with parent/child hierarchy, length, rotation, translation, scale and shear, and inherit modes (normal, only translation, no rotation, no scale) that can be keyed per frame.
+- **Slots** with draw order, colour/alpha tint, **two-colour tint** (a keyable dark colour for the image's shadows) and blend modes (normal, additive, multiply, screen).
+- **Skins**: create, duplicate, rename and delete outfits and switch them live; attachments can override the default skin per outfit. **Skin bones and skin constraints** exist only in the skins that list them.
+- **Constraints**, applied in a default or custom order:
+  - **IK**: 1- and 2-bone, mix, bend direction, softness, stretch, compress and uniform scaling.
+  - **Transform**: rotate/translate/scale/shear mixes, world or local space, absolute or relative.
+  - **Path**: place and rotate a bone chain along a bezier path, with position, spacing and rotate modes.
+  - **Physics**: secondary motion (hair, cloth, tails) with inertia, strength, damping, gravity and wind; deterministic. Gravity, wind and IK softness follow the rig's **reference scale**.
+  - **Sliders**: a bone's property or a number input scrubs an animation (corrective shapes, shadows, dials).
 
-Demos of the knight in each engine: `pnpm --filter @openbone/examples engines`, then http://localhost:5190.
+</details>
 
-Native runtimes are ports (the Swift package and the Flutter plugin are thin wrappers over the C++ runtime's C API): they implement [docs/runtime-spec.md](docs/runtime-spec.md) and prove it against the [conformance suite](conformance) (`conformance/expected/*.json`, generated by the TypeScript runtime).
+<details>
+<summary><b>Attachments</b>: images, meshes, clipping, sequences, particles, text, atlases</summary>
 
-## Repository layout
+- **Regions** (images), **vector shapes** (rect, rounded rect, ellipse, polygon with fill and stroke), **points** and **bounding boxes** (hit areas).
+- **Meshes**: deformable, weighted to bones, with deform keys. **Linked meshes** reuse a mesh's geometry and weights with another image and can follow its deform keys. **Trace mesh** builds a mesh from an image's visible pixels.
+- **Clipping masks**: slots after the mask, up to an end slot, are drawn only inside its outline.
+- **Bezier paths** for path constraints, optionally weighted to bones.
+- **Sprite sequences** from numbered images, sprite sheets (grid, TexturePacker or Aseprite JSON) or a ZIP of frames: own fps, loop / once / ping-pong / hold-last, driven by time, keys or a number input.
+- **Particle emitters** on any slot: rate and bursts, shapes, world or local space, lifetime, speed, gravity, drag, size, rotation and colour over life, presets (fire, smoke, sparks, confetti, exhaust, coins). Seeded, so previews and exports match.
+- **Text attachments** (font, size, weight, colour, alignment, outline) whose content can be a live template bound to inputs.
+- **Texture atlas packing**: rotation, scaling, whitespace stripping, polygon outlines and premultiplied alpha.
 
-| Package | What it is |
+</details>
+
+<details>
+<summary><b>Animation</b>: timelines, curves, dopesheet, graph</summary>
+
+- Per-property timelines: bone transforms, slot colour and attachment, constraint values, mesh and path deform, sequence frame, particles, draw order.
+- **Key editing**: multi-select (Shift/Ctrl-click, box, Ctrl/⌘+A), drag and nudge, **copy and paste** across animations, **scale** in time, change curves or delete together.
+- Linear, stepped and bezier curves; a **Graph view** for value curves and bezier handles.
+- **Dopesheet** grouped by bone, slot and constraint, with **● Rec**, auto-key, hold bars, events (int/float/string payloads) and an audio lane with waveforms.
+- Per-animation export switch and colour; track mixing and cross-fades; **onion skin**.
+
+</details>
+
+<details>
+<summary><b>Interactivity</b>: state machines, listeners, bindings, scripts</summary>
+
+- **State machines** with layers, bool/number/string/trigger inputs, animation and 1D blend states, any-state transitions, conditions, exit times, cross-fades, "on complete" hand-offs and inputs set on enter.
+- **Live data**: text templates (`{multiplier:0.00}x`) and **input bindings** that drive bone, slot and constraint properties from a number input.
+- **Pointer listeners** on hit boxes (down, up, enter, exit, move, click) that set inputs, fire triggers, report events, play sounds, start particles or run scripts.
+- **Sandboxed scripts** (QuickJS, memory cap and per-call deadline) with an `ob` API: `onStart`, `onUpdate`, `onEvent`, `onPointer`.
+
+</details>
+
+<details>
+<summary><b>Audio</b>: sounds, mixer, lip sync</summary>
+
+- **Sounds** from WAV, MP3 or OGG (embedded or by path), each with a bus, volume, rate, loop and fades.
+- Played by **audio keys**, **events**, **state hooks** and **listener actions**; looping sounds fade out when their state or animation ends.
+- **Mixer**: named buses with volume and mute, and a master volume. The runtimes emit play / stop / fade commands; the editor, the web player, Godot, Cocos2d-x, Unity and Flutter play them.
+- **Lip sync** keys a mouth slot's images to a voice recording (see the Fox and Robot examples).
+
+</details>
+
+<details>
+<summary><b>Editor</b>: tools, workspace, import</summary>
+
+- **Tools**: select, rotate, translate, scale, **Pose** (drag a bone and its parents bend to follow), create bone, mesh editing with soft selection, and **weights** (brush, direct values, lock bones, Smooth, Auto, Prune, Swap).
+- **Setup and Animate modes**, undo/redo for every change, **Compensate** (move a bone while its children stay put), box selection of bones.
+- **Photoshop import**: every layer becomes an image, slot and region in place; groups can become bones.
+- **Folders** for slots, skins, animations, events, constraints and state machines; **Import from project…** to copy animations, skins or a whole skeleton from another file.
+- **Skeleton tree** with search; viewport grid, rulers, guides and **smart snapping**.
+- **Dockable workspace**, **Play mode** (run it as shipped, with inputs and logs), **Preview**, **Outline** and **Stats** panels.
+- **Live art reloading** from your paint or audio app, rebindable **keyboard shortcuts** (⌘ on macOS, Ctrl elsewhere), and a live MCP connection.
+
+</details>
+
+<details>
+<summary><b>Export</b>: data, images, video, web, engines</summary>
+
+- **Project** (`.obone`) and **data**: JSON or compact **binary** (`.obonb`, about 40% of JSON), with atlas packing and clean-up options.
+- **Images**: PNG and JPEG (one frame or a ZIP of frames), animated **GIF** and **APNG**, layered **PSD**.
+- **Video**: **MP4** (H.264), **MOV** and **AVI**, all with sound.
+- **Web**: the `<openbone-player>` component with your animation, a demo page and embed snippets (ZIP), or **one self-contained HTML file**.
+- **Engine packs**: sprite sheets for Unity, Godot 4, Flutter and generic engines, plus WebView packages for Flutter, Android and iOS. For full rigs in an engine, use the native runtimes above.
+
+</details>
+
+## Documentation
+
+- [docs/architecture.md](docs/architecture.md): how the editor, runtime and tools fit together
+- [docs/format.md](docs/format.md): the `.obone` / `.obonb` file format
+- [docs/runtime-spec.md](docs/runtime-spec.md) and [conformance/](conformance): what a runtime must do, and the tests that prove it
+- [docs/mcp.md](docs/mcp.md): the MCP server and its tools
+- [docs/engine-exports.md](docs/engine-exports.md): sprite-sheet and WebView engine packs
+- [CHANGELOG.md](CHANGELOG.md): what changed in each version
+
+<details>
+<summary><b>Repository layout</b></summary>
+
+| Path | What it is |
 |---|---|
-| `packages/core` | Document model (`.obone` JSON and `.obonb` binary), the **op registry** (every edit: validated with zod, undoable, replayable), store with undo/redo, validation, export selection, atlas packing, snapping, summaries |
-| `packages/runtime` | Pose solver, IK/transform/path/physics constraints, animation sampling and mixing, state machine, listeners, events, input bindings, text templates, sprite sequences, particles, audio commands, script host interface |
-| `packages/scripting` | QuickJS-WASM sandbox (memory cap and CPU deadline per call) |
-| `packages/render-webgl` | Batched WebGL2 renderer |
-| `packages/render-canvas` | Canvas2D renderer (fallback, editor viewport, headless PNG/GIF in Node) |
-| `packages/player` | `<openbone-player>`, the `Player` class, Web Audio playback, and the self-contained WebView bundle + JS bridge used by the mobile packages |
-| `packages/pixi`, `packages/phaser`, `packages/three`, `packages/canvaskit` | Runtimes for PixiJS v8, Phaser 3, Three.js and CanvasKit, sharing `packages/engine-kit` (loading, playback, render-webgl-identical batching) |
-| `runtimes/cpp` | Native C++17 runtime, C API (`openbone.h`), conformance runner, and Godot / SDL2 / SFML / Unreal / Cocos2d-x integrations |
-| `runtimes/csharp` | C# runtime (`OpenBone.Runtime`), Jint script host, conformance tests and the Unity package |
-| `runtimes/java` | Java runtime, QuickJS script host, libGDX renderer and sample, Kotlin Android view (Gradle), with the conformance suite as JUnit tests |
-| `runtimes/swift` | Swift package over the C++ runtime (C API), Metal views for UIKit / AppKit / SwiftUI, SwiftUI sample, conformance suite as XCTest |
-| `runtimes/dart` | Flutter FFI plugin `openbone`: builds `libopenbone` from `runtimes/cpp` per platform, ffigen bindings, Dart API, `OpenBoneWidget`, example app, conformance as `flutter test` |
-| `packages/export` | Export encoders and packagers: PNG, APNG, GIF, PSD, AVI and MOV (Motion-JPEG), ZIP, sprite sheets, Unity/Godot/Flutter packs and the Flutter/Android/iOS WebView templates |
-| `packages/mcp` | MCP server (stdio + streamable HTTP), render/simulate tools, live WebSocket bridge |
-| `packages/cli` | `openbone` command line |
-| `apps/editor` | SolidJS editor |
-| `apps/desktop` | Tauri 2 shell around the editor, with native file dialogs |
-| `examples` | Walker, fox, robot, knight, button, tail, campfire, rocket and crash-game projects, their art, and the script that builds them |
+| `packages/core` | Document model, the **op registry** (every edit: validated with zod, undoable, replayable), undo/redo store, validation, atlas packing |
+| `packages/runtime` | The reference runtime: pose solver, constraints, animation mixing, state machines, listeners, particles, text, audio commands |
+| `packages/scripting` | QuickJS-WASM sandbox for document scripts |
+| `packages/render-webgl`, `packages/render-canvas` | WebGL2 and Canvas2D renderers |
+| `packages/player` | `<openbone-player>`, the `Player` class, Web Audio playback, the WebView bundle |
+| `packages/pixi`, `phaser`, `three`, `canvaskit`, `engine-kit` | Web engine runtimes and their shared batching |
+| `packages/export` | Image, video, ZIP, sprite-sheet and engine-pack exporters |
+| `packages/mcp`, `packages/cli` | MCP server (stdio and HTTP, live bridge to the editor) and the `openbone` CLI |
+| `apps/editor`, `apps/desktop` | The SolidJS editor and its Tauri 2 desktop shell |
+| `runtimes/cpp`, `csharp`, `java`, `swift`, `dart` | Native runtimes and their engine integrations |
+| `conformance` | Reference results every runtime is tested against |
+| `examples` | The example projects, their art and sound, and the script that builds them |
 
-Read [docs/architecture.md](docs/architecture.md) for the design and [docs/format.md](docs/format.md) for the file format.
+</details>
 
 ## Versions and credits
 
-One version covers the whole repo: every package, the editor and the desktop app. `pnpm version:set <major|minor|patch|x.y.z>` updates them all (including the Tauri config and Cargo files), `pnpm version:check` (also a test) fails when they drift, and [CHANGELOG.md](CHANGELOG.md) lists what changed. The editor shows its version, build and the open-source projects it is built with under **☰ Menu → About OpenBone**; a test keeps every dependency's licence permissive.
+One version covers the whole repo: `pnpm version:set <major|minor|patch|x.y.z>` updates every package, the editor and the desktop app, and `pnpm version:check` fails when they drift. The editor lists its version and the open-source projects it is built with under **☰ Menu → About OpenBone**; a test keeps every dependency's licence permissive.
 
 OpenBone is made by [UXCentury](https://uxcentury.com).
 
 ## Open core
 
-OpenBone (editor, runtime, player, MCP, CLI) is and stays MIT. A hosted **OpenBone Cloud** (accounts, cloud projects, real-time collaboration, hosted MCP, asset CDN) is planned as a separate service that builds on these packages. The editor already talks to storage through one place (`apps/editor/src/storage.ts`) so a cloud backend can slot in without forking.
+OpenBone (editor, runtimes, player, MCP, CLI) is and stays MIT. A hosted **OpenBone Cloud** (accounts, cloud projects, real-time collaboration, hosted MCP, asset CDN) is planned as a separate service built on these packages. The editor talks to storage through one place (`apps/editor/src/storage.ts`), so a cloud backend can slot in without forking.
 
 ## Clean-room note
 
-OpenBone is an independent implementation. It does not use or derive from Esoteric Software's Spine runtimes or editor (whose licence requires a paid Spine licence), or from Rive's editor. Formats, solvers and APIs are our own, built from public math (affine transforms, analytic IK, cubic bézier easing).
+OpenBone is an independent implementation. It does not use or derive from Esoteric Software's Spine runtimes or editor, or from Rive's editor. Formats, solvers and APIs are our own, built from public math (affine transforms, analytic IK, cubic bézier easing).
