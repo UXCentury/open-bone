@@ -776,8 +776,12 @@ function ListenerList() {
   const [event, setEvent] = createSignal("click");
   const [action, setAction] = createSignal("fireTrigger");
   const [target, setTarget] = createSignal("");
-  const describe = (a: { type: string; input?: string; event?: string; value?: unknown; script?: string; sound?: string; slot?: string; emitting?: boolean; count?: number }) => {
+  const describe = (a: { type: string; input?: string; event?: string; value?: unknown; script?: string; sound?: string; slot?: string; emitting?: boolean; count?: number; bus?: string | null; muted?: boolean | "toggle" }) => {
     const soundName = () => doc().audio?.sounds.find((s) => s.id === a.sound)?.name;
+    if (a.type === "setMute") {
+      const bus = a.bus ? (doc().audio?.buses.find((b) => b.id === a.bus)?.name ?? "?") : "all sound";
+      return `${a.muted === "toggle" ? "toggle mute" : a.muted ? "mute" : "unmute"} ${bus}`;
+    }
     if (a.type === "playSound") return `play ♪ ${soundName()}`;
     if (a.type === "stopSound") return `stop ♪ ${soundName()}`;
     const iname = sm().inputs.find((i) => i.id === a.input)?.name;
@@ -795,7 +799,9 @@ function ListenerList() {
     if (!t) return toast("Choose an input / event / script / sound for the action", "error");
     const input = sm().inputs.find((i) => i.id === t);
     const act =
-      action() === "playSound" || action() === "stopSound"
+      action().startsWith("mute:")
+        ? { type: "setMute", bus: t === "@master" ? null : t, muted: action() === "mute:toggle" ? "toggle" : action() === "mute:on" }
+        : action() === "playSound" || action() === "stopSound"
         ? { type: action(), sound: t }
         : action() === "startEmitter" || action() === "stopEmitter"
           ? { type: "setEmitter", slot: t, emitting: action() === "startEmitter" }
@@ -840,6 +846,9 @@ function ListenerList() {
           <option value="runScript">run script</option>
           <option value="playSound">play sound</option>
           <option value="stopSound">stop sound</option>
+          <option value="mute:toggle">toggle mute (bus)</option>
+          <option value="mute:on">mute (bus)</option>
+          <option value="mute:off">unmute (bus)</option>
           <Show when={emitterSlots().length}>
             <option value="startEmitter">start particles</option>
             <option value="stopEmitter">stop particles</option>
@@ -854,6 +863,10 @@ function ListenerList() {
             </Match>
             <Match when={action() === "runScript"}>
               <For each={doc().scripts}>{(x) => <option value={x.id} selected={x.id === (target())}>{x.name}</option>}</For>
+            </Match>
+            <Match when={action().startsWith("mute:")}>
+              <option value="@master" selected={target() === "@master"}>all sound (master)</option>
+              <For each={doc().audio?.buses ?? []}>{(x) => <option value={x.id} selected={x.id === (target())}>{x.name}</option>}</For>
             </Match>
             <Match when={action() === "playSound" || action() === "stopSound"}>
               <For each={doc().audio?.sounds ?? []}>{(x) => <option value={x.id} selected={x.id === (target())}>{x.name}</option>}</For>

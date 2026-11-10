@@ -37,7 +37,18 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 ### Format
 - Bounding boxes take an optional editor `color`. `updateAttachment` with `weights: null` unbinds a path.
 
+### MCP
+- **Mute buttons**: new listener action `setMute {bus, muted: true | false | "toggle"}` (`bus: null` = everything) mutes a bus while playing; the runtime emits a `mix` audio command and `@openbone/player` applies it on top of the saved mix. The editor's listener form has toggle mute / mute / unmute (bus). Native runtimes ignore it for now.
+- **`process_image`**: art prep without leaving the MCP. Ops `keyColor` (flat background out, soft edges, background tint removed from edge pixels, green/blue-screen `despill`; `keepBrighterThan` keeps white details; a large `softness` keys glows off black), `differenceMatte` (cut an object out by comparing with a copy where it is painted out, e.g. a tree, so it can sway on its own layer), `trim`, `crop`, `resize`, `flip`, `featherEdges` (seamless tiling), `keepLargest`; the PNG is saved and imported (`importAs`) or replaces an image in place (`replace`), and `box` says where it sat in the input picture.
+- **`set_weights_in_area`** (core op `setWeightsInArea`, so the editor and CLI have it too): weight every vertex inside a box or polygon of the setup pose to the given bones, with a soft `blend` edge, replacing or adding to their influences.
+- **`trace_mesh`** re-traces meshes in place (same image mapping) and binds them again to the same bones (or `bones`), like the editor's Re-trace outline; new `tolerance` sets how closely the outline follows the edge (the old 1%-of-the-image default flattened details such as feet).
+- **`set_keys`** `replace: true` sets a whole timeline; by default keys still merge, which left stale keys behind when a motion was redone.
+- **`import_audio`** reads the length of MP3 (Xing/Info, VBRI or counted frames, encoder padding left out), OGG Vorbis/Opus and FLAC files; only WAV was measured before, so other formats came in as 0 s.
+- **`render_gif`** no longer drops the connection on long renders: a GIF over 4 MB is saved to disk and the result carries a contact sheet of six frames instead (a 14 MB GIF, 19 MB as base64 in one message, made the client close the connection).
+- Images with big PNG metadata chunks (C2PA "caBX" content credentials from image generators) load everywhere in the MCP; they failed with "Invalid SVG image". Bundlers loading `@openbone/mcp` (Vite, Vitest) get a working GIF encoder.
+
 ### Packages
+- Text no longer gets cut off when it is wider than its box: `@openbone/render-webgl` and `@openbone/engine-kit` (Pixi, Phaser, Three) measure the text and grow its texture sideways (`textOverflow` in `@openbone/runtime`). New text boxes count Japanese, Chinese, Korean and full-width characters as 1 em wide (they were sized like Latin letters, so a Japanese line got about two thirds of its width).
 - npm: every `@openbone/*` package builds to JavaScript with type definitions, plus the `openbone` CLI (`npx openbone`) and `npx -y @openbone/mcp`.
 - NuGet: `OpenBone.Runtime`, `OpenBone.Scripting.Jint` and `OpenBone.MonoGame`, with symbols and SourceLink.
 - Unity: the package installs from git (`https://github.com/UXCentury/open-bone.git#upm`) and OpenUPM, with the DLLs built in.

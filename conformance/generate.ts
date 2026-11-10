@@ -139,6 +139,10 @@ class Recorder {
   ) {
     inst.on("event", (e: FiredEvent) => this.events.push({ name: e.name, time: r4(e.time), int: e.int, float: r4(e.float), string: e.string }));
     inst.on("audio", (c: AudioCommand) => {
+      if (c.type === "mix") {
+        this.audio.push({ ...c });
+        return;
+      }
       const id = this.ids.get(c.id) ?? `p${this.ids.size + 1}`;
       this.ids.set(c.id, id);
       const out: Record<string, unknown> = { ...c, id };

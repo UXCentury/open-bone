@@ -12,9 +12,15 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
    E.g. an upright torso: add_bone {name:"torso", y:100, rotation:90, length:120}.
    Children of a rotated parent use the parent's frame: a head on top of that torso is add_bone {name:"head", parent:"torso", x:120}.
 3. Visuals: add_slot {bone} then add_shape (no art needed) or import_image + add_region / add_mesh.
+   Art prep: process_image {input, out, ops:[...], importAs | replace} keys out flat backgrounds (keyColor), cuts an object
+   out by comparing with a painted-out copy (differenceMatte), trims, crops, resizes, flips and feathers edges; its "box"
+   says where the result sat in the input picture, so a layer cut from a full scene can be placed exactly where it was.
    Attachments are positioned in the slot BONE's local frame (x along the bone).
    Draw order = slot order (first is back). Use update_slot {index} to reorder.
-4. Deformation: add_mesh {cols, rows} then auto_weights {bones:[...]} so the mesh bends with bones.
+4. Deformation: add_mesh {cols, rows} (or trace_mesh on a region) then auto_weights {bones:[...]} so the mesh bends with bones.
+   trace_mesh on a mesh re-traces it in place and rebinds the same bones (tolerance 1–2 for detailed edges such as feet).
+   set_weights_in_area {slot, attachment, area:{yMax:...} | polygon, influences, blend} pins every vertex in an area
+   to bones (e.g. everything below the knees to the legs bone) without listing vertex indices.
 5. Constraints (solved every frame in one list; default order IK, transform, path, physics — set_constraint_order
    {constraints:[every constraint, first applied first]} changes it, [] restores the default):
    add_ik_constraint {bones:["thigh","shin"], target:"foot-target"} (target must not be a child of the chain);
@@ -31,6 +37,7 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
    Properties: bone rotation|x|y|scaleX|scaleY|shearX|shearY|inherit (stepped string: normal|onlyTranslation|noRotation|noScale), slot color ("#rrggbbaa") | dark (two-colour tint "#rrggbb") | attachment (name or null),
    ik mix|softness, transform mix|mixRotate|mixTranslate|mixScale|mixShear, path position|spacing|mixRotate|mixX|mixY,
    physics mix|inertia|strength|damping|mass|gravity|wind, deform offsets (mesh or path), sequence frame (with attachment), drawOrder. Curves: linear, stepped, easeIn, easeOut, easeInOut, backOut or [cx1,cy1,cx2,cy2].
+   set_keys merges into the timeline; pass replace:true to set the whole timeline (e.g. when redoing a motion path).
    Loop cleanly by making the last key equal the first. add_event_key fires events (footsteps, sounds).
 7. Interactivity (Rive-style): create_state_machine → add_input (bool/number/trigger) → add_state {animation}
    (first state = entry) → add_transition {from, to, conditions:[{input, op, value}], duration, exitTime}.
@@ -58,7 +65,9 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
 10. Audio: import_audio {path} (or add_audio {name, src:data:/path, duration}) creates an asset and a same-named sound on the
    sfx bus. Play it with add_audio_key {animation, sound, time, volume?, rate?, loop?}, set_event_sound {event, sound} (plays
    whenever the event fires), set_state_sound {stateMachine, state, sound, on:"enter"|"exit", action:"play"|"stop"} or a
-   listener action {type:"playSound", sound} / {type:"stopSound", sound, fade?}. Looping sounds stop when their state or
+   listener action {type:"playSound", sound} / {type:"stopSound", sound, fade?}. Mute buttons: listener action
+   {type:"setMute", bus:"music"|"sfx"|... (null = everything), muted:true|false|"toggle"} (pair it with toggleInput on a bool
+   input and a slot color binding to show the state). Looping sounds stop when their state or
    animation ends. Mix with update_sound {volume, rate, loop, fadeIn, fadeOut, bus}, add_bus/update_bus {volume, muted},
    set_audio_mix {master, muted}. simulate_state_machine lists the audio commands.
 11. Sprite sequences (frame-by-frame, e.g. fire or explosions): add_image for each frame (or one sheet image), then

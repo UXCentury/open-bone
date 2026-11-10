@@ -246,6 +246,9 @@ export class StateMachineInstance extends Emitter<SMEvents> {
         case "setEmitter":
           this.setEmitter(a.slot, a.emitting);
           break;
+        case "setMute":
+          this.audio.setMute(a.bus, a.muted);
+          break;
         case "emitParticles":
           this.skeleton.emitParticles(a.slot, a.count);
           break;

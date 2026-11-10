@@ -869,7 +869,9 @@ export type ListenerAction =
   /** Turn a slot's particle emitter on (restarting its cycle, so bursts replay) or off. */
   | { type: "setEmitter"; slot: Id; emitting: boolean }
   /** Spawn `count` particles from a slot's emitter right away. */
-  | { type: "emitParticles"; slot: Id; count: number };
+  | { type: "emitParticles"; slot: Id; count: number }
+  /** Mute or unmute a bus (null = the master) while playing, or flip it ("toggle"): a mute-music / mute-sound button. */
+  | { type: "setMute"; bus: Id | null; muted: boolean | "toggle" };
 
 /** Input value applied when a state is entered (bool, number or string inputs; not triggers). */
 export interface StateInput {

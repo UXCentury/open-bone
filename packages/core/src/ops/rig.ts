@@ -898,6 +898,78 @@ defineOp({
   },
 });
 
+defineOp({
+  name: "setWeightsInArea",
+  group: "attachment",
+  description:
+    "Set bone weights for every vertex of a mesh, path or bounding box that lies inside an area of the setup pose (skeleton space, y up): a box {xMin?, xMax?, yMin?, yMax?} (leave a side out for no limit, e.g. {yMax:205} = everything below y 205) or a polygon [x0,y0,x1,y1,...]. Use it to pin parts to one bone (feet to the legs bone, a hem to the skirt) without listing vertex indices. blend: vertices up to this far outside the area get a share falling off to 0 (a soft edge). mode replace (default) swaps the vertex's influences for these; add mixes them into its current ones. Weights are normalised and the mesh keeps its setup-pose shape.",
+  schema: z.object({
+    slot: ref("Slot"),
+    attachment: z.string(),
+    skin: ref("Skin").optional().describe("Skin holding the attachment (defaults to the default skin)"),
+    area: z
+      .object({ xMin: z.number().optional(), xMax: z.number().optional(), yMin: z.number().optional(), yMax: z.number().optional() })
+      .optional()
+      .describe("Box in skeleton space (y up); omitted sides are unbounded"),
+    polygon: z.array(z.number()).min(6).optional().describe("Polygon [x0,y0,x1,y1,...] in skeleton space (y up), instead of area"),
+    influences,
+    blend: z.number().min(0).default(0).describe("Soft edge: distance outside the area over which the new weights fade out"),
+    mode: z.enum(["replace", "add"]).default("replace"),
+  }),
+  apply(doc, a) {
+    if (!a.area === !a.polygon) throw new Error("Give either area or polygon");
+    const box = a.area;
+    if (box && box.xMin === undefined && box.xMax === undefined && box.yMin === undefined && box.yMax === undefined) throw new Error("area needs at least one of xMin, xMax, yMin, yMax");
+    const slot = get.slot(doc, a.slot);
+    const att = getAttachment(doc, slot.id, a.attachment, a.skin ? get.skin(doc, a.skin).id : undefined);
+    if (!att || (att.type !== "mesh" && att.type !== "path" && att.type !== "boundingBox")) throw new Error("setWeightsInArea needs a mesh, path or bounding-box attachment");
+    const world = setupWorld(doc);
+    const target = new Map<string, number>();
+    const tTotal = a.influences.reduce((s, i) => s + i.weight, 0);
+    if (tTotal <= 0) throw new Error("influences need a weight > 0");
+    for (const i of a.influences) {
+      const id = get.bone(doc, i.bone).id;
+      target.set(id, (target.get(id) ?? 0) + i.weight / tTotal);
+    }
+    // Distance outside the area (0 inside).
+    const outside = (x: number, y: number): number => {
+      if (box) {
+        const dx = Math.max((box.xMin ?? -Infinity) - x, 0, x - (box.xMax ?? Infinity));
+        const dy = Math.max((box.yMin ?? -Infinity) - y, 0, y - (box.yMax ?? Infinity));
+        return Math.hypot(dx, dy);
+      }
+      const p = a.polygon!;
+      let inside = false;
+      let best = Infinity;
+      for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2) {
+        const [x1, y1, x2, y2] = [p[j], p[j + 1], p[i], p[i + 1]];
+        if (y2 > y !== y1 > y && x < ((x1 - x2) * (y - y2)) / (y1 - y2) + x2) inside = !inside;
+        const ex = x1 - x2;
+        const ey = y1 - y2;
+        const t = Math.max(0, Math.min(1, ((x - x2) * ex + (y - y2) * ey) / (ex * ex + ey * ey || 1)));
+        best = Math.min(best, Math.hypot(x - (x2 + ex * t), y - (y2 + ey * t)));
+      }
+      return inside ? 0 : best;
+    };
+    const n = att.vertices.length / 2;
+    const edits: { vertex: number; influences: { bone: string; weight: number }[] }[] = [];
+    for (let v = 0; v < n; v++) {
+      const [x, y] = vertexSetupWorld(att, world, slot.bone, v);
+      const d = outside(x, y);
+      const share = d === 0 ? 1 : a.blend > 0 && d < a.blend ? 1 - d / a.blend : 0;
+      if (share <= 0) continue;
+      const old = new Map<string, number>(att.weights ? att.weights[v].map((i) => [i.bone, i.weight]) : [[slot.bone, 1]]);
+      const out = new Map<string, number>();
+      if (a.mode === "replace") for (const [b, w] of old) out.set(b, w * (1 - share));
+      else for (const [b, w] of old) out.set(b, w);
+      for (const [b, w] of target) out.set(b, (out.get(b) ?? 0) + w * share);
+      edits.push({ vertex: v, influences: [...out].filter(([, w]) => w > 1e-4).map(([bone, weight]) => ({ bone, weight })) });
+    }
+    if (!edits.length) return { vertices: 0 };
+    return writeWeights(doc, a.slot, a.attachment, edits, "setWeightsInArea", a.skin);
+  },
+});
+
 /** Current per-vertex weights of a mesh as bone → weight maps (unweighted = 100% the slot bone). */
 function meshWeightTable(doc: OpenBoneDocument, slotRef: string, attachment: string, skinRef?: string) {
   const slot = get.slot(doc, slotRef);

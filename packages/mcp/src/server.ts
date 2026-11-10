@@ -1,8 +1,8 @@
 import { existsSync } from "node:fs";
+import { decodeImage } from "./image-load.ts";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { loadImage } from "@napi-rs/canvas";
 import { isTrimmed, registry, serialize, summarize, validate } from "@openbone/core";
 import type { ScriptHost } from "@openbone/runtime";
 import { createQuickJsHost } from "@openbone/scripting";
@@ -10,9 +10,11 @@ import { z } from "zod";
 import { GUIDE } from "./guide.ts";
 import { atlasBuildOptions } from "@openbone/render-canvas";
 import { atlasSettingsShape } from "./atlas-schema.ts";
-import { packAtlasFull, pose, renderGif, renderPng } from "./render.ts";
+import { audioDuration } from "./audio-meta.ts";
+import { MAX_INLINE_GIF, contactSheet, packAtlasFull, pose, renderGif, renderPng } from "./render.ts";
 import { ProjectSession } from "./session.ts";
 import { registerExtraTools } from "./tools-extra.ts";
+import { registerImageTools } from "./tools-image.ts";
 
 export const snake = (s: string) => s.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
 
@@ -172,7 +174,7 @@ export function createServer(opts: ServerOptions = {}) {
       try {
         const abs = path.resolve(a.path);
         const buf = await readFile(abs);
-        const img = await loadImage(buf);
+        const img = await decodeImage(buf);
         const ext = path.extname(abs).slice(1).toLowerCase().replace("jpg", "jpeg");
         const src =
           a.embed || !session.filePath
@@ -196,7 +198,7 @@ export function createServer(opts: ServerOptions = {}) {
     "import_audio",
     {
       description:
-        "Import a WAV/MP3/OGG file from disk as an audio asset plus a sound of the same name (on the sfx bus unless `bus` is given). Stored as a path relative to the project file, or embedded when `embed` is true or the project is unsaved. Then play it with add_audio_key, set_event_sound, set_state_sound or a playSound listener action.",
+        "Import a WAV/MP3/OGG/FLAC file from disk (its duration is read from the file) as an audio asset plus a sound of the same name (on the sfx bus unless `bus` is given). Stored as a path relative to the project file, or embedded when `embed` is true or the project is unsaved. Then play it with add_audio_key, set_event_sound, set_state_sound or a playSound listener action.",
       inputSchema: {
         path: z.string(),
         name: z.string().optional(),
@@ -212,7 +214,7 @@ export function createServer(opts: ServerOptions = {}) {
         const ext = path.extname(abs).slice(1).toLowerCase();
         const mime = ext === "mp3" ? "audio/mpeg" : ext === "wav" ? "audio/wav" : ext === "ogg" || ext === "oga" ? "audio/ogg" : `audio/${ext}`;
         const src = a.embed || !session.filePath ? `data:${mime};base64,${buf.toString("base64")}` : path.relative(session.baseDir, abs).split(path.sep).join("/");
-        const duration = wavDuration(buf);
+        const duration = audioDuration(buf);
         const result = session.store.apply("addAudio", {
           name: a.name ?? path.basename(abs, path.extname(abs)),
           src,
@@ -318,14 +320,25 @@ export function createServer(opts: ServerOptions = {}) {
     },
     async (a) => {
       try {
-        const gif = await renderGif(session, a, await scriptHost());
+        let sheet: ReturnType<typeof contactSheet> | undefined;
+        const gif = await renderGif(session, a, await scriptHost(), (canvas, i, count) => {
+          sheet ??= contactSheet(canvas.width, canvas.height, count);
+          sheet.add(canvas, i);
+        });
         const { writeFile } = await import("node:fs/promises");
         const out = path.resolve(session.baseDir, a.out ?? `${(a.animation ?? a.stateMachine ?? "preview").replace(/\W+/g, "_")}.gif`);
         await writeFile(out, gif);
+        const saved = `Saved ${out} (${(gif.length / 1024).toFixed(0)} KB)`;
+        if (gif.length <= MAX_INLINE_GIF || !sheet)
+          return { content: [{ type: "text" as const, text: saved }, { type: "image" as const, data: gif.toString("base64"), mimeType: "image/gif" }] };
+        const at = sheet.picks.map((f) => `${(f / a.fps).toFixed(2)}s`).join(", ");
         return {
           content: [
-            { type: "text" as const, text: `Saved ${out} (${(gif.length / 1024).toFixed(0)} KB)` },
-            { type: "image" as const, data: gif.toString("base64"), mimeType: "image/gif" },
+            {
+              type: "text" as const,
+              text: `${saved}. Too big to return inline (limit ${MAX_INLINE_GIF / 1048576} MB), so here are frames at ${at}, left to right, top to bottom. Lower fps, scale or duration for an inline GIF.`,
+            },
+            { type: "image" as const, data: sheet.png().toString("base64"), mimeType: "image/png" },
           ],
         };
       } catch (e) {
@@ -389,6 +402,7 @@ export function createServer(opts: ServerOptions = {}) {
   }));
 
   registerExtraTools(server, session, scriptHost);
+  registerImageTools(server, session);
 
   server.registerPrompt(
     "rig_character",
@@ -425,15 +439,3 @@ export function createServer(opts: ServerOptions = {}) {
 }
 
 /** Seconds of PCM audio in a WAV file (0 for other formats or unreadable headers). */
-function wavDuration(buf: Buffer): number {
-  if (buf.length < 12 || buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WAVE") return 0;
-  let byteRate = 0;
-  for (let p = 12; p + 8 <= buf.length; ) {
-    const id = buf.toString("ascii", p, p + 4);
-    const size = buf.readUInt32LE(p + 4);
-    if (id === "fmt " && p + 16 <= buf.length) byteRate = buf.readUInt32LE(p + 16);
-    if (id === "data") return byteRate ? Math.round((Math.min(size, buf.length - p - 8) / byteRate) * 1000) / 1000 : 0;
-    p += 8 + size + (size % 2);
-  }
-  return 0;
-}

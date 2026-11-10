@@ -239,7 +239,9 @@ the host mutes it. Sounds are played by:
 - animation `audio` keys (unset fields use the sound's),
 - an event's `audio` (every time it fires),
 - state `sounds: [{ "sound", "on": "enter" | "exit", "action": "play" | "stop", "volume?" }]`,
-- listener actions `{ "type": "playSound", "sound", "volume?" }` and `{ "type": "stopSound", "sound", "fade?" }`.
+- listener actions `{ "type": "playSound", "sound", "volume?" }` and `{ "type": "stopSound", "sound", "fade?" }`,
+- listener action `{ "type": "setMute", "bus": id | null, "muted": true | false | "toggle" }`: mutes a bus (`null`: the
+  master) while playing, on top of the saved mix (mute-music / mute-sound buttons).
 
 Looping sounds started by a state or an animation stop (with their fade-out, or the transition's cross-fade if longer)
 when it ends. Binary files store embedded audio as raw bytes.

@@ -775,7 +775,9 @@ object key order), else the current attachment (shape/clipping/region/sequence/t
 Actions, in order: `setInput` (by id or name); `toggleInput` (`setInput(id, !value)`); `fireTrigger`; `reportEvent`
 (event by id: play its audio, unowned; queue `{name, id, time: elapsed, int, float, string}`); `playSound`
 (unowned, source `listener:<name>`); `stopSound` (every instance, fade default the sound's fadeOut); `runScript`
-(the machine-level handle for that script, call `fn`); `setEmitter`; `emitParticles` (added on the next particle step).
+(the machine-level handle for that script, call `fn`); `setEmitter`; `emitParticles` (added on the next particle step);
+`setMute` (bus id or null = master; `"toggle"` flips the current state, which starts from the document's `muted`
+flags; emits a `mix` audio command `{type: "mix", bus, muted}` that backends apply on top of the saved mix).
 
 `setInput(ref, value)`: trigger ⇒ `fire`; string ⇒ `String(value)`; bool ⇒ string `"true"` or truthiness; number ⇒
 `Number(value)`, ignored if not finite. No change ⇒ no `inputChange`. `fire` marks the trigger fired until step 6.

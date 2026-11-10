@@ -190,7 +190,7 @@ defineOp({
   name: "setKeys",
   group: "animation",
   description:
-    "Set one or more keyframes on a timeline (absolute values). Examples: bone rotation {target:'bone', id:'arm', property:'rotation', keys:[{time:0,value:0},{time:0.5,value:45,curve:'easeInOut'}]}; path constraint {target:'path', id:'tail-path', property:'position', keys:[...]}; slot color value '#ff0000'; particle emitter {target:'particles', id:'exhaust', property:'emitting', keys:[{time:0,value:true},{time:1,value:false}]} or property 'rate' (numbers); slot attachment value 'eyes-closed' or null; deform value = flat offsets per vertex; sequence {target:'sequence', id:slot, attachment, property:'frame'} value = frame counter (use curve 'stepped' or linear to count through frames); drawOrder value = slot ids/names back-to-front; bone inherit mode {target:'bone', id:'cape', property:'inherit', keys:[{time:0,value:'normal'},{time:1,value:'noRotation'}]} (stepped).",
+    "Set one or more keyframes on a timeline (absolute values). Keys are merged into the timeline (same time = replaced); pass replace:true to make the timeline exactly these keys. Examples: bone rotation {target:'bone', id:'arm', property:'rotation', keys:[{time:0,value:0},{time:0.5,value:45,curve:'easeInOut'}]}; path constraint {target:'path', id:'tail-path', property:'position', keys:[...]}; slot color value '#ff0000'; particle emitter {target:'particles', id:'exhaust', property:'emitting', keys:[{time:0,value:true},{time:1,value:false}]} or property 'rate' (numbers); slot attachment value 'eyes-closed' or null; deform value = flat offsets per vertex; sequence {target:'sequence', id:slot, attachment, property:'frame'} value = frame counter (use curve 'stepped' or linear to count through frames); drawOrder value = slot ids/names back-to-front; bone inherit mode {target:'bone', id:'cape', property:'inherit', keys:[{time:0,value:'normal'},{time:1,value:'noRotation'}]} (stepped).",
   schema: z.object({
     animation: ref("Animation"),
     target,
@@ -205,10 +205,15 @@ defineOp({
       ),
     attachment: z.string().optional().describe("Mesh/path attachment name (deform) or sequence attachment name (sequence)"),
     keys: z.array(z.object({ time: z.number().min(0), value: keyValue, curve: curveIn })).min(1),
+    replace: z
+      .boolean()
+      .default(false)
+      .describe("true: the timeline gets exactly these keys (its other keys are removed); false (default): keys are added, replacing any at the same times"),
   }),
   apply(doc, a) {
     const anim = get.animation(doc, a.animation);
     const tl = resolveTimeline(doc, anim, a, true)!;
+    if (a.replace) (tl as { keys: Key<unknown>[] }).keys = [];
     for (const k of a.keys) {
       let value = k.value;
       if (tl.target === "drawOrder") value = (value as string[]).map((r) => get.slot(doc, r).id);

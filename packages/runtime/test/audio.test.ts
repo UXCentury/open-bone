@@ -21,7 +21,10 @@ const record = (inst: { on(t: "audio", fn: (c: AudioCommand) => void): unknown }
   return log;
 };
 const names = (s: DocumentStore, log: AudioCommand[]) =>
-  log.map((c) => (c.type === "play" ? `play ${s.doc.audio!.sounds.find((x) => x.id === c.sound)!.name}${c.loop ? " loop" : ""}` : `${c.type} ${c.id}`));
+  log.map((c) => (c.type === "play" ? `play ${s.doc.audio!.sounds.find((x) => x.id === c.sound)!.name}${c.loop ? " loop" : ""}` : c.type === "mix" ? `mix ${c.bus ?? "master"} ${c.muted}` : `${c.type} ${c.id}`));
+
+/** The play instance id of a command (play / stop / fade). */
+const idOf = (c: AudioCommand) => (c.type === "mix" ? "" : c.id);
 
 describe("runtime audio", () => {
   it("event keys with audio play one-shots, once per loop", () => {
@@ -37,7 +40,7 @@ describe("runtime audio", () => {
     expect(names(s, log)).toEqual(["play click", "play click"]);
     expect(log[0]).toMatchObject({ type: "play", volume: 0.5, loop: false, rate: 1, bus: "bus_sfx", source: "event:step" });
     expect(events).toEqual(["step:audio", "step:audio"]);
-    expect(new Set(log.map((c) => c.id)).size).toBe(2);
+    expect(new Set(log.map(idOf)).size).toBe(2);
   });
 
   it("audio keys on an animation: looping key starts once and stops when the animation is replaced", () => {
@@ -51,7 +54,7 @@ describe("runtime audio", () => {
     // hum once (looping, not restarted each cycle), click at 0.5 and 1.5
     expect(names(s, log)).toEqual(["play hum loop", "play click", "play click"]);
     expect(log[1]).toMatchObject({ rate: 1.5 });
-    const humId = log[0].id;
+    const humId = idOf(log[0]);
     log.length = 0;
     inst.animationState.setAnimation(0, "idle", true, 0.3);
     expect(log).toEqual([{ type: "stop", id: humId, fade: 0.3 }]);
@@ -66,7 +69,7 @@ describe("runtime audio", () => {
     inst.advance(0.5);
     expect(log.map((c) => c.type)).toEqual(["play"]);
     inst.advance(0.6);
-    expect(log[1]).toEqual({ type: "stop", id: log[0].id, fade: 0.25 });
+    expect(log[1]).toEqual({ type: "stop", id: idOf(log[0]), fade: 0.25 });
   });
 
   it("state machine: looping state sound starts on enter and stops on state change; exit hooks and listeners play", () => {
@@ -96,7 +99,7 @@ describe("runtime audio", () => {
     sm.setBool("go", false);
     inst.advance(0.1);
     // Loop fades over the transition (0.5 s ≥ the sound's 0.25 s fadeOut), then the exit hook plays.
-    expect(log[1]).toEqual({ type: "stop", id: log[0].id, fade: 0.5 });
+    expect(log[1]).toEqual({ type: "stop", id: idOf(log[0]), fade: 0.5 });
     expect(names(s, log.slice(2))).toEqual(["play click"]);
 
     // Listener actions
@@ -110,6 +113,30 @@ describe("runtime audio", () => {
     inst.pointer("up", 0, 0);
     inst.advance(0.01);
     expect(log[1]).toMatchObject({ type: "stop", fade: 1 });
+  });
+
+  it("mute buttons: setMute toggles a bus or the master and emits mix commands", () => {
+    const s = doc();
+    s.apply("updateSound", { sound: "hum", bus: "music" });
+    s.apply("createStateMachine", { name: "sm" });
+    s.apply("addState", { stateMachine: "sm", name: "idle", animation: "idle" });
+    s.apply("addListener", { stateMachine: "sm", event: "down", actions: [{ type: "setMute", bus: "music" }] });
+    s.apply("addListener", { stateMachine: "sm", event: "up", actions: [{ type: "setMute", bus: null, muted: true }] });
+    const busId = s.doc.audio!.buses.find((b) => b.name === "music")!.id;
+    expect(s.doc.stateMachines[0].listeners[0].actions[0]).toEqual({ type: "setMute", bus: busId, muted: "toggle" });
+    const inst = new OpenBoneInstance(s.doc);
+    inst.useStateMachine("sm");
+    const log = record(inst);
+    inst.advance(0.1);
+    for (const muted of [true, false, true]) {
+      inst.pointer("down", 0, 0);
+      inst.advance(0.01);
+      expect(log.at(-1)).toEqual({ type: "mix", bus: busId, muted });
+    }
+    inst.pointer("up", 0, 0);
+    inst.advance(0.01);
+    expect(log.at(-1)).toEqual({ type: "mix", bus: null, muted: true });
+    expect(() => s.apply("addListener", { stateMachine: "sm", event: "down", actions: [{ type: "setMute", bus: "nope" }] })).toThrow(/Bus "nope" not found/);
   });
 
   it("switching away from a state machine stops its sounds", () => {
@@ -169,6 +196,6 @@ describe("runtime audio", () => {
       "1 stop",
     ]);
     expect(sched[1].command).toMatchObject({ volume: 0.5, loop: false });
-    expect(sched[3].command).toMatchObject({ type: "stop", id: sched[0].command.id, fade: 0.25 });
+    expect(sched[3].command).toMatchObject({ type: "stop", id: idOf(sched[0].command), fade: 0.25 });
   });
 });

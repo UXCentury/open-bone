@@ -117,7 +117,8 @@ lays out, draws, optionally premultiplies and encodes the PNG pages. The editor'
 ## Audio
 
 The runtime never touches an audio API. `AudioDirector` (`packages/runtime/src/audio.ts`) turns triggers into audio
-commands: `play` (with an instance id), `stop` (with a fade) and `fade`, emitted by `AnimationState`,
+commands: `play` (with an instance id), `stop` (with a fade), `fade` and `mix` (a bus or the master muted / unmuted
+by a `setMute` listener action), emitted by `AnimationState`,
 `StateMachineInstance` and `OpenBoneInstance`.
 
 - **Triggers**: animation audio keys (deduplicated per owner for loops, so a looping animation does not stack copies),

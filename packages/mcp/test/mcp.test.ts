@@ -113,4 +113,16 @@ describe("skins in previews", () => {
     expect(att).toMatchObject({ fill: "#ff0000" });
     expect(() => pose(s.doc, { skin: "nope" })).toThrow(/not found/);
   });
+  it("render_gif returns big GIFs as a contact sheet instead of inline", { timeout: 120_000 }, async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "ob-gif-"));
+    const { call } = await connect();
+    await call("open_project", { path: path.resolve(__dirname, "../../../examples/windswept.obone") });
+    const small = await call("render_gif", { stateMachine: "scene", duration: 0.5, fps: 6, scale: 0.25, out: path.join(dir, "small.gif") });
+    expect(small.content[1]).toMatchObject({ type: "image", mimeType: "image/gif" });
+    const big = await call("render_gif", { stateMachine: "scene", duration: 6, fps: 15, scale: 0.5, out: path.join(dir, "big.gif") });
+    expect(big.content[0].text).toMatch(/Too big to return inline/);
+    expect(big.content[1]).toMatchObject({ type: "image", mimeType: "image/png" });
+    expect(readFileSync(path.join(dir, "big.gif")).length).toBeGreaterThan(4 * 1024 * 1024);
+    expect(big.content[1].data!.length).toBeLessThan(4 * 1024 * 1024);
+  });
 });

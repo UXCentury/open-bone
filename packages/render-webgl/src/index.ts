@@ -1,5 +1,5 @@
 import { type OpenBoneDocument, type TextureSampling, filterParts, premultipliedTextures, textureSamplings } from "@openbone/core";
-import { type ClipRegion, type DrawItem, PARTICLE_DOT_SIZE, PARTICLE_DOT_TEXTURE, type Skeleton, type TextContext, type TextDraw, cssFont, drawTextBox, particleDotAlpha } from "@openbone/runtime";
+import { type ClipRegion, type DrawItem, PARTICLE_DOT_SIZE, PARTICLE_DOT_TEXTURE, type Skeleton, type TextContext, type TextDraw, cssFont, drawTextBox, particleDotAlpha, textOverflow } from "@openbone/runtime";
 
 /** One rasterised text item: re-drawn only when its content, style or pixel scale changes. */
 interface TextTexture {
@@ -8,6 +8,8 @@ interface TextTexture {
   canvas: HTMLCanvasElement | OffscreenCanvas;
   /** Padding (skeleton units) around the box, so outlines and overhangs are not cut off. */
   pad: number;
+  /** Sideways padding: pad plus however far the measured text runs past its box. */
+  padX: number;
   used: number;
 }
 
@@ -203,7 +205,9 @@ export class WebGLRenderer {
     const px = Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)) * this.zoom;
     let scale = 2 ** Math.ceil(Math.log2(Math.max(0.25, px)));
     const pad = t.outlineWidth + t.size * 0.25;
-    const w = t.width + pad * 2;
+    // Text wider than its box (the box is often an estimate) grows the texture sideways instead of being cut off.
+    const padX = pad + textOverflow(t);
+    const w = t.width + padX * 2;
     const h = t.height + pad * 2;
     scale = Math.min(scale, MAX_TEXT_TEXTURE / Math.max(w, h));
     const id = `${it.slot.data.id}/${it.attachment.name}`;
@@ -218,7 +222,7 @@ export class WebGLRenderer {
     const gl = this.gl;
     if (!entry) {
       const canvas = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(W, H) : document.createElement("canvas");
-      entry = { key: "", tex: gl.createTexture()!, canvas, pad, used: this.frame };
+      entry = { key: "", tex: gl.createTexture()!, canvas, pad, padX, used: this.frame };
       this.texts.set(id, entry);
     }
     const c = entry.canvas;
@@ -240,14 +244,15 @@ export class WebGLRenderer {
     if (this.curTex === entry.tex) this.curTex = null;
     entry.key = key;
     entry.pad = pad;
+    entry.padX = padX;
     entry.used = this.frame;
     return entry;
   }
 
   /** Quad of a text item's texture: the box grown by the padding (TL, TR, BR, BL in world space). */
-  private static textQuad(t: TextDraw, pad: number): Float32Array {
+  private static textQuad(t: TextDraw, pad: number, padX = pad): Float32Array {
     const m = t.matrix;
-    const hw = t.width / 2 + pad;
+    const hw = t.width / 2 + padX;
     const hh = t.height / 2 + pad;
     const out = new Float32Array(8);
     const corners = [-hw, hh, hw, hh, hw, -hh, -hw, -hh];
@@ -300,7 +305,7 @@ export class WebGLRenderer {
       this.flush();
       const tt = this.textTexture(it as DrawItem & { text: TextDraw });
       if (!tt) return;
-      it = { ...it, vertices: WebGLRenderer.textQuad(it.text, tt.pad), texture: null };
+      it = { ...it, vertices: WebGLRenderer.textQuad(it.text, tt.pad, tt.padX), texture: null };
       this.curTex = tt.tex;
       this.setBlend(it.blend);
       return this.pushGeometry(it);

@@ -1,8 +1,9 @@
 import { writeFile } from "node:fs/promises";
+import { decodeImage } from "./image-load.ts";
 import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { createCanvas, loadImage } from "@napi-rs/canvas";
-import { type MouthShape, guessMouthMapping, lipSync, slotAttachments, traceMesh } from "@openbone/core";
+import { createCanvas } from "@napi-rs/canvas";
+import { type MouthShape, type TracePlacement, guessMouthMapping, lipSync, meshUvAffine, slotAttachments, traceMesh } from "@openbone/core";
 import { OpenBoneInstance, type ScriptHost, Skeleton, applyAnimation, poseChainFrom, solvePose } from "@openbone/runtime";
 import { z } from "zod";
 import { atlasSettingsSchema } from "./atlas-schema.ts";
@@ -104,14 +105,23 @@ export function registerExtraTools(server: McpServer, session: ProjectSession, s
     "trace_mesh",
     {
       description:
-        "Replace a region attachment with a mesh traced from its image's visible pixels (like the editor's Trace mesh): less transparent area is drawn and the mesh can bend. Keeps the region's place, size, rotation and tint. maxHull: outline detail (16 simple, 48 balanced, 96 detailed); interior: about N×N inner vertices for bending (0 = outline only).",
+        "Trace a mesh from an image's visible pixels (like the editor's Trace mesh / Re-trace outline): less transparent area is drawn and the mesh can bend. On a region: replaces it with a mesh in the same place, size, rotation and tint. On a mesh: re-traces it where it sits (same image mapping) and binds it again to the same bones with automatic weights (or to `bones`), with as many influences per vertex as before; its deform keys no longer apply. maxHull: outline detail cap (16 simple, 48 balanced, 96+ detailed); tolerance: how closely the outline follows the edge in image pixels (default 1% of the image's longer side; 1–2 for detailed edges like hair or feet); interior: about N×N inner vertices for bending (0 = outline only).",
       inputSchema: {
         slot: z.string(),
-        attachment: z.string().optional().describe("Region attachment name (default the slot's current one)"),
+        attachment: z.string().optional().describe("Region or mesh attachment name (default the slot's current one)"),
+        skin: z.string().optional().describe("Skin holding the attachment (default: where it is found)"),
         maxHull: z.number().int().min(3).max(200).default(48),
         interior: z.number().int().min(0).max(32).default(4),
         padding: z.number().min(0).max(32).default(2),
         threshold: z.number().int().min(0).max(254).default(8).describe("Alpha above this counts as visible"),
+        tolerance: z
+          .number()
+          .positive()
+          .max(64)
+          .optional()
+          .describe("Outline simplification in image pixels (smaller follows the edge more closely; default 1% of the image's longer side). maxHull only caps the count."),
+        bones: z.array(z.string()).min(1).optional().describe("Re-tracing a mesh: bind to these bones instead of the ones it used"),
+        falloff: z.number().positive().optional().describe("Re-tracing a weighted mesh: automatic weights falloff (default 2; higher = sharper)"),
       },
     },
     async (a) => {
@@ -120,12 +130,21 @@ export function registerExtraTools(server: McpServer, session: ProjectSession, s
         const slot = doc.skeleton.slots.find((s) => s.name === a.slot || s.id === a.slot);
         if (!slot) throw new Error(`Slot "${a.slot}" not found`);
         const name = a.attachment ?? slot.attachment;
-        const found = slotAttachments(doc, slot.id).find((x) => x.name === name);
-        const r = found?.attachment;
-        if (!r || r.type !== "region") throw new Error(`"${name}" on slot "${slot.name}" is not a region attachment`);
-        const img = doc.images.find((i) => i.id === r.image);
+        const skinId = a.skin ? doc.skeleton.skins.find((k) => k.id === a.skin || k.name === a.skin)?.id : undefined;
+        if (a.skin && !skinId) throw new Error(`Skin "${a.skin}" not found`);
+        const found = slotAttachments(doc, slot.id).find((x) => x.name === name && (!skinId || x.skin.id === skinId));
+        const att = found?.attachment;
+        if (!att || (att.type !== "region" && att.type !== "mesh")) throw new Error(`"${name}" on slot "${slot.name}" is not a region or mesh attachment`);
+        if (att.type === "mesh" && att.linked) throw new Error(`"${att.name}" is a linked mesh: it uses its parent's shape, so re-trace the parent ("${att.linked.mesh}")`);
+        if (att.type === "mesh") {
+          const users = doc.skeleton.skins.flatMap((k) =>
+            Object.values(k.attachments[slot.id] ?? {}).filter((x) => x.type === "mesh" && x.linked?.mesh === att.name && (x.linked.skin ?? found!.skin.id) === found!.skin.id),
+          );
+          if (users.length) throw new Error(`Linked meshes use this mesh's shape (${users.map((u) => u.name).join(", ")}): re-tracing would break them`);
+        }
+        const img = doc.images.find((i) => i.id === att.image);
         if (!img?.src) throw new Error("The image has no file of its own (packed in an atlas)");
-        const el = await loadImage(await session.readImageSrc(img.src));
+        const el = await decodeImage(await session.readImageSrc(img.src));
         const c = createCanvas(el.width, el.height);
         const g = c.getContext("2d");
         g.drawImage(el, 0, 0);
@@ -133,14 +152,28 @@ export function registerExtraTools(server: McpServer, session: ProjectSession, s
         const alpha = new Uint8ClampedArray(el.width * el.height);
         for (let i = 0; i < alpha.length; i++) alpha[i] = px[i * 4 + 3];
         const spacing = a.interior ? Math.max(6, Math.min(el.width, el.height) / a.interior) : 0;
-        const mesh = traceMesh(alpha, el.width, el.height, { x: r.x, y: r.y, width: r.width, height: r.height, scaleX: r.scaleX, scaleY: r.scaleY, rotation: r.rotation }, { maxHull: a.maxHull, padding: a.padding, threshold: a.threshold, interior: spacing });
+        const opts = { maxHull: a.maxHull, padding: a.padding, threshold: a.threshold, interior: spacing, tolerance: a.tolerance };
+        let placement: TracePlacement;
+        let rebind: { bones: string[]; maxInfluences: number } | null = null;
+        if (att.type === "region") placement = { x: att.x, y: att.y, width: att.width, height: att.height, scaleX: att.scaleX, scaleY: att.scaleY, rotation: att.rotation };
+        else {
+          const affine = meshUvAffine(att.vertices, att.uvs);
+          if (!affine) throw new Error("Could not work out where this mesh's image sits");
+          placement = { x: 0, y: 0, width: 1, height: 1, uvAffine: affine };
+          const used = att.weights?.length ? [...new Set(att.weights.flatMap((inf) => inf.map((w) => w.bone)))] : [];
+          const bones = a.bones ?? used;
+          if (bones.length) rebind = { bones, maxInfluences: att.weights?.length ? Math.min(4, Math.max(1, ...att.weights.map((inf) => inf.length))) : 2 };
+        }
+        const mesh = traceMesh(alpha, el.width, el.height, placement, opts);
         if (!mesh) throw new Error("Nothing visible to trace in this image");
-        session.store.transaction("trace mesh", (s) => {
-          s.apply("deleteAttachment", { slot: slot.id, attachment: r.name, skin: found!.skin.id });
-          s.apply("addMesh", { slot: slot.id, skin: found!.skin.id, name: r.name, image: r.image, ...mesh, color: r.color });
+        session.store.transaction(att.type === "mesh" ? "re-trace mesh" : "trace mesh", (s) => {
+          s.apply("deleteAttachment", { slot: slot.id, attachment: att.name, skin: found!.skin.id });
+          s.apply("addMesh", { slot: slot.id, skin: found!.skin.id, name: att.name, image: att.image, ...mesh, color: att.color });
+          if (rebind) s.apply("autoWeights", { slot: slot.id, attachment: att.name, skin: found!.skin.id, ...rebind, ...(a.falloff ? { falloff: a.falloff } : {}) });
         });
         await commit();
-        return text({ ok: true, outline: mesh.hull, inner: mesh.vertices.length / 2 - mesh.hull, triangles: mesh.triangles.length / 3 });
+        const boundTo = rebind?.bones.map((id) => doc.skeleton.bones.find((b) => b.id === id || b.name === id)?.name ?? id);
+        return text({ ok: true, retraced: att.type === "mesh", outline: mesh.hull, inner: mesh.vertices.length / 2 - mesh.hull, triangles: mesh.triangles.length / 3, ...(boundTo ? { boundTo } : {}) });
       } catch (e) {
         return fail(e);
       }

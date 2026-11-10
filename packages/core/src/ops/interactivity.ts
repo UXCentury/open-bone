@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { findSound } from "../audio.ts";
+import { findSound, findBus } from "../audio.ts";
 import { get, newId } from "../document.ts";
 import type { Condition, InputType, InputValue, ListenerAction, OpenBoneDocument, StateMachineData } from "../types.ts";
 import { ANY_STATE } from "../types.ts";
@@ -330,6 +330,11 @@ const actionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("stopSound"), sound: ref("Sound"), fade: z.number().min(0).optional().describe("Fade-out seconds (default: the sound's fadeOut)") }),
   z.object({ type: z.literal("setEmitter"), slot: ref("Slot with a particles attachment"), emitting: z.boolean() }),
   z.object({ type: z.literal("emitParticles"), slot: ref("Slot with a particles attachment"), count: z.number().int().min(1).max(10000) }),
+  z.object({
+    type: z.literal("setMute"),
+    bus: ref("Bus").nullable().default(null).describe("Bus name or id (e.g. music, sfx); null mutes everything (the master)"),
+    muted: z.union([z.boolean(), z.literal("toggle")]).default("toggle"),
+  }),
 ]);
 
 function soundId(doc: OpenBoneDocument, r: string): string {
@@ -366,6 +371,12 @@ function resolveAction(doc: OpenBoneDocument, sm: StateMachineData, x: z.infer<t
       return { type: "setEmitter", slot: get.slot(doc, x.slot).id, emitting: x.emitting };
     case "emitParticles":
       return { type: "emitParticles", slot: get.slot(doc, x.slot).id, count: x.count };
+    case "setMute": {
+      if (x.bus === null) return { type: "setMute", bus: null, muted: x.muted };
+      const bus = findBus(doc, x.bus);
+      if (!bus) throw new Error(`Bus "${x.bus}" not found. Available: ${(doc.audio?.buses ?? []).map((b) => b.name).join(", ") || "(none)"}`);
+      return { type: "setMute", bus: bus.id, muted: x.muted };
+    }
   }
 }
 

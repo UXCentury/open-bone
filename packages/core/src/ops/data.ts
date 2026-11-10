@@ -14,11 +14,21 @@ import { attTarget, placement, putAttachment } from "./rig.ts";
 
 // ---------------- Text attachments ----------------
 
-/** Rough box for a single line of text (no font metrics available here). */
+/** Full-width characters (CJK ideographs and punctuation, kana, Hangul, full-width forms, emoji) take about 1 em. */
+const WIDE = /[\u1100-\u115f\u2e80-\u303e\u3041-\u33ff\u3400-\u4dbf\u4e00-\u9fff\ua960-\ua97f\uac00-\ud7a3\uf900-\ufaff\ufe30-\ufe4f\uff00-\uff60\uffe0-\uffe6]|[\u{1f300}-\u{1faff}\u{20000}-\u{3fffd}]/u;
+
+/** Rough line width in ems: about 0.62 em per Latin character, 1 em per full-width one. */
+const lineEms = (line: string) => {
+  let ems = 0;
+  for (const ch of line) ems += WIDE.test(ch) ? 1 : 0.62;
+  return ems;
+};
+
+/** Rough box for text (no font metrics available here); renderers that rasterise text grow past it when the real text is wider. */
 export function estimateTextBox(text: string, size: number): { width: number; height: number } {
   const lines = text.split("\n");
-  const longest = Math.max(1, ...lines.map((l) => l.length));
-  return { width: Math.ceil(longest * size * 0.62 + size * 0.4), height: Math.ceil(lines.length * size * 1.25) };
+  const longest = Math.max(0.62, ...lines.map(lineEms));
+  return { width: Math.ceil(longest * size + size * 0.4), height: Math.ceil(lines.length * size * 1.25) };
 }
 
 defineOp({

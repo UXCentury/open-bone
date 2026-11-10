@@ -79,7 +79,8 @@ export async function mixAnimationAudio(doc: OpenBoneDocument, anim: AnimationDa
         v.gain.gain.linearRampToValueAtTime(0, t + c.fade);
       }
       v.src.stop(t + Math.max(0, c.fade));
-    } else {
+    } else if (c.type === "fade") {
+      // ("mix" commands come from mute buttons, never from animation tracks.)
       const v = voices.get(c.id);
       v?.gain.gain.linearRampToValueAtTime(c.volume * v.bus, t + Math.max(0.005, c.duration));
     }

@@ -24,7 +24,9 @@ export type AudioCommand =
       source: string;
     }
   | { type: "stop"; id: string; /** Seconds to fade out before stopping (0 = cut). */ fade: number }
-  | { type: "fade"; id: string; /** Target volume (sound x play volume scale). */ volume: number; duration: number };
+  | { type: "fade"; id: string; /** Target volume (sound x play volume scale). */ volume: number; duration: number }
+  /** Mute or unmute a bus (null = the master) on top of the document's mix, e.g. from a mute button. */
+  | { type: "mix"; bus: Id | null; muted: boolean };
 
 export interface PlayOptions {
   volume?: number;
@@ -131,6 +133,25 @@ export class AudioDirector {
 
   stopAll(fade = 0) {
     for (const id of [...this.playing.keys()]) this.stop(id, fade);
+  }
+
+  /** Mutes set while playing (bus id, "" = master), starting from the document's mix. */
+  private mutes = new Map<string, boolean>();
+
+  /** Whether a bus (null = the master) is muted right now. */
+  isMuted(bus: Id | null): boolean {
+    const key = bus ?? "";
+    if (this.mutes.has(key)) return this.mutes.get(key)!;
+    const a = this.doc.audio;
+    return bus === null ? !!a?.muted : !!a?.buses.find((b) => b.id === bus)?.muted;
+  }
+
+  /** Mute, unmute or toggle a bus (null = the master); emits a "mix" command. Returns the new state. */
+  setMute(bus: Id | null, muted: boolean | "toggle"): boolean {
+    const next = muted === "toggle" ? !this.isMuted(bus) : muted;
+    this.mutes.set(bus ?? "", next);
+    this.out({ type: "mix", bus, muted: next });
+    return next;
   }
 }
 

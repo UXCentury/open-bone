@@ -1,4 +1,4 @@
-import type { ClipRegion, DrawItem, TextDraw } from "@openbone/runtime";
+import { type ClipRegion, type DrawItem, type TextDraw, textOverflow } from "@openbone/runtime";
 
 export type BlendMode = DrawItem["blend"];
 
@@ -44,10 +44,13 @@ export interface BatchOptions {
 /** Padding (skeleton units) around a text box, so outlines and overhangs are not cut off (as in render-webgl). */
 export const textPad = (t: TextDraw) => t.outlineWidth + t.size * 0.25;
 
-/** Quad of a text item's texture: the box grown by `pad` (TL, TR, BR, BL in world space). */
-export function textQuad(t: TextDraw, pad = textPad(t)): Float32Array {
+/** Horizontal padding: textPad plus however far the measured text runs past its box (so it is never cut off). */
+export const textPadX = (t: TextDraw) => textPad(t) + textOverflow(t);
+
+/** Quad of a text item's texture: the box grown by `pad` (and `padX` sideways) (TL, TR, BR, BL in world space). */
+export function textQuad(t: TextDraw, pad = textPad(t), padX = textPadX(t)): Float32Array {
   const m = t.matrix;
-  const hw = t.width / 2 + pad;
+  const hw = t.width / 2 + padX;
   const hh = t.height / 2 + pad;
   const out = new Float32Array(8);
   const corners = [-hw, hh, hw, hh, hw, -hh, -hw, -hh];
@@ -141,9 +144,8 @@ export function buildBatches(items: DrawItem[], opts: BatchOptions = {}): Batch[
     }
     if (it.text) {
       close();
-      const pad = textPad(it.text);
       cur = new Builder(null, it.blend, clip, { id: textId(it), draw: it.text, item: it });
-      cur.push(it, textQuad(it.text, pad));
+      cur.push(it, textQuad(it.text));
       close();
       continue;
     }

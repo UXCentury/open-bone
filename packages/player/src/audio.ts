@@ -112,22 +112,33 @@ export class WebAudioBackend {
     return g;
   }
 
-  /** Apply the document's master/bus volumes and mutes (and the host mute) to the graph. */
+  /** Mutes set while playing by "mix" commands (mute buttons): bus id, "" = master. They win over the document. */
+  private mixMutes = new Map<string, boolean>();
+
+  private isMuted(busId: string | null): boolean {
+    const key = busId ?? "";
+    if (this.mixMutes.has(key)) return this.mixMutes.get(key)!;
+    const a = this.doc.audio;
+    return busId === null ? !!a?.muted : !!a?.buses.find((b) => b.id === busId)?.muted;
+  }
+
+  /** Apply the document's master/bus volumes and mutes (and the host mute, and mute buttons) to the graph. */
   syncMix() {
     const ctx = this.ctx;
     if (!ctx) return;
     const a = this.doc.audio;
     const t = ctx.currentTime;
-    if (this.master) this.master.gain.setTargetAtTime(this.hostMuted || a?.muted ? 0 : (a?.master ?? 1), t, 0.015);
+    if (this.master) this.master.gain.setTargetAtTime(this.hostMuted || this.isMuted(null) ? 0 : (a?.master ?? 1), t, 0.015);
     for (const [id, g] of this.buses) {
       const bus = a?.buses.find((b) => b.id === id);
-      g.gain.setTargetAtTime(bus ? (bus.muted ? 0 : bus.volume) : 1, t, 0.015);
+      g.gain.setTargetAtTime(bus ? (this.isMuted(id) ? 0 : bus.volume) : 1, t, 0.015);
     }
   }
 
   /** Effective gain a sound on `busId` gets from the mix right now (master x bus, 0 when muted). */
   busGain(busId: string | null) {
-    return this.hostMuted ? 0 : busGain(this.doc, busId);
+    if (this.hostMuted || this.isMuted(null) || (busId !== null && this.isMuted(busId))) return 0;
+    return busGain(this.doc, busId);
   }
 
   url(asset: AudioAsset): string {
@@ -199,6 +210,16 @@ export class WebAudioBackend {
         v.gain.gain.setValueAtTime(v.gain.gain.value, t);
         v.gain.gain.linearRampToValueAtTime(cmd.volume, t + Math.max(0.005, cmd.duration));
         this.opts.onLog?.(`fade ${cmd.id} → ${cmd.volume} over ${cmd.duration}s`, cmd);
+        return;
+      }
+      case "mix": {
+        this.mixMutes.set(cmd.bus ?? "", cmd.muted);
+        // Make sure the bus node exists so the mute applies to sounds started later too.
+        const ctx = this.ctx;
+        if (ctx && cmd.bus) this.busNode(ctx, cmd.bus);
+        this.syncMix();
+        const name = cmd.bus === null ? "master" : (this.doc.audio?.buses.find((b) => b.id === cmd.bus)?.name ?? cmd.bus);
+        this.opts.onLog?.(`${cmd.muted ? "mute" : "unmute"} ${name}`, cmd);
         return;
       }
     }

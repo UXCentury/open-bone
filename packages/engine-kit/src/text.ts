@@ -1,5 +1,5 @@
 import { type TextContext, type TextDraw, cssFont, drawTextBox } from "@openbone/runtime";
-import { textPad } from "./batch.ts";
+import { textPad, textPadX } from "./batch.ts";
 
 /** A canvas the rasteriser can draw into (HTMLCanvasElement, OffscreenCanvas or a headless canvas). */
 export interface RasterCanvas {
@@ -62,7 +62,8 @@ export class TextRasterizer {
     const px = Math.sqrt(Math.abs(m.a * m.d - m.b * m.c)) * pixelsPerUnit;
     let scale = 2 ** Math.ceil(Math.log2(Math.max(0.25, px)));
     const pad = textPad(t);
-    const w = t.width + pad * 2;
+    const padX = textPadX(t);
+    const w = t.width + padX * 2;
     const h = t.height + pad * 2;
     scale = Math.min(scale, MAX_TEXT_TEXTURE / Math.max(w, h));
     const key = `${t.content}|${cssFont(t)}|${t.align}|${t.width}x${t.height}|${t.fill}|${t.outline}|${t.outlineWidth}|${scale}`;

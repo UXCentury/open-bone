@@ -36,6 +36,37 @@ export const cssColor = (c: RGBA) => `rgba(${Math.round(c[0] * 255)},${Math.roun
 /** CSS font shorthand for a text item. */
 export const cssFont = (t: Pick<TextDraw, "weight" | "size" | "font">) => `${t.weight} ${t.size}px ${t.font}`;
 
+type Measurer = { font: string; measureText(text: string): { width: number } };
+let measurer: Measurer | null | undefined;
+const measured = new Map<string, number>();
+
+/**
+ * How far (skeleton units) the widest line of a text item runs past its box, measured with the real font. Renderers
+ * that rasterise text into a box-sized texture grow the texture by this, so text wider than its stored box (an
+ * estimate, or a font that renders wider than expected) is not cut off. 0 when no canvas is available to measure.
+ */
+export function textOverflow(t: Pick<TextDraw, "content" | "font" | "size" | "weight" | "width">): number {
+  const font = cssFont(t);
+  const key = `${font}|${t.content}`;
+  let w = measured.get(key);
+  if (w === undefined) {
+    if (measurer === undefined) {
+      try {
+        const c = typeof OffscreenCanvas !== "undefined" ? new OffscreenCanvas(1, 1) : typeof document !== "undefined" ? document.createElement("canvas") : null;
+        measurer = (c?.getContext("2d") as unknown as Measurer | null) ?? null;
+      } catch {
+        measurer = null;
+      }
+    }
+    if (!measurer) return 0;
+    measurer.font = font;
+    w = Math.max(0, ...t.content.split("\n").map((l) => Number(measurer!.measureText(l)?.width) || 0));
+    if (measured.size > 2000) measured.clear();
+    measured.set(key, w);
+  }
+  return Math.max(0, w - t.width);
+}
+
 /**
  * Draw a text item in its own box frame: origin at the box centre, y down, one unit per skeleton unit.
  * Lines are centred vertically in the box; `tint` multiplies the fill and outline colours.
