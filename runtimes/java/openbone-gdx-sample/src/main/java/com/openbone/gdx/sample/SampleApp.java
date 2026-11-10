@@ -11,6 +11,7 @@ import com.badlogic.gdx.graphics.PixmapIO;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.openbone.gdx.DocumentTextures;
+import com.openbone.gdx.OpenBoneAudio;
 import com.openbone.gdx.OpenBoneRenderer;
 import com.openbone.runtime.AudioCommand;
 import com.openbone.runtime.FiredEvent;
@@ -25,6 +26,7 @@ public class SampleApp extends ApplicationAdapter {
     String file = "../../examples/knight.obone";
     String stateMachine, animation, screenshot;
     int frames = 0, width = 960, height = 720;
+    boolean mute;
 
     static Options parse(String[] args) {
       Options o = new Options();
@@ -34,6 +36,7 @@ public class SampleApp extends ApplicationAdapter {
           case "--screenshot": o.screenshot = args[++i]; break;
           case "--state-machine": o.stateMachine = args[++i]; break;
           case "--animation": o.animation = args[++i]; break;
+          case "--mute": o.mute = true; break;
           case "--size": {
             String[] wh = args[++i].split("x");
             o.width = Integer.parseInt(wh[0]);
@@ -52,6 +55,7 @@ public class SampleApp extends ApplicationAdapter {
   private OpenBoneInstance instance;
   private DocumentTextures textures;
   private OpenBoneRenderer renderer;
+  private OpenBoneAudio audio;
   private final OrthographicCamera camera = new OrthographicCamera();
   private int frame;
 
@@ -80,6 +84,8 @@ public class SampleApp extends ApplicationAdapter {
         Gdx.app.log("audio", c.toMap().toString());
       }
     });
+    // Plays the sounds; the log above still sees every command. --mute leaves it out.
+    if (!options.mute) instance.addListener(audio = new OpenBoneAudio(doc, file.parent()));
     if (options.animation != null) instance.play(options.animation, true);
     else if (!doc.stateMachines.isEmpty()) instance.useStateMachine(options.stateMachine);
     else if (!doc.animations.isEmpty()) instance.play(doc.animations.get(0).name, true);
@@ -132,6 +138,7 @@ public class SampleApp extends ApplicationAdapter {
     // Fixed steps in headless mode keep screenshots reproducible.
     double dt = options.frames > 0 ? 1 / 60.0 : Math.min(Gdx.graphics.getDeltaTime(), 0.1);
     instance.advance(dt);
+    if (audio != null) audio.update((float) dt);
     ScreenUtils.clear(0.12f, 0.12f, 0.14f, 1, true);
     Gdx.gl.glClear(GL20.GL_STENCIL_BUFFER_BIT);
     renderer.draw(instance, textures, camera.combined);
@@ -150,6 +157,7 @@ public class SampleApp extends ApplicationAdapter {
   @Override
   public void dispose() {
     instance.dispose();
+    if (audio != null) audio.dispose();
     renderer.dispose();
     textures.dispose();
   }

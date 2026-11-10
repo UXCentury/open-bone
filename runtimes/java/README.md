@@ -4,7 +4,7 @@ A native Java port of the TypeScript runtime (`packages/runtime`), a libGDX rend
 loads `.obone` and `.obonb` files and implements everything in [docs/runtime-spec.md](../../docs/runtime-spec.md):
 skeletons, skins and skin bones, every attachment type, animation mixing, IK / transform / path / physics constraints
 in custom order, sliders, sprite sequences, particles (same RNG), text templates, the draw list, state machines with
-listeners and input bindings, events, audio commands and scripts.
+listeners and input bindings, events, audio commands (played by the libGDX and Android modules) and scripts.
 
 It passes the whole conformance suite: all 82 cases of the 18 files in [`conformance/expected`](../../conformance/expected),
 on the JVM and on an Android emulator.
@@ -14,7 +14,7 @@ on the JVM and on an Android emulator.
 | `openbone-runtime` | Java 11, no dependencies | The runtime: `DocumentLoader`, `OpenBoneInstance`, `Skeleton`, `AnimationState`, `StateMachineInstance`, `DrawItem`s |
 | `openbone-scripting` | Kotlin (JVM, Android) | `QuickJsScriptHost`: state machine scripts in QuickJS |
 | `openbone-gdx` | Java 11 | `OpenBoneRenderer` for libGDX: two-colour tint shader, blend modes, stencil clipping, particles, text |
-| `openbone-gdx-sample` | Java 11 | LWJGL3 desktop sample (mouse → listeners, events and audio commands in the log) |
+| `openbone-gdx-sample` | Java 11 | LWJGL3 desktop sample (mouse → listeners, sound, events and audio commands in the log) |
 | `openbone-android` | Kotlin, Android library | `OpenBoneView`: a `View` with a Kotlin API (inputs, triggers, events as lambdas, touch → pointer listeners) |
 | `openbone-conformance` | Java tests | JUnit runner for `conformance/expected/*.json`, plus unit tests for the porting traps |
 
@@ -27,7 +27,8 @@ cd runtimes/java
 ./gradlew test
 ```
 
-`test` runs the conformance suite (`openbone-conformance`) and the unit tests. Run one file with
+`test` runs the conformance suite (`openbone-conformance`) and the unit tests (porting traps, `AudioMixerTest`).
+Run one file with
 `./gradlew :openbone-conformance:test -Dopenbone.only=example-knight`.
 
 The Android library is built when an Android SDK is found (`local.properties` `sdk.dir`, `ANDROID_HOME`,
@@ -59,7 +60,7 @@ OpenBoneInstance inst = new OpenBoneInstance(doc, new QuickJsScriptHost()); // n
 inst.addListener(new OpenBoneInstance.Listener() {
   @Override public void event(FiredEvent e) { System.out.println(e.name); }
   @Override public void stateChange(String layer, String from, String to) { }
-  @Override public void audio(AudioCommand c) { audioBackend.handle(c); } // play / stop / fade
+  @Override public void audio(AudioCommand c) { mixer.handle(c); } // play / stop / fade (see AudioMixer)
 });
 
 StateMachineInstance sm = inst.useStateMachine("knight"); // or inst.play("walk", true)
@@ -75,8 +76,12 @@ for (DrawItem it : inst.drawList()) { /* vertices, uvs, indices, color, dark, bl
 `setText`. `inst.animationState` queues and mixes animations on tracks (`setAnimation`, `addAnimation`).
 Draw item vertices are skeleton space (y up); uvs are in the item's texture (an image, or an atlas page when packed).
 
-Audio: the runtime never plays sound. It emits `AudioCommand`s (`play` with sound, asset, bus, volume, rate, loop,
-fade-in; `stop` with a fade; `fade`); feed them to your audio API and apply `doc.audio` bus and master volumes.
+Audio: the runtime itself never plays sound. It emits `AudioCommand`s (`play` with sound, asset, bus, volume, rate,
+loop, fade-in; `stop` with a fade; `fade`). `AudioMixer` (in `openbone-runtime`, no dependencies) turns them into calls
+on an `AudioMixer.Output` that makes the noise: gain `command volume × bus volume (0 if muted) × master (0 if the
+document is muted)`, voice bookkeeping, fade-in, stop fades and `fade` commands (the sound's new volume, keeping the
+voice's bus and master gain) stepped in `update(seconds)`, and one-shots released after their asset's duration. The
+libGDX and Android players below are built on it; implement `Output` for any other engine.
 
 ## libGDX
 
@@ -99,15 +104,30 @@ renderer.draw(inst, textures, camera.combined); // camera in skeleton space (y u
   generated white texture; strokes are drawn as quads.
 - Text uses a `BitmapFont` (libGDX's default font unless you pass one) scaled to each text's size.
 
+Sound: `OpenBoneAudio` plays a document's sounds with `Gdx.audio` `Sound`s (files loaded once from `data:` URLs or
+paths relative to the folder you give; rate as pitch in libGDX's 0.5…2 range; looping; fades stepped per frame). It is
+an `OpenBoneInstance.Listener`, so playing is opt-in per instance and your own listeners keep every command:
+
+```java
+OpenBoneAudio audio = new OpenBoneAudio(doc, Gdx.files.internal("knight"));
+inst.addListener(audio);                    // leave this out to stay silent
+// render():  inst.advance(dt); audio.update(Gdx.graphics.getDeltaTime());
+// dispose(): audio.dispose();
+```
+
+The sample plays sounds by default; `--mute` turns them off.
+
 ## Android (Kotlin)
 
 ```kotlin
 val view = OpenBoneView(context)
-view.load(assets.open("knight/knight.obone").readBytes(), ImageSource.assets(assets, "knight"))
+view.load(assets.open("knight/knight.obone").readBytes(), ImageSource.assets(assets, "knight"),
+  SoundSource.assets(assets, "knight"))        // sounds next to the document (default: embedded data: URLs only)
 view.useStateMachine("knight")                 // or view.play("walk")
 view.onEvent { e -> if (e.name == "footstep") playStep() }
 view.onStateChange { layer, from, to -> Log.d("anim", "$layer: $from → $to") }
-view.onAudio { cmd -> soundBackend.handle(cmd) }
+view.onAudio { cmd -> Log.d("audio", "$cmd") } // every command, whether or not the view plays it
+view.isAudioEnabled = false                    // opt out of playback (on by default)
 view["walk"] = true                            // inputs: Boolean, Number or String
 view.fire("attack")
 view.setText("score", "{points:#,##0}")
@@ -117,6 +137,12 @@ view.fit = OpenBoneView.Fit.CONTAIN            // CONTAIN, COVER, FILL, NONE
 Touch (`down`, `move`, `up`) and mouse/stylus hover reach the state machine's pointer listeners in skeleton space
 (`viewToSkeleton` / `skeletonToView` convert). The view advances on the display's frame clock while attached and
 `isPlaying`; `advance(seconds)` steps it by hand. `release()` stops sounds and scripts and frees bitmaps.
+
+The view plays the document's sounds with `OpenBoneAudio` (usable on its own with any instance): short sounds through
+a `SoundPool`, sounds longer than 5 s through a `MediaPlayer` each, with rate (0.5…2), looping, volume and fades
+stepped on the frame clock. Files are read once through the `SoundSource` and cached in the app's cache folder; a play
+that arrives while its sound is still loading starts when it is ready unless a stop came first. Sounds stop when the
+view leaves its window or loads another document; `audio?.volume` scales everything it plays.
 
 `CanvasRenderer` (usable on any `Canvas`) draws triangles with `drawVertices`; the two-colour tint is a colour matrix
 per item (`dark + (light − dark) × texture`, exact for uniformly tinted items, which is every image), blend modes map
