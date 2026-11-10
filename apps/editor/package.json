@@ -22,7 +22,8 @@
     "ag-psd": "^34.1.0",
     "idb-keyval": "^6.2.2",
     "mp4-muxer": "5.2.2",
-    "solid-js": "^1.9.9"
+    "solid-js": "^1.9.9",
+    "webm-muxer": "5.1.4"
   },
   "devDependencies": {
     "vite": "^7.1.0",

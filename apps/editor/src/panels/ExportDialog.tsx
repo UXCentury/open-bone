@@ -42,6 +42,7 @@ const GROUPS: { title: string; items: { id: Format; label: string; hint: string 
     items: [
       { id: "avi", label: "AVI", hint: "Motion-JPEG, uncompressed sound" },
       { id: "mp4", label: "MP4", hint: "H.264 with sound, plays everywhere" },
+      { id: "webm", label: "WebM", hint: "VP9 with Opus sound; can keep a transparent background for web pages" },
       { id: "mov", label: "MOV", hint: "QuickTime, Motion-JPEG, uncompressed sound" },
     ],
   },
@@ -932,7 +933,9 @@ export function ExportDialog() {
                       <div class="muted small">
                         {format() === "mp4"
                           ? "H.264 video with AAC sound (Opus where the browser has no AAC encoder): plays in browsers, phones, QuickTime, VLC and video editors."
-                          : "Motion-JPEG video with uncompressed sound: plays in VLC, QuickTime and Windows players, and imports into video editors."}
+                          : format() === "webm"
+                            ? "VP9 video (VP8 where the browser lacks VP9) with Opus sound: plays in browsers and VLC. With a transparent background the video keeps its alpha channel (Chrome, Edge), for layering over a web page."
+                            : "Motion-JPEG video with uncompressed sound: plays in VLC, QuickTime and Windows players, and imports into video editors."}
                       </div>
                     </Show>
                   </fieldset>

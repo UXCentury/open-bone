@@ -4,11 +4,12 @@ import { CanvasRenderer } from "@openbone/render-canvas";
 import { Skeleton, seekAnimation } from "@openbone/runtime";
 import { mixAnimationAudio } from "./export-audio.ts";
 import { encodeMp4 } from "./export-mp4.ts";
+import { encodeWebm } from "./export-webm.ts";
 import { resolveImageUrl } from "./images.ts";
 
 /** Image and video exports: render an animation offscreen, then encode the frames. */
 
-export type MediaFormat = "png" | "jpeg" | "gif" | "apng" | "psd" | "avi" | "mov" | "mp4";
+export type MediaFormat = "png" | "jpeg" | "gif" | "apng" | "psd" | "avi" | "mov" | "mp4" | "webm";
 
 export interface MediaOptions {
   /** Animation id, or null for the setup pose (one frame). */
@@ -42,6 +43,7 @@ export const MEDIA: Record<MediaFormat, { label: string; ext: string; mime: stri
   avi: { label: "AVI", ext: "avi", mime: "video/x-msvideo", animated: true, alpha: false, video: true },
   mov: { label: "MOV", ext: "mov", mime: "video/quicktime", animated: true, alpha: false, video: true },
   mp4: { label: "MP4", ext: "mp4", mime: "video/mp4", animated: true, alpha: false, video: true },
+  webm: { label: "WebM", ext: "webm", mime: "video/webm", animated: true, alpha: true, video: true },
 };
 
 /** Frame times for an export: every 1/fps over the animation (a loop's end frame equals its first, so it is skipped). */
@@ -193,11 +195,21 @@ export async function exportMedia(doc: OpenBoneDocument, o: MediaOptions, format
       return file(encodePsd(frames.map((f, i) => ({ name: frames.length > 1 ? `frame ${pad(i)}` : baseName, frame: f }))));
     case "avi":
     case "mov":
-    case "mp4": {
+    case "mp4":
+    case "webm": {
       // Sound: what the animation plays over the video's length (frames / fps).
       const anim = o.animation ? doc.animations.find((a) => a.id === o.animation) : null;
       onProgress?.("Mixing sound", 0);
       const mix = anim && o.audio !== false ? await mixAnimationAudio(doc, anim, frames.length / o.fps) : null;
+      if (format === "webm") {
+        const r = await encodeWebm(
+          frames,
+          { width, height, fps: o.fps, quality: o.quality, audio: mix, transparent: o.background === null, fallbackBackground: doc.background ?? "#ffffff" },
+          (p) => onProgress?.("Encoding", p),
+        );
+        const desc = `WebM (${r.videoCodec}${r.alpha ? " with transparency" : ""}${r.sound ? ", Opus sound" : ""})`;
+        return { ...file(r.data, "webm", info.mime, desc), warnings: r.warnings };
+      }
       if (format === "mp4") {
         const r = await encodeMp4(frames, { width, height, fps: o.fps, quality: o.quality, audio: mix }, (p) => onProgress?.("Encoding", p));
         const sound = r.audioCodec ? `, ${r.audioCodec === "aac" ? "AAC" : "Opus"} sound` : "";

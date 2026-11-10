@@ -47,7 +47,8 @@ jobs:
       - uses: actions/checkout@v7
       - uses: awalsh128/cache-apt-pkgs-action@v1.6.3
         with:
-          packages: libsdl2-dev libsfml-dev
+          # SDL2 and SFML samples; X11 headers for building GLFW from source.
+          packages: libsdl2-dev libsfml-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
           version: 1
       # godot-cpp is most of this job's compile time; ccache keeps it between runs.
       - uses: hendrikmuhs/ccache-action@v1.2.24
@@ -81,3 +82,7 @@ jobs:
         run: |
           cmake -S runtimes/cpp/engines/sfml -B build-sfml -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
           cmake --build build-sfml --parallel 4
+      - name: GLFW sample
+        run: |
+          cmake -S runtimes/cpp/engines/glfw -B build-glfw -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build build-glfw --parallel 4

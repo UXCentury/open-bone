@@ -4,6 +4,8 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app). Se
 
 ## Unreleased
 
+- **WebM video export**: VP9 (VP8 as fallback) with Opus sound through WebCodecs and `webm-muxer` (MIT); with a transparent background the video keeps its alpha channel where the browser's encoder supports it (Chrome, Edge), otherwise the background is filled with the document's colour and the dialog says so.
+- **GLFW / OpenGL 3.3 sample** (`runtimes/cpp/engines/glfw`): the WebGL2 renderer's shader and blending in plain OpenGL (two-colour tint, premultiplied pages, all blend modes, stencil clipping), mouse input, and a hidden-window `--out frame.png` mode.
 - The Flutter plugin moved from `runtimes/dart` to `runtimes/flutter/openbone`: Flutter 3.47's Swift Package Manager support fails when a plugin's folder name differs from its package name ([flutter#186881](https://github.com/flutter/flutter/issues/186881)).
 - Java runtime on **Gradle 9.9** and Android Gradle Plugin 9.5 (Kotlin 2.4 through the Kotlin Android plugin), without Gradle 10 deprecations.
 - **Swift Package Manager** for the Flutter plugin on iOS and macOS (`runtimes/flutter/openbone/darwin/openbone/Package.swift`, with iOS and macOS sharing one `darwin/` folder and podspec), so Flutter no longer warns that `openbone` lacks SPM support; the podspecs stay for CocoaPods.

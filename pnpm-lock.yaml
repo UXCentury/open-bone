@@ -71,6 +71,9 @@ importers:
       solid-js:
         specifier: ^1.9.9
         version: 1.9.18
+      webm-muxer:
+        specifier: 5.1.4
+        version: 5.1.4
     devDependencies:
       vite:
         specifier: ^7.1.0
@@ -1813,6 +1816,10 @@ packages:
       jsdom:
         optional: true
 
+  webm-muxer@5.1.4:
+    resolution: {integrity: sha512-ditzgFVFbfqPaugkIr4mGhAdob5K9HY6Rzlh7TRsA368yA1sp/m5O7nQCcMLdgFDeNGtFPg8B+MeXLtpzKWX6Q==}
+    deprecated: This library is superseded by Mediabunny. Please migrate to it.
+
   which@2.0.2:
     resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
     engines: {node: '>= 8'}
@@ -3173,6 +3180,11 @@ snapshots:
       - terser
       - tsx
       - yaml
+
+  webm-muxer@5.1.4:
+    dependencies:
+      '@types/dom-webcodecs': 0.1.19
+      '@types/wicg-file-system-access': 2020.9.8
 
   which@2.0.2:
     dependencies:

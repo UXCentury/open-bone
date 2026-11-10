@@ -1,7 +1,7 @@
 # OpenBone C++ runtime
 
 A native port of the TypeScript runtime (`packages/runtime`) in C++17, with a stable C API for FFI (Swift, Dart, C#,
-Python…) and integrations for Godot 4, SDL2, SFML, Unreal Engine 5 and Cocos2d-x. It has no engine dependencies:
+Python…) and integrations for Godot 4, SDL2, SFML, GLFW (OpenGL), Unreal Engine 5 and Cocos2d-x. It has no engine dependencies:
 it loads `.obone` / `.obonb` documents, poses skeletons, runs animations and state machines (with scripts in an
 embedded QuickJS sandbox) and hands you a **draw list** — textured triangles in draw order — plus events and audio
 commands. Rendering and audio playback are up to the engine.
@@ -116,6 +116,7 @@ and the box-to-skeleton matrix. `engines/common/openbone_assets.hpp` decodes `da
 | --- | --- | --- | --- |
 | Godot 4.4+ | [`engines/godot`](engines/godot) | GDExtension: `OpenBoneSprite` (Node2D) — loads a document, plays animations / state machines, mouse input, signals `animation_event`, `audio_command`, `state_changed`; draws with RenderingServer canvas items (clip-only canvas groups for masks, a canvas shader for two-colour tint and premultiplied pages, blend modes, text with the theme's fallback font) | Built against godot-cpp 4.4; loaded and run in **headless Godot 4.4.1** on the interactive and dynamics fixtures and the knight, rocket and campfire examples (`demo/test_headless.gd`, CTest with `-DGODOT_EXECUTABLE`) |
 | SDL2 | [`engines/sdl2`](engines/sdl2) | `SDL_RenderGeometry` sample with mouse input; `--frames N --out frame.bmp` renders offscreen with the software renderer | Built (SDL 2.30.9 from source) and run headless; frames checked by eye |
+| GLFW + OpenGL 3.3 | [`engines/glfw`](engines/glfw) | The WebGL2 renderer's shader and blending in plain OpenGL: two-colour tint, premultiplied pages, all four blend modes, stencil clipping masks; mouse input; `--frames N --out frame.png` renders into a hidden window. No GL loader library (functions come from `glfwGetProcAddress`) | Built (GLFW 3.4 from source) and run on Linux: examples, clipping, additive blending and a premultiplied polygon atlas checked by eye. Text is not rasterised; sound commands are printed |
 | SFML 2.6 | [`engines/sfml`](engines/sfml) | `sf::Drawable` with triangle arrays, a GLSL two-colour tint shader, mouse input, `sf::Text` for text with `--font`; `--out frame.png` renders into an `sf::RenderTexture` | Built (SFML 2.6.2 from source, `-DOPENBONE_FETCH_SFML=ON`) and run offscreen |
 | Unreal Engine 5 | [`engines/unreal/OpenBone`](engines/unreal/OpenBone) | Plugin: `UOpenBoneComponent` (ProceduralMeshComponent, one section per draw item) over the C API, Blueprint events and calls | Source and build files only — **not compiled** (no Unreal Engine here) |
 | Cocos2d-x 4.0 | [`engines/cocos2dx`](engines/cocos2dx) | `OpenBoneNode` queuing a `TrianglesCommand` per draw item, touch and mouse input | Built and run with Cocos2d-x 4.0 on Linux (Ubuntu 22.04, GCC 11): the knight with its state machine, textures, meshes and blend modes |
@@ -146,6 +147,20 @@ knight.audio_command.connect(func(cmd): print(cmd))   # {type, id, sound, asset,
 
 Headless check: `godot --headless --path runtimes/cpp/engines/godot/demo -s test_headless.gd -- <file.obone>`.
 Screen blending falls back to additive (Godot canvas materials have no screen mode).
+
+### GLFW (OpenGL 3.3)
+
+```bash
+cmake -S runtimes/cpp/engines/glfw -B build-glfw -DCMAKE_BUILD_TYPE=Release && cmake --build build-glfw -j
+```
+
+```bash
+build-glfw/openbone_glfw examples/knight.obone                         # a window; click the knight
+build-glfw/openbone_glfw examples/button.obone --frames 30 --out button.png   # hidden window → PNG
+```
+
+Uses an installed GLFW 3.3+ or builds GLFW 3.4 from source (X11 headers needed on Linux). The sample is one file,
+`engines/glfw/main.cpp`: copy its `Renderer` and `Textures` into an OpenGL game to draw OpenBone documents there.
 
 ### SDL2, SFML
 

@@ -21,7 +21,7 @@
 - **Rig like Spine**: bones, weighted meshes, IK, transform, path and physics constraints, skins, clipping, two-colour tint, texture atlases.
 - **Make it interactive like Rive**: state machines with inputs, pointer listeners, live text, input bindings and sandboxed scripts.
 - **Sound built in**: sounds on the timeline, events and states, a mixer with buses, and lip sync from a voice recording.
-- **Play it anywhere**: web (WebGL, Canvas, PixiJS, Phaser, Three.js, CanvasKit) and native runtimes for C/C++ (Godot, Unreal, Cocos2d-x, SDL2, SFML), C# (Unity), Java (libGDX, Android), Swift and Flutter, all checked against one conformance suite.
+- **Play it anywhere**: web (WebGL, Canvas, PixiJS, Phaser, Three.js, CanvasKit) and native runtimes for C/C++ (Godot, Unreal, Cocos2d-x, SDL2, SFML, OpenGL), C# (Unity), Java (libGDX, Android), Swift and Flutter, all checked against one conformance suite.
 - **Let an agent do it**: every edit is an MCP tool, and the editor shows an agent's work live.
 
 Everything in this repository is **MIT** and built only on permissively licensed open-source dependencies.
@@ -63,7 +63,7 @@ pnpm test
 | Web player | `@openbone/player` | browser | `<openbone-player>` element and `Player` class, WebGL2 or Canvas2D, Web Audio |
 | Web renderers | `@openbone/render-webgl`, `@openbone/render-canvas` | browser, Node | Batched WebGL2 with stencil clipping; Canvas2D for the editor and headless PNG/GIF |
 | Web engines | [`@openbone/pixi`](packages/pixi), [`phaser`](packages/phaser), [`three`](packages/three), [`canvaskit`](packages/canvaskit) | PixiJS v8, Phaser 3, Three.js r160+, CanvasKit | Same batches as the WebGL renderer, checked frame for frame; engine pointer events |
-| C / C++ | [`runtimes/cpp`](runtimes/cpp) | Godot 4, Cocos2d-x 4, SDL2, SFML, Unreal 5, any | C++17 port with a stable C API (`openbone.h`); scripts in embedded QuickJS; plays sound in Godot and Cocos2d-x |
+| C / C++ | [`runtimes/cpp`](runtimes/cpp) | Godot 4, Cocos2d-x 4, SDL2, SFML, GLFW/OpenGL, Unreal 5, any | C++17 port with a stable C API (`openbone.h`); scripts in embedded QuickJS; plays sound in Godot and Cocos2d-x |
 | C# / Unity | [`runtimes/csharp`](runtimes/csharp) | .NET Standard 2.1, Unity 2021.3+ | `OpenBone.Runtime` (scripts in Jint) and the `com.openbone.runtime` package: importer, components, mesh, AudioSource bridge (tested in Unity 6) |
 | Java / Android | [`runtimes/java`](runtimes/java) | any JVM (Java 11+), libGDX 1.14, Android 7+ | Pure Java port; libGDX renderer; Kotlin `OpenBoneView` |
 | Swift | [`runtimes/swift`](runtimes/swift) | iOS 15+, macOS 12+ | Swift API over the C API; Metal `OpenBoneView` (UIKit, AppKit) and SwiftUI `OpenBonePlayer` |
@@ -198,7 +198,7 @@ Needs Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1, GTK 3).
 
 - **Project** (`.obone`) and **data**: JSON or compact **binary** (`.obonb`, about 40% of JSON), with atlas packing and clean-up options.
 - **Images**: PNG and JPEG (one frame or a ZIP of frames), animated **GIF** and **APNG**, layered **PSD**.
-- **Video**: **MP4** (H.264), **MOV** and **AVI**, all with sound.
+- **Video**: **MP4** (H.264), **WebM** (VP9, with transparency where the browser supports it), **MOV** and **AVI**, all with sound.
 - **Web**: the `<openbone-player>` component with your animation, a demo page and embed snippets (ZIP), or **one self-contained HTML file**.
 - **Engine packs**: sprite sheets for Unity, Godot 4, Flutter and generic engines, plus WebView packages for Flutter, Android and iOS. For full rigs in an engine, use the native runtimes above.
 
