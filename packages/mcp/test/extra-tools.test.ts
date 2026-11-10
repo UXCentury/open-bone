@@ -6,6 +6,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { deserialize, deserializeBinary } from "@openbone/core";
 import { describe, expect, it } from "vitest";
+import { findFfmpeg } from "../src/media.ts";
 import { createServer } from "../src/index.ts";
 
 const examples = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../../examples");
@@ -54,8 +55,28 @@ describe("extra MCP tools", () => {
       ["apng", { animation: "idle", fps: 8, scale: 0.25 }, (f) => expect(readFileSync(f).includes(Buffer.from("acTL"))).toBe(true)],
       ["gif", { animation: "idle", fps: 8, scale: 0.25, transparent: true }, (f) => expect(magic(f, 3).toString()).toBe("GIF")],
       ["psd", { animation: "idle", fps: 4, scale: 0.25 }, (f) => expect(magic(f).toString()).toBe("8BPS")],
-      ["avi", { animation: "talk", fps: 10, scale: 0.25 }, (f) => expect(magic(f).toString()).toBe("RIFF")],
-      ["mov", { animation: "talk", fps: 10, scale: 0.25 }, (f) => expect(readFileSync(f).includes(Buffer.from("moov"))).toBe(true)],
+      // The talk animation plays a WAV voice: the videos carry it (an audio stream chunk / a sound track).
+      ["avi", { animation: "talk", fps: 10, scale: 0.25 }, (f) => {
+        expect(magic(f).toString()).toBe("RIFF");
+        expect(readFileSync(f).includes(Buffer.from("01wb"))).toBe(true);
+      }],
+      ["mov", { animation: "talk", fps: 10, scale: 0.25 }, (f) => {
+        expect(readFileSync(f).includes(Buffer.from("moov"))).toBe(true);
+        expect(readFileSync(f).includes(Buffer.from("soun"))).toBe(true);
+      }],
+      ["avi", { animation: "talk", fps: 10, scale: 0.25, audio: false }, (f) => expect(readFileSync(f).includes(Buffer.from("01wb"))).toBe(false)],
+      ...(findFfmpeg()
+        ? ([
+            ["mp4", { animation: "talk", fps: 10, scale: 0.25 }, (f: string) => {
+              expect(magic(f, 8).subarray(4).toString()).toBe("ftyp");
+              expect(readFileSync(f).includes(Buffer.from("mp4a"))).toBe(true); // AAC sound
+            }],
+            ["webm", { animation: "talk", fps: 10, scale: 0.25 }, (f: string) => {
+              expect([...magic(f)]).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
+              expect(readFileSync(f).includes(Buffer.from("A_OPUS"))).toBe(true);
+            }],
+          ] as [string, Record<string, unknown>, (f: string) => void][])
+        : []),
       ["spritesheet", { engine: "godot", fps: 6, scale: 0.25 }, (f) => expect(magic(f, 2).toString()).toBe("PK")],
       ["web", { singleFile: true }, (f) => {
         const html = readFileSync(f, "utf8");

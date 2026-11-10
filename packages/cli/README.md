@@ -144,7 +144,8 @@ The options are those of [`@openbone/mcp`](https://github.com/UXCentury/open-bon
 | `apng` | Animated PNG (`<name>.apng.png`) |
 | `gif` | Animated GIF |
 | `psd` | Photoshop file, one layer per frame |
-| `avi`, `mov` | Motion-JPEG video |
+| `avi`, `mov` | Motion-JPEG video, with the sound the animation or state machine run plays (`--no-audio` leaves it out) |
+| `mp4`, `webm` | H.264 + AAC MP4 / VP9 + Opus WebM with sound, encoded by `ffmpeg` from the PATH (or `OPENBONE_FFMPEG`); `--quality 0.85`. ffmpeg also decodes MP3/OGG/FLAC sounds for every video format; WAV decodes without it |
 | `spritesheet` | ZIP of sprite sheets for `--engine unity`, `godot`, `flutter` or `generic` (the default), one clip per animation |
 | `web` | ZIP with the `<openbone-player>` web player, the animation and a demo page, or one self-contained HTML file with `--single-file` |
 

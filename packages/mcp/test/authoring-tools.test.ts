@@ -185,6 +185,47 @@ describe("meshes and weights", () => {
   });
 });
 
+describe("single-frame export with a state machine", () => {
+  it("runs the steps up to the frame (a trigger before the time takes effect)", async () => {
+    const { ProjectSession } = await import("../src/session.ts");
+    const { exportFile } = await import("../src/export.ts");
+    const { inflateSync } = await import("node:zlib");
+    const s = new ProjectSession();
+    s.autosave = false;
+    await s.open(path.resolve(__dirname, "../../../conformance/fixtures/interactive.obone"));
+    const { createQuickJsHost } = await import("@openbone/scripting");
+    const quickjs = await createQuickJsHost({ timeoutMs: 50 });
+    const host = async () => quickjs;
+    const run = (fire: boolean) => [{ advance: 0.2 }, { ...(fire ? { fire: ["pressed"] } : {}), advance: 1 }];
+    const opts = { stateMachine: "main", fps: 10, scale: 0.5 } as const;
+    const pixels = async (bytes: Uint8Array) => {
+      const img = await loadImage(Buffer.from(bytes));
+      const c = createCanvas(img.width, img.height);
+      c.getContext("2d").drawImage(img, 0, 0);
+      return Buffer.from(c.getContext("2d").getImageData(0, 0, img.width, img.height).data);
+    };
+    const single = await pixels((await exportFile(s, { format: "png", ...opts, steps: run(true), time: 0.6 }, host)).bytes);
+    const quiet = await pixels((await exportFile(s, { format: "png", ...opts, steps: run(false), time: 0.6 }, host)).bytes);
+    expect(single.equals(quiet)).toBe(false); // the trigger at 0.2 s changed the pose at 0.6 s
+    // Same as frame 7 (t = 0.6 s) of a sequence with the same steps.
+    const zip = Buffer.from((await exportFile(s, { format: "png", ...opts, steps: run(true), sequence: true, duration: 0.7 }, host)).bytes);
+    const name = "interactive_0007.png";
+    let p = 0;
+    let frame: Buffer | null = null;
+    while (zip.readUInt32LE(p) === 0x04034b50) {
+      const method = zip.readUInt16LE(p + 8);
+      const size = zip.readUInt32LE(p + 18);
+      const n = zip.readUInt16LE(p + 26);
+      const extra = zip.readUInt16LE(p + 28);
+      const data = zip.subarray(p + 30 + n + extra, p + 30 + n + extra + size);
+      if (zip.toString("utf8", p + 30, p + 30 + n) === name) frame = method === 8 ? inflateSync(data, { finishFlush: 2 }) : data;
+      p += 30 + n + extra + size;
+    }
+    expect(frame).not.toBeNull();
+    expect((await pixels(frame!)).equals(single)).toBe(true);
+  }, 60_000);
+});
+
 describe("export_file embed", () => {
   it("writes a self-contained .obone with every image and sound inside", async () => {
     const { call, dir } = await project();

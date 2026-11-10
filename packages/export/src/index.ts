@@ -46,3 +46,4 @@ export {
 export { type ZipEntry, readZip } from "./unzip.ts";
 export { type WebPackOptions, type WebPlayerFormat, playerFileName, webIndexHtml, webReadme, webPackFiles, webPackZip } from "./web.ts";
 export { type AtlasVariantDoc, type AtlasFilesOptions, atlasExportFiles } from "./atlas.ts";
+export { type DecodedAudio, type MixCommand, type MixedAudio, type TimedMixCommand, decodeWav, encodeWav, mixAudioCommands } from "./mix.ts";

@@ -13,13 +13,17 @@ import {
   encodeMovMjpeg,
   encodePng,
   encodePsd,
+  type TimedMixCommand,
   atlasExportFiles,
+  floatToPcm,
+  mixAudioCommands,
   enginePackZip,
   webIndexHtml,
   webPackZip,
 } from "@openbone/export";
 import { type AtlasSettings, CanvasRenderer, type Ctx2D, atlasBuildOptions, describeAtlas } from "@openbone/render-canvas";
 import { OpenBoneInstance, type ScriptHost } from "@openbone/runtime";
+import { decodeAudio, encodeVideoFfmpeg, findFfmpeg } from "./media.ts";
 import { loadImages, packAtlasFull, packAtlasScales, useSkin } from "./render.ts";
 import type { ProjectSession } from "./session.ts";
 
@@ -28,7 +32,7 @@ import type { ProjectSession } from "./session.ts";
  * the same encoders, atlas packer and runtime-data export as the editor's Export dialog.
  */
 
-export const EXPORT_FORMATS = ["obone", "json", "obonb", "atlas", "png", "jpeg", "apng", "gif", "psd", "avi", "mov", "spritesheet", "web"] as const;
+export const EXPORT_FORMATS = ["obone", "json", "obonb", "atlas", "png", "jpeg", "apng", "gif", "psd", "avi", "mov", "mp4", "webm", "spritesheet", "web"] as const;
 export type ExportFormat = (typeof EXPORT_FORMATS)[number];
 
 export type Step = { advance?: number; setInputs?: Record<string, boolean | number | string>; fire?: string[]; pointer?: { type: "down" | "up" | "move"; x: number; y: number } };
@@ -57,6 +61,10 @@ export interface ExportRequest {
   singleFile?: boolean;
   minify?: boolean;
   binary?: boolean;
+  /** avi/mov/mp4/webm: include the sound the run plays (default true). */
+  audio?: boolean;
+  /** mp4/webm: quality 0..1 (default 0.85). */
+  quality?: number;
   /** json/obonb: pack images into an embedded texture atlas (like the dialog's Pack option). */
   pack?: boolean;
   /** obone/json/obonb: embed every image and audio file as data: URIs, so the file opens anywhere on its own. */
@@ -79,6 +87,8 @@ export async function renderFrames(
   session: ProjectSession,
   req: { animation?: string; stateMachine?: string; steps?: Step[]; skin?: string; duration?: number; fps: number; scale: number; background: string | null },
   scriptHost?: ScriptHost | null,
+  /** Filled with the audio commands the run emits, with their time (for the sound track of a video). */
+  audioOut?: TimedMixCommand[],
 ): Promise<Frame[]> {
   const doc = session.doc;
   const images = await loadImages(session, doc);
@@ -107,7 +117,11 @@ export async function renderFrames(
   const frames: Frame[] = [];
   const count = Math.max(1, Math.round(duration * req.fps));
   let t = 0;
+  // Commands emitted while advancing to a frame are stamped with that frame's time.
+  let stamp = 0;
+  if (audioOut) inst.on("audio", (c) => audioOut.push({ time: stamp, command: c as TimedMixCommand["command"] }));
   for (let f = 0; f < count; f++) {
+    stamp = f === 0 ? 0 : t + 1 / req.fps;
     if (sm)
       while (schedule.length && schedule[0].at <= t + 1e-9) {
         const { step } = schedule.shift()!;
@@ -213,6 +227,8 @@ export async function exportFile(session: ProjectSession, a: ExportRequest, scri
     psd: "psd",
     avi: "avi",
     mov: "mov",
+    mp4: "mp4",
+    webm: "webm",
     spritesheet: "zip",
     web: a.singleFile ? "html" : "zip",
   };
@@ -306,22 +322,25 @@ export async function exportFile(session: ProjectSession, a: ExportRequest, scri
     return done(bytes, ` · ${set.pages.length} sheet(s), ${clips.reduce((n, c) => n + c.frames.length, 0)} frames`);
   }
   const single = (a.format === "png" || a.format === "jpeg") && !a.sequence;
+  const video = a.format === "avi" || a.format === "mov" || a.format === "mp4" || a.format === "webm";
+  const timed: TimedMixCommand[] | undefined = video && a.audio !== false ? [] : undefined;
   const flat = doc.background ?? "#ffffff";
   const frames = single
     ? await (async () => {
-        // One frame at `time`: advance a single step to it.
-        const stepFps = time > 0 ? 1 / time : fps;
+        // One frame at `time`: run up to it at the export frame rate (one big step would skip the state machine steps
+        // scheduled in between, e.g. a trigger fired at 0.5 s for a frame at 2 s) and keep the last frame.
         const fr = await renderFrames(
           session,
-          { animation: a.animation, stateMachine: a.stateMachine, steps: a.steps, skin: a.skin, duration: time > 0 ? 2 / stepFps : 1 / fps, fps: stepFps, scale, background: a.format === "jpeg" ? flat : bg },
+          { animation: a.animation, stateMachine: a.stateMachine, steps: a.steps, skin: a.skin, duration: time + 1 / fps, fps, scale, background: a.format === "jpeg" ? flat : bg },
           await scriptHost(),
         );
         return [fr[fr.length - 1]];
       })()
     : await renderFrames(
         session,
-        { animation: a.animation, stateMachine: a.stateMachine, steps: a.steps, skin: a.skin, duration: a.duration, fps, scale, background: a.format === "jpeg" || a.format === "avi" || a.format === "mov" ? flat : bg },
+        { animation: a.animation, stateMachine: a.stateMachine, steps: a.steps, skin: a.skin, duration: a.duration, fps, scale, background: a.format === "jpeg" || video ? flat : bg },
         await scriptHost(),
+        timed,
       );
   const { width, height } = frames[0];
   const delayMs = Math.round(1000 / fps);
@@ -331,6 +350,25 @@ export async function exportFile(session: ProjectSession, a: ExportRequest, scri
   else if (a.format === "apng") bytes = await encodeApng(frames, { delayMs });
   else if (a.format === "gif") bytes = encodeGif(frames, { delayMs, transparent: !!a.transparent });
   else if (a.format === "psd") bytes = encodePsd(frames.map((f, i) => ({ name: `frame ${i + 1}`, frame: f })));
-  else bytes = (a.format === "avi" ? encodeAviMjpeg : encodeMovMjpeg)(frames.map((f) => jpegOf(f, flat)), { width, height, fps });
-  return done(bytes, single ? "" : ` · ${frames.length} frames at ${fps} fps, ${width}×${height}`);
+  let sound = "";
+  if (video) {
+    // The sound track: what the run played, mixed like the players mix it.
+    let mix: ReturnType<typeof mixAudioCommands> = null;
+    if (timed?.length) {
+      const decoded = new Map<string, Awaited<ReturnType<typeof decodeAudio>>>();
+      for (const c of timed)
+        if (c.command.type === "play" && !decoded.has(c.command.asset)) {
+          const asset = doc.audio?.assets.find((x) => x.id === (c.command as { asset: string }).asset);
+          decoded.set(c.command.asset, asset ? await decodeAudio(await assetBytes(session, asset.src)).catch(() => null) : null);
+        }
+      const missing = new Set<string>();
+      mix = mixAudioCommands(doc, timed, frames.length / fps, (id) => decoded.get(id) ?? null, { missing });
+      const names = [...missing].map((id) => doc.audio?.assets.find((x) => x.id === id)?.name ?? id);
+      if (names.length) sound = ` · without ${names.join(", ")} (${findFfmpeg() ? "could not be decoded" : "only WAV decodes without ffmpeg on the PATH"})`;
+      if (mix) sound = ` · with sound${sound}`;
+    }
+    if (a.format === "mp4" || a.format === "webm") bytes = await encodeVideoFfmpeg(frames, { format: a.format, fps, quality: a.quality, audio: mix });
+    else bytes = (a.format === "avi" ? encodeAviMjpeg : encodeMovMjpeg)(frames.map((f) => jpegOf(f, flat)), { width, height, fps, audio: mix ? floatToPcm(mix.channels, mix.sampleRate) : null });
+  } else if (!bytes!) throw new Error(`Unknown format ${a.format}`);
+  return done(bytes, single ? "" : ` · ${frames.length} frames at ${fps} fps, ${width}×${height}${sound}`);
 }
