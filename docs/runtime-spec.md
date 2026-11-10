@@ -732,7 +732,8 @@ out in key-array order (cycles ascending per key), not time order.
 `scripting.ts`, `scripting/src/index.ts` (QuickJS host, used by the suite). A script is JavaScript defining optional
 global functions; it sees only the global `ob` (and `console.log` → `ob.log`). Arguments and return values cross the
 boundary as JSON (so `undefined` fields disappear). Errors and timeouts (16 ms per call, 50 ms for load) are
-reported as `error` and swallowed.
+reported as `error` and swallowed. Hosts on a JIT-compiled engine may give each function's first call the load budget
+instead, to cover warm-up (the C# Jint host does).
 
 | hook | when |
 | --- | --- |

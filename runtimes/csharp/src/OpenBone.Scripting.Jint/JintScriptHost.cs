@@ -56,6 +56,7 @@ const console = { log: (...a) => ob.log(...a) };
             readonly Engine _engine;
             readonly Deadline _deadline = new Deadline();
             readonly Dictionary<string, bool> _known = new Dictionary<string, bool>();
+            readonly HashSet<string> _warm = new HashSet<string>();
             bool _disposed;
 
             public Handle(JintScriptHost host, ScriptData script, IScriptApi api)
@@ -124,7 +125,9 @@ const console = { log: (...a) => ob.log(...a) };
                 var arr = JsonValue.NewArray();
                 foreach (var a in args) arr.Add(JsonValue.FromObject(a));
                 _engine.SetValue("__args", JsonWriter.Write(arr));
-                _deadline.Budget = _host.CallTimeout;
+                // A function's first call also pays for the interpreter warming up (cold JIT on Mono / IL2CPP),
+                // so it gets the load budget; later calls get the per-call budget.
+                _deadline.Budget = _warm.Add(fn) && _host.LoadTimeout > _host.CallTimeout ? _host.LoadTimeout : _host.CallTimeout;
                 try
                 {
                     var r = _engine.Evaluate($"{fn}(...JSON.parse(__args))");

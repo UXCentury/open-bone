@@ -77,11 +77,21 @@ namespace UnityEngine
         public float x, y, z;
         public Vector3(float x, float y, float z) { this.x = x; this.y = y; this.z = z; }
         public static Vector3 operator +(Vector3 a, Vector3 b) => a;
+        public static Vector3 zero => default;
         public static implicit operator Vector3(Vector2 v) => default;
         public static bool operator ==(Vector3 a, Vector3 b) => true;
         public static bool operator !=(Vector3 a, Vector3 b) => false;
         public override bool Equals(object o) => false;
         public override int GetHashCode() => 0;
+    }
+
+    public struct Bounds
+    {
+        public Bounds(Vector3 center, Vector3 size) { this.center = center; this.size = size; }
+        public Vector3 center { get; set; }
+        public Vector3 size { get; set; }
+        public Vector3 extents => size;
+        public void Encapsulate(Vector3 point) { }
     }
 
     public struct Vector4
@@ -210,6 +220,7 @@ namespace UnityEngine
         public Material sharedMaterial { get; set; }
         public Material[] sharedMaterials { get; set; }
         public int sortingOrder { get; set; }
+        public Bounds bounds => default;
     }
 
     public sealed class MeshRenderer : Renderer { }
@@ -370,6 +381,7 @@ namespace UnityEditor.AssetImporters
         public void AddObjectToAsset(string identifier, UnityEngine.Object obj) { }
         public void SetMainObject(UnityEngine.Object obj) { }
         public void DependsOnSourceAsset(string path) { }
+        public void DependsOnArtifact(string path) { }
         public void LogImportError(string msg, UnityEngine.Object obj = null) { }
         public void LogImportWarning(string msg, UnityEngine.Object obj = null) { }
     }

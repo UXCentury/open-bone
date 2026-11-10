@@ -202,6 +202,25 @@ namespace OpenBone.Unity
         }
 
         /// <summary>A skeleton-space point in world space.</summary>
+        /// <summary>
+        /// The document's stage (its width × height canvas, as framed in the OpenBone editor) in world space: frame a
+        /// camera on this rather than on the mesh bounds, which include anything drawn off-stage (scrolling backgrounds).
+        /// </summary>
+        public Bounds StageBounds
+        {
+            get
+            {
+                var doc = asset != null ? asset.Document : null;
+                if (doc == null || doc.Width <= 0 || doc.Height <= 0) return GetComponent<MeshRenderer>().bounds;
+                // Skeleton space is y-up with the origin at (originX, originY) of the y-down canvas.
+                var a = SkeletonToWorld(-doc.OriginX, doc.OriginY - doc.Height);
+                var b = SkeletonToWorld(doc.Width - doc.OriginX, doc.OriginY);
+                var bounds = new Bounds(a, Vector3.zero);
+                bounds.Encapsulate(b);
+                return bounds;
+            }
+        }
+
         public Vector3 SkeletonToWorld(double x, double y) => transform.TransformPoint(new Vector3((float)x / pixelsPerUnit, (float)y / pixelsPerUnit, 0));
 
         /// <summary>World position of a bone (by name or id), or the component's position if there is no such bone.</summary>

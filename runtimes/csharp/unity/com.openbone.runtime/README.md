@@ -10,7 +10,7 @@ Play [OpenBone](https://github.com/UXCentury/open-bone) skeletal animations and 
 
 The posing, constraints, particles, text templates, state machines and audio commands come from `OpenBone.Runtime`, the C# port of the reference runtime, which passes the cross-language conformance suite (`runtimes/csharp`).
 
-> **Status:** the package has been compile-checked against a stub of the Unity API (`runtimes/csharp/unity/compile-check`), but it has **not been run inside the Unity Editor yet**. Treat it as a preview and please report what breaks.
+> **Status:** tested in Unity 6 (6000.6.8f1, built-in render pipeline) on Linux with every OpenBone example: import, state machines, rendering, pointer input and sound. Unity 2021.3–2023 and URP are compile-checked only; please report what breaks.
 
 ## Install
 
@@ -39,6 +39,7 @@ The package needs four DLLs in `Plugins/` that are built from source (they are n
 2. Create a GameObject, add **OpenBone → OpenBone Animation** (or **OpenBone State Machine**), and set **Asset** to the imported file.
 3. Set **Start Animation** (animation component) or **State Machine** (state-machine component), and **Pixels Per Unit** (skeleton units per Unity unit, default 100).
 4. Add **OpenBone → OpenBone Audio** to the same object to hear the document's sounds.
+5. Point an orthographic camera at `StageBounds` (the document's stage, as framed in the OpenBone editor): `cam.transform.position = b.center + Vector3.back * 10; cam.orthographicSize = b.extents.y;`.
 
 ```csharp
 using OpenBone.Unity;

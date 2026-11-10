@@ -13,7 +13,7 @@ namespace OpenBone.Unity.Editor
     /// (their <c>src</c> path, else <c>&lt;name&gt;.png</c> next to it or in an <c>images/</c> folder). Audio: AudioClips
     /// at the asset's <c>src</c> are referenced; embedded WAVs are decoded at runtime.
     /// </summary>
-    [ScriptedImporter(1, new[] { "obone", "obonb" })]
+    [ScriptedImporter(2, new[] { "obone", "obonb" })]
     public sealed class OpenBoneImporter : ScriptedImporter
     {
         [Tooltip("Filter mode of textures embedded in the document.")]
@@ -102,11 +102,12 @@ namespace OpenBone.Unity.Editor
                 }
             foreach (var path in candidates)
             {
+                if (!File.Exists(path)) continue;
+                // The file may not be imported yet (a project's first import goes in no particular order): depending on
+                // its import result makes Unity import it first, and re-import this document whenever it changes.
+                ctx.DependsOnArtifact(path);
                 var found = AssetDatabase.LoadAssetAtPath<T>(path);
-                if (found == null) continue;
-                // Re-import this document when the texture or clip changes.
-                ctx.DependsOnSourceAsset(path);
-                return found;
+                if (found != null) return found;
             }
             return null;
         }

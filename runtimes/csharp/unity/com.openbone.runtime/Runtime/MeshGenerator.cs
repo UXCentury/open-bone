@@ -201,6 +201,9 @@ namespace OpenBone.Unity
             var key = (texture, blend, pma, stencil);
             if (_cache.TryGetValue(key, out var m) && m != null) return m;
             m = new Material(_shader) { name = $"OpenBone {blend} {(texture != null ? texture.name : "white")}", hideFlags = HideFlags.DontSave };
+            // OpenBone draws images with clamped edges; Unity imports textures with Repeat, which makes bilinear
+            // filtering blend an image's opposite edge into its border (a visible seam along layer edges).
+            if (texture != null && texture.wrapMode != TextureWrapMode.Clamp) texture.wrapMode = TextureWrapMode.Clamp;
             m.mainTexture = texture;
             m.SetFloat("_PMA", pma ? 1 : 0);
             BlendFactors(blend, out var src, out var dst);

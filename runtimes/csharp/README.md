@@ -82,4 +82,4 @@ loading, configurable) plus an 8 MB memory limit. The conformance tests give the
 ## Status
 
 - Conformance: all files in `conformance/expected/` pass (`dotnet test`).
-- Unity package: complete source, compile-checked against the stub; **not yet run in the Unity Editor**.
+- Unity package: checked in Unity 6 (6000.6.8f1) on Linux: every example imports (art and sounds included), runs its state machine, renders (textures, meshes, blend modes, clipping, text) and plays in the editor with pointer input and sound. Older Unity versions (2021.3+) are only compile-checked against the stub.
