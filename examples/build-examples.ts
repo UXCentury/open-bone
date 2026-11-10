@@ -238,7 +238,8 @@ function knight() {
     // Anchored above the gorget's lower rim, so the helmet sits down on the shoulders (no long neck).
     head: { part: helmet, neck: [0.62, 0.8] },
     upper: { part: upper, top: [0.48, 0.24], bottom: [0.5, 0.9] },
-    fore: { part: fore, top: [0.5, 0.08], wrist: [0.5, 0.9] },
+    // Pinned well inside its top, so the forearm reaches up into the upper arm's open tube at the elbow (no gap when it bends).
+    fore: { part: fore, top: [0.5, 0.17], wrist: [0.5, 0.9] },
     hand: { part: fist, top: [0.5, 0.14], grip: [0.5, 0.62] },
     thigh: { part: thigh, top: [0.5, 0.12], bottom: [0.5, 0.88] },
     // The knee joint is just above the knee guard: the thigh hides the shin's top tube and the whole guard shows below

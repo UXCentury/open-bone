@@ -35,6 +35,7 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 - Bounding boxes can be weighted to bones (`autoWeights`, `setWeights`) and take deform keys, like paths.
 - Path constraints: `constantSpeed` (default on, the existing arc-length placement). Off places bones at the raw bezier parameter inside each curve segment, as Spine does; a "Constant speed" checkbox in the path-constraint Inspector. Existing files pose exactly as before.
 - Conformance: `bounds` (recorded point, segment, AABB and skeleton-overlap queries) and `paths` (constant speed on and off on uneven curves) fixtures.
+- Knight example: the forearms reach up into the upper arms' open tubes, so there is no gap at the elbow when the arms bend.
 
 ### Texture packer
 - New packer options in the Export dialog, `openbone export` (`--format atlas` and `--pack`) and the MCP `pack_atlas` / `export_file` tools, all through the same settings:

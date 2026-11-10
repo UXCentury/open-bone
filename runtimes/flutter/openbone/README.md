@@ -170,7 +170,7 @@ cd /tmp/openbone-pub/openbone && flutter pub publish --dry-run
 
 ### What has been checked
 
-- Linux x64: `flutter test` (all 88 conformance cases, API tests, widget tests with a golden), `flutter analyze`, and
+- Linux x64: `flutter test` (all 92 conformance cases, API tests, widget tests with a golden), `flutter analyze`, and
   the example app built with `flutter build linux` and run under xvfb (`--dart-define=OPENBONE_SMOKE=true` loads the
   button, presses it, prints a status line and exits).
 - The iOS/macOS source layout: the `darwin/Classes` forwarders compiled with clang and the podspec's flags into a

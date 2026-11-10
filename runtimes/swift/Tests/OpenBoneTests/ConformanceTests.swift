@@ -317,7 +317,7 @@ final class ConformanceTests: XCTestCase {
     static let files = [
         "atlas-knight", "atlas-polygons", "atlas-walker", "bounds", "constraints", "dynamics", "example-button",
         "example-campfire", "example-crash", "example-fox", "example-knight", "example-robot", "example-rocket",
-        "example-tail", "example-walker", "interactive", "meshes", "paths", "rigging", "transforms",
+        "example-tail", "example-walker", "interactive", "meshes", "mixing", "paths", "rigging", "transforms",
     ]
 
     func testEveryFileIsListed() throws {
@@ -388,6 +388,7 @@ final class ConformanceTests: XCTestCase {
     func testExampleWalker() throws { try run("example-walker") }
     func testInteractive() throws { try run("interactive") }
     func testMeshes() throws { try run("meshes") }
+    func testMixing() throws { try run("mixing") }
     func testPaths() throws { try run("paths") }
     func testRigging() throws { try run("rigging") }
     func testTransforms() throws { try run("transforms") }
