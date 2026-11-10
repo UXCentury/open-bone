@@ -33,6 +33,6 @@ migrate_working_dir/
 /coverage/
 /third_party/
 
-# Swift Package Manager (ios/openbone, macos/openbone)
-/ios/openbone/.build/
-/ios/openbone/.swiftpm/
+# Swift Package Manager (darwin/openbone)
+/darwin/openbone/.build/
+/darwin/openbone/.swiftpm/

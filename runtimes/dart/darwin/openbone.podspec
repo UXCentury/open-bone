@@ -1,5 +1,5 @@
 #
-# OpenBone Flutter plugin (macos): compiles the C++ runtime (runtimes/cpp) into the pod through the forwarders in
+# OpenBone Flutter plugin (iOS and macOS, shared darwin sources): compiles the C++ runtime (runtimes/cpp) into the pod through the forwarders in
 # Classes/runtime. Document scripts need QuickJS: run tool/fetch_quickjs.sh once (it fills ../third_party/quickjs);
 # without it the library builds with scripts disabled (ob_has_scripts() == 0).
 # SPDX-License-Identifier: MIT
@@ -19,12 +19,16 @@ Pod::Spec.new do |s|
   s.author           = { 'OpenBone contributors' => 'https://github.com/UXCentury/open-bone' }
   s.source           = { :path => '.' }
   s.source_files     = 'Classes/**/*'
-  s.dependency 'FlutterMacOS'
-  s.platform = :osx, '10.15'
+  s.ios.dependency 'Flutter'
+  s.osx.dependency 'FlutterMacOS'
+  s.ios.deployment_target = '13.0'
+  s.osx.deployment_target = '10.15'
   s.library = 'c++'
 
+  # Flutter.framework does not contain an i386 slice.
   s.pod_target_xcconfig = {
     'DEFINES_MODULE' => 'YES',
+    'EXCLUDED_ARCHS[sdk=iphonesimulator*]' => 'i386',
     'CLANG_CXX_LANGUAGE_STANDARD' => 'c++17',
     'HEADER_SEARCH_PATHS' => "\"#{runtimes}\" \"#{runtimes}/cpp/include\" \"#{runtimes}/cpp/third_party\" \"#{runtimes}/cpp/src\" \"#{plugin}/third_party\" \"#{plugin}/third_party/quickjs\"",
     'GCC_PREPROCESSOR_DEFINITIONS' => "$(inherited) OPENBONE_WITH_SCRIPTS=#{quickjs ? 1 : 0} _GNU_SOURCE=1",
