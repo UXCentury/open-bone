@@ -12,6 +12,9 @@ and state-machine states, frame by frame, within the suite's tolerances.
 | `tests/OpenBone.Runtime.Tests` | net8.0 | xUnit: the conformance suite, `.obonb` decoding, JS number formatting, earcut. |
 | `unity/com.openbone.runtime` | Unity 2021.3+ | Unity package: importer, components, mesh generator, shader, audio bridge. See its [README](unity/com.openbone.runtime/README.md). |
 | `unity/compile-check` | netstandard2.1 | Type-checks the Unity package against a stub of the Unity API (no Unity needed). |
+| `monogame/src/OpenBone.MonoGame` | net8.0, MonoGame 3.8 DesktopGL | MonoGame renderer, player component and sound bridge. See [MonoGame](#monogame). |
+| `monogame/sample/OpenBone.MonoGame.Sample` | net8.0 | DesktopGL sample: the knight example with its state machine. |
+| `monogame/tests/OpenBone.MonoGame.Tests` | net8.0 | xUnit, no window: meshing, render states, view transform, pointer, audio maths, effect container. |
 
 ## Build and test
 
@@ -54,6 +57,63 @@ foreach (var item in hero.DrawList())
 State machines: `sm.SetInput("speed", 0.5)`, `sm.Fire("jump")`, `hero.Pointer("down", x, y)` (skeleton space, y up),
 `sm.ActiveStates`, events `StateChanged`, `InputChanged`, `Error`, `Log`.
 
+## MonoGame
+
+`monogame/` (its own solution, `OpenBone.MonoGame.sln`, so the runtime's `dotnet test` needs no MonoGame packages):
+
+```bash
+cd runtimes/csharp/monogame
+dotnet test                                              # window-less tests
+dotnet run --project sample/OpenBone.MonoGame.Sample     # the knight: click his body (attack), head (salute) or the road (walk)
+```
+
+```csharp
+using OpenBone.MonoGame;
+
+// LoadContent (the back buffer needs a stencil for clipping masks:
+// graphics.PreferredDepthStencilFormat = DepthFormat.Depth24Stencil8)
+knight = OpenBoneMonoGame.Load(GraphicsDevice, "Content/knight.obone");   // images and sounds relative to the file
+knight.UseStateMachine("knight");                                          // or knight.Play("walk")
+knight.Event += e => Console.WriteLine(e.Name);
+knight.AcceptInput = () => IsActive;
+
+// Update
+knight.Update(gameTime);        // mouse / touch → listeners, Advance, sound fades
+// Draw (after GraphicsDevice.Clear; no SpriteBatch)
+knight.Draw();
+```
+
+- **`OpenBoneRenderer`** draws a draw list with `GraphicsDevice.DrawUserIndexedPrimitives`: one call per run of items
+  that share a texture, blend mode and clip (`DrawListMesher` builds the vertex / 16-bit index arrays and batches
+  without a device). Textures are premultiplied on load (`Texture2D.FromStream` with a colour processor; atlas pages
+  packed with `premultipliedAlpha` are uploaded as they are) and vertex colours are premultiplied, so normal, additive,
+  multiply and screen are each one `BlendState` (`RenderStates`). Clipping masks write the stencil buffer
+  (`DepthStencilState` replace → equal → zero), so the back buffer or render target needs a stencil format.
+  `SkeletonView` maps skeleton space (y up) to screen pixels; `FitStage` frames the document's canvas.
+- **Two-colour tint.** MonoGame's effect compiler (mgfxc) needs Windows or Wine to compile HLSL, so the library ships
+  the effect source (`Shaders/OpenBoneTint.fx`) and builds the OpenGL effect itself: `TintEffect` writes the MGFX
+  container with hand-written GLSL equivalent to the .fx (MGFX stores GLSL for OpenGL). If the running MonoGame does
+  not accept it (another MGFX version, or a DirectX build), the renderer falls back to `BasicEffect`, which draws
+  everything except the dark colour; `Renderer.EffectError` says why. You can pass your own compiled effect
+  (`Renderer.Effect`, parameters `WorldViewProjection` and `Texture`, vertices `OpenBoneVertex`).
+- **Text** items are skipped unless you set `Renderer.TextRenderer`; `SpriteFontTextRenderer` draws them with your
+  SpriteFonts (size, alignment, fill × slot colour, outline as offset copies; weight is ignored).
+- **`OpenBoneMonoGame`** loads a `.obone` / `.obonb` (textures from data: URIs or files relative to the document; scripts
+  in Jint), plays animations or a state machine, maps `Mouse` / `TouchPanel` input into skeleton space for listeners
+  (`Pointer(type, screenPosition)` to send your own), and raises `Event`, `StateChanged`, `AudioCommand` and `Warning`.
+- **`OpenBoneSoundPlayer`** plays audio commands with `SoundEffect` / `SoundEffectInstance`: volume = command volume ×
+  bus × master (× `Volume`), pitch = log2(rate) clamped to MonoGame's ±1 octave, looping, and fade-in / fade / stop-with-
+  fade stepped every frame (`AudioMixer`, engine-independent). Sounds are WAV (embedded or files); register other
+  `SoundEffect`s with `Set(assetId, effect)`.
+
+Dependencies: [MonoGame.Framework.DesktopGL](https://github.com/MonoGame/MonoGame) 3.8.6.1 (Ms-PL, a permissive
+licence: it asks to keep its notices and to license source you distribute *of MonoGame itself* under Ms-PL; it puts no
+terms on your code), which brings SDL2 (zlib), NVorbis (MIT) and an OpenAL Soft build (`MonoGame.Library.OpenAL`;
+OpenAL Soft is LGPL-2.0+, loaded as a shared library, as in every MonoGame DesktopGL game). Checked on Linux (Mesa,
+OpenGL 4.6): the sample renders the knight in a window and off-screen (`--screenshot out.png --frames 60
+--click 520,460@5`), with clipping (campfire), additive particles (rocket), the tint effect and the BasicEffect
+fallback (`--basic-effect`). Not run on Windows or macOS yet.
+
 ## Porting notes
 
 The reference is JavaScript; the places where that shows (docs/runtime-spec.md §12) are handled explicitly:
@@ -82,4 +142,5 @@ loading, configurable) plus an 8 MB memory limit. The conformance tests give the
 ## Status
 
 - Conformance: all files in `conformance/expected/` pass (`dotnet test`).
+- MonoGame: library, sample and tests built and run on Linux (see [MonoGame](#monogame)).
 - Unity package: checked in Unity 6 (6000.6.8f1) on Linux: every example imports (art and sounds included), runs its state machine, renders (textures, meshes, blend modes, clipping, text) and plays in the editor with pointer input and sound. Older Unity versions (2021.3+) are only compile-checked against the stub.
