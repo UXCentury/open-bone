@@ -169,7 +169,7 @@ public struct OpenBoneEvent: Equatable {
     }
 }
 
-/// What the document asks the host's audio engine to do. Playback is up to the app (AVAudioEngine, …).
+/// What the document asks the host's audio engine to do. `OpenBoneView` / `OpenBoneAudio` play it on Apple platforms.
 public enum OpenBoneAudioCommand: Equatable {
     /// Start a sound. `id` names this playing instance; later `stop` / `fade` commands refer to it.
     case play(id: String, sound: String, asset: String, bus: String?, volume: Double, rate: Double, loop: Bool,

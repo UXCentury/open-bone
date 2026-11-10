@@ -26,6 +26,10 @@ open class OpenBoneView: MTKView, MTKViewDelegate {
     /// The instance drawn and advanced. Setting it resets the frame clock.
     public var instance: OpenBoneInstance? {
         didSet {
+            if oldValue !== instance {
+                oldValue?.hostAudio = nil
+                bindAudio()
+            }
             lastTime = nil
             instance?.advance(0)
             frozenBounds = instance?.bounds
@@ -41,6 +45,13 @@ open class OpenBoneView: MTKView, MTKViewDelegate {
     public var isPointerEnabled = true
     /// Called after every advance, before drawing (on the main thread).
     public var onFrame: ((OpenBoneInstance, Double) -> Void)?
+    /// Play the document's sounds through `audio` (on by default). When false nothing is played, and
+    /// `instance.onAudio` still receives every command either way.
+    public var isAudioEnabled = true {
+        didSet { if oldValue != isAudioEnabled { bindAudio() } }
+    }
+    /// The player of the current instance's sounds (nil when audio is disabled or there is no instance).
+    public private(set) var audio: OpenBoneAudio?
 
     public private(set) var renderer: OpenBoneMetalRenderer?
     public private(set) var viewport = OpenBoneViewport(scaleX: 1, scaleY: 1, originX: 0, originY: 0, width: 1, height: 1)
@@ -96,6 +107,19 @@ open class OpenBoneView: MTKView, MTKViewDelegate {
         commandQueue = device.makeCommandQueue()
         renderer = try? OpenBoneMetalRenderer(device: device, colorPixelFormat: colorPixelFormat,
                                               stencilPixelFormat: depthStencilPixelFormat)
+    }
+
+    private func bindAudio() {
+        audio?.stopAll()
+        audio = nil
+        guard let inst = instance else { return }
+        guard isAudioEnabled else {
+            inst.hostAudio = nil
+            return
+        }
+        let player = OpenBoneAudio(document: inst.document)
+        audio = player
+        inst.hostAudio = { [weak player] in player?.handle($0) }
     }
 
     private func setNeedsDisplayCompat() {
@@ -157,6 +181,19 @@ open class OpenBoneView: MTKView, MTKViewDelegate {
         let p = viewport.toSkeleton(OpenBonePoint(x: Double(point.x), y: Double(point.y)))
         try? inst.pointer(type, x: p.x, y: p.y)
     }
+
+    // Leaving the window silences the view (like a game node leaving the scene tree).
+    #if canImport(UIKit)
+    override open func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil { audio?.stopAll() }
+    }
+    #else
+    override open func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil { audio?.stopAll() }
+    }
+    #endif
 
     #if canImport(UIKit)
     override open func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {

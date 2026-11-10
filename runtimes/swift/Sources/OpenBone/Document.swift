@@ -129,6 +129,64 @@ public final class OpenBoneDocument {
         }
     }
 
+    /// A sound file of the document (what an audio command's `asset` names).
+    public struct AudioAsset: Equatable {
+        public var id: String
+        public var name: String
+        /// A `data:` URL or a path relative to the document.
+        public var source: String
+        /// Seconds (0 if unknown).
+        public var duration: Double
+
+        public init(id: String, name: String = "", source: String, duration: Double = 0) {
+            self.id = id
+            self.name = name
+            self.source = source
+            self.duration = duration
+        }
+    }
+
+    /// A mixer bus: its volume multiplies the volume of every sound played through it.
+    public struct AudioBus: Equatable {
+        public var id: String
+        public var name: String
+        public var volume: Double
+        public var isMuted: Bool
+
+        public init(id: String, name: String = "", volume: Double = 1, isMuted: Bool = false) {
+            self.id = id
+            self.name = name
+            self.volume = volume
+            self.isMuted = isMuted
+        }
+    }
+
+    public var audioAssets: [AudioAsset] {
+        (0 ..< Int(ob_document_audio_asset_count(handle))).compactMap { i in
+            var a = ob_audio_asset()
+            guard ob_document_audio_asset(handle, Int32(i), &a) != 0 else { return nil }
+            return AudioAsset(id: optionalString(a.id) ?? "", name: optionalString(a.name) ?? "",
+                              source: optionalString(a.src) ?? "", duration: a.duration)
+        }
+    }
+
+    public var audioBuses: [AudioBus] {
+        (0 ..< Int(ob_document_audio_bus_count(handle))).compactMap { i in
+            var b = ob_audio_bus()
+            guard ob_document_audio_bus(handle, Int32(i), &b) != 0 else { return nil }
+            return AudioBus(id: optionalString(b.id) ?? "", name: optionalString(b.name) ?? "", volume: b.volume,
+                            isMuted: b.muted != 0)
+        }
+    }
+
+    /// Master volume: 0 when the document's audio is muted, 1 when it has no audio settings.
+    public var audioMaster: Double { ob_document_audio_master(handle) }
+
+    /// Bytes of a sound source (a `data:` URL, or a path relative to `baseURL`), or nil when it cannot be resolved.
+    public func audioData(for source: String) -> Data? {
+        OpenBoneDocument.resolve(source: source, baseURL: baseURL)
+    }
+
     /// Bytes of a texture source: decodes `data:` URLs (base64 or percent-encoded), reads relative paths from
     /// `baseURL`. Returns nil when the source cannot be resolved.
     public func textureData(for source: String) -> Data? {

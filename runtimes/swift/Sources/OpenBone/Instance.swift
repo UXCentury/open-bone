@@ -7,6 +7,8 @@ import COpenBone
 final class CallbackBox {
     var onEvent: ((OpenBoneEvent) -> Void)?
     var onAudio: ((OpenBoneAudioCommand) -> Void)?
+    /// The view's sound player (`OpenBoneView`); called after `onAudio`.
+    var hostAudio: ((OpenBoneAudioCommand) -> Void)?
     var onStateChange: ((_ layer: String, _ from: String?, _ to: String) -> Void)?
     var onLog: ((_ message: String, _ isError: Bool) -> Void)?
 }
@@ -21,8 +23,10 @@ private let eventTrampoline: ob_event_fn = { user, event in
 }
 
 private let audioTrampoline: ob_audio_fn = { user, command in
-    guard let command, let f = box(user)?.onAudio else { return }
-    f(OpenBoneAudioCommand(command.pointee))
+    guard let command, let b = box(user), b.onAudio != nil || b.hostAudio != nil else { return }
+    let c = OpenBoneAudioCommand(command.pointee)
+    b.onAudio?(c)
+    b.hostAudio?(c)
 }
 
 private let stateTrampoline: ob_state_fn = { user, layer, from, to in
@@ -68,10 +72,17 @@ public final class OpenBoneInstance {
         set { callbacks.onEvent = newValue }
     }
 
-    /// Audio commands (play / stop / fade) for the app's audio engine.
+    /// Audio commands (play / stop / fade). `OpenBoneView` plays them itself (see `isAudioEnabled`) and this
+    /// callback receives them either way; without a view, pass them to an `OpenBoneAudio` or your own engine.
     public var onAudio: ((OpenBoneAudioCommand) -> Void)? {
         get { callbacks.onAudio }
         set { callbacks.onAudio = newValue }
+    }
+
+    /// Set by `OpenBoneView` to its `OpenBoneAudio`; independent of `onAudio`.
+    var hostAudio: ((OpenBoneAudioCommand) -> Void)? {
+        get { callbacks.hostAudio }
+        set { callbacks.hostAudio = newValue }
     }
 
     /// State-machine layer transitions: layer, previous state (nil at start), new state.
