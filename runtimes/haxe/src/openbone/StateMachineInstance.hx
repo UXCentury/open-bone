@@ -175,8 +175,29 @@ class StateMachineInstance implements ScriptApi {
 		if (JsNum.strictEquals(inputs.get(i.id), v))
 			return;
 		inputs.set(i.id, v);
+		if (i.type == "bool" && i.ownsMute)
+			audio.setMute(i.mutes, v == true);
 		for (l in listeners.copy())
 			l.inputChange(i.name, v);
+	}
+
+	/**
+	 * Mute, unmute or toggle (null) a bus id (null = the master). When a bool input owns that bus's mute, it goes
+	 * through the input so both stay in step. Returns the new state.
+	 */
+	public function setBusMute(bus:String, muted:Null<Bool>):Bool {
+		var next = muted != null ? muted : !audio.isMuted(bus);
+		var owner:SmInput = null;
+		for (i in data.inputs)
+			if (i.type == "bool" && i.ownsMute && i.mutes == bus) {
+				owner = i;
+				break;
+			}
+		if (owner != null && JsNum.truthy(getInput(owner.id)) != next)
+			setInput(owner.id, next);
+		else
+			audio.setMute(bus, next);
+		return next;
 	}
 
 	public function setBool(name:String, v:Bool):Void {
@@ -311,7 +332,7 @@ class StateMachineInstance implements ScriptApi {
 				case "emitParticles":
 					skeleton.emitParticles(a.slot, a.count);
 				case "setMute":
-					audio.setMute(a.bus, a.muted);
+					setBusMute(a.bus, a.muted);
 				default:
 			}
 		}
@@ -455,6 +476,15 @@ class StateMachineInstance implements ScriptApi {
 
 	function start():Void {
 		started = true;
+		// Inputs that own a bus's mute: a true default mutes it; a bus already muted shows as true.
+		for (i in data.inputs) {
+			if (i.type != "bool" || !i.ownsMute)
+				continue;
+			if (JsNum.truthy(inputs.get(i.id)))
+				audio.setMute(i.mutes, true);
+			else if (audio.isMuted(i.mutes))
+				inputs.set(i.id, true);
+		}
 		for (id in data.scripts) {
 			var h = scriptFor(id);
 			if (h != null) {

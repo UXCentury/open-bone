@@ -143,6 +143,43 @@ class OpenBoneInstance {
 		skeleton.updateWorldTransform();
 	}
 
+	/** A bus id for a name or id, "" for the master (null, "" or "master"); null when there is no such bus. */
+	function busRef(bus:String):String {
+		if (bus == null || bus == "" || bus == "master")
+			return "";
+		if (doc.audio == null)
+			return null;
+		for (b in doc.audio.buses)
+			if (b.id == bus)
+				return b.id;
+		for (b in doc.audio.buses)
+			if (b.name == bus)
+				return b.id;
+		return null;
+	}
+
+	/**
+	 * Mute, unmute or toggle (null) a sound bus by name or id ("music"), or the master with null / "master", from
+	 * outside the artboard (game settings, UI buttons). Same as a mute-button listener. Returns the new state, or null
+	 * when there is no such bus.
+	 */
+	public function setBusMuted(bus:String, muted:Null<Bool> = true):Null<Bool> {
+		var ref = busRef(bus);
+		if (ref == null)
+			return null;
+		var id = ref == "" ? null : ref;
+		return stateMachine != null ? stateMachine.setBusMute(id, muted) : animationState.audio.setMute(id, muted);
+	}
+
+	/** Whether a bus (name or id; null / "master" = the master) is muted now; null when there is no such bus. */
+	public function isBusMuted(bus:String):Null<Bool> {
+		var ref = busRef(bus);
+		if (ref == null)
+			return null;
+		var id = ref == "" ? null : ref;
+		return (stateMachine != null ? stateMachine.audio : animationState.audio).isMuted(id);
+	}
+
 	/** Pointer event ("down", "up", "move") in skeleton space (y up). */
 	public function pointer(type:String, x:Float, y:Float):Void {
 		if (stateMachine != null)

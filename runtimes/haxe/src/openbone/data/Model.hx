@@ -937,6 +937,12 @@ class SmInput {
 	/** Float, Bool or String; null if absent. */
 	public var defaultValue:Dynamic;
 
+	/** Bool inputs: the input owns a bus's mute (true mutes it); `mutes` null = the master. */
+	public var ownsMute = false;
+
+	/** The bus id this input mutes (null with `ownsMute` = every sound). */
+	public var mutes:String = null;
+
 	public function new() {}
 }
 

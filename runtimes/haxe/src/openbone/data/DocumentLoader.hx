@@ -545,6 +545,11 @@ class DocumentLoader {
 			inp.name = str(i, "name", "");
 			inp.type = str(i, "type", "number");
 			inp.defaultValue = i.get("default");
+			if (inp.type == "bool" && i.exists("mutes")) {
+				inp.ownsMute = true;
+				var m:Dynamic = i.get("mutes");
+				inp.mutes = Std.isOfType(m, String) ? m : null;
+			}
 			sm.inputs.push(inp);
 		}
 		for (b in maps(x.get("bindings"))) {
