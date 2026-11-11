@@ -28,7 +28,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # SITE_URL / SITE_BASE default to https://uxcentury.github.io/open-bone/; set them for a custom domain.
+      # Deployed to https://openbone.io (public/CNAME). SITE_URL / SITE_BASE override where it is hosted.
       - run: pnpm --filter @openbone/website build
       - uses: actions/upload-pages-artifact@v4
         if: github.event_name != 'pull_request'

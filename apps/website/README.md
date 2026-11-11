@@ -1,6 +1,6 @@
 # OpenBone website
 
-The documentation site at https://uxcentury.github.io/open-bone/: a landing page, live examples, guides with
+The documentation site at https://openbone.io/: a landing page, live examples, guides with
 screenshots of the real editor, engine quick starts, and the repository's reference docs.
 
 Built with [Astro](https://astro.build) and [Starlight](https://starlight.astro.build) (both MIT): static output,
@@ -12,12 +12,12 @@ broken internal link ([starlight-links-validator](https://github.com/HiDeoo/star
 Astro 7 needs Node.js 22.23 or newer (CI uses 24; `devEngines` in `package.json` lets pnpm fetch it).
 
 ```bash
-pnpm --filter @openbone/website dev       # http://127.0.0.1:5195/open-bone/
+pnpm --filter @openbone/website dev       # http://127.0.0.1:5195/
 pnpm --filter @openbone/website build     # dist/
-pnpm --filter @openbone/website preview   # http://127.0.0.1:5196/open-bone/
+pnpm --filter @openbone/website preview   # http://127.0.0.1:5196/
 ```
 
-`SITE_URL` and `SITE_BASE` change where it is hosted (default `https://uxcentury.github.io` and `/open-bone`).
+`SITE_URL` and `SITE_BASE` change where it is hosted (default `https://openbone.io` and `/`).
 `.github/workflows/website.yml` builds it on every push to `main` and deploys it to GitHub Pages.
 
 ## What comes from where
