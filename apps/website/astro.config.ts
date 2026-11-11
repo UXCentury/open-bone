@@ -2,6 +2,7 @@ import { unified } from "@astrojs/markdown-remark";
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import starlightLinksValidator from "starlight-links-validator";
+import starlightLlmsTxt from "starlight-llms-txt";
 import { remarkBase } from "./src/remark-base.ts";
 import { DOCS, syncAll } from "./scripts/sync.ts";
 
@@ -39,15 +40,30 @@ export default defineConfig({
       favicon: "/favicon.svg",
       head: [
         { tag: "link", attrs: { rel: "apple-touch-icon", href: `${base.replace(/\/$/, "")}/apple-touch-icon.png` } },
-        { tag: "meta", attrs: { property: "og:image", content: `${siteUrl}${base.replace(/\/$/, "")}/og.webp` } },
         { tag: "meta", attrs: { name: "theme-color", content: "#190826" } },
       ],
       social: [{ icon: "github", label: "GitHub", href: GITHUB }],
       editLink: { baseUrl: `${GITHUB}/edit/main/apps/website/` },
-      lastUpdated: false,
+      // Last-updated dates from git: shown on pages, and as <lastmod> hints for search engines.
+      lastUpdated: true,
       customCss: ["./src/styles/theme.css"],
-      components: { Footer: "./src/components/Footer.astro", PageTitle: "./src/components/PageTitle.astro" },
-      plugins: [starlightLinksValidator({ errorOnLocalLinks: true })],
+      // Head: per-page social cards, JSON-LD and robots tags (src/components/Head.astro).
+      components: { Head: "./src/components/Head.astro", Footer: "./src/components/Footer.astro", PageTitle: "./src/components/PageTitle.astro" },
+      plugins: [
+        starlightLinksValidator({ errorOnLocalLinks: true }),
+        // /llms.txt, /llms-full.txt and /llms-small.txt: the docs as plain Markdown for AI assistants and AI search.
+        starlightLlmsTxt({
+          projectName: "OpenBone",
+          description:
+            "OpenBone is open-source (MIT) 2D skeletal animation: a desktop and web editor for Spine-style rigging (bones, weighted meshes, IK, path and physics constraints), Rive-style interactive state machines, sound and lip sync, exports to every format, native runtimes for web, Unity, Godot, Flutter, Swift, Android/libGDX, MonoGame and C/C++, a CLI, and an MCP server so AI agents can animate.",
+          customSets: [
+            { label: "Guides", paths: ["getting-started/**", "guides/**"], description: "how to rig, animate, make interactive, add sound, export, and use the CLI and the MCP server" },
+            { label: "Engine quick starts", paths: ["engines/**", "runtimes/**", "packages/**"], description: "playing OpenBone files in each engine and runtime" },
+            { label: "Reference", paths: ["reference/**"], description: "file format, runtime specification, MCP tools, architecture" },
+          ],
+          exclude: ["index"],
+        }),
+      ],
       sidebar: [
         {
           label: "Start here",

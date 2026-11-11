@@ -10,6 +10,7 @@
  *
  * Run by the integration in astro.config.ts; `pnpm --filter @openbone/website sync` runs it on its own.
  */
+import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -118,6 +119,42 @@ export function githubAlerts(md: string): string {
   return out.join("\n");
 }
 
+const changed = new Map<string, string | null>();
+
+/** When a repository file last changed in git (ISO date), or null outside a git checkout. */
+function lastChanged(src: string): string | null {
+  if (!changed.has(src)) {
+    let date: string | null = null;
+    try {
+      date = execFileSync("git", ["log", "-1", "--format=%cI", "--", src], { cwd: repo, stdio: ["ignore", "pipe", "ignore"] }).toString().trim() || null;
+    } catch {
+      date = null;
+    }
+    changed.set(src, date);
+  }
+  return changed.get(src) ?? null;
+}
+
+/** The first prose paragraph of a Markdown body as plain text, cut at a sentence end near 160 characters. */
+export function firstParagraph(md: string, fallback: string): string {
+  const prose = md
+    .replace(/^```[\s\S]*?^```/gm, "")
+    .split(/\n\s*\n/)
+    .map((p) => p.trim())
+    .find((p) => p && !/^(#|<|\||>|-\s|\*\s|\d+\.\s|!\[|:::)/.test(p) && p.length > 40);
+  if (!prose) return fallback;
+  const text = prose
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/[`*_]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (text.length <= 160) return text;
+  const cut = text.slice(0, 160);
+  const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf(": "));
+  return end > 80 ? cut.slice(0, end + 1) : `${cut.slice(0, cut.lastIndexOf(" "))}…`;
+}
+
 /** Turn one repo markdown file into a Starlight page. */
 export function toPage(doc: DocSource, md: string): string {
   const lines = md.replace(/\r\n/g, "\n").split("\n");
@@ -152,9 +189,12 @@ export function toPage(doc: DocSource, md: string): string {
   const fm = [
     "---",
     `title: ${JSON.stringify(title)}`,
-    ...(doc.description ? [`description: ${JSON.stringify(doc.description)}`] : []),
+    // Every page gets its own description (search snippets, social cards): the given one, else the README's first paragraph.
+    `description: ${JSON.stringify(doc.description ?? firstParagraph(body, title))}`,
     ...(doc.label ? [`sidebar:\n  label: ${JSON.stringify(doc.label)}`] : []),
     `editUrl: ${JSON.stringify(`${GITHUB}/edit/main/${doc.src}`)}`,
+    // The generated file is not in git; the date its source last changed is.
+    ...(lastChanged(doc.src) ? [`lastUpdated: ${lastChanged(doc.src)}`] : []),
     "---",
     "",
     `:::note[Imported from the repository]`,
