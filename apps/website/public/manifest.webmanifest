@@ -1,0 +1,15 @@
+{
+  "name": "OpenBone",
+  "short_name": "OpenBone",
+  "description": "Open-source 2D skeletal animation: rig it like Spine, make it interactive like Rive, play it in every engine.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#140a1e",
+  "theme_color": "#190826",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

@@ -1,0 +1,119 @@
+---
+/**
+ * Starlight's <head>, plus what search engines and social sites read beyond it: each page's own social card
+ * (/og/<page>.png), Twitter card tags, the web manifest and PNG icons, `noindex` on the 404 page, and JSON-LD:
+ * Organization, WebSite and SoftwareApplication on the home page, TechArticle and BreadcrumbList on docs pages.
+ */
+import fs from "node:fs";
+import path from "node:path";
+import Default from "@astrojs/starlight/components/Head.astro";
+import { OG_HEIGHT, OG_WIDTH, sectionOf } from "../lib/og";
+
+const route = Astro.locals.starlightRoute;
+const id = route.id === "" ? "index" : route.id;
+const isHome = id === "index";
+const is404 = id === "404" || Astro.url.pathname.endsWith("/404/") || Astro.url.pathname.endsWith("/404.html");
+const site = (Astro.site?.href ?? "https://openbone.io/").replace(/\/$/, "");
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const abs = (p: string) => `${site}${base}${p}`;
+const pageUrl = abs(isHome ? "/" : `/${id}/`);
+const { title, description } = route.entry.data;
+const ogImage = abs(`/og/${id}.png`);
+const ogAlt = isHome ? "OpenBone: open-source 2D skeletal animation" : `${title} · OpenBone`;
+const version = (JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "../../package.json"), "utf8")) as { version: string }).version;
+const GITHUB = "https://github.com/UXCentury/open-bone";
+
+const organization = {
+  "@type": "Organization",
+  "@id": "https://uxcentury.com/#organization",
+  name: "UXCentury",
+  url: "https://uxcentury.com",
+  logo: abs("/icon-512.png"),
+  sameAs: ["https://github.com/UXCentury"],
+};
+const website = {
+  "@type": "WebSite",
+  "@id": `${site}/#website`,
+  name: "OpenBone",
+  url: `${site}/`,
+  inLanguage: "en",
+  publisher: { "@id": organization["@id"] },
+};
+
+const graph: object[] = isHome
+  ? [
+      organization,
+      website,
+      {
+        "@type": "SoftwareApplication",
+        name: "OpenBone",
+        description,
+        url: `${site}/`,
+        image: ogImage,
+        screenshot: ogImage,
+        applicationCategory: "MultimediaApplication",
+        applicationSubCategory: "2D skeletal animation",
+        operatingSystem: "Windows, macOS, Linux, Web",
+        softwareVersion: version,
+        license: "https://opensource.org/licenses/MIT",
+        isAccessibleForFree: true,
+        offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+        downloadUrl: `${GITHUB}/releases/latest`,
+        installUrl: `${GITHUB}/releases/latest`,
+        softwareHelp: abs("/getting-started/introduction/"),
+        author: { "@id": organization["@id"] },
+        publisher: { "@id": organization["@id"] },
+        sameAs: [GITHUB, "https://www.npmjs.com/package/@openbone/player", "https://pub.dev/packages/openbone", "https://www.nuget.org/packages/OpenBone.Runtime"],
+        keywords: "2D skeletal animation, rigging, state machines, game animation, Spine alternative, Rive alternative, MCP, AI animation, Unity, Godot, Flutter, web animation",
+      },
+      {
+        "@type": "SoftwareSourceCode",
+        name: "OpenBone",
+        codeRepository: GITHUB,
+        programmingLanguage: ["TypeScript", "C++", "C#", "Java", "Swift", "Dart", "Haxe"],
+        license: "https://opensource.org/licenses/MIT",
+        author: { "@id": organization["@id"] },
+      },
+    ]
+  : [
+      website,
+      {
+        "@type": "TechArticle",
+        headline: title,
+        description,
+        url: pageUrl,
+        image: ogImage,
+        inLanguage: "en",
+        isPartOf: { "@id": website["@id"] },
+        publisher: organization,
+        about: { "@type": "SoftwareApplication", name: "OpenBone", applicationCategory: "MultimediaApplication", operatingSystem: "Windows, macOS, Linux, Web" },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "OpenBone", item: `${site}/` },
+          ...(id.includes("/") ? [{ "@type": "ListItem", position: 2, name: sectionOf(id), item: pageUrl }] : []),
+          { "@type": "ListItem", position: id.includes("/") ? 3 : 2, name: title, item: pageUrl },
+        ],
+      },
+    ];
+const jsonLd = JSON.stringify({ "@context": "https://schema.org", "@graph": graph }).replace(/</g, "\\u003c");
+---
+
+<Default />
+<meta property="og:image" content={ogImage} />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content={String(OG_WIDTH)} />
+<meta property="og:image:height" content={String(OG_HEIGHT)} />
+<meta property="og:image:alt" content={ogAlt} />
+<meta name="twitter:title" content={isHome ? "OpenBone · open-source 2D skeletal animation" : `${title} · OpenBone`} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImage} />
+<meta name="twitter:image:alt" content={ogAlt} />
+<meta name="author" content="UXCentury" />
+<meta name="application-name" content="OpenBone" />
+<link rel="manifest" href={`${base}/manifest.webmanifest`} />
+<link rel="icon" type="image/png" sizes="192x192" href={`${base}/icon-192.png`} />
+<link rel="icon" href={`${base}/favicon.ico`} sizes="32x32" />
+{is404 ? <meta name="robots" content="noindex, follow" /> : <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />}
+{!is404 && <script type="application/ld+json" set:html={jsonLd} />}

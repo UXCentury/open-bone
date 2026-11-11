@@ -37,6 +37,19 @@ server (an integration in `astro.config.ts`) and writes these git-ignored files:
 To add a repository document to the site, add it to `DOCS`. Hand-written pages (the landing page, guides, engine
 quick starts) are in `src/content/docs/`.
 
+## SEO
+
+- Every page has its own title, description (imported pages use the README's first paragraph), canonical URL and
+  last-updated date (from git; CI checks out the full history).
+- `src/pages/og/[...slug].png.ts` draws a 1200 × 630 social card per page (`src/lib/og.ts`): brand, section, title,
+  description and the page's first screenshot. `src/components/Head.astro` adds the Open Graph and Twitter image tags,
+  robots tags (`noindex` on the 404 page), the web manifest and icons, and JSON-LD: `Organization`, `WebSite`,
+  `SoftwareApplication` and `SoftwareSourceCode` on the home page, `TechArticle` and `BreadcrumbList` on docs pages.
+- `/robots.txt`, `/sitemap-index.xml`, and `/llms.txt` (plus `llms-full.txt`, `llms-small.txt` and per-section sets)
+  for AI assistants and AI search ([starlight-llms-txt](https://github.com/delucis/starlight-llms-txt), MIT).
+- The Worker (`worker/index.ts`) redirects `www.openbone.io` and slash-less paths to the canonical URL with a 301;
+  `public/_headers` sets long caching for fingerprinted files and security headers.
+
 ## Live players
 
 `<LivePlayer example="knight" />` (in `src/components/`) embeds `<openbone-player>` with buttons for the example's
