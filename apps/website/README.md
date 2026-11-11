@@ -54,7 +54,7 @@ quick starts) are in `src/content/docs/`.
 
 `<LivePlayer example="knight" />` (in `src/components/`) embeds `<openbone-player>` with buttons for the example's
 state-machine inputs, read from the `.obone` file at build time. Players start when scrolled into view, pause off
-screen, and start muted (the speaker button turns sound on). `src/lib/examples.ts` has each example's copy and which
+screen, and wait on their first frame behind a **Play with sound** button: that click is the gesture browsers need for audio, so they start with sound (the speaker mutes them). `src/lib/examples.ts` has each example's copy and which
 inputs get a control.
 
 ## Screenshots
