@@ -42,6 +42,9 @@ if(OPENBONE_GODOT_ADDON)
   add_library(openbone_godot_release SHARED src/register_types.cpp src/openbone_node.cpp)
   target_link_libraries(openbone_godot_release PRIVATE godot-cpp.template_release openbone::openbone)
   list(APPEND _ob_godot_targets openbone_godot_release)
+  # Both godot-cpp targets generate the same bindings into one gen/ folder; built side by side (--parallel, MSBuild)
+  # the generators collide. Ordering them makes the release target find the headers already there.
+  add_dependencies(godot-cpp.template_release godot-cpp.template_debug)
   get_target_property(_ob_sfx_debug godot-cpp.template_debug GODOTCPP_SUFFIX)
   get_target_property(_ob_sfx_release godot-cpp.template_release GODOTCPP_SUFFIX)
   if(ANDROID)  # godot-cpp names Android .android.<abi>.<target>.<arch>; the arch is enough.

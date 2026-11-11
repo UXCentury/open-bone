@@ -2,6 +2,8 @@
 # assembled as addons/openbone/ (see runtimes/cpp/engines/godot/package.sh).
 #
 # - Run by hand (Actions → Godot addon → Run workflow): builds and tests the addon and keeps it as a workflow artifact.
+#   With "release" set to a published release's tag (v0.3.0), it also publishes to that release like the release event
+#   does, built from the chosen branch: for a fix to the addon build after the tag.
 # - When a GitHub Release is published (release-desktop.yml creates it as a draft; publishing it is a manual step), also
 #   attaches openbone-godot-<version>.zip to that release and updates the orphan branch `godot-addon`, whose root holds
 #   only addons/openbone (+ README, LICENSE, icon). The Godot Asset Library downloads GitHub's archive of a commit on
@@ -12,10 +14,15 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      release:
+        description: "Also publish to this published release (tag, e.g. v0.3.0); empty = build and test only"
+        required: false
+        default: ""
 
 concurrency:
   # Releases share one group so two of them never push the godot-addon branch at the same time.
-  group: ${{ github.workflow }}-${{ github.event_name == 'release' && 'release' || github.ref }}
+  group: ${{ github.workflow }}-${{ (github.event_name == 'release' || inputs.release != '') && 'release' || github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -94,7 +101,7 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     permissions:
-      contents: write # release asset + godot-addon branch (release events only)
+      contents: write # release asset + godot-addon branch (release events and runs with a release tag only)
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -104,7 +111,7 @@ jobs:
       - name: Version
         id: version
         env:
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.release }}
         run: |
           if [ -n "$TAG" ]; then v="${TAG#v}"; else v="$(node -p 'require("./package.json").version')"; fi
           echo "version=$v" >> "$GITHUB_OUTPUT"
@@ -130,14 +137,14 @@ jobs:
           if-no-files-found: error
 
       - name: Attach to the release
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || inputs.release != ''
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.release }}
         run: gh release upload "$TAG" "dist/openbone-godot-${{ steps.version.outputs.version }}.zip" --clobber --repo "$GITHUB_REPOSITORY"
 
       - name: Update the godot-addon branch
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || inputs.release != ''
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
