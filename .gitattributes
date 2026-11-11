@@ -1,0 +1,6 @@
+# GitHub's archive of this branch is what the Godot Asset Library downloads: ship only addons/.
+/README.md export-ignore
+/LICENSE export-ignore
+/icon.png export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
