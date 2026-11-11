@@ -1,0 +1,109 @@
+---
+title: Install
+description: Get the OpenBone editor (desktop or web) and the runtime packages for your platform.
+---
+
+import { Tabs, TabItem, Aside } from "@astrojs/starlight/components";
+
+## The editor
+
+### Desktop app
+
+Download the installer for your system from the [latest release](https://github.com/UXCentury/open-bone/releases/latest)
+([all releases](https://github.com/UXCentury/open-bone/releases)):
+
+| System | Files |
+|---|---|
+| Windows | `.msi`, `.exe` |
+| macOS | `.dmg` for Apple Silicon and Intel |
+| Linux | `.deb`, `.rpm`, `.AppImage` |
+
+The desktop app is the same editor as the web version, in a [Tauri 2](https://tauri.app) shell, plus native open and
+save dialogs, folder export and live reloading of art you change in your paint or audio app.
+
+### From source
+
+You need [Node.js](https://nodejs.org) 20 or newer and [pnpm](https://pnpm.io).
+
+```bash
+git clone https://github.com/UXCentury/open-bone.git
+cd open-bone
+pnpm install
+pnpm dev
+```
+
+The editor opens at `http://localhost:5180` with the *Walker* example. To run or build the desktop app from source you
+also need Rust and the Tauri system dependencies (on Linux: webkit2gtk-4.1 and GTK 3):
+
+```bash
+pnpm desktop        # run it
+pnpm desktop:build  # build installers
+```
+
+[Releasing](/reference/releasing/) covers the installers, signing and the release workflow.
+
+## Runtime packages
+
+Packages are published from every release. Pick your platform; each tab links to a quick start.
+
+<Tabs syncKey="platform">
+  <TabItem label="Web">
+    ```bash
+    npm install @openbone/player
+    ```
+    Or the engine packages: `@openbone/pixi`, `@openbone/phaser`, `@openbone/three`, `@openbone/canvaskit`, or the
+    bare `@openbone/runtime`. → [Web quick start](/engines/web/)
+  </TabItem>
+  <TabItem label="Unity">
+    Package Manager → **Add package from git URL**: `https://github.com/UXCentury/open-bone.git#upm`, or
+    `openupm add com.openbone.runtime`. Unity 2021.3 or newer. → [Unity quick start](/engines/unity/)
+  </TabItem>
+  <TabItem label="Godot">
+    AssetLib tab → **OpenBone**, or unzip `openbone-godot-<version>.zip` from the
+    [releases](https://github.com/UXCentury/open-bone/releases) into your project. Godot 4.4 or newer.
+    → [Godot quick start](/engines/godot/)
+  </TabItem>
+  <TabItem label="Flutter">
+    ```bash
+    flutter pub add openbone
+    ```
+    Flutter 3.41+, on Android, iOS, macOS, Linux and Windows. → [Flutter quick start](/engines/flutter/)
+  </TabItem>
+  <TabItem label="Swift">
+    Xcode → **Add Package Dependencies** → `https://github.com/UXCentury/open-bone`, product `OpenBone`. iOS 15+,
+    macOS 12+. → [Swift quick start](/engines/swift/)
+  </TabItem>
+  <TabItem label="Android / JVM">
+    ```kotlin
+    implementation("io.openbone:openbone-runtime:0.3.0")
+    // + openbone-scripting, openbone-gdx, openbone-android
+    ```
+    From Maven Central. → [Android and libGDX quick start](/engines/android-libgdx/)
+  </TabItem>
+  <TabItem label=".NET / MonoGame">
+    ```bash
+    dotnet add package OpenBone.Runtime
+    dotnet add package OpenBone.MonoGame        # renderer, player, sound
+    dotnet add package OpenBone.Scripting.Jint  # document scripts
+    ```
+    → [MonoGame quick start](/engines/monogame/)
+  </TabItem>
+  <TabItem label="C / C++">
+    ```cmake
+    add_subdirectory(runtimes/cpp)   # from a checkout; QuickJS and nlohmann/json are vendored
+    ```
+    → [C / C++ quick start](/engines/cpp/)
+  </TabItem>
+</Tabs>
+
+## Tools
+
+```bash
+npx openbone --help      # the CLI
+npx -y @openbone/mcp     # the MCP server
+```
+
+<Aside type="tip">
+  The repository ships `.mcp.json`, so Claude Code picks up the `openbone` MCP server automatically when you open the
+  checkout. See [Let an agent animate](/guides/mcp-agent/).
+</Aside>

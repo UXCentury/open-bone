@@ -1,0 +1,49 @@
+---
+/** Starlight's footer, plus the site-wide screenshot lightbox and Mermaid diagrams for the imported docs. */
+import Default from "@astrojs/starlight/components/Footer.astro";
+---
+
+<Default><slot /></Default>
+<p class="ob-foot">
+  OpenBone is MIT licensed and made by <a href="https://uxcentury.com">UXCentury</a>. The example art, voices and sounds
+  are credited in the <a href="https://github.com/UXCentury/open-bone/tree/main/examples/assets">repository</a>.
+</p>
+
+<script>
+  // Lightbox: click a screenshot to see the full capture.
+  const open = (src: string, alt: string) => {
+    const d = document.createElement("dialog");
+    d.className = "ob-lightbox";
+    const img = document.createElement("img");
+    img.src = src;
+    img.alt = alt;
+    d.append(img);
+    d.addEventListener("click", () => d.close());
+    d.addEventListener("close", () => d.remove());
+    document.body.append(d);
+    d.showModal();
+  };
+  document.addEventListener("click", (e) => {
+    const t = e.target as HTMLElement;
+    if (!(t instanceof HTMLImageElement) || !t.closest(".sl-markdown-content")) return;
+    if (t.closest("a") || t.closest(".ob-live") || t.closest(".ob-noflash")) return;
+    open(t.dataset.full ?? t.currentSrc ?? t.src, t.alt);
+  });
+
+  // Mermaid diagrams (from the imported reference docs), loaded only on pages that have one.
+  const diagrams = document.querySelectorAll<HTMLElement>("pre.mermaid");
+  if (diagrams.length) {
+    const { default: mermaid } = await import("mermaid");
+    const dark = document.documentElement.dataset.theme !== "light";
+    mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "default", securityLevel: "strict" });
+    await mermaid.run({ nodes: [...diagrams] });
+  }
+</script>
+
+<style>
+  .ob-foot {
+    margin-top: 1.5rem;
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+</style>

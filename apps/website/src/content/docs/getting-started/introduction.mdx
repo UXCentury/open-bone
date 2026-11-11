@@ -1,0 +1,43 @@
+---
+title: Introduction
+description: What OpenBone is, what it can do, and where to go next.
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+import LivePlayer from "../../../components/LivePlayer.astro";
+
+OpenBone is an open-source tool for **2D skeletal animation**. You rig artwork with bones, meshes and constraints the
+way you would in Spine, make it interactive with state machines and pointer listeners the way you would in Rive, and
+play the result in the browser and in every major game engine. Every edit is also an [MCP](https://modelcontextprotocol.io)
+tool, so an AI agent can build and animate a character for you while you watch it happen in the editor.
+
+Everything, from the editor to the last runtime, is **MIT licensed** and built only on permissively licensed
+dependencies.
+
+<LivePlayer example="walker" />
+
+The walker above is not a video: it is `examples/walker.obone` playing in the [web player](/engines/web/). Click the
+path to make him walk and click him to jump.
+
+## The pieces
+
+| Piece | What it is |
+|---|---|
+| **Editor** | A desktop app (Windows, macOS, Linux) and a web app: rigging, animation, state machines, audio, export. See the [editor tour](/getting-started/editor-tour/). |
+| **File format** | `.obone` (JSON) and `.obonb` (binary, about 40% of the size). One file can carry its art and sound. See the [format reference](/reference/format/). |
+| **Runtimes** | A TypeScript reference runtime and native runtimes for C/C++, C#, Java, Swift, Flutter and Haxe, all checked against one [conformance suite](/reference/conformance/). |
+| **Web player** | [`<openbone-player>`](/packages/player/), a drop-in web component, plus PixiJS, Phaser, Three.js and CanvasKit integrations. |
+| **MCP server** | [`@openbone/mcp`](/guides/mcp-agent/): every editing operation as a tool, plus rendering and state-machine simulation so an agent can check its work. |
+| **CLI** | [`openbone`](/guides/cli/): validate, render, simulate and export from scripts and CI. |
+
+<Shot name="editor-overview" alt="The OpenBone editor in Animate mode on the Windswept example: skeleton tree on the left, viewport in the middle, Inspector on the right, and the dopesheet with the voice line below" caption="The editor in Animate mode on Windswept, with the voice line and its lip-sync keys in the dopesheet." />
+
+## Where next
+
+<CardGrid>
+  <LinkCard title="Install" description="The desktop app, the web editor, and the packages for your engine." href="/getting-started/install/" />
+  <LinkCard title="Quick start" description="Open an example, play it, change it and export it in five minutes." href="/getting-started/quick-start/" />
+  <LinkCard title="Your first rig" description="Import art, add bones, build a mesh and paint weights." href="/guides/first-rig/" />
+  <LinkCard title="Let an agent animate" description="Connect Claude or another MCP client and watch it work live." href="/guides/mcp-agent/" />
+</CardGrid>

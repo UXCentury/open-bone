@@ -1,0 +1,71 @@
+---
+title: Animating
+description: Keys, the dopesheet, the graph view, curves, free-form deformation, onion skin and events.
+---
+
+import { Steps, Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+import LivePlayer from "../../../components/LivePlayer.astro";
+
+Animations are sets of **timelines**, one per animated property: bone rotation, translation, scale and shear, slot
+colour and attachment, constraint values, mesh and path deforms, sequence frames, particles, draw order, events and
+sounds. Each animation has its own length, colour and an **Export** switch that decides whether it ships.
+
+## Create an animation and set keys
+
+<Steps>
+
+1. In the left panel's **Animations** list press **+**, and name it (`walk`, `idle`, `attack`).
+2. Switch to **Animate** mode (<kbd>`</kbd>). The viewport's status line shows the animation and the time.
+3. Make sure **● Rec** is on, move the playhead, and pose bones in the viewport: each change becomes a key. In the
+   Inspector, the ◆ next to a property keys just that property.
+4. Press <kbd>Space</kbd> to play. Keys past the end extend the animation; **Length** sets it exactly.
+
+</Steps>
+
+## The dopesheet
+
+The dopesheet lists the animated bones, slots and constraints with their keys. Events and sounds have their own lanes
+at the top, with the waveform of each sound.
+
+<Shot name="anim-dopesheet" alt="Walker's walk cycle in the dopesheet: footstep events at the top, then front-foot, back-foot, hip and torso with their x, y and rotation keys, and the hip bone selected" caption="The walk cycle: footstep events on top, then one row per animated property. Hold bars show where a value stays the same." />
+
+- **Select** keys with a click, <kbd>Shift</kbd>/<kbd>Ctrl</kbd>-click or a box; <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>A</kbd> selects all.
+- **Drag** to retime, arrow keys to nudge.
+- **Copy and paste** (<kbd>Ctrl</kbd>+<kbd>C</kbd>, <kbd>Ctrl</kbd>+<kbd>V</kbd>) at the playhead, even into another animation.
+- **Scale** a selection in time, change the curve of several keys at once, or delete them together.
+- **+ Event** keys an event (with int, float and string payloads) that game code and sounds can listen to.
+
+## Curves and the graph view
+
+Each key has a curve to the next one: **linear**, **stepped** or **bezier**. Click a key and set its curve in the
+**Key curve** panel. The **Graph** view shows the value curves themselves, with bezier handles you can drag.
+
+<Shot name="anim-graph" alt="The Graph view of the walk: coloured curves for front-foot x, y and rotation, back-foot, hip, torso, head and arm rotations, with key points and the playhead" caption="The Graph view: tick the properties to show, Normalize to compare curves of different ranges, and drag handles to shape the easing." />
+
+## Free-form deformation
+
+With the **Mesh** tool in Animate mode, dragging mesh vertices keys a **deform** at the playhead: squash, stretch, bulge,
+or fix a shape the bones alone cannot make. Weighted meshes work too, and **Soft selection** moves nearby vertices with
+a falloff.
+
+<Shot name="anim-ffd" alt="The Tail's tail mesh in Animate mode during the curl animation, with the Mesh tool's deform help: dragging vertices keys a deform" caption="Deforming the tail in the curl animation. Delete resets the selected vertices back to the key." />
+
+## Onion skin
+
+**Onion** in the viewport corner (<kbd>O</kbd>) shows ghost poses before (red) and after (green) the current frame. The
+fields next to it set how many and how far apart.
+
+<Shot name="anim-onion" alt="Onion skin on Walker's walk: ghost poses before and after the current frame in red and green" />
+
+## Mixing animations
+
+Animations play on **tracks**. A higher track overrides a lower one for the properties it keys, so an `aim` animation
+on track 1 can run over a `walk` on track 0. Changing animation on a track **cross-fades**; properties only the
+outgoing animation keyed ease back to the setup pose. State machines do all of this for you: see
+[State machines](/guides/state-machines/).
+
+<LivePlayer example="knight" />
+
+The Knight's walk, attack and salute are separate animations mixed by its state machine. Click the road, the knight
+and his helmet.

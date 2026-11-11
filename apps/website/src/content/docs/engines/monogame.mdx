@@ -1,0 +1,75 @@
+---
+title: MonoGame and .NET
+description: Play OpenBone animations in MonoGame 3.8 with OpenBone.MonoGame, or on any .NET with OpenBone.Runtime.
+sidebar:
+  label: MonoGame, .NET
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+
+`OpenBone.Runtime` is the C# runtime for .NET Standard 2.1. `OpenBone.MonoGame` adds a renderer, a player with pointer
+input and a `SoundEffect` bridge for MonoGame 3.8, and `OpenBone.Scripting.Jint` runs document scripts.
+
+## Install
+
+```bash
+dotnet add package OpenBone.Runtime
+dotnet add package OpenBone.MonoGame
+dotnet add package OpenBone.Scripting.Jint
+```
+
+## Export from the editor
+
+Put the exported `.obone` or `.obonb` file and its images in your `Content/` folder, copied to the output directory.
+
+<Shot name="export-json" alt="The Export dialog with JSON selected for the Knight" />
+
+## Play it
+
+```csharp
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using OpenBone.MonoGame;
+
+public class Game1 : Game
+{
+    readonly GraphicsDeviceManager graphics;
+    OpenBoneMonoGame knight;
+
+    public Game1()
+    {
+        // Clipping masks use the stencil buffer.
+        graphics = new GraphicsDeviceManager(this) { PreferredDepthStencilFormat = DepthFormat.Depth24Stencil8 };
+        IsMouseVisible = true;
+    }
+
+    protected override void LoadContent()
+    {
+        knight = OpenBoneMonoGame.Load(GraphicsDevice, "Content/knight.obone");
+        knight.UseStateMachine("knight");            // or: knight.Play("walk");
+        knight.Event += e => System.Console.WriteLine($"event {e.Name}");
+    }
+
+    protected override void Update(GameTime gameTime)
+    {
+        knight.Update(gameTime);                      // pointer input, advance, sound
+        base.Update(gameTime);
+    }
+
+    protected override void Draw(GameTime gameTime)
+    {
+        GraphicsDevice.Clear(Color.CornflowerBlue);
+        knight.Draw();
+        base.Draw(gameTime);
+    }
+}
+```
+
+<Aside>
+  The repository has a DesktopGL sample in `runtimes/csharp/monogame`. For Unity, use the
+  [Unity package](/engines/unity/) instead.
+</Aside>
+
+**Reference:** [OpenBone.MonoGame](/runtimes/monogame/) · [C# runtime](/runtimes/csharp/) ·
+[OpenBone.Scripting.Jint](/runtimes/dotnet-scripting/)

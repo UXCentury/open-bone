@@ -1,0 +1,81 @@
+---
+title: State machines and listeners
+description: Inputs, states, transitions, layers, pointer listeners, bindings, live text and scripts.
+sidebar:
+  label: State machines
+---
+
+import { Steps, Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+import LivePlayer from "../../../components/LivePlayer.astro";
+
+A state machine decides which animations play, from **inputs** your app sets and from **pointer listeners** on the
+artwork. It runs the same way in the editor's Play mode, in the web player and in every native runtime, so the file
+carries its own interactivity.
+
+<LivePlayer example="button" />
+
+The button above is a state machine with two inputs (`hover`, `press`), three states and three listeners. Hover it and
+click it.
+
+## The parts
+
+| Part | What it does |
+|---|---|
+| **Inputs** | `bool`, `number`, `string` and `trigger` values your code (or a listener) sets |
+| **Layers** | Independent graphs that run at the same time (a character on layer 1, a camera pan on layer 2) |
+| **States** | Play an animation, or a **1D blend** of animations driven by a number input |
+| **Transitions** | From one state (or **Any**) to another when conditions on inputs hold, with a cross-fade, an optional exit time, and "on complete" hand-offs |
+| **Listeners** | Pointer events (down, up, enter, exit, move, click) on a slot's hit box that set inputs, fire triggers, report events, play sounds, start particles or run scripts |
+| **Bindings** | A number input drives a bone, slot or constraint property every frame |
+
+## Build one
+
+<Steps>
+
+1. Open the **State Machine** panel (bottom dock) and press **+** in the left panel's **State machines** list.
+2. Add **inputs** with the **+** at the top of the inputs list.
+3. Add states with **+ State**, pick each state's animation in the Inspector, and **Shift-drag** from one state to
+   another to add a transition. Select the transition to set its conditions, fade time and exit time.
+4. Add **hit boxes** to the slots people should click (**+ Hit box** in the slot's Inspector, or the Pen tool for a
+   custom outline), then add **listeners**: pick the event, the slot and the action.
+5. Press **▶ Run** in the panel (or **▶ Play** in the toolbar) to try it.
+
+</Steps>
+
+<Shot name="sm-graph" alt="Walker's state machine panel: walk, speed and jump inputs, the listeners 'click on torso → fire jump' and 'click on path-hit → toggle walk', and the graph with Any, locomotion (a blend by speed) and jump states" caption="Walker's state machine: a locomotion state blending idle and walk by speed, a jump from any state, and two click listeners." />
+
+<Shot name="sm-button" alt="The Button example's state machine: hover and press inputs, four listeners (enter, exit, down and a hover sound), and the idle, hover and press states" caption="The Button: enter and exit listeners set hover, down fires press, and a listener plays the hover sound." />
+
+## Try it in Play mode
+
+**▶ Play** runs the machine with pointer interaction, scripts and sound. The **Inputs** panel shows every input; fire
+triggers and edit values, and read the log of state changes, events and audio commands.
+
+<Shot name="sm-play" alt="Play mode on the Crash game: the rocket climbing past a space station, the multiplier text, and the Inputs panel with start, crash and cashout triggers, the multiplier and status, the active state 'flying' and the log" caption="Crash game in Play mode: the start trigger moved the machine to flying; the multiplier input drives the live text and, through bindings, the parallax." />
+
+## Live text and bindings
+
+Text attachments can be **templates** bound to inputs: `{multiplier:0.00}x` shows the number input with two decimals.
+**Bindings** (the **+ Binding** button on a bone, slot or constraint) map a number input onto a property, so a host app
+can drive a gauge, a dial or a parallax camera directly.
+
+<LivePlayer example="crash" />
+
+Press **start**, then drag **multiplier**: the text and the background follow the input.
+
+## Scripts
+
+When states and bindings are not enough, a document can carry **scripts**: JavaScript run in a sandbox (QuickJS, with a
+memory cap and a per-call deadline) through an `ob` API with `onStart`, `onUpdate`, `onEvent` and `onPointer`. Walker
+uses one to ease its blend input:
+
+<Shot name="sm-scripts" alt="The Scripts panel with ease-speed.js: an onUpdate function that eases the speed input towards the walk switch" />
+
+Scripts run in every runtime that has a sandbox: the web player, C/C++ (QuickJS), C# (Jint), Java (QuickJS) and
+Swift/Flutter (through the C runtime).
+
+<Aside>
+  The machine's exact semantics (evaluation order, transition priority, exit times, blend weights) are in the
+  [runtime specification](/reference/runtime-spec/).
+</Aside>

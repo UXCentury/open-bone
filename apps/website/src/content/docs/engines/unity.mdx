@@ -1,0 +1,78 @@
+---
+title: Unity
+description: Play OpenBone rigs and state machines in Unity 2021.3+ with the com.openbone.runtime package.
+---
+
+import { Steps, Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+
+The `com.openbone.runtime` package imports `.obone` and `.obonb` files and plays them with the C# runtime: animation
+and state-machine components, meshes, pointer listeners, scripts (Jint) and sound through `AudioSource`s. Tested in
+Unity 6.
+
+## Install
+
+Package Manager → **+** → **Add package from git URL**:
+
+```text
+https://github.com/UXCentury/open-bone.git#upm
+```
+
+or with [OpenUPM](https://openupm.com):
+
+```bash
+openupm add com.openbone.runtime
+```
+
+## Export from the editor
+
+Export your project as **JSON** or **Binary** (**☰ Menu → Export…**), or save the `.obone` project itself. Keep the
+images next to it, or pack an atlas, or embed them.
+
+<Shot name="export-json" alt="The Export dialog with JSON selected for the Knight: the animations to include, atlas packing options and a preview" />
+
+## Play it
+
+<Steps>
+
+1. Put `hero.obone` (and its images, unless they are embedded) in `Assets/`.
+2. Create a GameObject and add **OpenBone → OpenBone Animation** (or **OpenBone State Machine**). Set **Asset** to the
+   imported file.
+3. Set **Start Animation** or **State Machine**, and **Pixels Per Unit** (default 100).
+4. Add **OpenBone → OpenBone Audio** to the same object to hear the document's sounds.
+5. Point an orthographic camera at the component's `StageBounds`: the stage as framed in the editor.
+
+</Steps>
+
+```csharp
+using OpenBone.Unity;
+using UnityEngine;
+
+public class Hero : MonoBehaviour
+{
+    public OpenBoneAnimation anim;
+    public OpenBoneStateMachine machine;
+
+    void Start()
+    {
+        anim.Play("walk");                       // loop on track 0
+        anim.Queue("jump", loop: false);         // after walk completes
+        anim.onEvent.AddListener((name, i, f, s) => Debug.Log($"event {name}"));
+
+        machine.SetBool("walk", true);
+        machine.Fire("attack");
+        machine.onStateChanged.AddListener((layer, state) => Debug.Log($"{layer}: {state}"));
+    }
+}
+```
+
+Pointer listeners work through the **EventSystem** (the default): the scene needs an EventSystem and the camera a
+**Physics 2D Raycaster**; a `BoxCollider2D` is added at start if the object has none.
+
+<Aside type="tip">
+  Only need pre-rendered frames? The Export dialog's **Unity** engine pack makes a sprite sheet and an editor script
+  that creates Animation clips. See [Exporting](/guides/exporting/#engine-packs).
+</Aside>
+
+**Reference:** [Unity package](/runtimes/unity/) · [C# runtime](/runtimes/csharp/) ·
+[OpenBone.Runtime on NuGet](/runtimes/dotnet-runtime/)

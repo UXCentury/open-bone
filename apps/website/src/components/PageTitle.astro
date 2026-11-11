@@ -1,0 +1,8 @@
+---
+/** Starlight's page title, left out on the landing page, which has its own hero. */
+import Default from "@astrojs/starlight/components/PageTitle.astro";
+
+const isHome = Astro.locals.starlightRoute.id === "" || Astro.locals.starlightRoute.id === "index";
+---
+
+{!isHome && <Default />}

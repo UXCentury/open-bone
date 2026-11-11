@@ -1,0 +1,81 @@
+---
+title: Audio, mixer and lip sync
+description: Sounds on the timeline, on events and states, the mixer with buses, and lip sync from a voice recording.
+sidebar:
+  label: Audio and lip sync
+---
+
+import { Steps, Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+import LivePlayer from "../../../components/LivePlayer.astro";
+
+Sound is part of the file. A `.obone` document lists its **sounds** (WAV, MP3 or OGG, embedded or by path), its
+**buses**, and what plays them: audio keys in animations, events, state hooks and listener actions. The runtimes emit
+play, stop and fade **commands**, which the web player, the editor and the native engine integrations play.
+
+<LivePlayer example="fox" />
+
+Pip the fox: click the head, then turn the sound on with the speaker button to hear the voice that drives the mouth.
+
+## Add sounds
+
+<Steps>
+
+1. **+ Add → Audio** (or drop WAV/MP3/OGG files on the viewport). Each file becomes an audio asset and a sound.
+2. Select the sound in the left panel's **Audio** list. Set its **Bus**, **Volume**, **Rate**, **Loop** and **Fade in/out**,
+   and preview it with ▶.
+3. Play it from somewhere:
+   - an **audio key**: **+ Sound** in the timeline puts it at the playhead, shown with its waveform;
+   - an **event**: **Play on events** in the sound's Inspector links it to an event, so every time that event fires
+     (from a key, a listener or a script) the sound plays;
+   - a **state**: a state's Inspector can play a sound on enter, and stop looping sounds on exit;
+   - a **listener**: the *play sound* action.
+
+</Steps>
+
+<Shot name="audio-sound" alt="The Rocket's ignite sound selected: file, bus sfx, volume, rate, loop, fade in and out, a waveform preview with play controls, and Play on events" caption="A sound: its bus, volume, rate, loop and fades, a preview, and the events that play it." />
+
+Looping sounds fade out when their state or animation ends. **Scrub** in the timeline plays the audio under the playhead
+while you drag it.
+
+## The mixer
+
+Sounds go through named **buses** (the examples use `sfx`, `music` and `ui`) into the **master**. Each has a volume and
+a mute; the final gain is master × bus × sound × key volume. Select a bus in the left panel to edit it.
+
+<Shot name="audio-mixer" alt="The music bus selected in Windswept's Inspector: name, volume, muted, the sounds routed to it, and + Bus" />
+
+Buses can be muted from a state machine too: *Windswept*'s ♪ and 効果音 buttons toggle bool inputs whose states mute the
+music and the effects.
+
+## Lip sync
+
+Lip sync keys a mouth slot's images to the speech in a voice recording. You need a slot with one attachment per mouth
+shape; OpenBone uses six: **rest**, **closed** (M, B, P), **small** (S, T, F, quiet), **open** (most vowels), **wide**
+(loud A, E) and **round** (O, U, W).
+
+<Steps>
+
+1. In Animate mode, pick the animation and move the playhead to where the line starts.
+2. Press **Lip sync…** in the timeline. Choose the **sound** and the **mouth slot**.
+3. Press **Next** and match each shape to an image. The editor guesses from the names (`mouth-open`, `mouth-wide`…);
+   several shapes may share one image.
+4. Press **Lip sync**. The voice is analysed and the mouth slot's attachment is keyed through the line, with the sound
+   keyed at the same time.
+
+</Steps>
+
+<Shot name="audio-lipsync" alt="The Mouth shapes step of the Lip sync dialog: for each shape (rest, closed, small, open, wide, round) a choice of mouth-rest, mouth-closed, mouth-small, mouth-open, mouth-wide and mouth-round images, with the guessed match highlighted" caption="Step two of Lip sync: which image plays each shape, guessed from the names." />
+
+The result is ordinary keys, so you can retime or change any of them:
+
+<Shot name="audio-timeline" alt="Windswept's talk1 animation: the voice line's waveform on the audio lane, the mouth slot's attachment keys under it, and the subtitle slots' attachment and colour keys" caption="Windswept's first line: the voice on the audio lane, the mouth keys from lip sync, and the subtitles fading in." />
+
+<Aside type="tip">
+  The MCP server has the same feature as the `lip_sync` tool, so an agent can lip-sync a line it just imported.
+</Aside>
+
+## Video with sound
+
+The MP4, WebM, MOV and AVI exports mix every sound the animation or state-machine run plays into the video. See
+[Exporting](/guides/exporting/#video-with-sound).

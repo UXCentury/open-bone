@@ -1,0 +1,57 @@
+---
+title: Particles and sequences
+description: Particle emitters on any slot, presets, and sprite-sequence animation.
+sidebar:
+  label: Particles
+---
+
+import { Steps, Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+import LivePlayer from "../../../components/LivePlayer.astro";
+
+<LivePlayer example="rocket" />
+
+Click the rocket (or press **launch**): smoke, exhaust and sparks are three particle emitters keyed by the launch
+animation.
+
+## Add an emitter
+
+<Steps>
+
+1. Select the slot that should emit (usually on a bone you can move, like the rocket's `nozzle`).
+2. In the Inspector choose **+ Particles…** and pick a preset: fire, smoke, sparks, confetti, exhaust or coins. Or start
+   empty.
+3. Tune it in the **Particles** section:
+   - **Emission**: emitting on or off, rate per second, a maximum, duration, loop, prewarm and **bursts** (a count at a
+     time in each cycle);
+   - **Shape**: point, circle, box or cone, and world or local space;
+   - **Life**: lifetime, speed, gravity, drag;
+   - **Over life**: size, rotation and colour curves;
+   - **Look**: dots, squares, sparks or **any image** in the document as the particle.
+4. **★ Save as preset…** keeps your settings as your own preset, available in every project.
+
+</Steps>
+
+<Shot name="particles-rocket" alt="The Rocket mid-launch with exhaust particles below it; the exhaust slot's particles section in the Inspector with preset, emission rate 90, max 200, duration, loop, prewarm and the cone shape; the timeline with emitting and rate keys" caption="The exhaust emitter during the launch. Emitting and Rate are keyed in the timeline, so the animation turns the exhaust on and up." />
+
+Particles are **seeded**, so the editor's preview, Play mode, the runtimes and the video exports all show the same
+particles frame for frame.
+
+## Drive emitters
+
+- **Keys**: `emitting` and `rate` are animatable properties (the ◆ next to them).
+- **Listeners**: the *start particles* action bursts an emitter on a click.
+- **States**: a state's animation keys the emitters it needs, so the state machine turns them on and off.
+
+<Shot name="particles-play" alt="Play mode on the Rocket after the launch trigger: the rocket lifting off the pad with smoke and sparks, and the Inputs panel with the launch trigger and the log" caption="Play mode after firing launch: the state machine plays the launch animation, which starts the emitters." />
+
+## Sprite sequences
+
+For effects drawn frame by frame (flames, explosions, a blinking light), use a **sequence** attachment: **+ Add →
+Sequence** takes numbered images (`fire_0001.png`…), a sprite sheet (a grid, TexturePacker or Aseprite JSON) or a ZIP
+of frames. Each sequence has its own fps and mode (loop, once, ping-pong, hold last), and can be driven by time, by
+keys or by a number input.
+
+<Shot name="particles-campfire" alt="The Campfire: sequence flames in front of logs, with the flame slot's sequence attachment in the Inspector: frame preview 12 of 12, playback controls, fps 15, loop mode, driven by time" caption="Campfire: two flame sequences (additive blend), a bending flame mesh and a clipping mask for the stones in front." />
+
+<LivePlayer example="campfire" />

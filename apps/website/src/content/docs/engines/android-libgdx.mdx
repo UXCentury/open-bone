@@ -1,0 +1,74 @@
+---
+title: Android and libGDX
+description: Play OpenBone animations on Android with OpenBoneView, in libGDX, or on any JVM.
+sidebar:
+  label: Android, libGDX
+---
+
+import { Tabs, TabItem, Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+
+The Java runtime is a pure Java port (Java 11+) with a libGDX renderer and sound, and a Kotlin `OpenBoneView` for
+Android 7+ with sound through `SoundPool` and `MediaPlayer`. Scripts run in QuickJS (`openbone-scripting`).
+
+## Install
+
+From Maven Central:
+
+```kotlin
+dependencies {
+    implementation("io.openbone:openbone-runtime:0.3.0")
+    implementation("io.openbone:openbone-scripting:0.3.0")   // document scripts
+    implementation("io.openbone:openbone-android:0.3.0")     // OpenBoneView
+    // or: implementation("io.openbone:openbone-gdx:0.3.0") // libGDX renderer and sound
+}
+```
+
+## Export from the editor
+
+Put the exported `.obone` or `.obonb` file and its images in your app's assets (`assets/knight/`).
+
+<Shot name="export-binary" alt="The Export dialog with Binary selected for the Knight" />
+
+## Play it
+
+<Tabs>
+  <TabItem label="Android (Kotlin)">
+    ```kotlin
+    val view = OpenBoneView(context)
+    view.load(assets.open("knight/knight.obone").readBytes(), ImageSource.assets(assets, "knight"),
+      SoundSource.assets(assets, "knight"))
+    view.useStateMachine("knight")                 // or view.play("walk")
+    view.onEvent { e -> if (e.name == "footstep") playStep() }
+    view.onStateChange { layer, from, to -> Log.d("anim", "$layer: $from → $to") }
+    view["walk"] = true                            // inputs: Boolean, Number or String
+    view.fire("attack")
+    view.fit = OpenBoneView.Fit.CONTAIN
+    ```
+    Touch and hover reach the state machine's pointer listeners. `release()` stops sounds and scripts.
+  </TabItem>
+  <TabItem label="libGDX">
+    ```java
+    OpenBoneDocument doc = DocumentLoader.load(Gdx.files.internal("knight/knight.obone").readBytes());
+    OpenBoneInstance inst = new OpenBoneInstance(doc, new QuickJsScriptHost());
+    inst.useStateMachine(null);
+    DocumentTextures textures = new DocumentTextures(doc, Gdx.files.internal("knight"));
+    OpenBoneRenderer renderer = new OpenBoneRenderer();
+    OpenBoneAudio audio = new OpenBoneAudio(doc, Gdx.files.internal("knight"));
+    inst.addListener(audio);
+
+    // render():
+    inst.advance(Gdx.graphics.getDeltaTime());
+    audio.update(Gdx.graphics.getDeltaTime());
+    renderer.draw(inst, textures, camera.combined); // camera in skeleton space (y up)
+    ```
+    Clipping masks need a stencil buffer: `config.setBackBufferConfig(8, 8, 8, 8, 16, 8, 0)` on LWJGL3.
+  </TabItem>
+</Tabs>
+
+<Aside type="tip">
+  The Export dialog's **Android** engine pack is an alternative with no native rendering: a Kotlin `OpenBoneView` that
+  wraps a `WebView` running the web player.
+</Aside>
+
+**Reference:** [Java, libGDX and Android runtime](/runtimes/java/)

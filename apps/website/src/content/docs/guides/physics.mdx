@@ -1,0 +1,69 @@
+---
+title: Physics and constraints
+description: Physics constraints for hair, cloth and tails, plus path, transform constraints and sliders.
+sidebar:
+  label: Physics
+---
+
+import { Steps, Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+import LivePlayer from "../../../components/LivePlayer.astro";
+
+**Physics constraints** add secondary motion: a bone lags behind the animated pose and springs back, so hair, skirts,
+tails, antennae and tree branches move on their own. The simulation is deterministic, so every runtime and every
+export shows the same motion.
+
+<LivePlayer example="windswept" />
+
+Everything that sways in *Windswept* (eight hair chains, the skirt, three levels of the tree) is a physics constraint.
+Press **gust** to see the wind input push them.
+
+## Add physics to a chain
+
+<Steps>
+
+1. Select the first bone of the chain (a lock of hair, the base of a tail).
+2. Under **Constraints** in the Inspector press **+ Physics** for that bone, or **+ Physics chain** to add one constraint
+   per bone down the chain in one step.
+3. Press <kbd>Space</kbd> in Animate mode, or drag a parent bone in the viewport, and tune the springs.
+
+</Steps>
+
+<Shot name="physics-hair" alt="The hair-A1-physics constraint selected on Windswept: bone hair-A1, rotate, move X and Y, stretch, inertia 0.5, strength 70, damping 2.5, mass, gravity 20, wind -30, mix and steps per second; the constraint order list on the right" caption="A hair chain's physics: what it moves (rotate, move, stretch), how it springs (inertia, strength, damping, mass), and the forces (gravity and wind)." />
+
+| Setting | Effect |
+|---|---|
+| **Rotate / Move X / Move Y / Stretch** | Which of the bone's properties the simulation drives, and how much |
+| **Inertia** | How much the bone keeps its own momentum when the parent moves |
+| **Strength** | How hard it springs back to the animated pose |
+| **Damping** | How quickly the swinging dies out |
+| **Mass** | Heavier bones react more slowly |
+| **Gravity**, **Wind** | Constant forces; both are keyable, so a gust is just an animation |
+| **Mix** | Blend between the animated pose (0) and the simulated one (1) |
+| **Steps/s** | Simulation rate; higher is steadier for fast motion |
+
+Gravity, wind and IK softness follow the rig's **reference scale** (in the document's Inspector), so a rig scaled up or
+down behaves the same.
+
+<Shot name="physics-tail" alt="The Tail example with the antenna-l1 physics constraint selected: inertia 0.9, strength 90, damping 3, gravity 60" caption="The Tail's antennae are two-bone physics chains with high inertia, so they wobble when the head moves." />
+
+## Other constraints
+
+| Constraint | Use |
+|---|---|
+| **IK** | 1- and 2-bone inverse kinematics with mix, bend direction, softness, stretch and compression. See [First rig](/guides/first-rig/#6-add-ik). |
+| **Transform** | Copy rotation, translation, scale and shear from another bone, in world or local space, absolute or relative (a wheel that turns with a lever, eyes that follow a target) |
+| **Path** | Place and rotate a bone chain along a bezier path drawn with the **Pen** tool, with position, spacing and rotate modes and constant speed (the Tail example's tail) |
+| **Sliders** | Let a bone's property or a number input scrub an animation (corrective shapes, a shadow that follows a jump, a dial) |
+
+The **Constraint order** list in the document's Inspector sets which constraints run first; each one sees the result of
+the ones above it.
+
+<LivePlayer example="tail" />
+
+The Tail combines a path constraint (the tail follows a bezier path whose knots are animated), physics antennae and a
+camera pan on a second state-machine layer. Click the creature.
+
+<Aside>
+  The exact maths of every constraint is in the [runtime specification](/reference/runtime-spec/#7-constraints).
+</Aside>

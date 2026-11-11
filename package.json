@@ -9,6 +9,9 @@
   "scripts": {
     "dev": "pnpm --filter @openbone/editor dev",
     "build": "pnpm --filter @openbone/editor build",
+    "website": "pnpm --filter @openbone/website dev",
+    "website:build": "pnpm --filter @openbone/website build",
+    "screenshots": "pnpm --filter @openbone/website screenshots",
     "build:packages": "pnpm -r --filter \"./packages/*\" build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p apps/editor/tsconfig.json --noEmit",

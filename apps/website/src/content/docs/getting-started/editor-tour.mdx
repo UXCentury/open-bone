@@ -1,0 +1,65 @@
+---
+title: Editor tour
+description: The panels, modes, tools and views of the OpenBone editor.
+---
+
+import Shot from "../../../components/Shot.astro";
+
+<Shot name="editor-overview" alt="The OpenBone editor: toolbar at the top, skeleton tree on the left, viewport in the middle, Inspector on the right, timeline at the bottom" />
+
+## The layout
+
+| Area | What it holds |
+|---|---|
+| **Toolbar** (top) | Menu, undo/redo, **▶ Play**, the **Setup / Animate** switch, the tools, **Bone / Part**, the pick filter, **+ Add**, mute, **View**, shortcuts and **⚡ Connect MCP** |
+| **Skeleton** (left) | The tree of bones, slots and attachments, with search, eyes (visibility) and locks; below it skins, images, audio, animations, events and state machines |
+| **Viewport** (centre) | The artboard. Wheel zooms, <kbd>Alt</kbd>/right-drag pans, <kbd>F</kbd> fits. Grid, rulers and guides, snapping, background and onion skin are in its corner |
+| **Inspector** (right) | Properties of whatever is selected: the document, a bone, slot, attachment, constraint, sound or bus. **Preview** shows the result as shipped, **Outline** lists everything |
+| **Timeline** (bottom) | The dopesheet or graph of the current animation, the **State Machine** editor and the **Scripts** panel |
+
+Every panel can be dragged to another side or grouped with others, and **☰ Menu → Layout** saves your own layouts.
+
+## Setup and Animate
+
+- **Setup mode** builds the rig: bones, slots, attachments, constraints and their rest values (the *setup pose*).
+- **Animate mode** (<kbd>`</kbd> toggles) records keys. With **● Rec** on, any change you make at the playhead becomes a
+  key in the current animation; the Inspector's ◆ buttons key one property.
+
+## Tools
+
+| Tool | Key | Use |
+|---|---|---|
+| Select / rotate | <kbd>V</kbd> | Click to select, drag to rotate bones (or parts, in **Part** mode) |
+| Translate | <kbd>T</kbd> | Move bones and attachments |
+| Scale | <kbd>S</kbd> | Scale; Shift for uniform |
+| Pose (IK) | <kbd>I</kbd> | Drag a bone and its parents bend to follow |
+| Create bone | <kbd>B</kbd> | Drag from a parent bone to add a child |
+| Mesh | <kbd>M</kbd> | Edit mesh vertices; in Animate mode, free-form deformation |
+| Weights | <kbd>W</kbd> | Paint how much each bone moves each vertex |
+| Pen | <kbd>N</kbd> | Draw bezier paths and bounding-box outlines |
+| Compensate | <kbd>J</kbd> | Move a bone without moving its children |
+
+**Bone | Part** decides whether dragging a picture moves its bone or the picture itself. **Pick** filters what a click can
+grab. A hover outline always shows what the next click will select.
+
+## Views
+
+The **View** menu switches between the normal view, bones only, mesh wireframes, the **Order** view and the **3D** view.
+
+<Shot name="editor-3d" alt="The 3D view of the Knight: every part on its own plane in depth, with the bones and a small preview of the front view" caption="3D view: every part on its own plane, ordered by draw order. Drag to orbit; it is the quickest way to find a part drawn in the wrong order." />
+
+<Shot name="editor-order" alt="The Order view of the Tail example: the tail, antennae and body laid out side by side from back to front" caption="Order view: the draw order side by side, back to front. Drag a part left or right to move it." />
+
+## The menu
+
+<Shot name="editor-menu" alt="The main menu: New project, Open, Save, Save as, Save to folder, Export, Import from project, Watch art for changes, Watch folder, Examples, Layout, Show panel, Keyboard shortcuts, About OpenBone" />
+
+**Import from project…** copies animations, skins or a whole skeleton from another file. **Watch art for changes**
+reloads images and sounds when you save them in your paint or audio app. **Layout** and **Show panel** manage the
+dockable workspace.
+
+## Play mode
+
+**▶ Play** (<kbd>P</kbd>) runs the file as it will ship, with its state machine, scripts, sound and pointer
+interaction. The **Inputs** panel sets inputs and fires triggers, and the log shows every state change. See
+[State machines](/guides/state-machines/).

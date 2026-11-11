@@ -1,0 +1,143 @@
+---
+title: The command line
+description: Validate, inspect, render, simulate and export OpenBone files from scripts and CI with the openbone CLI.
+sidebar:
+  label: CLI
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+
+The `openbone` command runs the same code as the editor's Export dialog and the MCP server, so it is how you batch
+exports, check files in CI, or look at an animation without opening the editor.
+
+```bash
+npm install -g @openbone/cli    # then: openbone <command>
+npx openbone --help             # or without installing
+pnpm cli --help                 # from a checkout
+```
+
+It needs Node.js 20 or newer. Every image on this page was made by the CLI itself, from the repository's examples.
+
+## Check a file
+
+```bash
+openbone validate examples/walker.obone
+```
+
+```text
+OK
+```
+
+`validate` prints every broken reference or other problem and exits with 1 on errors, so it works as a CI step.
+`summary` prints a readable outline: bones, slots, images, animations and the state machines with their inputs,
+states, transitions and listeners.
+
+```bash
+openbone summary examples/button.obone
+```
+
+```text
+# Button — artboard 400x200, origin (200,100), 30fps
+## Bones (3) — name [id] parent: x,y rot len
+- root [bone_ymn5l27] (root): 0,0 rot 0 len 0
+  - btn [bone_l7rm328] <root>: 0,0 rot 0 len 0
+    - shine [bone_aqp4229] <btn>: -140,0 rot 0 len 0
+## Slots (4, back→front)
+- bg [slot_rzprm2b] on btn shows button-play; attachments: button-play:region
+- glass-mask [slot_8c25p2c] on btn shows mask; attachments: mask:clipping
+- shine [slot_tsiuz2d] on shine shows polygon; attachments: polygon:shape
+- hit [slot_7gdz32e] on btn shows nothing; attachments: hitbox:boundingBox
+…
+## State machine ui [sm_x9mr82j]
+  inputs: hover:bool=false, press:trigger=false
+  layer Layer 1 (entry: idle)
+    state idle [st_afdle2m] animation idle loop
+    state hover [st_lsaa92n] animation hover
+    state press [st_b3ul72o] animation press
+    idle → hover [tr_oox5u2p] hover == true fade 0.1s
+    …
+  listener enter: enter on hit → setInput
+  listener exit: exit on hit → setInput
+  listener down: down on hit → fireTrigger
+```
+
+## Render a frame
+
+```bash
+openbone render examples/walker.obone --animation walk --time 0.25 --out walk.png
+```
+
+<Shot name="cli-render-walk" alt="A frame of Walker's walk cycle rendered by the CLI: the boy mid-stride on a forest path" />
+
+`--bones` draws the skeleton on top and `--bounding-boxes` outlines the click and hit areas, which is a quick way to
+check a rig:
+
+```bash
+openbone render examples/knight.obone --animation attack --time 0.3 --bones --bounding-boxes --out rig.png
+```
+
+<Shot name="cli-render-bones" alt="The Knight mid-attack rendered by the CLI with his bones drawn in blue and his hit areas outlined in orange" />
+
+## Render a GIF of an interaction
+
+`gif` renders an animation, or a **state machine run**: `--steps` sets inputs, fires triggers and sends pointer events,
+then advances time.
+
+```bash
+openbone gif examples/button.obone --state-machine ui \
+  --steps '[{"setInputs":{"hover":true},"advance":0.8},{"fire":["press"],"advance":0.8}]' \
+  --fps 20 --scale 1 --out button.gif
+```
+
+<Shot name="cli-gif-button" alt="An animated render of the Button: it lights up on hover, then presses and springs back" />
+
+## Simulate a state machine
+
+`simulate` runs a machine headlessly and prints what happened, for tests and for agents:
+
+```bash
+openbone simulate examples/walker.obone --state-machine character \
+  --steps '[{"setInputs":{"walk":true},"advance":1},{"fire":["jump"],"advance":0.5}]'
+```
+
+```text
+t=0.000 [Layer 1] ∅ → locomotion
+t=0.000 input walk = true
+t=0.000 input speed = 0.06666666666666667
+t=0.017 input speed = 0.1288888888888889
+…
+```
+
+Walker's `speed` climbs on its own: the document's script eases it towards the `walk` switch.
+
+## Export
+
+```bash
+openbone export hero.obone --format obonb --out build/
+openbone export "art/*.obone" --format gif --animation idle --out previews/
+openbone export button.obone --format web --single-file --state-machine ui --out site/
+openbone export hero.obone --format spritesheet --engine godot --animations walk,idle --scale 0.5 --out sheets/
+openbone export hero.obone --format atlas --binary --atlas-scale auto --max-size 1024 --out build/
+openbone export hero.obone --format mp4 --animation talk --out video/
+```
+
+Formats: `obone`, `json`, `obonb`, `atlas`, `png`, `jpeg`, `apng`, `gif`, `psd`, `avi`, `mov`, `mp4`, `webm`,
+`spritesheet` and `web`. Quote globs so your shell does not expand them; each output is named after its source file.
+
+<Aside>
+  `mp4` and `webm` (and MP3/OGG/FLAC sounds in any video) use `ffmpeg` from the `PATH`, or `OPENBONE_FFMPEG`. WAV
+  sounds and the other formats need nothing else.
+</Aside>
+
+## Edit from scripts
+
+```bash
+openbone ops                                                    # every edit op, e.g. addBone [rig] …
+openbone apply hero.obone addBone '{"name":"tail","parent":"root"}'
+```
+
+`apply` takes the op names in camel case (`addBone`); the MCP server exposes the same ops as snake-case tools
+(`add_bone`).
+
+The [`@openbone/cli` reference](/packages/cli/) has every option, including all the texture packer settings.

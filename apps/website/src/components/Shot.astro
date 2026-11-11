@@ -1,0 +1,26 @@
+---
+/**
+ * A screenshot from src/assets/screenshots/ (captured from the real editor by scripts/screenshots.ts), with a
+ * caption. Served as responsive WebP; clicking opens the full 2× capture.
+ */
+import type { ImageMetadata } from "astro";
+import { Image, getImage } from "astro:assets";
+
+interface Props {
+  name: string;
+  alt: string;
+  caption?: string;
+}
+
+const all = import.meta.glob<{ default: ImageMetadata }>("../assets/screenshots/*.webp", { eager: true });
+const { name, alt, caption } = Astro.props;
+const mod = all[`../assets/screenshots/${name}.webp`];
+if (!mod) throw new Error(`Shot: no screenshot named "${name}" in src/assets/screenshots (run pnpm screenshots)`);
+const img = mod.default;
+const full = await getImage({ src: img, format: "webp", quality: 85 });
+---
+
+<figure class="shot">
+  <Image src={img} alt={alt} widths={[720, 1200, 1800]} sizes="(min-width: 72rem) 50rem, 100vw" format="webp" quality={82} data-full={full.src} loading="lazy" decoding="async" />
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

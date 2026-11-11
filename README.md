@@ -7,6 +7,13 @@
 </p>
 
 <p align="center">
+  <a href="https://uxcentury.github.io/open-bone/"><b>Website and docs</b></a> ·
+  <a href="https://uxcentury.github.io/open-bone/examples/">Live examples</a> ·
+  <a href="https://uxcentury.github.io/open-bone/getting-started/quick-start/">Quick start</a> ·
+  <a href="https://github.com/UXCentury/open-bone/releases/latest">Download</a>
+</p>
+
+<p align="center">
   <a href="https://github.com/UXCentury/open-bone/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/UXCentury/open-bone?label=release&color=f08a4b" /></a>
   <a href="https://www.npmjs.com/package/@openbone/player"><img alt="npm" src="https://img.shields.io/npm/v/@openbone/player?label=npm&logo=npm" /></a>
   <a href="https://pub.dev/packages/openbone"><img alt="pub.dev" src="https://img.shields.io/pub/v/openbone?label=pub.dev&logo=flutter" /></a>
@@ -15,6 +22,7 @@
   <a href="https://github.com/UXCentury/open-bone/tree/upm"><img alt="Unity package" src="https://img.shields.io/badge/Unity-upm-222?logo=unity" /></a>
   <a href="https://github.com/UXCentury/open-bone/tree/godot-addon"><img alt="Godot addon" src="https://img.shields.io/badge/Godot-4.4%2B-478cbf?logo=godotengine&logoColor=white" /></a>
   <a href="#let-an-agent-animate-mcp"><img alt="MCP server" src="https://img.shields.io/badge/MCP-server-8a63d2" /></a>
+  <a href="https://uxcentury.github.io/open-bone/"><img alt="Docs" src="https://img.shields.io/badge/docs-website-70c4fc" /></a>
 </p>
 
 <p align="center">
@@ -283,6 +291,10 @@ covers the installers, releases and code signing.
 
 ## Documentation
 
+The **[OpenBone website](https://uxcentury.github.io/open-bone/)** has step-by-step guides with screenshots (first rig,
+animating, state machines, audio and lip sync, particles, physics, exporting, MCP, CLI), quick starts for every engine,
+every example running live, and the reference docs below. Its source is [apps/website](apps/website).
+
 - [docs/architecture.md](docs/architecture.md): how the editor, runtime and tools fit together
 - [docs/format.md](docs/format.md): the `.obone` / `.obonb` file format
 - [docs/runtime-spec.md](docs/runtime-spec.md) and [conformance/](conformance): what a runtime must do, and the tests that prove it
@@ -304,6 +316,7 @@ covers the installers, releases and code signing.
 | `packages/export` | Image, video, ZIP, sprite-sheet and engine-pack exporters |
 | `packages/mcp`, `packages/cli` | MCP server (stdio and HTTP, live bridge to the editor) and the `openbone` CLI |
 | `apps/editor`, `apps/desktop` | The SolidJS editor and its Tauri 2 desktop shell |
+| `apps/website` | The documentation website (Astro Starlight), with live players and screenshots captured from the editor |
 | `runtimes/cpp`, `csharp`, `java`, `swift`, `flutter`, `haxe` | Native runtimes and their engine integrations |
 | `conformance` | Reference results every runtime is tested against |
 | `examples` | The example projects, their art and sound, and the script that builds them |

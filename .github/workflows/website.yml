@@ -1,0 +1,53 @@
+# The documentation website (apps/website): build on every push to main and deploy to GitHub Pages.
+# Pull requests build it too (broken links fail the build), without deploying.
+# One-time setup: Settings → Pages → Source: GitHub Actions.
+name: Website
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths: ["apps/website/**", "docs/**", "**/README.md", "CHANGELOG.md", "SECURITY.md", "examples/**", "packages/player/**", "brand/**", ".github/workflows/website.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: website-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # SITE_URL / SITE_BASE default to https://uxcentury.github.io/open-bone/; set them for a custom domain.
+      - run: pnpm --filter @openbone/website build
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          path: apps/website/dist
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
