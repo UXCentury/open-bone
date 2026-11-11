@@ -1,6 +1,9 @@
-# The documentation website (apps/website): build on every push to main and deploy to GitHub Pages.
-# Pull requests build it too (broken links fail the build), without deploying.
-# One-time setup: Settings → Pages → Source: GitHub Actions.
+# The documentation website (apps/website): build on every push to main and deploy it to Cloudflare at
+# https://openbone.io (a static-assets Worker, apps/website/wrangler.jsonc). Pull requests build it too (broken links
+# fail the build), without deploying.
+#
+# Deploying needs the repository secret CLOUDFLARE_API_TOKEN: a Cloudflare API token with Account → Workers Scripts:
+# Edit and Zone (openbone.io) → Workers Routes: Edit. Without it the site is built and the deploy step is skipped.
 name: Website
 
 on:
@@ -20,6 +23,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    env:
+      HAS_CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -28,26 +33,13 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Deployed to https://openbone.io (public/CNAME). SITE_URL / SITE_BASE override where it is hosted.
       - run: pnpm --filter @openbone/website build
-      - uses: actions/upload-pages-artifact@v4
-        if: github.event_name != 'pull_request'
-        with:
-          path: apps/website/dist
-
-  deploy:
-    if: github.event_name != 'pull_request'
-    needs: build
-    runs-on: ubuntu-24.04
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    concurrency:
-      group: pages
-      cancel-in-progress: false
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to Cloudflare (openbone.io)
+        if: github.event_name != 'pull_request' && env.HAS_CF_TOKEN == 'true'
+        working-directory: apps/website
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --yes wrangler@4 deploy
+      - name: Deploy skipped
+        if: github.event_name != 'pull_request' && env.HAS_CF_TOKEN != 'true'
+        run: echo "::warning::CLOUDFLARE_API_TOKEN is not set, so the site was built but not deployed."

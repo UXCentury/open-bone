@@ -9,7 +9,8 @@
     "dev": "astro dev --host 127.0.0.1 --port 5195",
     "build": "astro build",
     "preview": "astro preview --host 127.0.0.1 --port 5196",
-    "screenshots": "tsx scripts/screenshots.ts"
+    "screenshots": "tsx scripts/screenshots.ts",
+    "deploy": "npx --yes wrangler@4 deploy"
   },
   "devEngines": {
     "runtime": {

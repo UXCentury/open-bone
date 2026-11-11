@@ -1,0 +1,17 @@
+// The website on Cloudflare: a static-assets Worker serving dist/ at openbone.io and www.openbone.io.
+// Custom domains create their DNS records and certificates in the openbone.io zone on the first deploy.
+//   pnpm --filter @openbone/website build && pnpm --filter @openbone/website deploy
+{
+  "name": "openbone-website",
+  "account_id": "d6be871a92468a4553926e58f68aa7f8",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  },
+  "routes": [
+    { "pattern": "openbone.io", "custom_domain": true },
+    { "pattern": "www.openbone.io", "custom_domain": true }
+  ]
+}

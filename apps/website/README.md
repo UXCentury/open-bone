@@ -18,7 +18,10 @@ pnpm --filter @openbone/website preview   # http://127.0.0.1:5196/
 ```
 
 `SITE_URL` and `SITE_BASE` change where it is hosted (default `https://openbone.io` and `/`).
-`.github/workflows/website.yml` builds it on every push to `main` and deploys it to GitHub Pages.
+It is served by a Cloudflare static-assets Worker (`wrangler.jsonc`) on `openbone.io` and `www.openbone.io`.
+`.github/workflows/website.yml` builds it on every push to `main` and deploys it with `wrangler deploy` when the
+`CLOUDFLARE_API_TOKEN` secret is set (Workers Scripts: Edit, and Workers Routes: Edit on the zone). By hand:
+`pnpm --filter @openbone/website build && pnpm --filter @openbone/website deploy`.
 
 ## What comes from where
 

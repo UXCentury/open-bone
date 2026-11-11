@@ -6,7 +6,7 @@ import { remarkBase } from "./src/remark-base.ts";
 import { DOCS, syncAll } from "./scripts/sync.ts";
 
 /**
- * Hosted on GitHub Pages at https://openbone.io (public/CNAME). To host it somewhere else, build with SITE_URL and,
+ * Served at https://openbone.io by a Cloudflare static-assets Worker (wrangler.jsonc). To host it somewhere else, build with SITE_URL and,
  * for a sub-folder, SITE_BASE (e.g. SITE_URL=https://uxcentury.github.io SITE_BASE=/open-bone).
  */
 const siteUrl = process.env.SITE_URL ?? "https://openbone.io";

@@ -8,3 +8,6 @@ public/player/
 dist/
 .astro/
 node_modules/
+
+# Wrangler's local state
+.wrangler/
