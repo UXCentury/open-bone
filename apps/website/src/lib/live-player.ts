@@ -1,6 +1,8 @@
 /**
- * Client side of <LivePlayer>: loads the web player script once, starts each player when it scrolls into view,
- * pauses it off screen, and wires the input controls and the sound button.
+ * Client side of <LivePlayer>: loads the web player script once, loads each player (first frame, paused) when it
+ * scrolls into view, and starts it from the big play button. That click is the user gesture browsers require for
+ * sound, so the player starts with its audio on. Started players pause off screen and resume when back; the input
+ * controls and the speaker button work once it runs (pressing a control also starts it).
  */
 
 interface PlayerElement extends HTMLElement {
@@ -8,7 +10,7 @@ interface PlayerElement extends HTMLElement {
   fire(name: string): void;
   play(): void;
   pause(): void;
-  player: { setMuted(m: boolean): void; ready: Promise<void> } | null;
+  player: { setMuted(m: boolean): void; audio: { activate(): AudioContext | null } | null } | null;
 }
 
 let loading: Promise<void> | null = null;
@@ -25,9 +27,22 @@ function loadPlayerScript(): Promise<void> {
   return loading;
 }
 
-function start(fig: HTMLElement) {
-  // data-started="" is the flag (an empty string is falsy, so test for presence): wire each player once.
-  if (fig.dataset.started !== undefined) return;
+const has = (el: HTMLElement, flag: string) => el.dataset[flag] !== undefined;
+
+/** Start playing with sound. Must run inside a click: it creates and resumes the audio context first. */
+async function run(fig: HTMLElement) {
+  const el = fig.querySelector("openbone-player") as PlayerElement;
+  if (has(fig, "playing")) return;
+  fig.dataset.playing = "";
+  const ctx = el.player?.audio?.activate();
+  if (ctx && ctx.state !== "running") await ctx.resume().catch(() => {});
+  el.player?.setMuted(false);
+  el.play();
+}
+
+/** Load the player (first frame, paused) and wire its buttons. Once per player. */
+function load(fig: HTMLElement) {
+  if (has(fig, "started")) return;
   fig.dataset.started = "";
   const el = fig.querySelector("openbone-player") as PlayerElement;
   el.addEventListener("openbone-load", () => {
@@ -35,13 +50,23 @@ function start(fig: HTMLElement) {
   });
   void loadPlayerScript().then(() => el.setAttribute("src", fig.dataset.src ?? ""));
 
-  fig.querySelectorAll<HTMLButtonElement>("[data-fire]").forEach((b) => b.addEventListener("click", () => el.fire(b.dataset.fire ?? "")));
+  fig.querySelector<HTMLButtonElement>(".ob-live-play")?.addEventListener("click", () => void run(fig));
+
+  // Controls also start a player that is not running yet, then act.
+  const withRun = (fn: () => void) => async () => {
+    if (!has(fig, "playing")) await run(fig);
+    fn();
+  };
+  fig.querySelectorAll<HTMLButtonElement>("[data-fire]").forEach((b) => b.addEventListener("click", withRun(() => el.fire(b.dataset.fire ?? ""))));
   fig.querySelectorAll<HTMLButtonElement>("[data-bool]").forEach((b) =>
-    b.addEventListener("click", () => {
-      const on = b.getAttribute("aria-pressed") !== "true";
-      b.setAttribute("aria-pressed", String(on));
-      el.setInput(b.dataset.bool ?? "", on);
-    }),
+    b.addEventListener(
+      "click",
+      withRun(() => {
+        const on = b.getAttribute("aria-pressed") !== "true";
+        b.setAttribute("aria-pressed", String(on));
+        el.setInput(b.dataset.bool ?? "", on);
+      }),
+    ),
   );
   fig.querySelectorAll<HTMLInputElement>("[data-number]").forEach((r) =>
     r.addEventListener("input", () => {
@@ -55,7 +80,7 @@ function start(fig: HTMLElement) {
     const on = sound.getAttribute("aria-pressed") !== "true";
     sound.setAttribute("aria-pressed", String(on));
     sound.setAttribute("aria-label", on ? "Mute" : "Turn sound on");
-    // This click is the user gesture the browser needs: the player's AudioContext is created and resumed by it.
+    el.player?.audio?.activate();
     el.player?.setMuted(!on);
   });
 }
@@ -71,16 +96,16 @@ export function mountLivePlayers() {
         const fig = e.target as HTMLElement;
         const el = fig.querySelector("openbone-player") as PlayerElement | null;
         if (e.isIntersecting) {
-          start(fig);
-          if (fig.dataset.ready !== undefined) el?.play();
-        } else if (fig.dataset.ready !== undefined) el?.pause();
+          load(fig);
+          if (has(fig, "playing") && has(fig, "ready")) el?.play();
+        } else if (has(fig, "playing") && has(fig, "ready")) el?.pause();
       }
     },
     { rootMargin: "200px 0px" },
   );
   for (const fig of figs) {
     fig.dataset.mounted = "";
-    if (fig.dataset.eager !== undefined) start(fig);
+    if (has(fig, "eager")) load(fig);
     observer.observe(fig);
   }
 }

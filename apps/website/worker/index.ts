@@ -17,7 +17,8 @@ export default {
       return Response.redirect(url.toString(), 301);
     }
     // Pages live at /path/ (the canonical URLs): add the slash with a permanent redirect, not the assets' 307.
-    if (!url.pathname.endsWith("/") && !/\.[a-z0-9]+$/i.test(url.pathname)) {
+    // A last segment with a dot is a file (pagefind.en_1a2b.pf_meta, app.js): leave it alone.
+    if (!url.pathname.endsWith("/") && !/\.[^/]+$/.test(url.pathname.slice(url.pathname.lastIndexOf("/")))) {
       url.pathname += "/";
       return Response.redirect(url.toString(), 301);
     }
