@@ -10,6 +10,7 @@ import { openExample } from "../state.ts";
 import { renderInstance } from "./Preview.tsx";
 
 const EXAMPLES: { id: string; title: string; text: string; tags: string[] }[] = [
+  { id: "windswept", title: "Windswept", text: "A girl on a windy cliff speaks two Japanese lines with lip sync while her hair, the tree, the grass, fog and gulls move in the wind; buttons make her talk, send gulls or a gust, and mute the music or sound effects.", tags: ["Lip sync", "Mesh", "Particles", "Audio"] },
   { id: "knight", title: "Knight", text: "Side-view knight with sword and shield: walk on a scrolling castle road (click it), attack (click him), salute (click the helmet).", tags: ["IK legs", "Parallax", "Audio"] },
   { id: "walker", title: "Walker", text: "An adventurer walking through a forest with parallax scrolling and a proper jump: crouch, take-off, tuck, land.", tags: ["IK", "Blend", "Script"] },
   { id: "fox", title: "Pip the fox", text: "Click the head: a real recorded voice with mouth shapes keyed by lip sync.", tags: ["Lip sync", "Audio", "State machine"] },

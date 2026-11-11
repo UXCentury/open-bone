@@ -3,11 +3,21 @@
 <h1 align="center">OpenBone</h1>
 
 <p align="center">
-  <b>Open-source 2D skeletal animation: Spine-style rigging, Rive-style interactivity, and an MCP server so AI agents can animate for you.</b>
+  <b>Open-source 2D skeletal animation. Rig it like Spine, make it interactive like Rive, play it in every engine, and let an AI agent animate it for you.</b>
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-blue" /></a>
+  <a href="https://github.com/UXCentury/open-bone/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/UXCentury/open-bone?label=release&color=f08a4b" /></a>
+  <a href="https://www.npmjs.com/package/@openbone/player"><img alt="npm" src="https://img.shields.io/npm/v/@openbone/player?label=npm&logo=npm" /></a>
+  <a href="https://pub.dev/packages/openbone"><img alt="pub.dev" src="https://img.shields.io/pub/v/openbone?label=pub.dev&logo=flutter" /></a>
+  <a href="https://www.nuget.org/packages/OpenBone.Runtime"><img alt="NuGet" src="https://img.shields.io/nuget/v/OpenBone.Runtime?label=NuGet&logo=nuget" /></a>
+  <a href="https://central.sonatype.com/artifact/io.openbone/openbone-runtime"><img alt="Maven Central" src="https://img.shields.io/maven-metadata/v?metadataUrl=https%3A%2F%2Frepo1.maven.org%2Fmaven2%2Fio%2Fopenbone%2Fopenbone-runtime%2Fmaven-metadata.xml&label=Maven%20Central&logo=apachemaven" /></a>
+  <a href="https://github.com/UXCentury/open-bone/tree/upm"><img alt="Unity package" src="https://img.shields.io/badge/Unity-upm-222?logo=unity" /></a>
+  <a href="https://github.com/UXCentury/open-bone/tree/godot-addon"><img alt="Godot addon" src="https://img.shields.io/badge/Godot-4.4%2B-478cbf?logo=godotengine&logoColor=white" /></a>
+  <a href="#let-an-agent-animate-mcp"><img alt="MCP server" src="https://img.shields.io/badge/MCP-server-8a63d2" /></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/UXCentury/open-bone/actions/workflows/web.yml"><img alt="Web" src="https://github.com/UXCentury/open-bone/actions/workflows/web.yml/badge.svg" /></a>
   <a href="https://github.com/UXCentury/open-bone/actions/workflows/runtime-cpp.yml"><img alt="C++ runtime" src="https://github.com/UXCentury/open-bone/actions/workflows/runtime-cpp.yml/badge.svg" /></a>
   <a href="https://github.com/UXCentury/open-bone/actions/workflows/runtime-csharp.yml"><img alt="C# runtime" src="https://github.com/UXCentury/open-bone/actions/workflows/runtime-csharp.yml/badge.svg" /></a>
@@ -17,13 +27,29 @@
   <a href="https://github.com/UXCentury/open-bone/actions/workflows/runtime-haxe.yml"><img alt="Haxe runtime" src="https://github.com/UXCentury/open-bone/actions/workflows/runtime-haxe.yml/badge.svg" /></a>
 </p>
 
-![The OpenBone editor in Animate mode: the painted Knight mid-salute with his sword raised, the skeleton tree, the dopesheet with the voice line's waveform, and the bone Inspector](docs/editor.webp)
+<p align="center">
+  <a href="LICENSE"><img alt="MIT licence" src="https://img.shields.io/badge/licence-MIT-blue" /></a>
+  <a href="https://github.com/UXCentury/open-bone/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/UXCentury/open-bone/total?label=downloads" /></a>
+  <a href="https://github.com/UXCentury/open-bone/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/UXCentury/open-bone?style=flat" /></a>
+  <a href="https://github.com/UXCentury/open-bone/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/UXCentury/open-bone" /></a>
+  <a href="https://github.com/UXCentury/open-bone/issues"><img alt="Open issues" src="https://img.shields.io/github/issues/UXCentury/open-bone" /></a>
+  <a href="https://github.com/UXCentury/open-bone/pulls"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen" /></a>
+</p>
+
+<p align="center">
+  <img src="docs/windswept.webp" alt="Windswept, an OpenBone example: a girl with long silver hair on a windy clifftop says a Japanese line with lip sync and subtitles, while her hair, skirt, the tree, the grass and the clouds move in the wind" width="640" />
+  <br />
+  <sub><i>Windswept</i>: one <code>.obone</code> file with physics-driven hair, mesh grass and tree, drifting fog and petals, a lip-synced Japanese voice, music and buttons. An AI agent built it with the OpenBone MCP server.</sub>
+</p>
+
+![The OpenBone editor in Animate mode on Windswept: the girl mid-sentence with her mouth open, the Japanese subtitle, the skeleton tree, physics constraints in the Inspector, and the dopesheet with the voice line's waveform and the lip-sync mouth keys](docs/editor.webp)
 
 - **Rig like Spine**: bones, weighted meshes with free-form deformation, IK, transform, path and physics constraints, skins, clipping, two-colour tint, texture atlases.
 - **Make it interactive like Rive**: state machines with inputs, pointer listeners, live text, input bindings and sandboxed scripts.
-- **Sound built in**: sounds on the timeline, events and states, a mixer with buses, and lip sync from a voice recording.
+- **Sound built in**: sounds on the timeline, events and states, a mixer with buses and mute buttons, lip sync from a voice recording, and video exports with the sound mixed in.
 - **Play it anywhere**: web (WebGL, Canvas, PixiJS, Phaser, Three.js, CanvasKit) and native runtimes for C/C++ (Godot, Unreal, Cocos2d-x, SDL2, SFML, OpenGL), C# (Unity, MonoGame), Java (libGDX, Android), Swift, Flutter and Haxe, all checked against one conformance suite.
 - **Let an agent do it**: every edit is an MCP tool, and the editor shows an agent's work live.
+- **Export everything**: JSON, binary, atlases, PNG and JPEG frames, GIF, APNG, PSD, sprite sheets, AVI, MOV, MP4 and WebM with sound, and a self-contained web page.
 
 Everything in this repository is **MIT** and built only on permissively licensed open-source dependencies.
 
@@ -60,6 +86,7 @@ The editor opens at http://localhost:5180 with the *Walker* example. **☰ Menu 
 
 | Example | What it shows |
 |---|---|
+| **Windswept** | A girl on a windy cliff: physics hair and skirt, a wind-blown tree and grass, drifting fog, clouds, petals and gulls, two Japanese lines lip-synced with subtitles, music and ambience, and buttons: Talk, Gulls and Gust, plus mute buttons for the music and the sound effects |
 | **Walker** | IK legs, a scarf mesh, an idle/walk blend eased by a script, a jump, a forest scrolling in parallax (click the path to walk, click him to jump) |
 | **Knight** | Walk along a scrolling castle road, attack with swing and clang, salute with a spoken greeting |
 | **Pip the fox**, **Robot** | Lip sync to a real voice and to a robot voice |
@@ -101,7 +128,7 @@ Packages are published from each release (from 0.2.1 on; see [docs/releasing.md]
 | Web / Node | `npm install @openbone/player` (or `runtime`, `pixi`, `phaser`, `three`, `canvaskit`, …); CLI: `npx openbone --help`; MCP server: `npx -y @openbone/mcp` |
 | .NET / MonoGame | `dotnet add package OpenBone.Runtime` (+ `OpenBone.Scripting.Jint` for scripts, `OpenBone.MonoGame`) |
 | Unity 2021.3+ | Package Manager → Add package from git URL: `https://github.com/UXCentury/open-bone.git#upm`, or `openupm add com.openbone.runtime` |
-| Java / Android | `implementation("io.openbone:openbone-runtime:0.2.1")` (+ `openbone-scripting`, `openbone-gdx`, `openbone-android`) from Maven Central |
+| Java / Android | `implementation("io.openbone:openbone-runtime:0.3.0")` (+ `openbone-scripting`, `openbone-gdx`, `openbone-android`) from Maven Central |
 | Swift | Xcode → Add Package Dependencies → `https://github.com/UXCentury/open-bone`, product `OpenBone` |
 | Flutter | `flutter pub add openbone` |
 | Godot 4.4+ | AssetLib tab → *OpenBone*, or unzip `openbone-godot-<version>.zip` from the [releases](https://github.com/UXCentury/open-bone/releases) into your project |
