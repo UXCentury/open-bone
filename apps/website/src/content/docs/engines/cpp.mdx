@@ -1,0 +1,78 @@
+---
+title: C and C++
+description: The C++17 runtime and its stable C API, with integrations for Godot, Unreal, Cocos2d-x, SDL2, SFML and OpenGL.
+sidebar:
+  label: C / C++
+---
+
+import { Tabs, TabItem, Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+
+The C++17 runtime is the base of the Godot addon and of the Swift and Flutter runtimes. It has a stable C API
+(`openbone.h`) for other languages, runs document scripts in an embedded QuickJS, and ships integrations for Godot,
+Unreal Engine 5, Cocos2d-x, SDL2, SFML and GLFW/OpenGL. It passes the same [conformance suite](/reference/conformance/)
+as every other runtime.
+
+## Add it to your build
+
+From a checkout (QuickJS and nlohmann/json are vendored, so there is nothing else to fetch):
+
+```cmake
+add_subdirectory(path/to/open-bone/runtimes/cpp)
+target_link_libraries(my_game PRIVATE openbone)
+```
+
+## Export from the editor
+
+Load `.obone` (JSON) or `.obonb` (binary) files; images are paths relative to the file or embedded `data:` URLs.
+
+<Shot name="export-binary" alt="The Export dialog with Binary selected for the Knight" />
+
+## Play it
+
+<Tabs>
+  <TabItem label="C++">
+    ```cpp
+    #include <openbone/runtime.hpp>
+
+    auto doc = openbone::loadFile("knight.obone");          // .obone or .obonb
+    openbone::Instance inst(doc, openbone::createQuickJsHost());
+    inst.onEvent = [](const openbone::FiredEvent& e) { /* footstep, hit… */ };
+    inst.onAudio = [](const openbone::AudioCommand& c) { /* play / stop / fade → your audio engine */ };
+
+    inst.useStateMachine("knight");                          // or inst.play("walk", true);
+    inst.stateMachine->setInput("speed", openbone::Value::number(0.5));
+    inst.stateMachine->fire("attack");
+    inst.pointer(openbone::PointerEvent::Down, x, y);        // skeleton space, y up
+
+    inst.advance(dt);
+    for (const openbone::DrawItem& it : inst.drawList().items) {
+      // vertices, uvs, indices, colour (or per-vertex colours), texture, blend, two-colour tint, clip, text
+    }
+    ```
+  </TabItem>
+  <TabItem label="C">
+    The C API in `include/openbone.h` exposes the same operations with plain types, for bindings from other
+    languages (the Swift and Flutter runtimes use it). See the
+    [C API section](/runtimes/cpp/#c-api-includeopenboneh) of the runtime reference.
+  </TabItem>
+</Tabs>
+
+The draw list is engine-neutral: triangles with UVs, colours, a blend mode and clipping, batched by texture. The
+[runtime reference](/runtimes/cpp/#drawing-the-draw-list) shows how to draw it, and the engine folders have complete
+integrations:
+
+| Engine | Where |
+|---|---|
+| Godot 4 | [The Godot addon](/engines/godot/) |
+| Unreal Engine 5 | `runtimes/cpp/engines/unreal` |
+| Cocos2d-x 4 | `runtimes/cpp/engines/cocos2dx` |
+| SDL2, SFML | `runtimes/cpp/engines/sdl2`, `runtimes/cpp/engines/sfml` (with sound) |
+| GLFW / OpenGL 3.3 | `runtimes/cpp/engines/glfw` |
+
+<Aside>
+  Porting the runtime to another language? The [runtime specification](/reference/runtime-spec/) describes every step
+  of the per-frame pipeline, and the conformance suite checks your results.
+</Aside>
+
+**Reference:** [C / C++ runtime](/runtimes/cpp/)

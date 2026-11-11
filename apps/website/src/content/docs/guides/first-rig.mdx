@@ -1,0 +1,123 @@
+---
+title: Your first rig
+description: Import art, build a skeleton, attach images, turn a part into a weighted mesh and add IK.
+sidebar:
+  label: First rig
+---
+
+import { Steps, Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+import LivePlayer from "../../../components/LivePlayer.astro";
+
+A rig is a **skeleton** (bones in a tree), **slots** on those bones (one drawable thing each, in draw order) and
+**attachments** in the slots: images, meshes, shapes, text, clipping masks, hit boxes, particles. This guide builds
+one with the editor's tools. The *Walker* example is the finished version, so open it alongside
+(**☰ Menu → Examples… → Walker**) to compare.
+
+## 1. Import the art
+
+Cut your character into parts (head, torso, upper arm, forearm, hand, thigh, shin, foot…) on transparent layers.
+
+<Steps>
+
+1. Choose **☰ Menu → New project** and set the artboard size and background in the Inspector.
+2. Choose **+ Add → Image** and pick your PNGs, or drop them on the viewport. Each image becomes a slot with a region
+   attachment, placed on the selected bone.
+3. A layered **Photoshop file** works too: every layer becomes an image, slot and region in place, and groups can become
+   bones.
+
+</Steps>
+
+<Shot name="rig-add-menu" alt="The + Add menu open with Image, Sequence, Shape and Audio" caption="+ Add: images and PSDs, frame sequences (numbered images, sprite sheets, TexturePacker or Aseprite JSON, ZIPs), vector shapes and sounds." />
+
+<Aside type="tip">
+  Keep your art files next to the project. With **☰ Menu → Watch art for changes** the editor reloads an image every
+  time you save it in your paint app.
+</Aside>
+
+## 2. Build the skeleton
+
+<Steps>
+
+1. Pick the **Create bone** tool (<kbd>B</kbd>). Select the parent bone (start with `root`), then drag in the viewport
+   from where the new bone starts to where it ends: a hip, then a torso from the hip, a head from the torso, and so on.
+2. Name each bone in the Inspector as you go (`front-thigh`, `front-shin`…). Names are how your game code, the state
+   machine and an agent refer to them.
+3. Check the hierarchy in the **Skeleton** tree. Drag a bone onto another to re-parent it.
+
+</Steps>
+
+<Shot name="rig-bones" alt="Walker zoomed in with the Create bone tool active and the front-forearm bone selected; the Inspector shows its name, parent, rotation, position, scale, shear, length and inherit mode" caption="The Create bone tool with front-forearm selected. The Inspector edits the bone's setup pose: position, rotation, scale, shear, length and inherit mode." />
+
+Bones have a length, rotation, translation, scale and shear, and an **inherit** mode (normal, only translation, no
+rotation, no scale) that can even be keyed per frame. **⇲ Comp** (Compensate, <kbd>J</kbd>) moves a bone without
+moving its children, which is handy when you fix a joint position after the fact.
+
+## 3. Put the art on the bones
+
+Select a slot (the image) and set its **Bone** in the Inspector, or select the bone first and use **+ Add** so new
+images land on it. In **Part** mode the move, rotate and scale gizmos act on the picture itself, so you can line it up
+with its bone without moving the bone.
+
+<Shot name="rig-slots" alt="The head slot selected: its bone, colour, dark colour, current attachment, blend mode, draw order arrows, buttons to add shapes, text, hit boxes, points, masks, paths and particles, and the region attachment's position, rotation, size and tint" caption="A slot: its colour and two-colour tint (Dark color), blend mode and draw order, plus buttons to add other attachments to it." />
+
+A slot can hold several attachments (open and closed eyes, mouth shapes) and shows one at a time; animations switch
+between them. **Skins** swap whole sets of attachments for outfits.
+
+## 4. Turn a part into a mesh
+
+Parts that should bend (a scarf, a tail, hair, cloth) need a **mesh** instead of a flat image.
+
+<Steps>
+
+1. Select the image's slot and choose **Trace mesh…** in the Inspector: OpenBone traces the visible pixels into an
+   outline and triangulates it. **Grid mesh** makes a regular grid instead.
+2. Pick the **Mesh** tool (<kbd>M</kbd>) to edit vertices: drag to move, <kbd>Ctrl</kbd>/<kbd>⌘</kbd>-click to add,
+   <kbd>Delete</kbd> to remove. Add interior vertices where the part should bend.
+3. **Bind to bones**: list the bones that should move the mesh.
+
+</Steps>
+
+<Shot name="rig-mesh" alt="The Tail example's tail mesh selected with the Mesh tool: its 51 vertices and 64 triangles drawn over the painted tail, with soft selection and warp image options" caption="The Mesh tool on the Tail's tail: 51 vertices bound to a chain of bones." />
+
+## 5. Paint the weights
+
+Weights say how much each bone moves each vertex.
+
+<Steps>
+
+1. Select the mesh and pick the **Weights** tool (<kbd>W</kbd>).
+2. Press **Auto** for a first pass from the bones' positions.
+3. Pick a bone in the list (each has its own colour) and paint with **Add** or **Remove**; **Radius** and **Strength**
+   set the brush. **Direct** mode types exact values for the selected vertices.
+4. **Smooth** evens out transitions, **Prune** removes tiny weights, **Swap** moves weights from one bone to another,
+   and the 🔒 locks keep a bone's weights while you paint the others.
+
+</Steps>
+
+<Shot name="rig-weights" alt="Painting weights on Walker's scarf: the weights panel with Brush and Direct modes, Pies and Overlay toggles, the bone list with colours and locks, Smooth, Auto, Prune and Swap, and vertex pies over the scarf" caption="Weights on Walker's scarf. Each vertex shows a pie of its bones' colours; the overlay tints the mesh by the selected bone's weight." />
+
+## 6. Add IK
+
+Legs and arms are easier to animate with inverse kinematics: you move the foot, and the thigh and shin follow.
+
+<Steps>
+
+1. Add a target bone for the foot (a child of `root` or of the hip, not of the leg).
+2. Select the shin, and under **Constraints** in the Inspector choose a **Target bone** and **2-bone IK (with parent)**.
+3. Set **Mix**, **Softness**, **Bend +/−**, **Stretch** and compression as needed.
+
+</Steps>
+
+<Shot name="rig-ik" alt="The front-leg IK constraint selected: its target front-foot, mix, softness, bend direction and stretch, and the constraint order list" caption="Walker's front-leg IK constraint. The constraint order list sets which constraints run first." />
+
+Transform, path and physics constraints work the same way; see [Physics and constraints](/guides/physics/). The
+**Pose** tool (<kbd>I</kbd>) gives you IK-style posing without a constraint: drag a bone and its parents bend to follow.
+
+## The result
+
+Here is the finished Walker running in the web player. Click the path to walk, click him to jump.
+
+<LivePlayer example="walker" />
+
+Next: [animate it](/guides/animating/).

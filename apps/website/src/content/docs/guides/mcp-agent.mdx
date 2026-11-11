@@ -1,0 +1,104 @@
+---
+title: Let an agent animate (MCP)
+description: Connect Claude or any MCP client to OpenBone, and watch it rig and animate live in the editor.
+sidebar:
+  label: MCP with an AI agent
+---
+
+import { Steps, Tabs, TabItem, Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+import LivePlayer from "../../../components/LivePlayer.astro";
+
+The OpenBone [MCP](https://modelcontextprotocol.io) server gives an AI agent the same operations the editor uses:
+every edit is a tool (`add_bone`, `set_keys`, `add_state`, `add_listener`…), plus tools to **check its own work**
+(rendered frames, GIFs, state-machine simulations, pose inspection) and to export. Connect the editor to the server and
+you watch the agent's edits arrive live, and can edit alongside it.
+
+<LivePlayer example="windswept" />
+
+*Windswept* was built this way: an AI agent made it with the OpenBone MCP server, from the physics hair and the mesh
+grass to the lip-synced lines, the buttons and the mixer.
+
+## Connect a client
+
+<Steps>
+
+1. Add the server to your MCP client.
+
+   <Tabs>
+     <TabItem label="Claude Code">
+       Inside a checkout of the repository there is nothing to do: it ships `.mcp.json`, so Claude Code starts the
+       `openbone` server automatically. Anywhere else:
+       ```bash
+       claude mcp add openbone -- npx -y @openbone/mcp
+       ```
+     </TabItem>
+     <TabItem label="Other clients">
+       Most clients (Claude Desktop, Cursor, VS Code…) take a JSON entry like this:
+       ```json
+       { "mcpServers": { "openbone": { "command": "npx", "args": ["-y", "@openbone/mcp"] } } }
+       ```
+     </TabItem>
+     <TabItem label="From a checkout">
+       ```json
+       { "mcpServers": { "openbone": { "command": "pnpm", "args": ["exec", "tsx", "/path/to/OpenBone/packages/mcp/src/bin.ts"] } } }
+       ```
+     </TabItem>
+     <TabItem label="HTTP">
+       ```bash
+       npx -y @openbone/mcp --http 7718    # streamable HTTP at http://127.0.0.1:7718/mcp
+       ```
+     </TabItem>
+   </Tabs>
+
+2. Open the editor and click **⚡ Connect MCP** in the toolbar. The editor connects to the server's live bridge
+   (`ws://127.0.0.1:7717`), loads the server's document, and the button turns into **● Live MCP**.
+
+3. Ask the agent for something:
+
+   > Create a project at ~/anim/robot.obone: a robot with IK arms, an idle and a wave animation, and a state machine
+   > that waves when clicked.
+
+</Steps>
+
+<Shot name="mcp-live" alt="The editor connected to an MCP server (Live MCP in the toolbar) showing the Robot with a new wave animation; the head and antenna rotation keys in the dopesheet were set by the agent" caption="Live: the agent created the wave animation and set the head and antenna keys with set_keys; the editor shows them as they arrive." />
+
+## What the agent can do
+
+| Group | Tools |
+|---|---|
+| **Project** | `new_project`, `open_project`, `save_project` (projects with a path autosave), `get_summary`, `get_document`, `validate`, `undo`, `redo`, `import_image`, `import_audio`, `get_guide` |
+| **Art prep** | `process_image`: remove a flat background, cut out what differs from a painted-out copy, trim, crop, resize, flip, feather edges |
+| **Editing** | One tool per editing operation: bones, slots, regions, meshes, shapes, text, constraints, animations, keys, events, state machines, inputs, states, transitions, listeners, scripts, skins, atlases |
+| **Rigging helpers** | `trace_mesh`, `auto_weights`, `set_weights_in_area`, `smooth_weights`, `prune_weights`, `pose_bones`, `lip_sync` |
+| **Audio** | `add_sound`, `add_bus`, `set_audio_mix`, `add_audio_key`, `set_event_sound`, `set_state_sound` |
+| **Checking** | `render_frame` (a PNG with bones and hit boxes), `render_gif`, `simulate_state_machine`, `inspect_pose`, `get_stats` |
+| **Export** | `export_file`: every format the Export dialog has, MP4 and WebM with sound included, and `pack_atlas` |
+
+The [MCP server reference](/reference/mcp/) lists every tool and option. Resources (`openbone://guide`,
+`openbone://document`, `openbone://summary`) and prompts (`rig_character`, `interactive_button`) give the agent a head
+start.
+
+## How live editing works
+
+The server owns the document. When you connect, it sends its current document; after that both sides exchange
+**ops**: the agent's tool calls arrive in the editor, and your own edits in the editor go to the server, so the agent
+sees them on its next read. Undo and redo in the editor are forwarded to the server. If an op fails, the editor is
+resynced from the server's copy.
+
+<Aside type="tip">
+  Agents work best when they check their work. Ask for a `render_frame` after rigging and a `simulate_state_machine`
+  run after wiring inputs; both are cheap, and they catch a bone rotated the wrong way before you do.
+</Aside>
+
+## Running the server
+
+| Command | What it does |
+|---|---|
+| `npx -y @openbone/mcp` | stdio server, plus the live bridge on `ws://127.0.0.1:7717` |
+| `… --project ~/anim/hero.obone` | opens (or creates) a project at startup |
+| `… --http 7718` | streamable HTTP at `http://127.0.0.1:7718/mcp` |
+| `… --bridge-port 7800` | the live bridge on another port |
+| `… --no-bridge` | no WebSocket bridge |
+
+The [CLI](/guides/cli/) starts the same server with `openbone mcp`.

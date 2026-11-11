@@ -1,0 +1,144 @@
+/* OpenBone brand on Starlight: night purple #190826, bone blue #70c4fc, amber #fab70c (brand/README.md). */
+
+:root,
+::backdrop {
+  --ob-night: #190826;
+  --ob-blue: #70c4fc;
+  --ob-amber: #fab70c;
+  --ob-radius: 14px;
+  --ob-shadow: 0 1px 2px rgb(0 0 0 / 0.25), 0 12px 40px -12px rgb(0 0 0 / 0.55);
+}
+
+/* Dark (default) */
+:root {
+  --sl-color-accent-low: #12304a;
+  --sl-color-accent: #3aa8ee;
+  --sl-color-accent-high: #bfe6ff;
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #ece8f2;
+  --sl-color-gray-2: #c7c0d4;
+  --sl-color-gray-3: #9a90ab;
+  --sl-color-gray-4: #5f5470;
+  --sl-color-gray-5: #3b3048;
+  --sl-color-gray-6: #251a31;
+  --sl-color-black: #140a1e;
+  --ob-glow: rgb(112 196 252 / 0.18);
+  --ob-card: #1c1228;
+  --ob-card-border: #2f2340;
+}
+
+:root[data-theme="light"],
+[data-theme="light"] ::backdrop {
+  --sl-color-accent-low: #d6eeff;
+  --sl-color-accent: #0b6db3;
+  --sl-color-accent-high: #0a3d63;
+  --sl-color-white: #190826;
+  --sl-color-gray-1: #2a1f36;
+  --sl-color-gray-2: #3f3450;
+  --sl-color-gray-3: #605572;
+  --sl-color-gray-4: #8d8399;
+  --sl-color-gray-5: #c4bdcd;
+  --sl-color-gray-6: #ece8f1;
+  --sl-color-gray-7: #f6f4f9;
+  --sl-color-black: #ffffff;
+  --ob-glow: rgb(11 109 179 / 0.12);
+  --ob-card: #ffffff;
+  --ob-card-border: #e3dcea;
+  --ob-shadow: 0 1px 2px rgb(25 8 38 / 0.06), 0 12px 32px -14px rgb(25 8 38 / 0.25);
+}
+
+/* Header: a hint of the brand gradient under the logo bar. */
+header.header {
+  border-bottom: 1px solid var(--sl-color-hairline-shade);
+  background: color-mix(in srgb, var(--sl-color-black) 88%, transparent);
+  backdrop-filter: saturate(160%) blur(10px);
+}
+.site-title img {
+  border-radius: 8px;
+}
+
+/* Screenshots: framed like a window, click to enlarge (src/components/Footer.astro). */
+.sl-markdown-content figure.shot,
+.sl-markdown-content p > img,
+.sl-markdown-content .shot img {
+  border-radius: 10px;
+  border: 1px solid var(--ob-card-border);
+  box-shadow: var(--ob-shadow);
+}
+.sl-markdown-content p > img,
+.sl-markdown-content figure.shot img {
+  cursor: zoom-in;
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.sl-markdown-content figure.shot {
+  margin: 1.5rem 0;
+  overflow: hidden;
+  background: var(--ob-card);
+}
+.sl-markdown-content figure.shot figcaption {
+  padding: 0.6rem 0.9rem;
+  font-size: var(--sl-text-sm);
+  color: var(--sl-color-gray-3);
+  border-top: 1px solid var(--ob-card-border);
+}
+
+dialog.ob-lightbox {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  max-width: 96vw;
+  max-height: 96vh;
+}
+dialog.ob-lightbox::backdrop {
+  background: rgb(10 4 16 / 0.85);
+  backdrop-filter: blur(4px);
+}
+dialog.ob-lightbox img {
+  display: block;
+  max-width: 96vw;
+  max-height: 92vh;
+  width: auto;
+  height: auto;
+  border-radius: 10px;
+  cursor: zoom-out;
+}
+
+/* Steps: numbered guide steps. */
+.sl-markdown-content .sl-steps > li::before {
+  background: linear-gradient(135deg, var(--ob-blue), #4b8ff0);
+  color: #0b0614;
+  font-weight: 700;
+}
+
+/* Keyboard keys */
+.sl-markdown-content kbd {
+  font-family: var(--sl-font-mono);
+  font-size: 0.85em;
+  padding: 0.1em 0.45em;
+  border-radius: 5px;
+  border: 1px solid var(--sl-color-gray-5);
+  border-bottom-width: 2px;
+  background: var(--sl-color-gray-6);
+}
+
+/* Mermaid diagrams imported from the reference docs */
+pre.mermaid {
+  background: var(--ob-card);
+  border: 1px solid var(--ob-card-border);
+  border-radius: var(--ob-radius);
+  padding: 1rem;
+  overflow-x: auto;
+  text-align: center;
+  color: transparent;
+}
+pre.mermaid[data-processed] {
+  color: inherit;
+}
+
+/* Splash pages (the landing page) use the full width. */
+[data-has-hero] .main-pane,
+.ob-splash .main-pane {
+  max-width: none;
+}

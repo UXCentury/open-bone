@@ -1,0 +1,55 @@
+---
+title: Flutter
+description: Play OpenBone animations in Flutter apps on Android, iOS, macOS, Linux and Windows with OpenBoneWidget.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+
+The [`openbone`](https://pub.dev/packages/openbone) package is a `dart:ffi` plugin over the C runtime, compiled with
+your app, with an `OpenBoneWidget` that draws, handles touches and plays sound (flutter_soloud). Flutter 3.41+.
+
+## Install
+
+```bash
+flutter pub add openbone
+```
+
+```yaml
+flutter:
+  assets:
+    - assets/hero/            # hero.obone and the images it references
+```
+
+## Export from the editor
+
+Export the project or the runtime data (**JSON** or **Binary**) and put it in `assets/` with its images.
+
+<Shot name="export-json" alt="The Export dialog with JSON selected for the Knight" />
+
+## Play it
+
+```dart
+import 'package:openbone/openbone.dart';
+
+final controller = OpenBoneController();
+
+OpenBoneWidget.asset(
+  'assets/hero/hero.obone',
+  controller: controller,
+  stateMachine: 'main',       // or animation: 'walk'
+  fit: BoxFit.contain,
+);
+
+controller.setNumber('speed', 0.8);
+controller.setBool('armed', true);
+controller.fire('jump');
+controller.play('wave', loop: false, track: 1);
+```
+
+<Aside type="tip">
+  The Export dialog's **Flutter** engine pack is an alternative with no native code: a sprite sheet with a Dart
+  widget and a Flame component, or a WebView package running the web player.
+</Aside>
+
+**Reference:** [Flutter runtime](/runtimes/flutter/)

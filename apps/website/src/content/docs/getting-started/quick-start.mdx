@@ -1,0 +1,59 @@
+---
+title: Quick start
+description: Open an example, play it, change it and export it, in five minutes.
+---
+
+import { Steps, Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+
+This page walks through the editor with one of the bundled examples. You need the editor: the
+[desktop app](/getting-started/install/#desktop-app), or `pnpm dev` from a checkout.
+
+<Steps>
+
+1. **Open an example.** Choose **☰ Menu → Examples…** and pick one. The *Knight* is a good start: a character with IK
+   legs, a state machine, sounds and a script.
+
+   <Shot name="editor-examples" alt="The Examples dialog with cards for Windswept, Knight, Walker, Pip the fox, Robot, Tail, Rocket and Crash game, each with Open and Download buttons" caption="Menu → Examples… Each card says what the example shows. Download saves it as one self-contained .obone file." />
+
+2. **Play it.** Press **▶ Play** (or <kbd>P</kbd>). Play mode runs the file the way it will ship: the state machine,
+   its inputs, scripts, sound and pointer listeners. Click the knight, press the input buttons in the **Inputs** panel
+   and watch the log.
+
+   <Shot name="sm-play" alt="Play mode on the Crash game: the rocket climbing, the 2.37x multiplier text, and the Inputs panel with start, crash and cashout triggers, the multiplier number and the state log" caption="Play mode: inputs on the right, the active state and a log of every state change, event and sound." />
+
+3. **Look at the animations.** Press **■ Stop**, switch to **Animate** (<kbd>`</kbd>) and pick an animation in the
+   timeline's list. Press <kbd>Space</kbd> to play it. Click a bone in the viewport or the skeleton tree: the Inspector
+   shows its properties, and the dopesheet shows its keys.
+
+   <Shot name="anim-dopesheet" alt="Walker's walk cycle in Animate mode, with the hip bone selected and its keys in the dopesheet" />
+
+4. **Change something.** With **● Rec** on, drag a bone in the viewport: a key appears at the playhead. Drag the key in
+   the dopesheet to retime it. Every change can be undone with <kbd>Ctrl</kbd>+<kbd>Z</kbd> (<kbd>⌘</kbd>+<kbd>Z</kbd>
+   on macOS).
+
+5. **Export it.** Choose **☰ Menu → Export…** (<kbd>Ctrl</kbd>+<kbd>E</kbd>). Pick a format on the left: the project,
+   runtime data for an engine, images, video with sound, or a web page. The preview on the right is what you will get.
+
+   <Shot name="export-dialog" alt="The Export dialog with Project selected, the output options and a preview of the Walker" />
+
+</Steps>
+
+<Aside type="tip">
+  The editor autosaves your session in the browser (or the app's storage), including the undo history. **☰ Menu → Save**
+  (<kbd>Ctrl</kbd>+<kbd>S</kbd>) writes a `.obone` file, and the **Project** export with *Embed images and audio* writes
+  one self-contained file that opens anywhere.
+</Aside>
+
+## Find any command
+
+Press <kbd>Ctrl</kbd>+<kbd>K</kbd> (<kbd>⌘</kbd>+<kbd>K</kbd>) for the command palette and type what you want. Every
+action is there with its shortcut, and the shortcuts can be changed under **☰ Menu → Keyboard shortcuts**.
+
+<Shot name="editor-palette" alt="The command palette with 'onion' typed and the Toggle onion skin command highlighted" />
+
+## Next
+
+- [Tour the editor](/getting-started/editor-tour/) to learn the panels, modes and views.
+- [Rig your first character](/guides/first-rig/).
+- Try every example [live in your browser](/examples/).

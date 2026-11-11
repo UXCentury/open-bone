@@ -1,0 +1,81 @@
+---
+title: Exporting
+description: Every export format, from runtime data and atlases to GIFs, PSDs, MP4 and WebM with sound, and web pages.
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+
+**☰ Menu → Export…** (<kbd>Ctrl</kbd>+<kbd>E</kbd>) opens the Export dialog. Pick a format on the left, set its options
+in the middle, and check the preview on the right. **Save settings** and **Load settings** keep a set of options for
+the next export. The [CLI](/guides/cli/) and the [MCP server](/guides/mcp-agent/)'s `export_file` run the same code, so
+all three produce the same files.
+
+<Shot name="export-dialog" alt="The Export dialog: formats grouped as OpenBone (Project), Data (JSON, Binary), Image (PNG, JPEG, GIF, APNG, PSD), Video (AVI, MP4, WebM, MOV), Web (Website) and Engines (Unity); the Project options with Embed images and audio and Pretty print; a preview of the state machine with document stats" />
+
+## All formats
+
+| Group | Format | What you get |
+|---|---|---|
+| OpenBone | **Project** | The whole `.obone` project (rig, skins, animations, state machines, scripts, editor data). *Embed images and audio* makes one self-contained file |
+| Data | **JSON** | Runtime data for the engines: the animations and state machines marked for export, optionally with a packed texture atlas |
+| | **Binary** | The same in `.obonb`, about 40% of the JSON's size |
+| Image | **PNG**, **JPEG** | One frame, or every frame in a ZIP |
+| | **GIF**, **APNG** | Animated images |
+| | **PSD** | A Photoshop file, one layer per frame |
+| Video | **MP4** | H.264 with AAC sound (Opus where the browser has no AAC encoder) |
+| | **WebM** | VP9 with Opus sound, with transparency where the browser supports it |
+| | **MOV**, **AVI** | Motion-JPEG with sound |
+| Web | **Website** | The `<openbone-player>` web player, your animation, a demo page and embed snippets (ZIP), or one self-contained HTML file |
+| Engines | **Unity**, **Godot 4**, **Flutter**, **Android**, **iOS**, **Sprite sheet** | Sprite sheets with clip data, or WebView packages that run the interactive player in an app. See [Engine exports](/reference/engine-exports/) |
+
+Frames come from an animation or from a **state machine run**, so a video can show an interaction (hover, click,
+transition) exactly as the runtime plays it.
+
+## Runtime data for engines
+
+For a rig that keeps animating in your game (state machines, constraints, physics, skins swapped at runtime), export
+**JSON** or **Binary** and load it with a [runtime](/engines/web/). Pick the animations to keep, and whether to pack
+the images into an atlas.
+
+<Shot name="export-json" alt="The JSON export options for the Knight: animations to include, atlas packing and the file name, with a preview" />
+
+Atlas packing supports rotation, several scales in one pack, whitespace stripping, polygon outlines, aliasing of
+identical images, edge padding and bleed, page size rules, PNG or JPEG pages and premultiplied alpha. The
+[CLI](/guides/cli/#export) exposes every packer option.
+
+## Video with sound
+
+<Shot name="export-mp4" alt="The MP4 export on Windswept: animation talk1, frame rate 30, scale 100%, artboard framing, background colour, quality 90%, Include sound checked, and a preview frame with the subtitle" caption="MP4 export of Windswept's talk1: the voice, music and ambience it plays are mixed into the video." />
+
+MP4 and WebM are encoded in the browser with WebCodecs (the desktop app included). **Include sound** mixes every sound
+the animation or state-machine run plays (audio keys, events, state sounds) at its bus and master volume. From the CLI
+and the MCP server, MP4 and WebM use `ffmpeg` from the `PATH`.
+
+<Shot name="export-webm" alt="The WebM export options on Windswept with Include sound" />
+
+## GIFs and image sequences
+
+<Shot name="export-gif" alt="The GIF export options for the Knight: animation, frame rate, scale, framing, background or transparency, and a preview" />
+
+## A web page
+
+The **Website** export writes everything needed to show your animation on a site: the web player (classic script or ES
+module, minified or not), your animation (optionally binary and atlas-packed, with WebP images), a demo page and embed
+snippets. **Single HTML file** puts it all in one file that works without a server.
+
+<Shot name="export-website" alt="The Website export for the Knight: start with the knight state machine, binary data, packed atlas, WebP images, transparent background, minified classic script with the script sandbox, and the single HTML file option" />
+
+## Engine packs
+
+The **Engines** group makes sprite sheets with clip data that engines import directly (a Unity editor script that
+slices the sheet and creates one `.anim` clip per animation, a Godot `SpriteFrames` resource and `AnimatedSprite2D`
+scene, a Flutter `CustomPainter` widget and a Flame component, TexturePacker and Phaser atlases), and WebView packages
+that run the full interactive player inside a Flutter, Android or iOS app. Every pack is a ZIP with a README.
+
+<Shot name="export-unity" alt="The Unity engine export for the Knight: idle, walk, attack and salute clips, frame rate, loop, frame scale and trim, sprite sheet padding and max size" />
+
+<Aside type="tip">
+  Sprite sheets are pre-rendered frames: no state machines or bone control. For full rigs in an engine, export JSON or
+  Binary and use the native runtime (see the engine quick starts).
+</Aside>

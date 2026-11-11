@@ -1,0 +1,61 @@
+---
+title: Swift (iOS and macOS)
+description: Play OpenBone animations on iOS 15+ and macOS 12+ with the Metal OpenBoneView and the SwiftUI OpenBonePlayer.
+sidebar:
+  label: Swift
+---
+
+import { Aside } from "@astrojs/starlight/components";
+import Shot from "../../../components/Shot.astro";
+
+The `OpenBone` Swift package wraps the C runtime with a Swift API, a Metal `OpenBoneView` (UIKit and AppKit), a SwiftUI
+`OpenBonePlayer` and sound through AVFoundation. iOS 15+ and macOS 12+.
+
+## Install
+
+In Xcode choose **File → Add Package Dependencies…**, enter `https://github.com/UXCentury/open-bone`, and add the
+`OpenBone` library to your target. Or in `Package.swift`:
+
+```swift
+dependencies: [.package(url: "https://github.com/UXCentury/open-bone", from: "0.3.0")],
+targets: [.target(name: "MyApp", dependencies: [.product(name: "OpenBone", package: "open-bone")])]
+```
+
+## Export from the editor
+
+Add the exported `.obone` or `.obonb` file and its images to your app bundle.
+
+<Shot name="export-json" alt="The Export dialog with JSON selected for the Knight" />
+
+## Play it
+
+```swift
+import OpenBone
+import SwiftUI
+
+let doc = try OpenBoneDocument(contentsOf: Bundle.main.url(forResource: "button", withExtension: "obone")!)
+let inst = try OpenBoneInstance(document: doc)          // scripts on by default
+
+inst.onEvent = { e in print("event", e.name, e.stringValue) }
+inst.onStateChange = { layer, from, to in print(layer, "→", to) }
+
+try inst.useStateMachine()                              // or: try inst.play("walk", loop: true)
+try inst.setInput("speed", 0.5)
+try inst.fire("attack")
+
+struct Stage: View {
+    let instance: OpenBoneInstance
+    var body: some View { OpenBonePlayer(instance: instance, fit: .contain).frame(height: 320) }
+}
+```
+
+`OpenBoneView` (an `MTKView`) advances its instance every frame, draws with Metal (blend modes, two-colour tint,
+stencil clipping, particles, CoreText text) and turns touches or mouse events into pointer input for the state
+machine's listeners.
+
+<Aside type="tip">
+  For an app with no native integration, the Export dialog's **iOS** engine pack wraps the web player in a
+  `WKWebView` with a SwiftUI `OpenBoneAnimation`.
+</Aside>
+
+**Reference:** [Swift runtime](/runtimes/swift/)

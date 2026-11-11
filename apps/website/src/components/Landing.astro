@@ -1,0 +1,450 @@
+---
+/** The landing page (src/content/docs/index.mdx renders this on Starlight's splash template). */
+import fs from "node:fs";
+import path from "node:path";
+import { Code, TabItem, Tabs } from "@astrojs/starlight/components";
+import LivePlayer from "./LivePlayer.astro";
+import Shot from "./Shot.astro";
+import { url } from "../lib/examples";
+
+const version = (JSON.parse(fs.readFileSync(path.resolve(process.cwd(), "../../package.json"), "utf8")) as { version: string }).version;
+const GH = "https://github.com/UXCentury/open-bone";
+
+const features = [
+  { icon: "🦴", title: "Rig like Spine", text: "Bones, weighted meshes with free-form deformation, IK, transform, path and physics constraints, skins, clipping, two-colour tint and texture atlases.", href: "guides/first-rig/" },
+  { icon: "🕹️", title: "Interactive like Rive", text: "State machines with inputs, pointer listeners, live text, input bindings and sandboxed scripts.", href: "guides/state-machines/" },
+  { icon: "🔊", title: "Sound built in", text: "Sounds on the timeline, events and states, a mixer with buses and mute buttons, lip sync from a voice recording, and video exports with the sound mixed in.", href: "guides/audio-lip-sync/" },
+  { icon: "🌍", title: "Play it anywhere", text: "WebGL, Canvas, PixiJS, Phaser, Three.js and CanvasKit, plus native runtimes for C/C++, C#, Java, Swift, Flutter and Haxe, all held to one conformance suite.", href: "engines/web/" },
+  { icon: "🤖", title: "Let an agent do it", text: "Every edit is an MCP tool, and the editor shows an agent's work live as it happens.", href: "guides/mcp-agent/" },
+  { icon: "📦", title: "Export everything", text: "JSON, binary, atlases, PNG and JPEG frames, GIF, APNG, PSD, sprite sheets, AVI, MOV, MP4 and WebM with sound, and a self-contained web page.", href: "guides/exporting/" },
+];
+
+const engines = ["WebGL", "Canvas 2D", "PixiJS", "Phaser", "Three.js", "CanvasKit", "Unity", "Godot", "Unreal", "MonoGame", "libGDX", "Android", "SwiftUI", "Flutter", "Cocos2d-x", "SDL2", "SFML", "OpenGL", "Haxe"];
+
+const registries = [
+  { name: "GitHub Releases", sub: "Desktop app · Windows, macOS, Linux", href: `${GH}/releases/latest` },
+  { name: "npm", sub: "@openbone/* · openbone", href: "https://www.npmjs.com/package/@openbone/player" },
+  { name: "pub.dev", sub: "openbone", href: "https://pub.dev/packages/openbone" },
+  { name: "NuGet", sub: "OpenBone.Runtime", href: "https://www.nuget.org/packages/OpenBone.Runtime" },
+  { name: "Maven Central", sub: "io.openbone:*", href: "https://central.sonatype.com/artifact/io.openbone/openbone-runtime" },
+  { name: "Unity", sub: "upm branch · OpenUPM", href: `${GH}/tree/upm` },
+  { name: "Godot", sub: "godot-addon branch · AssetLib", href: `${GH}/tree/godot-addon` },
+  { name: "Swift Package", sub: "github.com/UXCentury/open-bone", href: GH },
+];
+
+const mcpJson = `{ "mcpServers": { "openbone": { "command": "npx", "args": ["-y", "@openbone/mcp"] } } }`;
+---
+
+<div class="landing not-content">
+  <section class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="hero-copy">
+      <a class="chip" href={`${GH}/releases/latest`}><span class="chip-dot"></span> v{version} is out · MIT licensed</a>
+      <h1>Open-source <span class="grad">2D skeletal animation</span></h1>
+      <p class="lede">
+        Rig it like Spine, make it interactive like Rive, play it in every engine, and let an AI agent animate it for you.
+      </p>
+      <div class="ctas">
+        <a class="btn primary" href={url("getting-started/introduction/")}>Get started →</a>
+        <a class="btn" href={`${GH}/releases/latest`}>Download the app</a>
+        <a class="btn ghost" href={url("examples/")}>Live examples</a>
+      </div>
+      <p class="fine">Editor for Windows, macOS, Linux and the web · runtimes for 19 engines · every edit is an MCP tool</p>
+    </div>
+    <div class="hero-stage">
+      <LivePlayer example="windswept" eager class="hero-player" />
+      <p class="stage-note">
+        This is not a video. It is <em>Windswept</em>, one <code>.obone</code> file, running in the real OpenBone web player. An AI agent built it with the MCP server.
+      </p>
+    </div>
+  </section>
+
+  <section class="features">
+    {
+      features.map((f) => (
+        <a class="card" href={url(f.href)}>
+          <span class="card-icon" aria-hidden="true">{f.icon}</span>
+          <h3>{f.title}</h3>
+          <p>{f.text}</p>
+        </a>
+      ))
+    }
+  </section>
+
+  <section class="band">
+    <div class="band-head">
+      <h2>A real editor, not a toy</h2>
+      <p>Setup and Animate modes, a dopesheet and graph view, weights, meshes, the Pen tool, a 3D depth view, state machines, a mixer and Play mode. Desktop app or in the browser.</p>
+    </div>
+    <Shot name="editor-overview" alt="The OpenBone editor in Animate mode on Windswept: the skeleton tree, the viewport with the girl mid-sentence, the Inspector with the head bone, and the dopesheet with the voice line's waveform and the lip-sync mouth keys" />
+  </section>
+
+  <section class="band">
+    <div class="band-head">
+      <h2>Interactive by design</h2>
+      <p>State machines, pointer listeners and live inputs run the same in the editor, the web player and every native runtime. Click them.</p>
+    </div>
+    <div class="trio">
+      <LivePlayer example="knight" />
+      <LivePlayer example="crash" />
+      <LivePlayer example="rocket" />
+    </div>
+    <p class="more"><a href={url("examples/")}>See all ten live examples →</a></p>
+  </section>
+
+  <section class="band split">
+    <div>
+      <h2>Let an agent animate</h2>
+      <p>
+        The MCP server exposes every editing operation as a tool, plus rendered frames and state-machine runs so the agent can check its own work. Click <strong>⚡ Connect MCP</strong> in the editor and watch the edits arrive live.
+      </p>
+      <Code code={mcpJson} lang="json" title="MCP client config" />
+      <p class="quote">“Create a project at ~/anim/robot.obone: a robot with IK arms, an idle and a wave animation, and a state machine that waves when clicked.”</p>
+      <a class="btn" href={url("guides/mcp-agent/")}>MCP guide →</a>
+    </div>
+    <Shot name="mcp-live" alt="The editor live-connected to an MCP server: the robot example with a wave animation and its head and antenna keys, created by tool calls" caption="A wave animation, made by MCP tool calls, arriving live in the editor." />
+  </section>
+
+  <section class="band">
+    <div class="band-head">
+      <h2>Install</h2>
+      <p>Packages are published from every release. Pick your platform.</p>
+    </div>
+    <Tabs syncKey="platform">
+      <TabItem label="Web">
+        <Code code={`npm install @openbone/player`} lang="bash" />
+        <Code code={`<script type="module">\n  import { definePlayerElement } from "@openbone/player";\n  definePlayerElement();\n</script>\n<openbone-player src="walker.obone" state-machine="character"></openbone-player>`} lang="html" />
+      </TabItem>
+      <TabItem label="Unity">
+        <p>Package Manager → <strong>Add package from git URL</strong>:</p>
+        <Code code={`https://github.com/UXCentury/open-bone.git#upm`} lang="text" />
+        <Code code={`openupm add com.openbone.runtime`} lang="bash" title="or with OpenUPM" />
+      </TabItem>
+      <TabItem label="Godot">
+        <p>AssetLib tab → search <strong>OpenBone</strong>, or unzip <code>openbone-godot-{version}.zip</code> from the <a href={`${GH}/releases`}>releases</a> into your project.</p>
+      </TabItem>
+      <TabItem label="Flutter">
+        <Code code={`flutter pub add openbone`} lang="bash" />
+      </TabItem>
+      <TabItem label="Swift">
+        <p>Xcode → <strong>Add Package Dependencies</strong> → <code>https://github.com/UXCentury/open-bone</code>, product <code>OpenBone</code>.</p>
+      </TabItem>
+      <TabItem label="Android / JVM">
+        <Code code={`implementation("io.openbone:openbone-runtime:${version}")\n// + openbone-scripting, openbone-gdx, openbone-android`} lang="kotlin" />
+      </TabItem>
+      <TabItem label=".NET">
+        <Code code={`dotnet add package OpenBone.Runtime\ndotnet add package OpenBone.MonoGame`} lang="bash" />
+      </TabItem>
+      <TabItem label="C / C++">
+        <Code code={`add_subdirectory(runtimes/cpp)  # QuickJS and nlohmann/json are vendored`} lang="cmake" />
+      </TabItem>
+      <TabItem label="CLI & MCP">
+        <Code code={`npx openbone --help\nnpx -y @openbone/mcp`} lang="bash" />
+      </TabItem>
+    </Tabs>
+    <div class="registries">
+      {
+        registries.map((r) => (
+          <a class="reg" href={r.href}>
+            <strong>{r.name}</strong>
+            <span>{r.sub}</span>
+          </a>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="band engines">
+    <h2>One file, every engine</h2>
+    <div class="engine-chips">{engines.map((e) => <span>{e}</span>)}</div>
+    <p>Every runtime implements the <a href={url("reference/runtime-spec/")}>runtime specification</a> and passes the <a href={url("reference/conformance/")}>conformance suite</a>: the same poses, draw lists, events, audio commands and state-machine steps, for every example.</p>
+  </section>
+
+  <section class="closing">
+    <h2>Animate in the open.</h2>
+    <p>Everything is MIT, from the editor to the last runtime, built only on permissively licensed open source.</p>
+    <div class="ctas center">
+      <a class="btn primary" href={url("getting-started/quick-start/")}>Quick start</a>
+      <a class="btn" href={GH}>Star on GitHub</a>
+    </div>
+  </section>
+</div>
+
+<style>
+  .landing {
+    --pad: clamp(1rem, 4vw, 3rem);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(3rem, 8vw, 6rem);
+    padding-bottom: 2rem;
+    /* The hero's glow bleeds past the edges; never let it widen the page. */
+    overflow-x: clip;
+  }
+  h1,
+  h2,
+  h3 {
+    color: var(--sl-color-white);
+    line-height: 1.1;
+    margin: 0;
+  }
+  .hero {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr);
+    gap: clamp(1.5rem, 4vw, 3.5rem);
+    align-items: center;
+    padding-top: clamp(1rem, 4vw, 3rem);
+  }
+  .hero-glow {
+    position: absolute;
+    inset: -6rem -20vw auto;
+    height: 40rem;
+    background:
+      radial-gradient(40rem 22rem at 70% 35%, rgb(112 196 252 / 0.22), transparent 70%),
+      radial-gradient(28rem 18rem at 15% 20%, rgb(250 183 12 / 0.14), transparent 70%),
+      radial-gradient(30rem 20rem at 45% 80%, rgb(138 99 210 / 0.18), transparent 70%);
+    pointer-events: none;
+    z-index: -1;
+    filter: blur(10px);
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid var(--ob-card-border);
+    background: color-mix(in srgb, var(--ob-card) 80%, transparent);
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-2);
+    text-decoration: none;
+  }
+  .chip-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--ob-amber);
+    box-shadow: 0 0 0 3px rgb(250 183 12 / 0.25);
+  }
+  .hero h1 {
+    margin-top: 1.1rem;
+    font-size: clamp(2.4rem, 5.2vw, 4.2rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+  .grad {
+    background: linear-gradient(100deg, var(--ob-blue), #a78bfa 55%, var(--ob-amber));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  :global([data-theme="light"]) .grad {
+    background: linear-gradient(100deg, #0b6db3, #6d3fd0 55%, #c77800);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+  .lede {
+    margin-top: 1.1rem;
+    font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+    color: var(--sl-color-gray-2);
+    max-width: 34rem;
+  }
+  .ctas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1.6rem;
+  }
+  .ctas.center {
+    justify-content: center;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.7rem 1.2rem;
+    border-radius: 999px;
+    border: 1px solid var(--sl-color-gray-5);
+    background: var(--ob-card);
+    color: var(--sl-color-white);
+    font-weight: 600;
+    text-decoration: none;
+    transition:
+      transform 0.15s,
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+  .btn:hover {
+    transform: translateY(-1px);
+    border-color: var(--sl-color-accent);
+  }
+  .btn.primary {
+    background: linear-gradient(135deg, #7fd0ff, #4b8ff0);
+    border-color: transparent;
+    color: #0b0614;
+    box-shadow: 0 8px 28px -10px rgb(75 143 240 / 0.8);
+  }
+  .btn.ghost {
+    background: transparent;
+  }
+  .fine {
+    margin-top: 1.2rem;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+  .hero-stage :global(.hero-player) {
+    margin: 0;
+    box-shadow:
+      0 0 0 1px rgb(112 196 252 / 0.15),
+      0 30px 80px -20px rgb(0 0 0 / 0.7),
+      0 0 120px -30px var(--ob-glow);
+  }
+  .stage-note {
+    margin-top: 0.8rem;
+    font-size: var(--sl-text-sm);
+    color: var(--sl-color-gray-3);
+  }
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+    gap: 1rem;
+  }
+  .card {
+    display: block;
+    padding: 1.3rem 1.3rem 1.1rem;
+    border-radius: var(--ob-radius);
+    border: 1px solid var(--ob-card-border);
+    background: var(--ob-card);
+    text-decoration: none;
+    color: inherit;
+    transition:
+      transform 0.15s,
+      border-color 0.15s;
+  }
+  .card:hover {
+    transform: translateY(-2px);
+    border-color: var(--sl-color-accent);
+  }
+  .card-icon {
+    font-size: 1.6rem;
+  }
+  .card h3 {
+    margin-top: 0.6rem;
+    font-size: 1.15rem;
+  }
+  .card p {
+    margin-top: 0.4rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+  }
+  .band-head {
+    max-width: 44rem;
+    margin-bottom: 1.2rem;
+  }
+  .band h2,
+  .closing h2 {
+    font-size: clamp(1.7rem, 3.2vw, 2.4rem);
+    letter-spacing: -0.02em;
+  }
+  .band-head p,
+  .split p {
+    margin-top: 0.6rem;
+    color: var(--sl-color-gray-2);
+  }
+  .trio {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: start;
+  }
+  .trio :global(.ob-live) {
+    margin: 0;
+  }
+  .more {
+    margin-top: 1rem;
+  }
+  .split {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    gap: clamp(1.5rem, 4vw, 3rem);
+    align-items: center;
+  }
+  .split :global(.expressive-code) {
+    margin: 1rem 0;
+  }
+  .quote {
+    font-style: italic;
+    border-left: 3px solid var(--ob-amber);
+    padding-left: 0.9rem;
+  }
+  .split .btn {
+    margin-top: 0.6rem;
+  }
+  .registries {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+  }
+  .reg {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    border: 1px solid var(--ob-card-border);
+    background: var(--ob-card);
+    text-decoration: none;
+    color: var(--sl-color-white);
+  }
+  .reg:hover {
+    border-color: var(--sl-color-accent);
+  }
+  .reg span {
+    font-size: var(--sl-text-xs);
+    color: var(--sl-color-gray-3);
+  }
+  .engines {
+    text-align: center;
+  }
+  .engines p {
+    max-width: 44rem;
+    margin: 1.2rem auto 0;
+    color: var(--sl-color-gray-2);
+  }
+  .engine-chips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.2rem;
+  }
+  .engine-chips span {
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid var(--ob-card-border);
+    background: var(--ob-card);
+    font-size: var(--sl-text-sm);
+  }
+  .closing {
+    text-align: center;
+    padding: clamp(2rem, 6vw, 4rem) var(--pad);
+    border-radius: 24px;
+    border: 1px solid var(--ob-card-border);
+    background:
+      radial-gradient(30rem 14rem at 50% 0%, rgb(112 196 252 / 0.18), transparent 70%),
+      var(--ob-card);
+  }
+  .closing p {
+    margin-top: 0.6rem;
+    color: var(--sl-color-gray-2);
+  }
+  @media (max-width: 60rem) {
+    .hero,
+    .split {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .trio {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

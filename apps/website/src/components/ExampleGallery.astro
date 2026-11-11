@@ -1,0 +1,67 @@
+---
+/** Every example as a live player, with what it shows and a link to open it in the editor. */
+import LivePlayer from "./LivePlayer.astro";
+import { allExamples } from "../lib/examples";
+
+const GH = "https://github.com/UXCentury/open-bone/blob/main/examples";
+---
+
+<div class="gallery not-content">
+  {
+    allExamples().map((ex) => (
+      <article class="ex" id={ex.id}>
+        <LivePlayer example={ex.id} />
+        <div class="ex-body">
+          <p>{ex.blurb}</p>
+          <div class="ex-meta">
+            {ex.tags.map((t) => (
+              <span class="tag">{t}</span>
+            ))}
+            <a class="src" href={`${GH}/${ex.id}.obone`}>
+              {ex.id}.obone ↗
+            </a>
+          </div>
+        </div>
+      </article>
+    ))
+  }
+</div>
+
+<style>
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .ex :global(.ob-live) {
+    margin: 0;
+  }
+  .ex-body {
+    padding: 0.7rem 0.2rem 0;
+  }
+  .ex-body p {
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+    margin: 0;
+  }
+  .ex-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    align-items: center;
+    margin-top: 0.6rem;
+  }
+  .tag {
+    font-size: var(--sl-text-xs);
+    padding: 0.1rem 0.55rem;
+    border-radius: 999px;
+    background: var(--sl-color-accent-low);
+    color: var(--sl-color-accent-high);
+  }
+  .src {
+    margin-inline-start: auto;
+    font-size: var(--sl-text-xs);
+    font-family: var(--sl-font-mono);
+  }
+</style>
