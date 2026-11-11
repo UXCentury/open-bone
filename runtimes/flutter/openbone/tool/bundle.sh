@@ -25,11 +25,14 @@ rm -rf "$OUT"
 mkdir -p "$OUT"
 OUT=$(cd "$OUT" && pwd -P)
 
-# 1. The package's own files, as git lists them (so build outputs and other ignored files stay behind).
+# 1. The package's own files, as git lists them (so build outputs and other ignored files stay behind). Symlinks are
+#    left to step 3, which copies what they point to: tar can't recreate them on Windows (Git Bash's tar only makes a
+#    "symlink" when its target already exists, and the C++ sources they point to are copied in step 2).
 cd "$PLUGIN"
 git ls-files -z --cached --others --exclude-standard -- . |
   while IFS= read -r -d '' f; do
-    if [ -e "$f" ] || [ -L "$f" ]; then printf '%s\0' "$f"; fi  # skip files deleted in the working tree
+    if [ -L "$f" ]; then continue; fi
+    if [ -e "$f" ]; then printf '%s\0' "$f"; fi  # skip files deleted in the working tree
   done |
   tar --null -T - -cf - | tar -xf - -C "$OUT"
 
@@ -52,10 +55,11 @@ replace_link() {  # $1: path relative to the plugin, $2: the link's target as wr
   else echo "broken symlink: $1 -> $2" >&2; exit 1
   fi
   rm -rf "${OUT:?}/$1"
+  mkdir -p "$(dirname "$OUT/$1")"  # a folder holding only symlinks was not created by step 1
   cp -RL "$abs" "$OUT/$1"
 }
 git ls-files -s -- . | awk -F '\t' '$1 ~ /^120000 / { print $2 }' | while IFS= read -r rel; do
-  [ -e "$OUT/$rel" ] || [ -L "$OUT/$rel" ] || continue
+  [ -e "$rel" ] || [ -L "$rel" ] || continue  # deleted in the working tree
   if [ -L "$rel" ]; then target=$(readlink "$rel"); else target=$(cat "$rel"); fi
   replace_link "$rel" "$target"
 done
