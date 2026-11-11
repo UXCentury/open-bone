@@ -27,6 +27,8 @@ export interface Example {
   background: string | null;
   stateMachine: string | null;
   animations: string[];
+  /** The file has sounds (the player shows its sound button). */
+  hasAudio: boolean;
   inputs: ExampleInput[];
 }
 
@@ -90,6 +92,7 @@ interface Doc {
   height: number;
   background?: string | null;
   animations?: { name: string }[];
+  audio?: { assets?: unknown[] };
   stateMachines?: { name: string; inputs?: { name: string; type: ExampleInput["type"]; value?: unknown; default?: unknown }[] }[];
 }
 
@@ -119,6 +122,7 @@ export function getExample(id: string): Example {
     stateMachine: sm?.name ?? null,
     animations: (doc.animations ?? []).map((a) => a.name),
     inputs,
+    hasAudio: (doc.audio?.assets?.length ?? 0) > 0,
   };
   cache.set(id, ex);
   return ex;

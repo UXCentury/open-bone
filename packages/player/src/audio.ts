@@ -43,12 +43,16 @@ export class WebAudioBackend {
   private voices = new Map<string, Voice>();
   private hostMuted = false;
   private unbind: (() => void) | null = null;
+  /** Looping sounds requested before audio was unlocked, by voice id; they start when the context runs. */
+  private pending = new Map<string, Extract<AudioCommand, { type: "play" }>>();
+  private offline: OfflineAudioContext | null = null;
 
   constructor(
     public doc: OpenBoneDocument,
     private opts: WebAudioOptions = {},
   ) {
     this.ctx = opts.context ?? null;
+    if (this.ctx) this.watch(this.ctx);
   }
 
   /** True once the browser lets the context play. */
@@ -87,7 +91,34 @@ export class WebAudioBackend {
     const Ctor = globalThis.AudioContext ?? (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return null;
     this.ctx = new Ctor();
+    this.watch(this.ctx);
     return this.ctx;
+  }
+
+  /** Start the loops that were waiting for audio once the context runs (whoever resumed it). */
+  private watch(ctx: AudioContext) {
+    ctx.addEventListener?.("statechange", () => this.flushPending());
+  }
+
+  private flushPending() {
+    if (this.ctx?.state !== "running" || !this.pending.size) return;
+    const cmds = [...this.pending.values()];
+    this.pending.clear();
+    for (const cmd of cmds) this.play(cmd);
+  }
+
+  /**
+   * Where sounds are decoded: the live context once it exists, else an OfflineAudioContext, which the browser allows
+   * without a user gesture (decoded buffers play in any context).
+   */
+  private decoder(): BaseAudioContext | null {
+    if (this.ctx) return this.ctx;
+    if (!this.offline) {
+      const Offline = globalThis.OfflineAudioContext ?? (globalThis as unknown as { webkitOfflineAudioContext?: typeof OfflineAudioContext }).webkitOfflineAudioContext;
+      if (!Offline) return this.context();
+      this.offline = new Offline(2, 1, 48000);
+    }
+    return this.offline;
   }
 
   private masterNode(ctx: AudioContext): GainNode {
@@ -151,7 +182,7 @@ export class WebAudioBackend {
     const url = this.url(asset);
     let p = this.buffers.get(url);
     if (!p) {
-      const ctx = this.context();
+      const ctx = this.decoder();
       if (!ctx) return Promise.resolve(null);
       p = fetch(url)
         .then((r) => {
@@ -227,15 +258,24 @@ export class WebAudioBackend {
 
   private play(cmd: Extract<AudioCommand, { type: "play" }>) {
     const asset = this.doc.audio?.assets.find((a) => a.id === cmd.asset);
-    const ctx = this.context();
+    // Never create the context here: before a user gesture the browser refuses it ("The AudioContext was not allowed
+    // to start"). It is created by unlock() / activate(), from a click or key press.
+    const ctx = this.ctx;
     const name = this.doc.audio?.sounds.find((s) => s.id === cmd.sound)?.name ?? asset?.name ?? cmd.sound;
-    if (!asset || !ctx) {
-      this.opts.onLog?.(`play ${name} skipped (${asset ? "no Web Audio" : "asset missing"})`, cmd);
+    if (!asset) {
+      this.opts.onLog?.(`play ${name} skipped (asset missing)`, cmd);
       return;
     }
-    // One-shots before the first gesture would all burst out at unlock time: drop them. Loops start late.
-    if (ctx.state !== "running" && !cmd.loop) {
-      this.opts.onLog?.(`play ${name} skipped (audio locked until a click or key press)`, cmd);
+    if (!ctx || ctx.state !== "running") {
+      // One-shots before the first gesture would all burst out at unlock time: drop them. Loops (music, ambience)
+      // wait and start when audio unlocks.
+      if (!cmd.loop) {
+        this.opts.onLog?.(`play ${name} skipped (audio locked until a click or key press)`, cmd);
+        return;
+      }
+      this.pending.set(cmd.id, cmd);
+      this.opts.onLog?.(`play ${name} [${cmd.id}] loop waits for audio to unlock`, cmd);
+      void this.load(asset);
       return;
     }
     const gain = ctx.createGain();
@@ -373,6 +413,7 @@ export class WebAudioBackend {
   }
 
   private stop(id: string, fade: number, cmd?: AudioCommand) {
+    if (this.pending.delete(id)) this.opts.onLog?.(`stop [${id}] (had not started)`, cmd);
     const v = this.voices.get(id);
     if (!v) return;
     v.stopped = true;
@@ -396,6 +437,7 @@ export class WebAudioBackend {
 
   /** Stop every voice (optionally fading). */
   stopAll(fade = 0) {
+    this.pending.clear();
     for (const id of [...this.voices.keys()]) this.stop(id, fade);
   }
 
