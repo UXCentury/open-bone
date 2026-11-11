@@ -26,7 +26,8 @@ function loadPlayerScript(): Promise<void> {
 }
 
 function start(fig: HTMLElement) {
-  if (fig.dataset.started) return;
+  // data-started="" is the flag (an empty string is falsy, so test for presence): wire each player once.
+  if (fig.dataset.started !== undefined) return;
   fig.dataset.started = "";
   const el = fig.querySelector("openbone-player") as PlayerElement;
   el.addEventListener("openbone-load", () => {
@@ -53,7 +54,8 @@ function start(fig: HTMLElement) {
   sound?.addEventListener("click", () => {
     const on = sound.getAttribute("aria-pressed") !== "true";
     sound.setAttribute("aria-pressed", String(on));
-    sound.title = on ? "Mute" : "Turn sound on";
+    sound.setAttribute("aria-label", on ? "Mute" : "Turn sound on");
+    // This click is the user gesture the browser needs: the player's AudioContext is created and resumed by it.
     el.player?.setMuted(!on);
   });
 }
