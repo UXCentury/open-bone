@@ -161,7 +161,25 @@ public final class StateMachineInstance {
     }
     if (JsNum.strictEquals(inputs.get(i.id), v)) return;
     inputs.put(i.id, v);
+    if (i.type.equals("bool") && i.ownsMute) audio.setMute(i.mutes, (Boolean) v);
     for (EventListener l : listeners) l.inputChange(i.name, v);
+  }
+
+  /**
+   * Mute, unmute or toggle (null) a bus id (null = the master). When a bool input owns that bus's mute, it goes
+   * through the input so both stay in step. Returns the new state.
+   */
+  public boolean setBusMute(String bus, Boolean muted) {
+    boolean next = muted != null ? muted : !audio.isMuted(bus);
+    Input owner = null;
+    for (Input i : data.inputs)
+      if (i.type.equals("bool") && i.ownsMute && java.util.Objects.equals(i.mutes, bus)) {
+        owner = i;
+        break;
+      }
+    if (owner != null && JsNum.truthy(getInput(owner.id)) != next) setInput(owner.id, next);
+    else audio.setMute(bus, next);
+    return next;
   }
 
   public void setBool(String name, boolean v) {
@@ -303,7 +321,7 @@ public final class StateMachineInstance {
           skeleton.emitParticles(a.slot, a.count);
           break;
         case "setMute":
-          audio.setMute(a.bus, a.muted);
+          setBusMute(a.bus, a.muted);
           break;
         default:
           break;
@@ -435,6 +453,12 @@ public final class StateMachineInstance {
 
   private void start() {
     started = true;
+    // Inputs that own a bus's mute: a true default mutes it; a bus already muted shows as true.
+    for (Input i : data.inputs) {
+      if (!i.type.equals("bool") || !i.ownsMute) continue;
+      if (JsNum.truthy(inputs.get(i.id))) audio.setMute(i.mutes, true);
+      else if (audio.isMuted(i.mutes)) inputs.put(i.id, true);
+    }
     for (String id : data.scripts) {
       ScriptHandle h = scriptFor(id);
       if (h != null) {

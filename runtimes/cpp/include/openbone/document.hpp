@@ -370,7 +370,15 @@ struct AudioData {
 };
 
 enum class InputType : uint8_t { Bool, Number, Trigger, String };
-struct InputData { Id id; std::string name; InputType type = InputType::Number; Value defaultValue; };
+struct InputData {
+  Id id;
+  std::string name;
+  InputType type = InputType::Number;
+  Value defaultValue;
+  // Bool inputs: the input owns a bus's mute (true mutes it). ownsMute with mutes = nullopt is the master.
+  bool ownsMute = false;
+  std::optional<Id> mutes;
+};
 struct Condition { Id input; std::string op = "=="; Value value; };
 struct BlendEntry { Id animation; double value = 0; };
 struct StateSound { Id sound; bool onEnter = true; bool stop = false; std::optional<double> volume; };

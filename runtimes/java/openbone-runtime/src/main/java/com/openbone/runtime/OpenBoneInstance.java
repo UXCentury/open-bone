@@ -123,6 +123,35 @@ public final class OpenBoneInstance {
     skeleton.updateWorldTransform();
   }
 
+  /** A bus id for a name or id, "" for the master (null, "" or "master"); null when there is no such bus. */
+  private String busRef(String bus) {
+    if (bus == null || bus.isEmpty() || bus.equals("master")) return "";
+    if (doc.audio == null) return null;
+    for (com.openbone.runtime.data.AudioData.Bus b : doc.audio.buses) if (b.id.equals(bus)) return b.id;
+    for (com.openbone.runtime.data.AudioData.Bus b : doc.audio.buses) if (b.name.equals(bus)) return b.id;
+    return null;
+  }
+
+  /**
+   * Mute, unmute or toggle (null) a sound bus by name or id ("music"), or the master with null / "master", from
+   * outside the artboard (game settings, UI buttons). Same as a mute-button listener. Returns the new state, or null
+   * when there is no such bus.
+   */
+  public Boolean setBusMuted(String bus, Boolean muted) {
+    String ref = busRef(bus);
+    if (ref == null) return null;
+    String id = ref.isEmpty() ? null : ref;
+    return stateMachine != null ? stateMachine.setBusMute(id, muted) : animationState.audio.setMute(id, muted);
+  }
+
+  /** Whether a bus (name or id; null / "master" = the master) is muted now; null when there is no such bus. */
+  public Boolean isBusMuted(String bus) {
+    String ref = busRef(bus);
+    if (ref == null) return null;
+    String id = ref.isEmpty() ? null : ref;
+    return (stateMachine != null ? stateMachine.audio : animationState.audio).isMuted(id);
+  }
+
   /** Pointer event ("down", "up", "move") in skeleton space (y up). */
   public void pointer(String type, double x, double y) {
     if (stateMachine != null) stateMachine.pointer(type, x, y);

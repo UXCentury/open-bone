@@ -822,6 +822,25 @@ class OpenBoneBindings {
         void Function(ffi.Pointer<ob_instance>, ffi.Pointer<ffi.Double>)
       >();
 
+  /// Whether a bus (name or id; NULL / "master" = the master) is muted now: 1 / 0, or -1 when there is no such bus.
+  int ob_instance_bus_muted(
+    ffi.Pointer<ob_instance> inst,
+    ffi.Pointer<ffi.Char> bus,
+  ) {
+    return _ob_instance_bus_muted(inst, bus);
+  }
+
+  late final _ob_instance_bus_mutedPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(ffi.Pointer<ob_instance>, ffi.Pointer<ffi.Char>)
+        >
+      >('ob_instance_bus_muted');
+  late final _ob_instance_bus_muted = _ob_instance_bus_mutedPtr
+      .asFunction<
+        int Function(ffi.Pointer<ob_instance>, ffi.Pointer<ffi.Char>)
+      >();
+
   void ob_instance_clear_tracks(ffi.Pointer<ob_instance> inst) {
     return _ob_instance_clear_tracks(inst);
   }
@@ -1148,6 +1167,32 @@ class OpenBoneBindings {
         >
       >('ob_instance_set_bool');
   late final _ob_instance_set_bool = _ob_instance_set_boolPtr
+      .asFunction<
+        int Function(ffi.Pointer<ob_instance>, ffi.Pointer<ffi.Char>, int)
+      >();
+
+  /// Mute (muted = 1), unmute (0) or toggle (-1) a sound bus by name or id, or the master with NULL / "master", e.g. from
+  /// music and sound-effect buttons outside the artboard. Emits an OB_AUDIO_MIX command like a mute-button listener.
+  /// Returns the new state (1 muted, 0 not), or -1 when there is no such bus.
+  int ob_instance_set_bus_muted(
+    ffi.Pointer<ob_instance> inst,
+    ffi.Pointer<ffi.Char> bus,
+    int muted,
+  ) {
+    return _ob_instance_set_bus_muted(inst, bus, muted);
+  }
+
+  late final _ob_instance_set_bus_mutedPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<ob_instance>,
+            ffi.Pointer<ffi.Char>,
+            ffi.Int,
+          )
+        >
+      >('ob_instance_set_bus_muted');
+  late final _ob_instance_set_bus_muted = _ob_instance_set_bus_mutedPtr
       .asFunction<
         int Function(ffi.Pointer<ob_instance>, ffi.Pointer<ffi.Char>, int)
       >();
@@ -1601,6 +1646,8 @@ typedef Dartob_audio_fnFunction =
       ffi.Pointer<ob_audio_command> command,
     );
 
+/// OB_AUDIO_MIX: a setMute listener action muted (muted = 1) or unmuted `bus` (NULL = the master) on top of the
+/// document's mix; apply it to that bus's gain (or every sound for the master).
 enum ob_audio_type {
   OB_AUDIO_PLAY(0),
   OB_AUDIO_STOP(1),

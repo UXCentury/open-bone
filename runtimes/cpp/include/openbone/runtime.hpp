@@ -479,6 +479,11 @@ class StateMachineInstance {
   /** Set an input by id or name (triggers fire). Unknown inputs throw std::runtime_error. */
   void setInput(const std::string& ref, const Value& value);
   void fire(const std::string& ref);
+  /**
+   * Mute, unmute or toggle (nullopt) a bus id (nullopt = the master). When a bool input owns that bus's mute, it goes
+   * through the input so both stay in step. Returns the new state.
+   */
+  bool setBusMute(const std::optional<Id>& bus, std::optional<bool> muted);
   void setText(const std::string& slot, const std::optional<std::string>& text) { skeleton.setText(slot, text); }
   void setEmitter(const std::string& slotRef, bool emitting);
   /** Active state per layer: (layer name, state name, "exit", or nullopt). */
@@ -516,6 +521,14 @@ class Instance {
   StateMachineInstance& useStateMachine(const std::string& name = "");
   void advance(double dt);
   void pointer(PointerEvent type, double x, double y);
+  /**
+   * Mute, unmute or toggle (nullopt) a bus by name or id ("music"), or the master with "" / "master", from outside the
+   * artboard (game settings, page buttons). Emits a mix audio command like a mute-button listener. Returns the new
+   * state, or nullopt when there is no such bus.
+   */
+  std::optional<bool> setBusMuted(const std::string& bus, std::optional<bool> muted);
+  /** Whether a bus (name or id; "" / "master" = the master) is muted now; nullopt when there is no such bus. */
+  std::optional<bool> isBusMuted(const std::string& bus) const;
   void dispose();
   DrawList drawList() const { return skeleton->drawList(); }
 

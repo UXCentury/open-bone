@@ -562,7 +562,15 @@ namespace OpenBone
         {
             var r = new StateMachineData { Id = S(s, "id"), Name = S(s, "name"), Scripts = StrList(s, "scripts") ?? new List<string>() };
             foreach (var i in s.Arr("inputs"))
-                r.Inputs.Add(new InputData { Id = S(i, "id"), Name = S(i, "name"), Type = S(i, "type"), Default = Js.FromJson(i.Get("default")) });
+            {
+                var input = new InputData { Id = S(i, "id"), Name = S(i, "name"), Type = S(i, "type"), Default = Js.FromJson(i.Get("default")) };
+                if (input.Type == "bool" && i.Has("mutes"))
+                {
+                    input.OwnsMute = true;
+                    input.Mutes = i.Get("mutes").IsNull ? null : S(i, "mutes");
+                }
+                r.Inputs.Add(input);
+            }
             foreach (var b in s.Arr("bindings"))
                 r.Bindings.Add(new InputBinding
                 {

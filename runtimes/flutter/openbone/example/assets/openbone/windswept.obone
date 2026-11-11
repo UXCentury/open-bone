@@ -21481,13 +21481,15 @@
           "id": "in_3ixsp2r",
           "name": "musicOff",
           "type": "bool",
-          "default": false
+          "default": false,
+          "mutes": "bus_music"
         },
         {
           "id": "in_hh7m82s",
           "name": "fxOff",
           "type": "bool",
-          "default": false
+          "default": false,
+          "mutes": "bus_sfx"
         }
       ],
       "bindings": [
@@ -21931,10 +21933,6 @@
               "muted": "toggle"
             },
             {
-              "type": "toggleInput",
-              "input": "in_3ixsp2r"
-            },
-            {
               "type": "playSound",
               "sound": "snd_kc0p010",
               "volume": 0.5
@@ -21951,10 +21949,6 @@
               "type": "setMute",
               "bus": "bus_sfx",
               "muted": "toggle"
-            },
-            {
-              "type": "toggleInput",
-              "input": "in_hh7m82s"
             },
             {
               "type": "playSound",

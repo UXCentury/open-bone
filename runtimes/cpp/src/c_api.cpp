@@ -328,6 +328,22 @@ int ob_instance_fire(ob_instance* o, const char* trigger) {
   });
 }
 
+int ob_instance_set_bus_muted(ob_instance* o, const char* bus, int muted) {
+  if (!o) return (fail("bad arguments"), -1);
+  try {
+    const auto r = o->inst->setBusMuted(bus ? bus : "", muted < 0 ? std::nullopt : std::optional<bool>(muted != 0));
+    if (!r) return (fail(std::string("bus \"") + (bus ? bus : "") + "\" not found"), -1);
+    return *r ? 1 : 0;
+  } catch (const std::exception& e) {
+    return (fail(e.what()), -1);
+  }
+}
+int ob_instance_bus_muted(ob_instance* o, const char* bus) {
+  if (!o) return (fail("bad arguments"), -1);
+  const auto r = o->inst->isBusMuted(bus ? bus : "");
+  return r ? (*r ? 1 : 0) : -1;
+}
+
 int ob_instance_get_input(ob_instance* o, const char* input, ob_value* out) {
   if (!o || !input || !out) return fail("bad arguments");
   if (!o->inst->stateMachine) return fail("no state machine is running");

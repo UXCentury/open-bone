@@ -9,10 +9,13 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 - **Connect an AI agent**: the **{ }** button next to Connect MCP (and ☰ Menu → Connect an AI agent) shows the MCP config JSON for Claude Desktop, Cursor and other clients, the `claude mcp add` command and the HTTP command, each with a Copy button. On desktop it can open the current project when the server starts.
 - **Update checker**: ☰ Menu → Check for updates (and a button in About) asks GitHub for the latest release. When there is a newer one, an **⬆ Update** button appears in the toolbar: on desktop it downloads the installer for your system (Windows .exe, macOS .dmg, Linux AppImage), on the web it opens the release notes. The desktop app also checks once a day.
 - **Play mode**: a Sound row mutes or unmutes everything or one bus, like a page's controls would.
-- **Bool inputs can mute a bus** ("Mutes sound" in the input's dialog): while the input is true, that bus (or all sound) is muted, whoever sets it (your app, page buttons, listeners, scripts); mute actions on that bus set the input too. Web runtime and editor; the native runtimes don't apply it yet.
+- **Bool inputs can mute a bus** ("Mutes sound" in the input's dialog): while the input is true, that bus (or all sound) is muted, whoever sets it (your app, page buttons, listeners, scripts); mute actions on that bus set the input too. Every runtime applies it (C++ with Godot, Swift and Flutter, C#, Java), and the Windswept example uses it for its music and sound-effect buttons, so `setInput("musicOff", true)` from outside the artboard mutes the music.
 
 ### Web player
 - Sound controls outside the artboard: `player.setBusMuted("music", true | false | "toggle")`, `toggleBus(bus)`, `isBusMuted(bus)`, `buses` and `setMuted(muted)` on `Player` and `<openbone-player>`; `OpenBone.setMuted` / `OpenBone.setBusMuted` and the `setMuted` / `setBusMuted` bridge commands for WebView hosts. They stay in step with mute buttons inside the artboard. Exported demo pages get a mute button for all sound and for each bus.
+
+### Native runtimes
+- Mute a bus from outside the artboard: `Instance::setBusMuted` / `isBusMuted` (C++), `ob_instance_set_bus_muted` / `ob_instance_bus_muted` (C API), `SetBusMuted` / `IsBusMuted` (C#), `setBusMuted` / `isBusMuted` (Java, Swift, Dart).
 
 ### MCP
 - **Live editing with sounds and images**: projects the server saved keep relative paths to their art and sound, which the editor couldn't load (silent sounds, missing pictures, load errors). The bridge now sends those files to the editor, and again when they change on disk.

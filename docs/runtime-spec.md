@@ -777,10 +777,21 @@ Actions, in order: `setInput` (by id or name); `toggleInput` (`setInput(id, !val
 (unowned, source `listener:<name>`); `stopSound` (every instance, fade default the sound's fadeOut); `runScript`
 (the machine-level handle for that script, call `fn`); `setEmitter`; `emitParticles` (added on the next particle step);
 `setMute` (bus id or null = master; `"toggle"` flips the current state, which starts from the document's `muted`
-flags; emits a `mix` audio command `{type: "mix", bus, muted}` that backends apply on top of the saved mix).
+flags; emits a `mix` audio command `{type: "mix", bus, muted}` that backends apply on top of the saved mix). It goes
+through `setBusMute` below.
 
 `setInput(ref, value)`: trigger ⇒ `fire`; string ⇒ `String(value)`; bool ⇒ string `"true"` or truthiness; number ⇒
-`Number(value)`, ignored if not finite. No change ⇒ no `inputChange`. `fire` marks the trigger fired until step 6.
+`Number(value)`, ignored if not finite. No change ⇒ no `inputChange`. Otherwise store it; then, for a bool input with
+`mutes` (a bus id, or null = the master), `setMute(mutes, value)` (a `mix` command); then `inputChange`. `fire` marks
+the trigger fired until step 6.
+
+`setBusMute(bus, muted)` (setMute actions, and the host's bus-mute call): `next` = `muted`, or for `"toggle"` the
+opposite of the bus's current state. If a bool input owns that bus (`mutes` equal to `bus`, first in input order) and
+its value differs from `next`, `setInput(owner, next)`; otherwise `setMute(bus, next)`. Returns `next`.
+
+Owned mutes at start (before the scripts' `onStart`): for each bool input with `mutes`, in order: value true ⇒
+`setMute(mutes, true)`; else if that bus is already muted (the document's flag) ⇒ the value becomes true, with no
+`inputChange`.
 
 ### 9.6 Bindings (`applyBindings`)
 In array order, for each binding whose input exists and whose value as a number (bool ⇒ 0/1) is finite (a text input

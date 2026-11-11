@@ -705,6 +705,10 @@ std::shared_ptr<const Document> build(const json& j) {
           const std::string t = str(i, "type", "number");
           in.type = t == "bool" ? InputType::Bool : t == "trigger" ? InputType::Trigger : t == "string" ? InputType::String : InputType::Number;
           in.defaultValue = valueAt(i, "default");
+          if (i.contains("mutes") && in.type == InputType::Bool) {
+            in.ownsMute = true;
+            if (i["mutes"].is_string()) in.mutes = i["mutes"].get<std::string>();
+          }
           x.inputs.push_back(std::move(in));
         }
       if (const json* bs = get(m, "bindings"))

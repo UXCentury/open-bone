@@ -154,13 +154,16 @@ function interactive(): OpenBoneDocument {
   s.apply("addInput", { stateMachine: "main", name: "on", type: "bool", default: false });
   s.apply("addInput", { stateMachine: "main", name: "count", type: "number", default: 0 });
   s.apply("addInput", { stateMachine: "main", name: "status", type: "string", default: "ready" });
+  // Bool inputs that own a bus's mute: set from outside (the conformance actions change every input) or by setMute.
+  s.apply("addInput", { stateMachine: "main", name: "sfxOff", type: "bool", default: false, mutes: "sfx" });
+  s.apply("addInput", { stateMachine: "main", name: "quiet", type: "bool", default: true, mutes: "ui" });
   s.apply("addState", { stateMachine: "main", name: "locomotion", type: "blend1d", blendInput: "speed", blend: [{ animation: "idle", value: 0 }, { animation: "walk", value: 0.5 }, { animation: "run", value: 1 }] });
   s.apply("addState", { stateMachine: "main", name: "press", animation: "press", loop: false });
   s.apply("addTransition", { stateMachine: "main", from: "@any", to: "press", conditions: [{ input: "pressed" }], duration: 0.1 });
   s.apply("addTransition", { stateMachine: "main", from: "press", to: "locomotion", exitTime: 1, duration: 0.2 });
   s.apply("addListener", { stateMachine: "main", slot: "button", event: "down", actions: [{ type: "fireTrigger", input: "pressed" }, { type: "reportEvent", event: "click" }] });
   // Mute buttons: toggle a bus twice (on, then off again), then mute everything. Each emits a "mix" audio command.
-  s.apply("addListener", { stateMachine: "main", slot: "button", event: "up", actions: [{ type: "setMute", bus: "music", muted: "toggle" }, { type: "setMute", bus: "music", muted: "toggle" }, { type: "setMute", bus: null, muted: true }] });
+  s.apply("addListener", { stateMachine: "main", slot: "button", event: "up", actions: [{ type: "setMute", bus: "music", muted: "toggle" }, { type: "setMute", bus: "music", muted: "toggle" }, { type: "setMute", bus: null, muted: true }, { type: "setMute", bus: "sfx", muted: "toggle" }, { type: "setMute", bus: "ui", muted: false }] });
   s.apply("addBinding", { stateMachine: "main", input: "speed", target: "bone", object: "body", property: "scaleX", inMin: 0, inMax: 1, outMin: 1, outMax: 1.5 });
   s.apply("addScript", { name: "counter", code: "let n = 0;\nfunction onEvent(e) { if (e.name === 'click') { n++; ob.setInput('count', n); ob.setInput('status', n > 1 ? 'busy' : 'ready'); } }" });
   s.apply("attachScript", { stateMachine: "main", script: "counter" });

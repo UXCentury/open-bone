@@ -239,6 +239,16 @@ struct StateMachineInstance::Impl {
 
   void start() {
     started = true;
+    // Inputs that own a bus's mute: a true default mutes it; a bus already muted shows as true.
+    for (const auto& i : sm.data.inputs) {
+      if (i.type != InputType::Bool || !i.ownsMute) continue;
+      Value* v = inputValue(i.id);
+      if (v && v->truthy()) sm.audio.setMute(i.mutes, true);
+      else if (sm.audio.isMuted(i.mutes)) {
+        if (v) *v = Value::boolean(true);
+        else inputs.push_back({i.id, Value::boolean(true)});
+      }
+    }
     for (const auto& id : sm.data.scripts) {
       if (ScriptHandle* h = scriptFor(id)) {
         scripts.push_back(h);
@@ -526,7 +536,7 @@ struct StateMachineInstance::Impl {
           }
           case T::SetEmitter: sm.setEmitter(a.slot, a.emitting); break;
           case T::EmitParticles: sm.skeleton.emitParticles(a.slot, a.count); break;
-          case T::SetMute: sm.audio.setMute(a.bus, a.muted); break;
+          case T::SetMute: sm.setBusMute(a.bus, a.muted); break;
           default: break;
         }
       } catch (const std::exception& e) {
@@ -708,7 +718,21 @@ void StateMachineInstance::setInput(const std::string& ref, const Value& value) 
   if (cur && cur->strictEquals(v)) return;
   if (cur) *cur = v;
   else impl->inputs.push_back({i->id, v});
+  if (i->type == InputType::Bool && i->ownsMute) audio.setMute(i->mutes, v.b);
   if (onInputChange) onInputChange(i->name, v);
+}
+
+bool StateMachineInstance::setBusMute(const std::optional<Id>& bus, std::optional<bool> muted) {
+  const bool next = muted ? *muted : !audio.isMuted(bus);
+  const InputData* owner = nullptr;
+  for (const auto& i : data.inputs)
+    if (i.type == InputType::Bool && i.ownsMute && i.mutes == bus) {
+      owner = &i;
+      break;
+    }
+  if (owner && getInput(owner->id).truthy() != next) setInput(owner->id, Value::boolean(next));
+  else audio.setMute(bus, next);
+  return next;
 }
 
 void StateMachineInstance::fire(const std::string& ref) {
@@ -817,6 +841,32 @@ std::shared_ptr<TrackEntry> Instance::play(const std::string& animation, bool lo
     stateMachine.reset();
   }
   return animationState->setAnimation(track, animation, loop);
+}
+
+/** A bus id for a name or id; nullopt inside for the master ("" or "master"); false when there is no such bus. */
+static bool busRef(const Document& doc, const std::string& ref, std::optional<Id>& out) {
+  if (ref.empty() || ref == "master") {
+    out = std::nullopt;
+    return true;
+  }
+  if (!doc.audio) return false;
+  for (const auto& b : doc.audio->buses)
+    if (b.id == ref) return (out = b.id), true;
+  for (const auto& b : doc.audio->buses)
+    if (b.name == ref) return (out = b.id), true;
+  return false;
+}
+
+std::optional<bool> Instance::setBusMuted(const std::string& bus, std::optional<bool> muted) {
+  std::optional<Id> id;
+  if (!busRef(*doc, bus, id)) return std::nullopt;
+  return stateMachine ? stateMachine->setBusMute(id, muted) : animationState->audio.setMute(id, muted);
+}
+
+std::optional<bool> Instance::isBusMuted(const std::string& bus) const {
+  std::optional<Id> id;
+  if (!busRef(*doc, bus, id)) return std::nullopt;
+  return stateMachine ? stateMachine->audio.isMuted(id) : animationState->audio.isMuted(id);
 }
 
 StateMachineInstance& Instance::useStateMachine(const std::string& name) {

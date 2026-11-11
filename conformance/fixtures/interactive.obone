@@ -296,11 +296,25 @@
           "name": "status",
           "type": "string",
           "default": "ready"
+        },
+        {
+          "id": "in_czeo524",
+          "name": "sfxOff",
+          "type": "bool",
+          "default": false,
+          "mutes": "bus_sfx"
+        },
+        {
+          "id": "in_n7lwq25",
+          "name": "quiet",
+          "type": "bool",
+          "default": true,
+          "mutes": "bus_ui"
         }
       ],
       "bindings": [
         {
-          "id": "bind_dnko52a",
+          "id": "bind_62cg42c",
           "input": "in_2di0d1z",
           "target": "bone",
           "object": "bone_knc5l1o",
@@ -315,10 +329,10 @@
         {
           "id": "sm_2kemw1y_layer1",
           "name": "Layer 1",
-          "entry": "st_czeo524",
+          "entry": "st_wymxp26",
           "states": [
             {
-              "id": "st_czeo524",
+              "id": "st_wymxp26",
               "name": "locomotion",
               "type": "blend1d",
               "loop": true,
@@ -342,7 +356,7 @@
               "y": 80
             },
             {
-              "id": "st_n7lwq25",
+              "id": "st_bhyls27",
               "name": "press",
               "type": "animation",
               "animation": "anim_yx88r1u",
@@ -354,9 +368,9 @@
           ],
           "transitions": [
             {
-              "id": "tr_wymxp26",
+              "id": "tr_l5ad228",
               "from": "@any",
-              "to": "st_n7lwq25",
+              "to": "st_bhyls27",
               "conditions": [
                 {
                   "input": "in_jh6vb20",
@@ -368,9 +382,9 @@
               "exitTime": null
             },
             {
-              "id": "tr_bhyls27",
-              "from": "st_n7lwq25",
-              "to": "st_czeo524",
+              "id": "tr_2sbos29",
+              "from": "st_bhyls27",
+              "to": "st_wymxp26",
               "conditions": [],
               "duration": 0.2,
               "exitTime": 1
@@ -380,7 +394,7 @@
       ],
       "listeners": [
         {
-          "id": "lis_l5ad228",
+          "id": "lis_dnko52a",
           "name": "down",
           "slot": "slot_eighg1p",
           "event": "down",
@@ -396,7 +410,7 @@
           ]
         },
         {
-          "id": "lis_2sbos29",
+          "id": "lis_4vv3o2b",
           "name": "up",
           "slot": "slot_eighg1p",
           "event": "up",
@@ -415,18 +429,28 @@
               "type": "setMute",
               "bus": null,
               "muted": true
+            },
+            {
+              "type": "setMute",
+              "bus": "bus_sfx",
+              "muted": "toggle"
+            },
+            {
+              "type": "setMute",
+              "bus": "bus_ui",
+              "muted": false
             }
           ]
         }
       ],
       "scripts": [
-        "scr_4vv3o2b"
+        "scr_qlvch2d"
       ]
     }
   ],
   "scripts": [
     {
-      "id": "scr_4vv3o2b",
+      "id": "scr_qlvch2d",
       "name": "counter",
       "code": "let n = 0;\nfunction onEvent(e) { if (e.name === 'click') { n++; ob.setInput('count', n); ob.setInput('status', n > 1 ? 'busy' : 'ready'); } }"
     }

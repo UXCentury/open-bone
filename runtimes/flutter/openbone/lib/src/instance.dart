@@ -218,6 +218,20 @@ class OpenBoneInstance {
   /// Fires a trigger input.
   void fire(String trigger) => _withString(trigger, (p) => _check(_b.ob_instance_fire(handle, p)));
 
+  /// Mutes, unmutes or toggles (`muted: null`) a sound bus by name or id ("music"), or the master with `null` /
+  /// "master", e.g. from music and sound-effect buttons outside the artboard. Same as a mute-button listener (and a bool
+  /// input that owns the bus follows). Returns the new state, or null when there is no such bus.
+  bool? setBusMuted(String? bus, {bool? muted = true}) {
+    final r = _withString(bus, (p) => _b.ob_instance_set_bus_muted(handle, p, muted == null ? -1 : (muted ? 1 : 0)));
+    return r < 0 ? null : r == 1;
+  }
+
+  /// Whether a bus (name or id; null / "master" = the master) is muted now, or null when there is no such bus.
+  bool? isBusMuted(String? bus) {
+    final r = _withString(bus, (p) => _b.ob_instance_bus_muted(handle, p));
+    return r < 0 ? null : r == 1;
+  }
+
   /// Current value of an input (bool, double or String).
   Object? getInput(String input) => using((arena) {
         final v = arena<ob_value>();
@@ -390,11 +404,11 @@ class OpenBoneInstance {
     if (result == 0) throw OpenBoneNative.lastError();
   }
 
-  static void _withString(String? s, void Function(Pointer<Char>) f) {
+  static T _withString<T>(String? s, T Function(Pointer<Char>) f) {
     if (s == null) return f(nullptr);
     final p = s.toNativeUtf8();
     try {
-      f(p.cast());
+      return f(p.cast());
     } finally {
       malloc.free(p);
     }

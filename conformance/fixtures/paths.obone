@@ -12,7 +12,7 @@
   "skeleton": {
     "bones": [
       {
-        "id": "bone_4luyi3m",
+        "id": "bone_4luyi3o",
         "name": "root",
         "parent": null,
         "length": 0,
@@ -26,9 +26,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_ux7vv3p",
+        "id": "bone_ux7vv3r",
         "name": "even1",
-        "parent": "bone_4luyi3m",
+        "parent": "bone_4luyi3o",
         "length": 40,
         "x": 0,
         "y": 0,
@@ -40,9 +40,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_uxyyc3q",
+        "id": "bone_uxyyc3s",
         "name": "even2",
-        "parent": "bone_ux7vv3p",
+        "parent": "bone_ux7vv3r",
         "length": 40,
         "x": 40,
         "y": 0,
@@ -54,9 +54,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_wynmz3r",
+        "id": "bone_wynmz3t",
         "name": "even3",
-        "parent": "bone_uxyyc3q",
+        "parent": "bone_uxyyc3s",
         "length": 40,
         "x": 40,
         "y": 0,
@@ -68,9 +68,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_hvja33s",
+        "id": "bone_hvja33u",
         "name": "even4",
-        "parent": "bone_wynmz3r",
+        "parent": "bone_wynmz3t",
         "length": 40,
         "x": 40,
         "y": 0,
@@ -82,9 +82,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_zvz2i3t",
+        "id": "bone_zvz2i3v",
         "name": "even5",
-        "parent": "bone_hvja33s",
+        "parent": "bone_hvja33u",
         "length": 40,
         "x": 40,
         "y": 0,
@@ -96,9 +96,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_tv96x3u",
+        "id": "bone_tv96x3w",
         "name": "raw1",
-        "parent": "bone_4luyi3m",
+        "parent": "bone_4luyi3o",
         "length": 40,
         "x": 0,
         "y": 0,
@@ -110,9 +110,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_f84043v",
+        "id": "bone_f84043x",
         "name": "raw2",
-        "parent": "bone_tv96x3u",
+        "parent": "bone_tv96x3w",
         "length": 40,
         "x": 40,
         "y": 0,
@@ -124,9 +124,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_9f00i3w",
+        "id": "bone_9f00i3y",
         "name": "raw3",
-        "parent": "bone_f84043v",
+        "parent": "bone_f84043x",
         "length": 40,
         "x": 40,
         "y": 0,
@@ -138,9 +138,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_7thmz3x",
+        "id": "bone_7thmz3z",
         "name": "raw4",
-        "parent": "bone_9f00i3w",
+        "parent": "bone_9f00i3y",
         "length": 40,
         "x": 40,
         "y": 0,
@@ -152,9 +152,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_ip6wk3y",
+        "id": "bone_ip6wk40",
         "name": "raw5",
-        "parent": "bone_7thmz3x",
+        "parent": "bone_7thmz3z",
         "length": 40,
         "x": 40,
         "y": 0,
@@ -166,9 +166,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_a05463z",
+        "id": "bone_a054641",
         "name": "loop-even1",
-        "parent": "bone_4luyi3m",
+        "parent": "bone_4luyi3o",
         "length": 30,
         "x": 0,
         "y": 0,
@@ -180,9 +180,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_rmiav40",
+        "id": "bone_rmiav42",
         "name": "loop-even2",
-        "parent": "bone_a05463z",
+        "parent": "bone_a054641",
         "length": 30,
         "x": 30,
         "y": 0,
@@ -194,9 +194,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_zxhfw41",
+        "id": "bone_zxhfw43",
         "name": "loop-even3",
-        "parent": "bone_rmiav40",
+        "parent": "bone_rmiav42",
         "length": 30,
         "x": 30,
         "y": 0,
@@ -208,9 +208,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_nsnd842",
+        "id": "bone_nsnd844",
         "name": "loop-even4",
-        "parent": "bone_zxhfw41",
+        "parent": "bone_zxhfw43",
         "length": 30,
         "x": 30,
         "y": 0,
@@ -222,9 +222,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_w3sfp43",
+        "id": "bone_w3sfp45",
         "name": "loop-raw1",
-        "parent": "bone_4luyi3m",
+        "parent": "bone_4luyi3o",
         "length": 30,
         "x": 0,
         "y": 0,
@@ -236,9 +236,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_ddzxk44",
+        "id": "bone_ddzxk46",
         "name": "loop-raw2",
-        "parent": "bone_w3sfp43",
+        "parent": "bone_w3sfp45",
         "length": 30,
         "x": 30,
         "y": 0,
@@ -250,9 +250,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_5rm9s45",
+        "id": "bone_5rm9s47",
         "name": "loop-raw3",
-        "parent": "bone_ddzxk44",
+        "parent": "bone_ddzxk46",
         "length": 30,
         "x": 30,
         "y": 0,
@@ -264,9 +264,9 @@
         "inherit": "normal"
       },
       {
-        "id": "bone_4fc6g46",
+        "id": "bone_4fc6g48",
         "name": "loop-raw4",
-        "parent": "bone_5rm9s45",
+        "parent": "bone_5rm9s47",
         "length": 30,
         "x": 30,
         "y": 0,
@@ -280,17 +280,17 @@
     ],
     "slots": [
       {
-        "id": "slot_ejcg33n",
+        "id": "slot_ejcg33p",
         "name": "rail",
-        "bone": "bone_4luyi3m",
+        "bone": "bone_4luyi3o",
         "color": "#ffffff",
         "attachment": "path",
         "blend": "normal"
       },
       {
-        "id": "slot_g4axv3o",
+        "id": "slot_g4axv3q",
         "name": "loop",
-        "bone": "bone_4luyi3m",
+        "bone": "bone_4luyi3o",
         "color": "#ffffff",
         "attachment": "path",
         "blend": "normal"
@@ -301,7 +301,7 @@
         "id": "skin_default",
         "name": "default",
         "attachments": {
-          "slot_ejcg33n": {
+          "slot_ejcg33p": {
             "path": {
               "type": "path",
               "name": "path",
@@ -329,7 +329,7 @@
               "color": "#ff7a00"
             }
           },
-          "slot_g4axv3o": {
+          "slot_g4axv3q": {
             "path": {
               "type": "path",
               "name": "path",
@@ -364,16 +364,16 @@
     "transform": [],
     "path": [
       {
-        "id": "path_auwom47",
+        "id": "path_auwom49",
         "name": "even",
         "bones": [
-          "bone_ux7vv3p",
-          "bone_uxyyc3q",
-          "bone_wynmz3r",
-          "bone_hvja33s",
-          "bone_zvz2i3t"
+          "bone_ux7vv3r",
+          "bone_uxyyc3s",
+          "bone_wynmz3t",
+          "bone_hvja33u",
+          "bone_zvz2i3v"
         ],
-        "target": "slot_ejcg33n",
+        "target": "slot_ejcg33p",
         "positionMode": "percent",
         "spacingMode": "length",
         "rotateMode": "chain",
@@ -385,16 +385,16 @@
         "mixY": 1
       },
       {
-        "id": "path_jm9dn48",
+        "id": "path_jm9dn4a",
         "name": "raw",
         "bones": [
-          "bone_tv96x3u",
-          "bone_f84043v",
-          "bone_9f00i3w",
-          "bone_7thmz3x",
-          "bone_ip6wk3y"
+          "bone_tv96x3w",
+          "bone_f84043x",
+          "bone_9f00i3y",
+          "bone_7thmz3z",
+          "bone_ip6wk40"
         ],
-        "target": "slot_ejcg33n",
+        "target": "slot_ejcg33p",
         "positionMode": "percent",
         "spacingMode": "length",
         "rotateMode": "chain",
@@ -407,15 +407,15 @@
         "mixY": 1
       },
       {
-        "id": "path_tmll349",
+        "id": "path_tmll34b",
         "name": "loop-even",
         "bones": [
-          "bone_a05463z",
-          "bone_rmiav40",
-          "bone_zxhfw41",
-          "bone_nsnd842"
+          "bone_a054641",
+          "bone_rmiav42",
+          "bone_zxhfw43",
+          "bone_nsnd844"
         ],
-        "target": "slot_g4axv3o",
+        "target": "slot_g4axv3q",
         "positionMode": "percent",
         "spacingMode": "percent",
         "rotateMode": "tangent",
@@ -427,15 +427,15 @@
         "mixY": 1
       },
       {
-        "id": "path_q1mmv4a",
+        "id": "path_q1mmv4c",
         "name": "loop-raw",
         "bones": [
-          "bone_w3sfp43",
-          "bone_ddzxk44",
-          "bone_5rm9s45",
-          "bone_4fc6g46"
+          "bone_w3sfp45",
+          "bone_ddzxk46",
+          "bone_5rm9s47",
+          "bone_4fc6g48"
         ],
-        "target": "slot_g4axv3o",
+        "target": "slot_g4axv3q",
         "positionMode": "percent",
         "spacingMode": "percent",
         "rotateMode": "chainScale",
@@ -453,13 +453,13 @@
   "events": [],
   "animations": [
     {
-      "id": "anim_t9uui4b",
+      "id": "anim_t9uui4d",
       "name": "slide",
       "duration": 0,
       "timelines": [
         {
           "target": "path",
-          "id": "path_auwom47",
+          "id": "path_auwom49",
           "property": "position",
           "keys": [
             {
@@ -476,7 +476,7 @@
         },
         {
           "target": "path",
-          "id": "path_jm9dn48",
+          "id": "path_jm9dn4a",
           "property": "position",
           "keys": [
             {
@@ -493,7 +493,7 @@
         },
         {
           "target": "path",
-          "id": "path_tmll349",
+          "id": "path_tmll34b",
           "property": "position",
           "keys": [
             {
@@ -510,7 +510,7 @@
         },
         {
           "target": "path",
-          "id": "path_q1mmv4a",
+          "id": "path_q1mmv4c",
           "property": "position",
           "keys": [
             {

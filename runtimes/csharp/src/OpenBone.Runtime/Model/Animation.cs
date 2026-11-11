@@ -121,6 +121,10 @@ namespace OpenBone
         public string Type;
         /// <summary>bool, double or string (null when absent).</summary>
         public object Default;
+        /// <summary>Bool inputs: the input owns a bus's mute (true mutes it); <see cref="Mutes"/> null = the master.</summary>
+        public bool OwnsMute;
+        /// <summary>The bus id this input mutes (null with <see cref="OwnsMute"/> = every sound).</summary>
+        public string Mutes;
     }
 
     public sealed class Condition

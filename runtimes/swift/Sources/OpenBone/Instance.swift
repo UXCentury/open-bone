@@ -164,6 +164,22 @@ public final class OpenBoneInstance {
         try check(trigger.withCString { ob_instance_fire(handle, $0) }, "cannot fire \(trigger)")
     }
 
+    /// Mutes, unmutes or toggles (`nil`) a sound bus by name or id ("music"), or the master with `nil` / "master", e.g.
+    /// from music and sound-effect buttons outside the artboard. Same as a mute-button listener (and a bool input that
+    /// owns the bus follows). Returns the new state, or nil when there is no such bus.
+    @discardableResult
+    public func setBusMuted(_ bus: String?, _ muted: Bool? = true) -> Bool? {
+        let m: Int32 = muted.map { $0 ? 1 : 0 } ?? -1
+        let r = bus.map { b in b.withCString { ob_instance_set_bus_muted(handle, $0, m) } } ?? ob_instance_set_bus_muted(handle, nil, m)
+        return r < 0 ? nil : r == 1
+    }
+
+    /// Whether a bus (name or id; `nil` / "master" = the master) is muted now, or nil when there is no such bus.
+    public func isBusMuted(_ bus: String?) -> Bool? {
+        let r = bus.map { b in b.withCString { ob_instance_bus_muted(handle, $0) } } ?? ob_instance_bus_muted(handle, nil)
+        return r < 0 ? nil : r == 1
+    }
+
     /// Current value of a state-machine input, or nil (no machine running, unknown input).
     public func input(_ name: String) -> OpenBoneValue? {
         var v = ob_value()

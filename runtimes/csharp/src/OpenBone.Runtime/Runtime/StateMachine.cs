@@ -144,7 +144,23 @@ namespace OpenBone
             }
             if (Inputs.TryGetValue(i.Id ?? "", out var cur) && Js.StrictEquals(cur, v) && !(cur is double cd && double.IsNaN(cd))) return;
             SetRaw(i.Id ?? "", v);
+            if (i.Type == "bool" && i.OwnsMute) Audio.SetMute(i.Mutes, (bool)v);
             InputChanged?.Invoke(i.Name, v);
+        }
+
+        /// <summary>
+        /// Mute, unmute or toggle (null) a bus id (null = the master). When a bool input owns that bus's mute, it goes
+        /// through the input so both stay in step. Returns the new state.
+        /// </summary>
+        public bool SetBusMute(string bus, bool? muted)
+        {
+            bool next = muted ?? !Audio.IsMuted(bus);
+            InputData owner = null;
+            foreach (var i in Data.Inputs)
+                if (i.Type == "bool" && i.OwnsMute && i.Mutes == bus) { owner = i; break; }
+            if (owner != null && Js.Truthy(GetInput(owner.Id)) != next) SetInput(owner.Id, next);
+            else Audio.SetMute(bus, next);
+            return next;
         }
 
         public void SetBool(string name, bool v) => SetInput(name, v);
@@ -268,7 +284,7 @@ namespace OpenBone
                         }
                     case "setEmitter": SetEmitter(a.Slot, a.Emitting); break;
                     case "emitParticles": Skeleton.EmitParticles(a.Slot, a.Count); break;
-                    case "setMute": Audio.SetMute(a.Bus, a.Muted); break;
+                    case "setMute": SetBusMute(a.Bus, a.Muted); break;
                 }
             }
         }
@@ -414,6 +430,13 @@ namespace OpenBone
         void Start()
         {
             _started = true;
+            // Inputs that own a bus's mute: a true default mutes it; a bus already muted shows as true.
+            foreach (var i in Data.Inputs)
+            {
+                if (i.Type != "bool" || !i.OwnsMute) continue;
+                if (Js.Truthy(GetInput(i.Id))) Audio.SetMute(i.Mutes, true);
+                else if (Audio.IsMuted(i.Mutes)) SetRaw(i.Id ?? "", true);
+            }
             foreach (var id in Data.Scripts)
             {
                 var h = ScriptFor(id);

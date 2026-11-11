@@ -251,6 +251,14 @@ OB_API int ob_instance_set_bool(ob_instance* inst, const char* input, int value)
 OB_API int ob_instance_set_number(ob_instance* inst, const char* input, double value);
 OB_API int ob_instance_set_string(ob_instance* inst, const char* input, const char* value);
 OB_API int ob_instance_fire(ob_instance* inst, const char* trigger);
+/**
+ * Mute (muted = 1), unmute (0) or toggle (-1) a sound bus by name or id, or the master with NULL / "master", e.g. from
+ * music and sound-effect buttons outside the artboard. Emits an OB_AUDIO_MIX command like a mute-button listener.
+ * Returns the new state (1 muted, 0 not), or -1 when there is no such bus.
+ */
+OB_API int ob_instance_set_bus_muted(ob_instance* inst, const char* bus, int muted);
+/** Whether a bus (name or id; NULL / "master" = the master) is muted now: 1 / 0, or -1 when there is no such bus. */
+OB_API int ob_instance_bus_muted(ob_instance* inst, const char* bus);
 /** Current value of a state-machine input (strings valid until the next call on this instance). */
 OB_API int ob_instance_get_input(ob_instance* inst, const char* input, ob_value* out);
 /** Pointer event in skeleton space; processed by the next advance. */

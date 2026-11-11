@@ -20,6 +20,10 @@ public class StateMachineData {
     public String type;
     /** Double, Boolean or String; null if absent. */
     public Object defaultValue;
+    /** Bool inputs: the input owns a bus's mute (true mutes it); {@link #mutes} null = the master. */
+    public boolean ownsMute;
+    /** The bus id this input mutes (null with {@link #ownsMute} = every sound). */
+    public String mutes;
   }
 
   public static class Binding {

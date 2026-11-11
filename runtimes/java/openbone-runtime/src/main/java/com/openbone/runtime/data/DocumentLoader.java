@@ -556,6 +556,10 @@ public final class DocumentLoader {
       in.name = str(i, "name", "");
       in.type = str(i, "type", "number");
       in.defaultValue = i.get("default");
+      if (in.type.equals("bool") && i.containsKey("mutes")) {
+        in.ownsMute = true;
+        in.mutes = i.get("mutes") instanceof String ? (String) i.get("mutes") : null;
+      }
       sm.inputs.add(in);
     }
     for (Map<String, Object> b : maps(x.get("bindings"))) {

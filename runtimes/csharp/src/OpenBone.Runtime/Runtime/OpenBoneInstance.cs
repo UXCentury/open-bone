@@ -68,6 +68,36 @@ namespace OpenBone
             Skeleton.UpdateWorldTransform();
         }
 
+        /// <summary>A bus id for a name or id; null for the master (null, "" or "master"). False when there is no such bus.</summary>
+        bool BusRef(string bus, out string id)
+        {
+            id = null;
+            if (string.IsNullOrEmpty(bus) || bus == "master") return true;
+            var buses = Doc.Audio?.Buses;
+            if (buses == null) return false;
+            foreach (var b in buses) if (b.Id == bus) { id = b.Id; return true; }
+            foreach (var b in buses) if (b.Name == bus) { id = b.Id; return true; }
+            return false;
+        }
+
+        /// <summary>
+        /// Mute, unmute or toggle (null) a sound bus by name or id ("music"), or the master with null / "master", from
+        /// outside the artboard (game settings, UI buttons). Same as a mute-button listener. Returns the new state, or
+        /// null when there is no such bus.
+        /// </summary>
+        public bool? SetBusMuted(string bus, bool? muted = true)
+        {
+            if (!BusRef(bus, out var id)) return null;
+            return StateMachine != null ? StateMachine.SetBusMute(id, muted) : AnimationState.Audio.SetMute(id, muted);
+        }
+
+        /// <summary>Whether a bus (name or id; null / "master" = the master) is muted now; null when there is no such bus.</summary>
+        public bool? IsBusMuted(string bus)
+        {
+            if (!BusRef(bus, out var id)) return null;
+            return (StateMachine?.Audio ?? AnimationState.Audio).IsMuted(id);
+        }
+
         /// <summary>Pointer event (down, up, move) in skeleton space (y up).</summary>
         public void Pointer(string type, double x, double y) => StateMachine?.Pointer(type, x, y);
 
