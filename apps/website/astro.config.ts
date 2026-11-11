@@ -6,11 +6,11 @@ import { remarkBase } from "./src/remark-base.ts";
 import { DOCS, syncAll } from "./scripts/sync.ts";
 
 /**
- * Hosted on GitHub Pages at https://uxcentury.github.io/open-bone/ by default. For a custom domain, build with
- * SITE_URL=https://docs.example.com SITE_BASE=/ .
+ * Hosted on GitHub Pages at https://openbone.io (public/CNAME). To host it somewhere else, build with SITE_URL and,
+ * for a sub-folder, SITE_BASE (e.g. SITE_URL=https://uxcentury.github.io SITE_BASE=/open-bone).
  */
-const siteUrl = process.env.SITE_URL ?? "https://uxcentury.github.io";
-const base = process.env.SITE_BASE ?? "/open-bone";
+const siteUrl = process.env.SITE_URL ?? "https://openbone.io";
+const base = process.env.SITE_BASE ?? "/";
 const GITHUB = "https://github.com/UXCentury/open-bone";
 
 const imported = (prefix: string) => DOCS.filter((d) => d.slug.startsWith(`${prefix}/`)).map((d) => d.slug);

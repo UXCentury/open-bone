@@ -1,6 +1,6 @@
 # OpenBone documentation
 
-← [Back to the project README](../README.md) · These docs are also on the [website](https://uxcentury.github.io/open-bone/), with guides and live examples.
+← [Back to the project README](../README.md) · These docs are also on the [website](https://openbone.io/), with guides and live examples.
 
 | Document | Read it when you want to… |
 |---|---|

@@ -7,9 +7,9 @@
 </p>
 
 <p align="center">
-  <a href="https://uxcentury.github.io/open-bone/"><b>Website and docs</b></a> ·
-  <a href="https://uxcentury.github.io/open-bone/examples/">Live examples</a> ·
-  <a href="https://uxcentury.github.io/open-bone/getting-started/quick-start/">Quick start</a> ·
+  <a href="https://openbone.io/"><b>Website and docs</b></a> ·
+  <a href="https://openbone.io/examples/">Live examples</a> ·
+  <a href="https://openbone.io/getting-started/quick-start/">Quick start</a> ·
   <a href="https://github.com/UXCentury/open-bone/releases/latest">Download</a>
 </p>
 
@@ -22,7 +22,7 @@
   <a href="https://github.com/UXCentury/open-bone/tree/upm"><img alt="Unity package" src="https://img.shields.io/badge/Unity-upm-222?logo=unity" /></a>
   <a href="https://github.com/UXCentury/open-bone/tree/godot-addon"><img alt="Godot addon" src="https://img.shields.io/badge/Godot-4.4%2B-478cbf?logo=godotengine&logoColor=white" /></a>
   <a href="#let-an-agent-animate-mcp"><img alt="MCP server" src="https://img.shields.io/badge/MCP-server-8a63d2" /></a>
-  <a href="https://uxcentury.github.io/open-bone/"><img alt="Docs" src="https://img.shields.io/badge/docs-website-70c4fc" /></a>
+  <a href="https://openbone.io/"><img alt="Docs" src="https://img.shields.io/badge/docs-website-70c4fc" /></a>
 </p>
 
 <p align="center">
@@ -291,7 +291,7 @@ covers the installers, releases and code signing.
 
 ## Documentation
 
-The **[OpenBone website](https://uxcentury.github.io/open-bone/)** has step-by-step guides with screenshots (first rig,
+The **[OpenBone website](https://openbone.io/)** has step-by-step guides with screenshots (first rig,
 animating, state machines, audio and lip sync, particles, physics, exporting, MCP, CLI), quick starts for every engine,
 every example running live, and the reference docs below. Its source is [apps/website](apps/website).
 
