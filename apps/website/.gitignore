@@ -4,6 +4,7 @@ src/content/docs/runtimes/
 src/content/docs/packages/
 public/projects/
 public/player/
+public/posters/
 
 dist/
 .astro/

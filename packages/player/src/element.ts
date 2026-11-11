@@ -12,6 +12,11 @@ export class OpenBonePlayerElement extends HTMLElement {
   /** `skin` switches skins in place; any other of these reloads the player with the new settings. */
   static observedAttributes = ["src", "skin", "animation", "state-machine", "fit", "renderer", "autoplay", "background", "scripts", "audio", "muted"];
   player: Player | null = null;
+  /**
+   * An AudioContext to play through instead of creating one, set before `src`. Create and resume it in a click
+   * handler (a play button) and the player starts with sound even when it loads after that click.
+   */
+  audioContext: AudioContext | null = null;
   private canvas: HTMLCanvasElement;
 
   constructor() {
@@ -62,6 +67,7 @@ export class OpenBonePlayerElement extends HTMLElement {
       background: this.background(),
       scripts: this.getAttribute("scripts") === "none" ? "none" : "quickjs",
       audio: this.getAttribute("audio") === "off" ? false : this.hasAttribute("muted") ? "muted" : true,
+      ...(this.audioContext ? { audioContext: this.audioContext } : {}),
       onEvent: (e: FiredEvent) => this.dispatchEvent(new CustomEvent("openbone-event", { detail: e, bubbles: true, composed: true })),
       onStateChange: (e) => this.dispatchEvent(new CustomEvent("openbone-state", { detail: e, bubbles: true, composed: true })),
       onLoad: () => this.dispatchEvent(new CustomEvent("openbone-load", { bubbles: true, composed: true })),

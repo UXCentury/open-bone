@@ -33,6 +33,7 @@ server (an integration in `astro.config.ts`) and writes these git-ignored files:
 | `src/content/docs/reference/`, `runtimes/`, `packages/` | `docs/*.md`, `CHANGELOG.md`, `SECURITY.md`, `conformance/README.md`, the runtime READMEs and the package READMEs (the `DOCS` list in `sync.ts`), with links rewritten to site pages or GitHub, GitHub alerts turned into asides and Mermaid diagrams rendered in the browser |
 | `public/projects/` | `examples/*.obone` and `examples/assets/` |
 | `public/player/` | The real web player, built from `packages/player` with `buildWebBundle` (plus the lazily loaded script sandbox) |
+| `public/posters/` | Each example's first frame as WebP, rendered with `openbone render` (re-rendered when the `.obone` file changes) |
 
 To add a repository document to the site, add it to `DOCS`. Hand-written pages (the landing page, guides, engine
 quick starts) are in `src/content/docs/`.
@@ -53,8 +54,10 @@ quick starts) are in `src/content/docs/`.
 ## Live players
 
 `<LivePlayer example="knight" />` (in `src/components/`) embeds `<openbone-player>` with buttons for the example's
-state-machine inputs, read from the `.obone` file at build time. Players start when scrolled into view, pause off
-screen, and wait on their first frame behind a **Play with sound** button: that click is the gesture browsers need for audio, so they start with sound (the speaker mutes them). `src/lib/examples.ts` has each example's copy and which
+state-machine inputs, read from the `.obone` file at build time. Until someone presses play a player is only a poster
+(`public/posters/`, the first frame rendered by the CLI at build time): nothing else loads. Started players pause off
+screen. The play click creates the AudioContext (the gesture browsers need for sound) and hands it to the player, so it
+starts with sound; the corner buttons mute it and show it full screen. `src/lib/examples.ts` has each example's copy and which
 inputs get a control.
 
 ## Screenshots
