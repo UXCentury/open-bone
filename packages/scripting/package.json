@@ -1,6 +1,6 @@
 {
   "name": "@openbone/scripting",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Sandboxed scripting for OpenBone state machines, powered by QuickJS (WebAssembly)",
   "keywords": [
     "openbone",

@@ -1,6 +1,6 @@
 {
   "name": "@openbone/runtime",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "OpenBone runtime: skeletons, animation mixing, state machines, constraints and particles, renderer-agnostic",
   "keywords": [
     "openbone",

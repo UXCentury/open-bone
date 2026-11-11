@@ -1,6 +1,6 @@
 {
   "name": "@openbone/mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "MCP server for OpenBone: let AI agents rig, animate and wire up interactive skeletal animations",
   "keywords": [
     "openbone",

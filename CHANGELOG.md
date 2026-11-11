@@ -2,7 +2,10 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
-## Unreleased
+## 0.4.0 (2026-11-11)
+
+### Website
+- **[openbone.io](https://openbone.io)**: documentation with guides, editor screenshots and live examples you can play (with sound after a tap).
 
 ### Editor
 - **Activity panel** (bottom dock): every edit with who made it (you, an AI agent over MCP, the editor), MCP connects and disconnects, files received from the MCP project folder, and errors, with filters (All, MCP, You, Errors). Repeats in a row are counted instead of listed, and the tab shows a badge for new entries.
@@ -12,6 +15,7 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 - **Bool inputs can mute a bus** ("Mutes sound" in the input's dialog): while the input is true, that bus (or all sound) is muted, whoever sets it (your app, page buttons, listeners, scripts); mute actions on that bus set the input too. Every runtime applies it (C++ with Godot, Swift and Flutter, C#, Java, Haxe), and the Windswept example uses it for its music and sound-effect buttons, so `setInput("musicOff", true)` from outside the artboard mutes the music.
 
 ### Web player
+- No AudioContext is created before the first click, tap or key press, so browsers don't warn about blocked audio.
 - Sound controls outside the artboard: `player.setBusMuted("music", true | false | "toggle")`, `toggleBus(bus)`, `isBusMuted(bus)`, `buses` and `setMuted(muted)` on `Player` and `<openbone-player>`; `OpenBone.setMuted` / `OpenBone.setBusMuted` and the `setMuted` / `setBusMuted` bridge commands for WebView hosts. They stay in step with mute buttons inside the artboard. Exported demo pages get a mute button for all sound and for each bus.
 
 ### Native runtimes

@@ -1,3 +1,11 @@
+## 0.4.0
+
+- Mute a sound bus from your app: `OpenBoneInstance.setBusMuted("music", muted: true)` (or `null` to toggle, and
+  `isBusMuted`), the same as a mute button inside the artboard.
+- Bool inputs can own a bus's mute (`mutes` in the file): setting such an input, e.g. `setInput("musicOff", true)`,
+  mutes that bus. The Windswept example's music and sound-effect inputs work this way.
+- The C++ runtime underneath: `ob_instance_set_bus_muted` and `ob_instance_bus_muted` in the C API.
+
 ## 0.3.0
 
 - Mute buttons: the `setMute` listener action reaches Flutter as an `OpenBoneAudioType.mix` command (`bus`, `muted`);

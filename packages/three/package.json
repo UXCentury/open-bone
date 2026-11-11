@@ -1,6 +1,6 @@
 {
   "name": "@openbone/three",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "OpenBone runtime for Three.js: an Object3D with one material per atlas page",
   "keywords": [
     "openbone",

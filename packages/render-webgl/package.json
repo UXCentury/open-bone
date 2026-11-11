@@ -1,6 +1,6 @@
 {
   "name": "@openbone/render-webgl",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "WebGL renderer for OpenBone skeletal animations",
   "keywords": [
     "openbone",

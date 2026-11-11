@@ -11,7 +11,7 @@ root = File.exist?(File.join(plugin, 'cpp', 'include', 'openbone.h')) ? plugin :
 
 Pod::Spec.new do |s|
   s.name             = 'openbone'
-  s.version          = '0.3.0'
+  s.version          = '0.4.0'
   s.summary          = 'OpenBone runtime: skeletal animation and state machines (libopenbone over dart:ffi).'
   s.description      = 'Builds libopenbone, the C API of the OpenBone C++ runtime, for the openbone Flutter plugin.'
   s.homepage         = 'https://github.com/UXCentury/open-bone'
