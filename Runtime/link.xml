@@ -1,0 +1,7 @@
+<!-- Keep the script engine from being stripped in IL2CPP builds (Jint resolves members by reflection). -->
+<linker>
+  <assembly fullname="OpenBone.Runtime" preserve="all" />
+  <assembly fullname="OpenBone.Scripting.Jint" preserve="all" />
+  <assembly fullname="Jint" preserve="all" />
+  <assembly fullname="Esprima" preserve="all" />
+</linker>

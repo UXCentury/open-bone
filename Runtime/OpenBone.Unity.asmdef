@@ -1,0 +1,21 @@
+{
+  "name": "OpenBone.Unity",
+  "rootNamespace": "OpenBone.Unity",
+  "references": [
+    "UnityEngine.UI"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "OpenBone.Runtime.dll",
+    "OpenBone.Scripting.Jint.dll",
+    "Jint.dll",
+    "Esprima.dll"
+  ],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}
