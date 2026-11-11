@@ -258,6 +258,27 @@ export class Player {
     return this.audio?.muted ?? false;
   }
 
+  /**
+   * Mute, unmute or toggle one sound bus by name or id ("music", "sfx"…), or the master with null / "master", e.g.
+   * from music and sound-effect buttons on your page. Same as a mute-button listener inside the artboard, so both
+   * stay in step. Returns the new state, or null when the file has no such bus (or hasn't loaded yet).
+   */
+  setBusMuted(bus: string | null, muted: boolean | "toggle" = true): boolean | null {
+    return this.instance?.setBusMuted(bus, muted) ?? null;
+  }
+  /** Flip a bus's mute (see setBusMuted). Returns the new state. */
+  toggleBus(bus: string | null): boolean | null {
+    return this.setBusMuted(bus, "toggle");
+  }
+  /** Whether a bus (name or id; null / "master" = master) is muted right now; null when there is no such bus. */
+  isBusMuted(bus: string | null): boolean | null {
+    return this.instance?.isBusMuted(bus) ?? null;
+  }
+  /** The file's sound buses with their current mute state. */
+  get buses(): { name: string; muted: boolean }[] {
+    return (this.doc?.audio?.buses ?? []).map((b) => ({ name: b.name, muted: this.isBusMuted(b.id) ?? b.muted }));
+  }
+
   // ---- convenience API (Rive-like) ----
   setInput(name: string, value: boolean | number | string) {
     this.stateMachine?.setInput(name, value);

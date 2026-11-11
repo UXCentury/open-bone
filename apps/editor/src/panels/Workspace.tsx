@@ -20,6 +20,8 @@ import { ScriptsPanel } from "./ScriptsPanel.tsx";
 import { StateMachinePanel } from "./StateMachinePanel.tsx";
 import { Timeline } from "./Timeline.tsx";
 import { OutlinePanel, PreviewPanel } from "./Preview.tsx";
+import { ActivityPanel } from "./ActivityPanel.tsx";
+import { activityUnseen } from "../activity.ts";
 
 function PanelContent(p: { id: PanelId }) {
   return (
@@ -44,6 +46,9 @@ function PanelContent(p: { id: PanelId }) {
       </Match>
       <Match when={p.id === "outline"}>
         <OutlinePanel />
+      </Match>
+      <Match when={p.id === "activity"}>
+        <ActivityPanel />
       </Match>
     </Switch>
   );
@@ -181,6 +186,11 @@ function TabGroup(p: { dock: DockId; group: GroupId; panels: PanelId[]; active: 
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setActive(p.dock, panel)}
             >
               {PANELS[panel].title}
+              <Show when={panel === "activity" && p.active !== panel && activityUnseen() > 0}>
+                <span class="tab-badge" aria-label={`${activityUnseen()} new`}>
+                  {activityUnseen() > 99 ? "99+" : activityUnseen()}
+                </span>
+              </Show>
             </button>
           )}
         </For>

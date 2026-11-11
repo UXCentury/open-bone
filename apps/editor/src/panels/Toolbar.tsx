@@ -3,6 +3,8 @@ import { setView3d, setZView, view3d, zView } from "../zview.ts";
 import { parseDocument } from "@openbone/core";
 import { confirmDiscard } from "../destructive.ts";
 import { For, type JSX, Show, createEffect, createSignal, onCleanup } from "solid-js";
+import { McpConfigButton } from "./McpConfig.tsx";
+import { currentVersion, installUpdate, updateAvailable } from "../updates.ts";
 import { bridgeStatus, connectBridge, disconnectBridge, bridgeUndo, bridgeRedo } from "../bridge.ts";
 import { imageSize, readFileAsDataUrl } from "../images.ts";
 import { closeMenu, menuOpen, menuOwner, openMenu } from "../menu.tsx";
@@ -312,6 +314,14 @@ export function Toolbar() {
           }
         >
           <button class="live" onClick={disconnectBridge} title="Live-synced with the MCP server. Click to disconnect.">● Live MCP</button>
+        </Show>
+        <McpConfigButton compact />
+        <Show when={updateAvailable()}>
+          {(u) => (
+            <button class="update-btn" title={`OpenBone ${u().version} is available (you have ${currentVersion()}). Click to download it.`} onClick={() => void installUpdate()}>
+              ⬆ {narrow() ? u().version : `Update to ${u().version}`}
+            </button>
+          )}
         </Show>
       </div>
       <Show when={!veryNarrow()}>

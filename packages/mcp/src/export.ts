@@ -306,6 +306,7 @@ export async function exportFile(session: ProjectSession, a: ExportRequest, scri
       inputs: sm?.inputs.map((i) => ({ name: i.name, type: i.type })) ?? [],
       hasScripts,
       hasAudio: !!d.audio?.assets.length,
+      buses: d.audio?.buses.map((b) => b.name) ?? [],
     };
     return done(a.singleFile ? new TextEncoder().encode(webIndexHtml(pack)) : webPackZip(pack));
   }

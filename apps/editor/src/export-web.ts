@@ -93,6 +93,7 @@ export async function exportWebPack(
     inputs: sm?.inputs.map((i) => ({ name: i.name, type: i.type })) ?? [],
     hasScripts: doc.scripts.length > 0,
     hasAudio: !!doc.audio?.assets.length,
+    buses: doc.audio?.buses.map((b) => b.name) ?? [],
   };
   onProgress?.("Writing files", 0.9);
   if (o.singleFile)

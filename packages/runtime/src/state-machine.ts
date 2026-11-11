@@ -2,6 +2,7 @@ import {
   ANY_STATE,
   type AnimationData,
   type Condition,
+  type Id,
   type InputBinding,
   type InputData,
   type InputValue,
@@ -137,7 +138,20 @@ export class StateMachineInstance extends Emitter<SMEvents> {
     }
     if (this.inputs.get(i.id) === v) return;
     this.inputs.set(i.id, v);
+    if (i.type === "bool" && i.mutes !== undefined) this.audio.setMute(i.mutes, v as boolean);
     this.emit("inputChange", { name: i.name, value: v });
+  }
+
+  /**
+   * Mute, unmute or toggle a bus (null = the master). When a bool input owns that bus's mute (`InputData.mutes`), it
+   * goes through the input so both stay in step. Returns the new state.
+   */
+  setBusMute(bus: Id | null, muted: boolean | "toggle"): boolean {
+    const next = muted === "toggle" ? !this.audio.isMuted(bus) : muted;
+    const owner = this.data.inputs.find((i) => i.type === "bool" && i.mutes === bus);
+    if (owner && this.inputs.get(owner.id) !== next) this.setInput(owner.id, next);
+    else this.audio.setMute(bus, next);
+    return next;
   }
   setBool(name: string, v: boolean) {
     this.setInput(name, v);
@@ -247,7 +261,7 @@ export class StateMachineInstance extends Emitter<SMEvents> {
           this.setEmitter(a.slot, a.emitting);
           break;
         case "setMute":
-          this.audio.setMute(a.bus, a.muted);
+          this.setBusMute(a.bus, a.muted);
           break;
         case "emitParticles":
           this.skeleton.emitParticles(a.slot, a.count);
@@ -331,6 +345,13 @@ export class StateMachineInstance extends Emitter<SMEvents> {
 
   private start() {
     this.started = true;
+    // Inputs that own a bus's mute: a true default mutes it; a bus already muted (the document's mix, or mutes the
+    // host set before this machine) shows as true.
+    for (const i of this.data.inputs) {
+      if (i.type !== "bool" || i.mutes === undefined) continue;
+      if (this.inputs.get(i.id)) this.audio.setMute(i.mutes, true);
+      else if (this.audio.isMuted(i.mutes)) this.inputs.set(i.id, true);
+    }
     for (const id of this.data.scripts) {
       const h = this.scriptFor(id);
       if (h) {

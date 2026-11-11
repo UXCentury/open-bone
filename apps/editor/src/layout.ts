@@ -5,7 +5,7 @@ import { createSignal } from "solid-js";
  * tabs and has a size; panels can be dragged between docks. Saved per browser in localStorage.
  */
 
-export type PanelId = "hierarchy" | "inspector" | "timeline" | "statemachine" | "scripts" | "preview" | "outline";
+export type PanelId = "hierarchy" | "inspector" | "timeline" | "statemachine" | "scripts" | "preview" | "outline" | "activity";
 export type DockId = "left" | "right" | "bottom";
 
 export interface DockState {
@@ -33,7 +33,10 @@ export const PANELS: Record<PanelId, { title: string }> = {
   scripts: { title: "Scripts" },
   preview: { title: "Preview" },
   outline: { title: "Outline" },
+  activity: { title: "Activity" },
 };
+/** Where a panel goes when a saved layout from an older version doesn't have it yet. */
+const HOME_DOCK: Partial<Record<PanelId, DockId>> = { activity: "bottom" };
 export const DOCKS: DockId[] = ["left", "right", "bottom"];
 export const DEFAULT_SIZE: Record<DockId, number> = { left: 250, right: 280, bottom: 290 };
 export const MIN_SIZE: Record<DockId, number> = { left: 170, right: 200, bottom: 120 };
@@ -44,7 +47,7 @@ export function defaultLayout(): Layout {
   return {
     left: { panels: ["hierarchy"], active: "hierarchy", size: DEFAULT_SIZE.left },
     right: { panels: ["inspector", "preview", "outline"], active: "inspector", size: DEFAULT_SIZE.right },
-    bottom: { panels: ["timeline", "statemachine", "scripts"], active: "timeline", size: DEFAULT_SIZE.bottom },
+    bottom: { panels: ["timeline", "statemachine", "scripts", "activity"], active: "timeline", size: DEFAULT_SIZE.bottom },
   };
 }
 
@@ -74,9 +77,13 @@ function sanitize(raw: unknown): Layout | null {
     }
   }
   if (!seen.size) return null;
-  // Panels added in a newer version join the right dock, so a saved layout survives upgrades.
-  for (const p of Object.keys(PANELS) as PanelId[]) if (!seen.has(p)) out.right.panels.push(p);
-  out.right.active ??= out.right.panels[0] ?? null;
+  // Panels added in a newer version join their home dock (else the right one), so a saved layout survives upgrades.
+  for (const p of Object.keys(PANELS) as PanelId[]) {
+    if (seen.has(p)) continue;
+    const d = out[HOME_DOCK[p] ?? "right"];
+    d.panels.push(p);
+    d.active ??= p;
+  }
   return out;
 }
 

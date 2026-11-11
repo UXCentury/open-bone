@@ -4,7 +4,8 @@ import { Player } from "./player.ts";
 /**
  * <openbone-player src="hero.obone" state-machine="ui" animation="idle" skin="red" fit="contain" renderer="webgl">
  * Events: "openbone-event" (detail = FiredEvent), "openbone-state" (detail = state change), "openbone-load".
- * Methods: setInput(name, value), fire(name), setText(slot, text), setSkin(name), play(), pause(), player (the underlying Player).
+ * Methods: setInput(name, value), fire(name), setText(slot, text), setSkin(name), play(), pause(),
+ * setMuted(muted), setBusMuted(bus, muted | "toggle"), toggleBus(bus), isBusMuted(bus), buses, player (the underlying Player).
  * Audio plays after the first click/key press; `muted` attribute starts muted, `audio="off"` disables it.
  * Changing the `skin` attribute switches the outfit without reloading.
  */
@@ -97,6 +98,23 @@ export class OpenBonePlayerElement extends HTMLElement {
   }
   play() {
     this.player?.play();
+  }
+  /** Mute or unmute everything. */
+  setMuted(muted: boolean) {
+    this.player?.setMuted(muted);
+  }
+  /** Mute, unmute or toggle a sound bus by name ("music", "sfx"…); null or "master" = the master. */
+  setBusMuted(bus: string | null, muted: boolean | "toggle" = true) {
+    return this.player?.setBusMuted(bus, muted) ?? null;
+  }
+  toggleBus(bus: string | null) {
+    return this.player?.toggleBus(bus) ?? null;
+  }
+  isBusMuted(bus: string | null) {
+    return this.player?.isBusMuted(bus) ?? null;
+  }
+  get buses() {
+    return this.player?.buses ?? [];
   }
   pause() {
     this.player?.pause();

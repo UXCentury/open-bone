@@ -49,6 +49,23 @@ export function PlayStage() {
   const [flash, setFlash] = createSignal<string | null>(null);
   const [status, setStatus] = createSignal("");
   const [panelOpen, setPanelOpen] = createSignal(true);
+  /** Sound buses as the running player has them (mute buttons inside the artboard change them too). */
+  const [buses, setBuses] = createSignal<{ id: string | null; name: string; muted: boolean }[]>([]);
+  const readBuses = () => {
+    const p = player;
+    const a = store.doc.audio;
+    if (!p?.instance || !a?.assets.length) return setBuses([]);
+    setBuses([
+      { id: null, name: "master", muted: !!p.isBusMuted(null) },
+      ...a.buses.map((b) => ({ id: b.id, name: b.name, muted: !!p.isBusMuted(b.id) })),
+    ]);
+  };
+  const toggleBus = (id: string | null, name: string) => {
+    const m = player?.setBusMuted(id, "toggle");
+    if (m === null || m === undefined) return;
+    push("input", `${m ? "🔇" : "🔊"} ${name} ${m ? "muted" : "unmuted"}`);
+    readBuses();
+  };
   let logId = 0;
   const push = (kind: LogLine["kind"], text: string, input?: string) =>
     setLog((l) => {
@@ -129,6 +146,8 @@ export function PlayStage() {
       .then(() => {
         if (player !== p) return;
         setStatus(s ? "Interactive: hover, click and drag the artboard" : a ? `Looping “${a.name}”` : "Setup pose (nothing animated)");
+        readBuses();
+        p.instance.on("audio", (c) => c.type === "mix" && readBuses());
         const inst = p.stateMachine;
         if (inst) {
           inst.on("inputChange", (c) => {
@@ -268,6 +287,23 @@ export function PlayStage() {
                   <div>
                     <span class="muted">{layer}</span> <b>{st ?? "∅"}</b>
                   </div>
+                )}
+              </For>
+            </div>
+          </Show>
+          <Show when={buses().length}>
+            <div class="play-sound" role="group" aria-label="Sound">
+              <span class="muted small">Sound</span>
+              <For each={buses()}>
+                {(b) => (
+                  <button
+                    classList={{ active: b.muted }}
+                    aria-pressed={b.muted}
+                    title={`${b.muted ? "Unmute" : "Mute"} ${b.id === null ? "all sound" : `the “${b.name}” bus`} (like player.toggleBus(${JSON.stringify(b.id === null ? "master" : b.name)}) in a page)`}
+                    onClick={() => toggleBus(b.id, b.name)}
+                  >
+                    {b.muted ? "🔇" : "🔊"} {b.id === null ? "All" : b.name}
+                  </button>
                 )}
               </For>
             </div>

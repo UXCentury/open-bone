@@ -54,9 +54,32 @@ export function StateMachinePanel() {
       fields: [
         { key: "name", type: "text", label: "Name", value: i.name, validate: uniqueName(sm()!.inputs.map((x) => x.name), i.name) },
         ...(i.type === "trigger" ? [] : [{ key: "default", type: "text" as const, label: "Default", value: String(i.default), required: i.type !== "string" }]),
+        ...(i.type === "bool" && doc().audio
+          ? [
+              {
+                key: "mutes",
+                type: "choice" as const,
+                label: "Mutes sound",
+                compact: true,
+                value: i.mutes === undefined ? "" : i.mutes === null ? "master" : i.mutes,
+                options: [
+                  { value: "", label: "Nothing" },
+                  { value: "master", label: "All sound (master)", description: "While true, every sound is muted" },
+                  ...doc().audio!.buses.map((b) => ({ value: b.id, label: `${b.name} bus`, description: `While true, the ${b.name} bus is muted` })),
+                ],
+              },
+            ]
+          : []),
       ],
     });
-    if (r) apply("updateInput", { stateMachine: sm()!.id, input: i.id, name: r.name, ...(i.type === "trigger" ? {} : { default: parseDefault(i.type, r.default ?? "") }) });
+    if (r)
+      apply("updateInput", {
+        stateMachine: sm()!.id,
+        input: i.id,
+        name: r.name,
+        ...(i.type === "trigger" ? {} : { default: parseDefault(i.type, r.default ?? "") }),
+        ...(i.type === "bool" && r.mutes !== undefined ? { mutes: r.mutes } : {}),
+      });
   };
 
   // ---------- graph interaction ----------
@@ -315,6 +338,11 @@ export function StateMachinePanel() {
                   {i.name}
                   <Show when={i.type !== "trigger" && !running()}>
                     <span class="muted"> = {JSON.stringify(i.default)}</span>
+                  </Show>
+                  <Show when={i.mutes !== undefined}>
+                    <span class="muted" title="While true, this input mutes the bus: set it from your app, a page button, a listener or a script">
+                      {" "}🔇 {i.mutes === null ? "all" : (doc().audio?.buses.find((b) => b.id === i.mutes)?.name ?? "?")}
+                    </span>
                   </Show>
                 </span>
                 <Show

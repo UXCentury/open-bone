@@ -530,6 +530,10 @@ button.fire { min-width: 60px; }
 button.fire.flash { background: var(--warn); border-color: var(--warn); color: #111; }
 .play-states { padding: 6px 10px; display: flex; flex-direction: column; gap: 2px; border-bottom: 1px solid var(--line); }
 .play-states:empty { display: none; }
+.play-sound { padding: 6px 10px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; border-bottom: 1px solid var(--line); }
+.play-sound > span { margin-right: 4px; }
+.play-sound button { padding: 2px 8px; }
+.play-sound button.active { color: var(--warn, #e0a040); }
 .play-log-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 10px; color: var(--muted); }
 button.link { background: none; border: none; color: var(--accent-2); padding: 0; }
 .play-log { overflow: auto; padding: 0 10px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; min-height: 60px; max-height: 260px; }
@@ -779,3 +783,31 @@ button.link { background: none; border: none; padding: 0; color: var(--accent, #
 .tb-pop .check { color: var(--text, #e6e8ee); white-space: nowrap; }
 .tb-pop-buttons { display: flex; flex-direction: column; gap: 4px; }
 .tb-pop-buttons button { text-align: left; }
+
+/* Activity panel (bottom dock): edits by you and MCP agents, connections, errors */
+.tab-badge { display: inline-block; margin-left: 5px; min-width: 16px; padding: 0 4px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 10px; line-height: 16px; text-align: center; }
+.activity-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.activity-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.activity-head .spacer { flex: 1; }
+.activity-mcp { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.activity-mcp .dot { width: 8px; height: 8px; border-radius: 50%; background: #666; }
+.activity-mcp.on { color: var(--ok); }
+.activity-mcp.on .dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.activity-list { flex: 1; min-height: 0; overflow: auto; padding: 4px 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+.activity-row { display: grid; grid-template-columns: 58px 48px 1fr; gap: 6px; padding: 1px 0; }
+.activity-row .activity-src { font-weight: 600; }
+.activity-row.src-mcp .activity-src { color: var(--accent); }
+.activity-row.src-you .activity-src { color: var(--ok); }
+.activity-row.src-system .activity-src { color: var(--muted); }
+.activity-row.error .activity-text { color: var(--danger, #ff6b6b); }
+.activity-empty { padding: 8px 0; font-family: inherit; }
+#root .activity-list { user-select: text; -webkit-user-select: text; }
+
+/* MCP config dialog */
+.mcp-config-dialog { width: min(680px, 100%); }
+.mcp-config-body { padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 12px; overflow: auto; }
+.mcp-config-block { display: flex; flex-direction: column; gap: 4px; }
+.mcp-config-title { display: flex; justify-content: space-between; align-items: center; }
+.mcp-config-block pre { margin: 0; padding: 8px 10px; background: var(--bg, #15171c); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; white-space: pre-wrap; word-break: break-all; user-select: text; -webkit-user-select: text; }
+.update-btn { background: #1d2e52; border-color: var(--accent); color: #cfe0ff; }
+.mcp-config-dialog .modal-head .close { margin-left: auto; }

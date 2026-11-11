@@ -43,6 +43,8 @@ export interface WebPackOptions {
   inputs: { name: string; type: "bool" | "number" | "trigger" | "string" }[];
   hasScripts: boolean;
   hasAudio: boolean;
+  /** Names of the sound buses ("music", "sfx"…): the demo page gets a mute button for each. */
+  buses?: string[];
 }
 
 const text = (s: string) => new TextEncoder().encode(s);
@@ -79,6 +81,21 @@ function controlsScript(o: WebPackOptions): string {
     const log = document.getElementById("log");
     const inputs = ${JSON.stringify(o.inputs)};
     const add = (el) => controls.append(el);
+    // Sound: mute buttons for everything and for each bus, the same as player.setMuted / player.toggleBus in your page.
+    const buses = ${JSON.stringify(o.hasAudio ? (o.buses ?? []) : []).replace(/</g, "\\u003c")};
+    if (${o.hasAudio ? "true" : "false"}) {
+      const muteButton = (label, isMuted, toggle) => {
+        const b = document.createElement("button");
+        const show = () => { const m = isMuted(); b.textContent = (m ? "🔇 " : "🔊 ") + label; b.setAttribute("aria-pressed", String(!!m)); };
+        b.onclick = () => { toggle(); show(); };
+        player.addEventListener("openbone-load", show);
+        show();
+        add(b);
+      };
+      let allMuted = player.hasAttribute("muted");
+      muteButton("All sound", () => allMuted, () => { allMuted = !allMuted; player.setMuted(allMuted); });
+      for (const bus of buses) muteButton(bus, () => player.isBusMuted(bus), () => player.toggleBus(bus));
+    }
     for (const i of inputs) {
       const label = document.createElement("label");
       label.textContent = i.name + " ";
@@ -195,6 +212,9 @@ ${o.format === "esm" ? `\`\`\`html\n<script type="module" src="${playerFile}"></
 \`\`\`js
 const player = document.querySelector("openbone-player");
 ${firstValue ? `player.setInput("${firstValue.name}", ${exampleValue});\n` : 'player.setInput("speed", 1);\n'}${firstTrigger ? `player.fire("${firstTrigger.name}");\n` : ""}player.setText("slotName", "Hello"); // override a text attachment
+${o.hasAudio ? `player.setMuted(true); // mute everything
+player.toggleBus(${JSON.stringify(o.buses?.find((b) => b === "music") ?? o.buses?.[0] ?? "music")}); // mute or unmute one sound bus (also setBusMuted(bus, true | false))
+` : ""}
 player.addEventListener("openbone-event", (e) => console.log("event", e.detail.name));
 player.addEventListener("openbone-state", (e) => console.log("state", e.detail.to));
 \`\`\`

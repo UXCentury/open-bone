@@ -153,6 +153,11 @@ export class AudioDirector {
     this.out({ type: "mix", bus, muted: next });
     return next;
   }
+
+  /** Carry over the mutes set while playing on another director (e.g. when a player switches to a state machine). */
+  inheritMutes(from: AudioDirector) {
+    for (const [k, v] of from.mutes) this.mutes.set(k, v);
+  }
 }
 
 /**

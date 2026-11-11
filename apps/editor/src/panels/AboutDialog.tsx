@@ -2,6 +2,7 @@ import info from "virtual:openbone-about";
 import { For, Show, createSignal, onCleanup, onMount } from "solid-js";
 import { setAboutOpen } from "../editor-menus.ts";
 import { isDesktop } from "../storage.ts";
+import { checkForUpdates, checkingForUpdates, installUpdate, updateAvailable } from "../updates.ts";
 
 const REPO = "https://github.com/UXCentury/open-bone";
 const UXCENTURY = "https://uxcentury.com";
@@ -87,6 +88,18 @@ export function AboutDialog() {
                 <button class="small-btn" onClick={() => void copy()} title="Copy the version, for bug reports">
                   {copied() ? "Copied" : "Copy"}
                 </button>
+                <Show
+                  when={updateAvailable()}
+                  fallback={
+                    <button class="small-btn" disabled={checkingForUpdates()} onClick={() => void checkForUpdates(true)}>
+                      {checkingForUpdates() ? "Checking…" : "Check for updates"}
+                    </button>
+                  }
+                >
+                  <button class="small-btn primary" onClick={() => void installUpdate()}>
+                    Update to {updateAvailable()!.version}
+                  </button>
+                </Show>
               </div>
             </div>
           </header>

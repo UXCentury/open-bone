@@ -75,6 +75,8 @@ function start() {
       player.instance.useStateMachine(n);
       watchInputs();
     },
+    setMuted: (m) => player?.setMuted(m),
+    setBusMuted: (b, m) => player?.setBusMuted(b, m),
     inputs,
   };
   const watchInputs = () => player?.stateMachine?.on("inputChange", () => postToHost({ type: "inputs", inputs: inputs() }));
@@ -99,6 +101,8 @@ function start() {
     receive: run,
     setInput: (name: string, value: boolean | number) => run({ type: "setInput", name, value }),
     fire: (name: string) => run({ type: "fire", name }),
+    setMuted: (muted: boolean) => run({ type: "setMuted", muted }),
+    setBusMuted: (bus: string | null, muted: boolean | "toggle" = true) => run({ type: "setBusMuted", bus, muted }),
     play: (animation?: string, loop?: boolean) => run({ type: "play", animation, loop }),
     pause: () => run({ type: "pause" }),
     setSkin: (name: string | null) => run({ type: "setSkin", name }),

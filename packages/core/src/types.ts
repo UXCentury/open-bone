@@ -789,6 +789,11 @@ export interface InputData {
   name: string;
   type: InputType;
   default: InputValue;
+  /**
+   * Bool inputs only: the input owns this bus's mute (null = every sound). True mutes it, whoever sets the input:
+   * the host app, a listener, a script or a page control outside the artboard. Mute actions on the bus set the input.
+   */
+  mutes?: Id | null;
 }
 
 export type ConditionOp = "==" | "!=" | ">" | "<" | ">=" | "<=";

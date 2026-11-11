@@ -220,6 +220,8 @@ defineOp({
     const b = needBus(doc, a.bus);
     audio.buses = audio.buses.filter((x) => x !== b);
     for (const s of audio.sounds) if (s.bus === b.id) s.bus = null;
+    // Inputs that muted it mute nothing now.
+    for (const sm of doc.stateMachines) for (const i of sm.inputs) if (i.mutes === b.id) delete i.mutes;
     return {};
   },
 });

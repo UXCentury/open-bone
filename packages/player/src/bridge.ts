@@ -18,7 +18,9 @@ export type BridgeCommand =
   | { type: "pause" }
   | { type: "setSkin"; name: string | null }
   | { type: "useStateMachine"; name?: string }
-  | { type: "getInputs" };
+  | { type: "getInputs" }
+  | { type: "setMuted"; muted: boolean }
+  | { type: "setBusMuted"; bus: string | null; muted: boolean | "toggle" };
 
 export interface BridgeInputInfo {
   name: string;
@@ -88,6 +90,15 @@ export function parseCommand(input: string | unknown): BridgeCommand {
       return { type: "setSkin", name: typeof c.name === "string" && c.name ? c.name : null };
     case "useStateMachine":
       return { type: "useStateMachine", ...(typeof c.name === "string" ? { name: c.name } : {}) };
+    case "setMuted":
+      if (typeof c.muted !== "boolean") throw new Error('OpenBone bridge: "setMuted" needs a boolean `muted`');
+      return { type: "setMuted", muted: c.muted };
+    case "setBusMuted": {
+      const m = c.muted ?? true;
+      if (typeof m !== "boolean" && m !== "toggle") throw new Error('OpenBone bridge: "setBusMuted" needs `muted`: true, false or "toggle"');
+      if (c.bus !== null && c.bus !== undefined && typeof c.bus !== "string") throw new Error('OpenBone bridge: "setBusMuted" needs a string `bus` (or null for the master)');
+      return { type: "setBusMuted", bus: (c.bus as string | null | undefined) ?? null, muted: m };
+    }
     default:
       throw new Error(`OpenBone bridge: unknown command "${String(c.type)}"`);
   }
@@ -102,6 +113,8 @@ export interface BridgePlayer {
   playAnimation(name: string, loop?: boolean): void;
   setSkin(name: string | null): void;
   useStateMachine?(name?: string): void;
+  setMuted?(muted: boolean): void;
+  setBusMuted?(bus: string | null, muted: boolean | "toggle"): unknown;
   inputs(): BridgeInputInfo[];
 }
 
@@ -129,6 +142,12 @@ export function applyCommand(p: BridgePlayer, c: BridgeCommand): BridgeMessage |
       return null;
     case "getInputs":
       return { type: "inputs", inputs: p.inputs() };
+    case "setMuted":
+      p.setMuted?.(c.muted);
+      return null;
+    case "setBusMuted":
+      p.setBusMuted?.(c.bus, c.muted);
+      return null;
   }
 }
 

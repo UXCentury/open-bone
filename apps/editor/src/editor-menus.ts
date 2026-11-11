@@ -1,4 +1,6 @@
 import { createDocument } from "@openbone/core";
+import { checkForUpdates, checkingForUpdates, installUpdate, updateAvailable } from "./updates.ts";
+import { openMcpConfig } from "./panels/McpConfig.tsx";
 import { confirmDiscard } from "./destructive.ts";
 import { createSignal } from "solid-js";
 import { bridgeStatus } from "./bridge.ts";
@@ -185,6 +187,10 @@ export function mainMenu(): MenuItem[] {
     { label: "Show panel", submenu: panelItems(), disabled: locked },
     "sep",
     { label: "Keyboard shortcuts", shortcut: "help.shortcuts", action: () => setShortcutsOpen(true) },
+    { label: "Connect an AI agent (MCP config)…", action: openMcpConfig },
+    updateAvailable()
+      ? { label: `Update to OpenBone ${updateAvailable()!.version}…`, action: () => void installUpdate() }
+      : { label: checkingForUpdates() ? "Checking for updates…" : "Check for updates…", disabled: checkingForUpdates(), action: () => void checkForUpdates(true) },
     { label: "About OpenBone", action: () => setAboutOpen(true) },
   ];
 }

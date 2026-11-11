@@ -139,6 +139,73 @@ describe("runtime audio", () => {
     expect(() => s.apply("addListener", { stateMachine: "sm", event: "down", actions: [{ type: "setMute", bus: "nope" }] })).toThrow(/Bus "nope" not found/);
   });
 
+  it("host controls: setBusMuted by name from outside the artboard, in step with mute-button listeners", () => {
+    const s = doc();
+    s.apply("createStateMachine", { name: "sm" });
+    s.apply("addState", { stateMachine: "sm", name: "idle", animation: "idle" });
+    s.apply("addListener", { stateMachine: "sm", event: "down", actions: [{ type: "setMute", bus: "music" }] });
+    const music = s.doc.audio!.buses.find((b) => b.name === "music")!.id;
+    const inst = new OpenBoneInstance(s.doc);
+    const log = record(inst);
+    // Before a state machine: through the animation state.
+    expect(inst.setBusMuted("sfx")).toBe(true);
+    expect(inst.isBusMuted("sfx")).toBe(true);
+    expect(log.at(-1)).toEqual({ type: "mix", bus: s.doc.audio!.buses.find((b) => b.name === "sfx")!.id, muted: true });
+    // Mutes carry over to the state machine.
+    inst.useStateMachine("sm");
+    inst.advance(0.1);
+    expect(inst.isBusMuted("sfx")).toBe(true);
+    expect(inst.setBusMuted("music", "toggle")).toBe(true);
+    expect(log.at(-1)).toEqual({ type: "mix", bus: music, muted: true });
+    // The listener toggle sees the host's mute and unmutes.
+    inst.pointer("down", 0, 0);
+    inst.advance(0.01);
+    expect(log.at(-1)).toEqual({ type: "mix", bus: music, muted: false });
+    expect(inst.isBusMuted(music)).toBe(false);
+    expect(inst.setBusMuted("master", true)).toBe(true);
+    expect(log.at(-1)).toEqual({ type: "mix", bus: null, muted: true });
+    expect(inst.setBusMuted(null, false)).toBe(false);
+    expect(inst.setBusMuted("nope")).toBeNull();
+    expect(inst.isBusMuted("nope")).toBeNull();
+  });
+
+  it("a bool input that owns a bus's mute: setting it from anywhere mutes, mute actions set it", () => {
+    const s = doc();
+    s.apply("createStateMachine", { name: "sm" });
+    s.apply("addState", { stateMachine: "sm", name: "idle", animation: "idle" });
+    s.apply("addInput", { stateMachine: "sm", name: "musicOff", type: "bool", mutes: "music" });
+    s.apply("addInput", { stateMachine: "sm", name: "silent", type: "bool", default: true, mutes: "master" });
+    s.apply("addListener", { stateMachine: "sm", event: "down", actions: [{ type: "setMute", bus: "music" }] });
+    expect(() => s.apply("addInput", { stateMachine: "sm", name: "n", type: "number", mutes: "music" })).toThrow(/Only bool inputs/);
+    expect(() => s.apply("updateInput", { stateMachine: "sm", input: "musicOff", mutes: "nope" })).toThrow(/Bus "nope" not found/);
+    const music = s.doc.audio!.buses.find((b) => b.name === "music")!.id;
+    expect(s.doc.stateMachines[0].inputs.map((i) => i.mutes)).toEqual([music, null]);
+    const inst = new OpenBoneInstance(s.doc);
+    const log = record(inst);
+    const sm = inst.useStateMachine("sm");
+    inst.advance(0.01);
+    expect(log.filter((c) => c.type === "mix")).toEqual([{ type: "mix", bus: null, muted: true }]); // default true
+    // The host (a page's music button) sets the input: the bus follows.
+    sm.setInput("musicOff", true);
+    expect(log.at(-1)).toEqual({ type: "mix", bus: music, muted: true });
+    expect(inst.isBusMuted("music")).toBe(true);
+    // A mute button in the artboard toggles through the input.
+    inst.pointer("down", 0, 0);
+    inst.advance(0.01);
+    expect(sm.getInput("musicOff")).toBe(false);
+    expect(log.at(-1)).toEqual({ type: "mix", bus: music, muted: false });
+    // So does the player API.
+    expect(inst.setBusMuted("music", "toggle")).toBe(true);
+    expect(sm.getInput("musicOff")).toBe(true);
+    expect(inst.setBusMuted("master", false)).toBe(false);
+    expect(sm.getInput("silent")).toBe(false);
+    // Clearing it, and deleting the bus, unbind.
+    s.apply("updateInput", { stateMachine: "sm", input: "silent", mutes: "" });
+    expect(s.doc.stateMachines[0].inputs[1].mutes).toBeUndefined();
+    s.apply("deleteBus", { bus: "music" });
+    expect(s.doc.stateMachines[0].inputs[0].mutes).toBeUndefined();
+  });
+
   it("switching away from a state machine stops its sounds", () => {
     const s = doc();
     s.apply("createStateMachine", { name: "sm" });

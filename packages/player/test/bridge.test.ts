@@ -87,3 +87,28 @@ describe("bridge messages", () => {
     expect(self.postMessage).not.toHaveBeenCalled();
   });
 });
+
+describe("bridge: sound commands", () => {
+  it("parses and applies setMuted / setBusMuted", () => {
+    expect(parseCommand({ type: "setMuted", muted: true })).toEqual({ type: "setMuted", muted: true });
+    expect(parseCommand('{"type":"setBusMuted","bus":"music","muted":"toggle"}')).toEqual({ type: "setBusMuted", bus: "music", muted: "toggle" });
+    expect(parseCommand({ type: "setBusMuted" })).toEqual({ type: "setBusMuted", bus: null, muted: true });
+    expect(() => parseCommand({ type: "setBusMuted", bus: "music", muted: "yes" })).toThrow(/toggle/);
+    expect(() => parseCommand({ type: "setMuted" })).toThrow(/boolean/);
+    const calls: unknown[] = [];
+    const p = {
+      setInput() {},
+      fire() {},
+      play() {},
+      pause() {},
+      playAnimation() {},
+      setSkin() {},
+      inputs: () => [],
+      setMuted: (m: boolean) => calls.push(["muted", m]),
+      setBusMuted: (b: string | null, m: boolean | "toggle") => calls.push(["bus", b, m]),
+    };
+    applyCommand(p, { type: "setMuted", muted: false });
+    applyCommand(p, { type: "setBusMuted", bus: "sfx", muted: true });
+    expect(calls).toEqual([["muted", false], ["bus", "sfx", true]]);
+  });
+});

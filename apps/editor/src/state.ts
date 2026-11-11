@@ -1,4 +1,5 @@
 import { EXAMPLES_BASE, fetchExample } from "./examples.ts";
+import { logActivity, watchStoreActivity } from "./activity.ts";
 import {
   type Attachment,
   DocumentStore,
@@ -13,6 +14,7 @@ import {
 import { createSignal } from "solid-js";
 
 export const store = new DocumentStore(createDocument("Untitled"));
+watchStoreActivity(store);
 
 const [rev, setRev] = createSignal(0);
 store.subscribe(() => setRev((r) => r + 1));
@@ -34,6 +36,7 @@ export { toasts };
 let toastId = 0;
 export const dismissToast = (id: number) => setToasts((t) => t.filter((x) => x.id !== id));
 export function toast(text: string, kind: "error" | "info" = "info", action?: ToastAction) {
+  if (kind === "error") logActivity("system", text, "error");
   const id = ++toastId;
   setToasts((t) => [...t, { id, text, kind, action }]);
   // Toasts with a button stay long enough to reach it.

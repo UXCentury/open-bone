@@ -1,9 +1,33 @@
 import { z } from "zod";
 import { findSound, findBus } from "../audio.ts";
 import { get, newId } from "../document.ts";
-import type { Condition, InputType, InputValue, ListenerAction, OpenBoneDocument, StateMachineData } from "../types.ts";
+import type { Condition, InputData, InputType, InputValue, ListenerAction, OpenBoneDocument, StateMachineData } from "../types.ts";
 import { ANY_STATE } from "../types.ts";
 import { defineOp, optId, ref } from "./registry.ts";
+
+const mutesArg = z
+  .string()
+  .optional()
+  .describe(
+    'Bool inputs: the bus (id or name) this input mutes while true, "master" for every sound, "" for none. Then the host, page controls, listeners and scripts all mute it by setting the input (e.g. a musicOff input muting "music"); setMute actions on that bus set the input too.',
+  );
+
+/** Apply a `mutes` argument: a bus id/name, "master" (every sound), "" (none), undefined (unchanged). */
+function setMutes(doc: OpenBoneDocument, input: InputData, mutes: string | undefined) {
+  if (mutes === undefined) return;
+  if (mutes === "") {
+    delete input.mutes;
+    return;
+  }
+  if (input.type !== "bool") throw new Error(`Only bool inputs can mute a bus ("${input.name}" is ${input.type})`);
+  if (mutes === "master") {
+    input.mutes = null;
+    return;
+  }
+  const bus = findBus(doc, mutes);
+  if (!bus) throw new Error(`Bus "${mutes}" not found`);
+  input.mutes = bus.id;
+}
 
 const smRef = ref("State machine");
 const inputValue = z.union([z.boolean(), z.number(), z.string()]);
@@ -78,12 +102,15 @@ defineOp({
     name: z.string().regex(/^[^{}:]+$/, "Input names cannot contain { } or :"),
     type: z.enum(["bool", "number", "trigger", "string"]),
     default: inputValue.optional(),
+    mutes: mutesArg,
   }),
   apply(doc, a) {
     const sm = get.stateMachine(doc, a.stateMachine);
     if (sm.inputs.some((i) => i.name === a.name)) throw new Error(`Input "${a.name}" already exists`);
     const id = (a.id ??= newId("in"));
-    sm.inputs.push({ id, name: a.name, type: a.type, default: coerceInput(a.type, a.default) });
+    const input: InputData = { id, name: a.name, type: a.type, default: coerceInput(a.type, a.default) };
+    setMutes(doc, input, a.mutes);
+    sm.inputs.push(input);
     return { id };
   },
 });
@@ -91,16 +118,18 @@ defineOp({
 defineOp({
   name: "updateInput",
   group: "interactivity",
-  description: "Rename an input or change its default value.",
+  description: "Rename an input, change its default value, or make a bool input mute a sound bus (`mutes`).",
   schema: z.object({
     stateMachine: smRef,
     input: ref("Input"),
     name: z.string().regex(/^[^{}:]+$/, "Input names cannot contain { } or :").optional(),
     default: inputValue.optional(),
+    mutes: mutesArg,
   }),
   apply(doc, a) {
     const sm = get.stateMachine(doc, a.stateMachine);
     const input = get.input(sm, a.input);
+    setMutes(doc, input, a.mutes);
     if (a.name && a.name !== input.name) {
       if (sm.inputs.some((i) => i.name === a.name)) throw new Error(`Input "${a.name}" already exists`);
       input.name = a.name;

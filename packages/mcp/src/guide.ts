@@ -65,9 +65,11 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
 10. Audio: import_audio {path} (or add_audio {name, src:data:/path, duration}) creates an asset and a same-named sound on the
    sfx bus. Play it with add_audio_key {animation, sound, time, volume?, rate?, loop?}, set_event_sound {event, sound} (plays
    whenever the event fires), set_state_sound {stateMachine, state, sound, on:"enter"|"exit", action:"play"|"stop"} or a
-   listener action {type:"playSound", sound} / {type:"stopSound", sound, fade?}. Mute buttons: listener action
-   {type:"setMute", bus:"music"|"sfx"|... (null = everything), muted:true|false|"toggle"} (pair it with toggleInput on a bool
-   input and a slot color binding to show the state). Looping sounds stop when their state or
+   listener action {type:"playSound", sound} / {type:"stopSound", sound, fade?}. Mute buttons: give a bool input the bus it
+   mutes (add_input / update_input {mutes:"music"|"sfx"|... or "master" for everything}), then a listener {type:"setMute",
+   bus:"music", muted:"toggle"} (or toggleInput on that input; not both) and a slot color binding to show the state. The
+   app embedding the animation mutes it the same way (setInput("musicOff", true), or player.setBusMuted("music", true)).
+   Looping sounds stop when their state or
    animation ends. Mix with update_sound {volume, rate, loop, fadeIn, fadeOut, bus}, add_bus/update_bus {volume, muted},
    set_audio_mix {master, muted}. simulate_state_machine lists the audio commands.
 11. Sprite sequences (frame-by-frame, e.g. fire or explosions): add_image for each frame (or one sheet image), then

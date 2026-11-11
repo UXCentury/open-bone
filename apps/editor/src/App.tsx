@@ -15,11 +15,14 @@ import { importFiles } from "./sequence-import.ts";
 import { MenuHost } from "./menu.tsx";
 import { aboutOpen, contextItems, examplesOpen } from "./editor-menus.ts";
 import { AboutDialog } from "./panels/AboutDialog.tsx";
+import { McpConfigDialog } from "./panels/McpConfig.tsx";
+import { scheduleUpdateCheck } from "./updates.ts";
 import { ImportDialog, importOpen } from "./panels/ImportDialog.tsx";
 import { ExamplesDialog } from "./panels/ExamplesDialog.tsx";
 
 export function App() {
   onMount(() => onCleanup(setupShortcuts()));
+  onMount(scheduleUpdateCheck);
 
   return (
     <div class="app" classList={{ playing: playActive() }}>
@@ -62,6 +65,7 @@ export function App() {
       <Show when={aboutOpen()}>
         <AboutDialog />
       </Show>
+      <McpConfigDialog />
       <Show when={importOpen()}>
         <ImportDialog />
       </Show>
