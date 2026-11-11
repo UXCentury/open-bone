@@ -310,9 +310,56 @@ covers the installers, releases and code signing.
 
 </details>
 
-## Versions and credits
+## Open-source credits
 
-One version covers the whole repo: `pnpm version:set <major|minor|patch|x.y.z>` updates every package, the editor and the desktop app, and `pnpm version:check` fails when they drift. The editor lists its version and the open-source projects it is built with under **☰ Menu → About OpenBone**; a test keeps every dependency's licence permissive.
+OpenBone stands on the shoulders of these open-source projects. Thank you to everyone who builds and maintains them. Every dependency is permissively licensed; a test checks the JavaScript ones, and the editor lists them with their versions under **☰ Menu → About OpenBone**.
+
+### Editor, web player and tools
+
+| Project | Used for | Licence |
+|---|---|---|
+| [SolidJS](https://solidjs.com) | The editor's user interface | MIT |
+| [Tauri](https://tauri.app) and its [dialog, fs and opener plugins](https://github.com/tauri-apps/plugins-workspace), [Serde](https://serde.rs) | The desktop app for Windows, macOS and Linux | MIT or Apache-2.0 |
+| [Model Context Protocol SDK](https://modelcontextprotocol.io) | The MCP server AI agents talk to | MIT |
+| [Zod](https://zod.dev) | Checking MCP tool inputs | MIT |
+| [quickjs-emscripten](https://github.com/justjake/quickjs-emscripten) | Sandboxed state-machine scripts on the web | MIT |
+| [earcut](https://github.com/mapbox/earcut) | Triangulating traced meshes | ISC |
+| [@napi-rs/canvas](https://github.com/Brooooooklyn/canvas) | Rendering frames in Node (CLI, MCP) | MIT |
+| [gifenc](https://github.com/mattdesl/gifenc) | GIF export | MIT |
+| [ag-psd](https://github.com/Agamnentzar/ag-psd) | PSD export | MIT |
+| [mp4-muxer](https://github.com/Vanilagy/mp4-muxer), [webm-muxer](https://github.com/Vanilagy/webm-muxer) | MP4 and WebM video export in the browser | MIT |
+| [idb-keyval](https://github.com/jakearchibald/idb-keyval) | Remembering projects and settings in the browser | Apache-2.0 |
+| [esbuild](https://esbuild.github.io) | Bundling the player for web exports | MIT |
+| [ws](https://github.com/websockets/ws) | The editor's live MCP connection | MIT |
+| [PixiJS](https://pixijs.com), [Phaser](https://phaser.io), [three.js](https://threejs.org), [CanvasKit](https://skia.org/docs/user/modules/canvaskit/) | The web engine integrations, and the editor's 3D view (three.js) | MIT; CanvasKit BSD-3-Clause |
+| [FFmpeg](https://ffmpeg.org) | MP4/WebM encoding and MP3/OGG decoding in the CLI and MCP exports, when installed. It is not bundled; it is called as a separate program | LGPL/GPL (not distributed with OpenBone) |
+
+Building and testing use [TypeScript](https://www.typescriptlang.org), [Vite](https://vite.dev), [Vitest](https://vitest.dev), [tsx](https://github.com/privatenumber/tsx) and [pnpm](https://pnpm.io). The full list is in **About OpenBone**.
+
+### Native runtimes
+
+| Project | Used for | Licence |
+|---|---|---|
+| [QuickJS-ng](https://github.com/quickjs-ng/quickjs) (from Fabrice Bellard's [QuickJS](https://bellard.org/quickjs/)) | Scripts in the C/C++, Swift and Flutter runtimes (vendored) | MIT |
+| [nlohmann/json](https://github.com/nlohmann/json) | Reading `.obone` files in C/C++ (vendored) | MIT |
+| [godot-cpp](https://github.com/godotengine/godot-cpp) | The Godot 4 GDExtension | MIT |
+| [SDL2](https://www.libsdl.org), [SFML](https://www.sfml-dev.org), [GLFW](https://www.glfw.org) | The C++ sample renderers | zlib |
+| [stb_image](https://github.com/nothings/stb) | Loading images in the C++ samples | MIT or public domain |
+| [Jint](https://github.com/sebastienros/jint) | Scripts in the C# runtime | BSD-2-Clause |
+| [MonoGame](https://monogame.net) | The MonoGame renderer and sample | Ms-PL |
+| [libGDX](https://libgdx.com) | The libGDX renderer and sample | Apache-2.0 |
+| [quickjs-kt](https://github.com/dokar3/quickjs-kt), [kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) | Scripts in the Java and Android runtime | Apache-2.0 |
+| [flutter_soloud](https://github.com/alnitak/flutter_soloud) ([SoLoud](https://solhsa.com/soloud/)), [ffi](https://pub.dev/packages/ffi) | Sound and the native bridge in the Flutter plugin | MIT, zlib; BSD-3-Clause |
+
+The engines themselves ([Unity](https://unity.com), [Unreal Engine](https://www.unrealengine.com), [Cocos2d-x](https://www.cocos.com/en/cocos2d-x), [Godot](https://godotengine.org), [Flutter](https://flutter.dev)) are not part of OpenBone; the integrations build against them in your project.
+
+### Art and sound in the examples
+
+The example characters, backgrounds, sounds, music and voices were made with [ElevenLabs](https://elevenlabs.io) ([licence](examples/assets/eleven/LICENSE.md)); the button and the explosion frames with [Canva](https://www.canva.com) ([licence](examples/assets/canva/LICENSE.md)).
+
+## Versions
+
+One version covers the whole repo: `pnpm version:set <major|minor|patch|x.y.z>` updates every package, the editor and the desktop app, and `pnpm version:check` fails when they drift. The editor shows its version, commit and build date under **☰ Menu → About OpenBone**.
 
 OpenBone is made by [UXCentury](https://uxcentury.com).
 
