@@ -1,8 +1,11 @@
 ---
 /**
  * A live OpenBone example: the real <openbone-player> web component (packages/player, bundled by scripts/sync.ts)
- * running the .obone file in WebGL, with buttons for its state machine inputs. Loads when scrolled into view and
- * pauses off screen. Sound starts muted (browsers need a click first); the speaker button turns it on.
+ * running the .obone file in WebGL, with buttons for its state machine inputs.
+ *
+ * Until someone presses play it is only a poster image (the first frame, rendered at build time): no player script,
+ * no document, art or sound is loaded. The play click loads it and starts it with sound (that click unlocks audio).
+ * A fullscreen button shows the player and its controls full screen. Started players pause off screen.
  */
 import { getExample, url } from "../lib/examples";
 
@@ -14,7 +17,7 @@ interface Props {
   controls?: boolean;
   /** Show the title bar with the example's name and hint (default: true). */
   header?: boolean;
-  /** Load immediately instead of when scrolled into view (the landing page's hero). */
+  /** Above the fold (the landing page's hero): load the poster eagerly. */
   eager?: boolean;
   class?: string;
 }
@@ -22,10 +25,16 @@ interface Props {
 const { example, animation, controls = true, header = true, eager = false, class: cls } = Astro.props;
 const ex = getExample(example);
 const src = url(`projects/${ex.id}.obone`);
+const poster = url(`posters/${ex.id}.webp`);
 const bg = ex.background ?? "transparent";
 ---
 
-<figure class:list={["ob-live not-content", cls]} data-src={src} data-eager={eager ? "" : undefined} style={`--ob-aspect: ${ex.width} / ${ex.height}; --ob-bg: ${bg};`}>
+<figure
+  class:list={["ob-live not-content", cls]}
+  data-src={src}
+  data-audio={ex.hasAudio ? "" : undefined}
+  style={`--ob-aspect: ${ex.width} / ${ex.height}; --ob-bg: ${bg};`}
+>
   {
     header && (
       <figcaption class="ob-live-head">
@@ -37,10 +46,19 @@ const bg = ex.background ?? "transparent";
     )
   }
   <div class="ob-live-stage">
+    <img
+      class="ob-live-poster"
+      src={poster}
+      alt={`${ex.title}: the first frame. Press play to run it live.`}
+      width={ex.width}
+      height={ex.height}
+      loading={eager ? "eager" : "lazy"}
+      fetchpriority={eager ? "high" : "auto"}
+      decoding="async"
+    />
     <openbone-player
       state-machine={animation ? undefined : (ex.stateMachine ?? undefined)}
       animation={animation}
-      autoplay="false"
       fit="contain"
       aria-label={`${ex.title}, a live OpenBone animation`}></openbone-player>
     <div class="ob-live-loading" aria-hidden="true"><span></span></div>
@@ -50,17 +68,25 @@ const bg = ex.background ?? "transparent";
       </span>
       <span class="ob-play-label">{ex.hasAudio ? "Play with sound" : "Play"}</span>
     </button>
-    {
-      ex.hasAudio && (
-        <button class="ob-live-sound" type="button" aria-pressed="true" aria-label="Mute">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-            <path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3z" />
-            <path class="ob-wave" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" />
-            <path class="ob-x" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 9l5 6M21 9l-5 6" />
-          </svg>
-        </button>
-      )
-    }
+    <div class="ob-live-tools">
+      {
+        ex.hasAudio && (
+          <button class="ob-live-tool ob-live-sound" type="button" aria-pressed="true" aria-label="Mute" title="Mute">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path fill="currentColor" d="M3 9v6h4l5 5V4L7 9H3z" />
+              <path class="ob-wave" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" />
+              <path class="ob-x" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M16 9l5 6M21 9l-5 6" />
+            </svg>
+          </button>
+        )
+      }
+      <button class="ob-live-tool ob-live-fs" type="button" aria-pressed="false" aria-label="Full screen" title="Full screen" hidden>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path class="ob-fs-open" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+          <path class="ob-fs-close" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" />
+        </svg>
+      </button>
+    </div>
   </div>
   {
     controls && ex.inputs.length > 0 && !animation && (
@@ -148,10 +174,27 @@ const bg = ex.background ?? "transparent";
     margin-inline: auto;
     background: var(--ob-bg);
   }
-  .ob-live-stage openbone-player {
+  .ob-live-stage openbone-player,
+  .ob-live-poster {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
+  }
+  .ob-live-poster {
+    object-fit: contain;
+    transition: opacity 0.3s;
+  }
+  /* The player stays invisible until its first frame is drawn, then replaces the poster. */
+  .ob-live-stage openbone-player {
+    opacity: 0;
+  }
+  .ob-live[data-ready] openbone-player {
+    opacity: 1;
+  }
+  .ob-live[data-ready] .ob-live-poster {
+    opacity: 0;
   }
   .ob-live-loading {
     position: absolute;
@@ -169,8 +212,11 @@ const bg = ex.background ?? "transparent";
     border-top-color: #fff;
     animation: ob-spin 0.9s linear infinite;
   }
-  .ob-live[data-ready] .ob-live-loading {
+  .ob-live-loading {
     opacity: 0;
+  }
+  .ob-live[data-playing]:not([data-ready]) .ob-live-loading {
+    opacity: 1;
   }
   @keyframes ob-spin {
     to {
@@ -221,20 +267,24 @@ const bg = ex.background ?? "transparent";
   .ob-live-play:focus-visible .ob-play-icon {
     transform: scale(1.08);
   }
-  .ob-live:not([data-ready]) .ob-live-play,
   .ob-live[data-playing] .ob-live-play {
     opacity: 0;
     pointer-events: none;
   }
-  /* While it runs: a small speaker button to mute. */
-  .ob-live-sound {
+  /* Top-right tools: mute (while it runs) and full screen. */
+  .ob-live-tools {
     position: absolute;
     right: 0.5rem;
     top: 0.5rem;
+    display: flex;
+    gap: 0.4rem;
+    z-index: 2;
+  }
+  .ob-live-tool {
     display: grid;
     place-items: center;
-    width: 2rem;
-    height: 2rem;
+    width: 2.1rem;
+    height: 2.1rem;
     padding: 0;
     border-radius: 50%;
     border: 1px solid rgb(255 255 255 / 0.3);
@@ -243,9 +293,56 @@ const bg = ex.background ?? "transparent";
     opacity: 0.85;
     cursor: pointer;
     backdrop-filter: blur(6px);
+    transition:
+      opacity 0.15s,
+      transform 0.15s;
+  }
+  .ob-live-tool:hover {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+  .ob-live-tool[hidden] {
+    display: none;
   }
   .ob-live:not([data-playing]) .ob-live-sound {
     display: none;
+  }
+  .ob-live-fs .ob-fs-close,
+  .ob-live-fs[aria-pressed="true"] .ob-fs-open {
+    display: none;
+  }
+  .ob-live-fs[aria-pressed="true"] .ob-fs-close {
+    display: inline;
+  }
+  /* Full screen: the player fills the screen above its controls. */
+  .ob-live:fullscreen {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    background: #0b0614;
+  }
+  .ob-live:fullscreen .ob-live-stage {
+    flex: 1;
+    aspect-ratio: auto;
+    max-height: none;
+    width: 100%;
+  }
+  .ob-live:fullscreen .ob-live-controls {
+    justify-content: center;
+    border-color: rgb(255 255 255 / 0.1);
+  }
+  /* Always dark around the art in full screen, whatever the site theme. */
+  .ob-live:fullscreen .ob-live-head {
+    color: #c7c0d4;
+    border-color: rgb(255 255 255 / 0.1);
+  }
+  .ob-live:fullscreen .ob-live-head strong {
+    color: #fff;
+  }
+  .ob-live:fullscreen .ob-live-hint {
+    color: #9a90ab;
   }
   .ob-live-sound .ob-wave {
     display: none;

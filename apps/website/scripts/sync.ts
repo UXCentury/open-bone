@@ -14,6 +14,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import sharp from "sharp";
 import { buildScriptsAddon, buildWebBundle, quickJsWasmBytes } from "../../../packages/player/src/bundle/build.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -251,10 +252,37 @@ export async function syncPlayer() {
   writeIfChanged(path.join(out, "quickjs.wasm"), quickJsWasmBytes());
 }
 
+/**
+ * public/posters/<example>.webp: each example's first state-machine frame, rendered by the repository's own CLI. Live
+ * players show it until someone presses play, so nothing else loads before that. Re-rendered when the file changes.
+ */
+export async function syncPosters() {
+  const ex = path.join(repo, "examples");
+  const out = path.join(site, "public/posters");
+  fs.mkdirSync(out, { recursive: true });
+  for (const f of fs.readdirSync(ex).filter((f) => f.endsWith(".obone"))) {
+    const id = f.replace(/\.obone$/, "");
+    const src = path.join(ex, f);
+    const poster = path.join(out, `${id}.webp`);
+    if (fs.existsSync(poster) && fs.statSync(poster).mtimeMs >= fs.statSync(src).mtimeMs) continue;
+    const doc = JSON.parse(fs.readFileSync(src, "utf8")) as { width: number; stateMachines?: { name: string }[] };
+    const sm = doc.stateMachines?.[0]?.name;
+    const png = path.join(out, `${id}.png`);
+    execFileSync(
+      process.execPath,
+      ["--import", "tsx", "packages/cli/src/bin.ts", "render", `examples/${f}`, ...(sm ? ["--state-machine", sm] : []), "--scale", String(Math.min(1, 1280 / doc.width)), "--out", png],
+      { cwd: repo, stdio: "ignore" },
+    );
+    await sharp(png).webp({ quality: 80 }).toFile(poster);
+    fs.rmSync(png);
+  }
+}
+
 export async function syncAll() {
   syncDocs();
   syncExamples();
   await syncPlayer();
+  await syncPosters();
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

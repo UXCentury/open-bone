@@ -89,6 +89,7 @@ on the page, reloads the player with the new settings.
 | `setSkin(name)` | Switch skin (updates the `skin` attribute); `null` shows the default skin. |
 | `play()` / `pause()` | Start or stop playback and sound. |
 | `player` | The underlying `Player`, or `null` before the element is connected. |
+| `audioContext` | An `AudioContext` to play through, set before `src`. Create and resume it in a click handler (a play button) and the player starts with sound even if it loads after that click. |
 
 | Event | `detail` |
 |---|---|
