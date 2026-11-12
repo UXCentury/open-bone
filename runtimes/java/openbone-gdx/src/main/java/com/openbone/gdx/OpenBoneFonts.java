@@ -7,11 +7,15 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeType;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.utils.Disposable;
+import com.openbone.runtime.data.FontAsset;
+import com.openbone.runtime.data.OpenBoneDocument;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -20,8 +24,9 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Fonts for OpenBone text attachments, through FreeType. A text's font is a CSS family list ("Noto Serif JP, Georgia,
- * serif"); each family is looked up in the fonts you {@link #register registered}, then among the installed system
- * fonts (fontconfig on Linux, the font folders on Windows, macOS and Android), and the first one that has every
+ * serif"); each family is looked up in the fonts you {@link #register registered} (including the document's own
+ * fonts, {@link #registerDocument}; of several files for a family, the one whose weight is closest to the text's),
+ * then among the installed system fonts (fontconfig on Linux, the font folders on Windows, macOS and Android), and the first one that has every
  * character of the text wins, so Japanese text skips a Latin-only family. Glyphs are rasterised on demand, so large
  * scripts cost only the characters used.
  *
@@ -32,7 +37,7 @@ public class OpenBoneFonts implements Disposable {
   /** Glyphs are rasterised at this multiple of the text size, so text stays sharp when the view is zoomed in. */
   public float oversample = 2f;
 
-  private final Map<String, FileHandle> registered = new HashMap<>();
+  private final Map<String, List<Registered>> registered = new HashMap<>();
   private final Map<String, Face> resolved = new HashMap<>();
   private final Map<String, BitmapFont> fonts = new HashMap<>();
   private final Map<String, FreeTypeFontGenerator> generators = new HashMap<>();
@@ -54,6 +59,18 @@ public class OpenBoneFonts implements Disposable {
     }
   }
 
+  private static final class Registered {
+    final FileHandle file;
+    final double weight;
+    final boolean italic;
+
+    Registered(FileHandle file, double weight, boolean italic) {
+      this.file = file;
+      this.weight = weight;
+      this.italic = italic;
+    }
+  }
+
   /** Whether FreeType's natives loaded (false: use a BitmapFont instead). */
   public static boolean isAvailable() {
     try {
@@ -67,8 +84,62 @@ public class OpenBoneFonts implements Disposable {
 
   /** Use this file for a family name (as written in the document, any case), before looking at system fonts. */
   public OpenBoneFonts register(String family, FileHandle file) {
-    registered.put(family.trim().toLowerCase(Locale.ROOT), file);
+    return register(family, file, 400, false);
+  }
+
+  /**
+   * Add a file to a family (any case) at a weight (100..900) and style. Texts of that family use the registered file
+   * whose weight is closest to theirs (on a tie, the upright one, then the first registered); a file registered again
+   * replaces the one at the same weight and style.
+   */
+  public OpenBoneFonts register(String family, FileHandle file, double weight, boolean italic) {
+    List<Registered> list = registered.computeIfAbsent(family.trim().toLowerCase(Locale.ROOT), k -> new ArrayList<>());
+    list.removeIf(r -> r.weight == weight && r.italic == italic);
+    list.add(new Registered(file, weight, italic));
+    resolved.clear();
     return this;
+  }
+
+  /**
+   * Register the fonts a document carries ({@code doc.fonts}), so its text looks the same as in the editor whatever is
+   * installed. {@code data:} sources are written to temporary files; paths are relative to {@code base} (the
+   * document's folder; null = internal files). Fonts that can't be read are skipped (logged).
+   */
+  public OpenBoneFonts registerDocument(OpenBoneDocument doc, FileHandle base) {
+    for (FontAsset f : doc.fonts) {
+      if (f.family == null || f.family.trim().isEmpty()) continue;
+      try {
+        FileHandle file = fontFile(f.src, base);
+        if (file != null) register(f.family, file, f.weight, "italic".equals(f.style));
+        else if (Gdx.app != null) Gdx.app.error("OpenBone", "Cannot find font \"" + f.name + "\" (" + abbreviate(f.src) + ")");
+      } catch (Exception e) {
+        if (Gdx.app != null) Gdx.app.error("OpenBone", "Cannot load font \"" + f.name + "\": " + e.getMessage());
+      }
+    }
+    return this;
+  }
+
+  private static String abbreviate(String src) {
+    return src == null ? "" : src.length() > 60 ? src.substring(0, 60) + "…" : src;
+  }
+
+  /** The file of a font source: {@code data:} URLs go to a temporary file (FreeType reads fonts from files). */
+  protected FileHandle fontFile(String src, FileHandle base) throws IOException {
+    if (src == null || src.isEmpty()) return null;
+    if (src.startsWith("data:")) {
+      int comma = src.indexOf(',');
+      if (comma < 0 || !src.substring(0, comma).endsWith(";base64")) return null;
+      String mime = src.substring(5, comma).toLowerCase(Locale.ROOT);
+      String ext = mime.contains("otf") || mime.contains("opentype") ? ".otf" : mime.contains("woff") ? ".woff" : ".ttf";
+      File tmp = File.createTempFile("openbone-font", ext);
+      tmp.deleteOnExit();
+      FileHandle f = Gdx.files.absolute(tmp.getAbsolutePath());
+      f.writeBytes(Base64.getMimeDecoder().decode(src.substring(comma + 1)), false);
+      return f;
+    }
+    FileHandle f = base != null ? base.child(src) : Gdx.files.internal(src);
+    if (!f.exists()) f = Gdx.files.absolute(src);
+    return f.exists() ? f : null;
   }
 
   /**
@@ -77,7 +148,12 @@ public class OpenBoneFonts implements Disposable {
    * text out with the plain font). Tint with setColor.
    */
   public BitmapFont font(String families, String text, float size, float outline) {
-    Face face = faceFor(families, text);
+    return font(families, text, size, 400, outline);
+  }
+
+  /** {@link #font(String, String, float, float)} for a text weight (picks among registered files of a family). */
+  public BitmapFont font(String families, String text, float size, double weight, float outline) {
+    Face face = faceFor(families, text, weight);
     if (face == null) return null;
     int px = Math.max(4, Math.round(size * oversample));
     float border = outline * oversample;
@@ -109,11 +185,16 @@ public class OpenBoneFonts implements Disposable {
 
   /** The first family in the list that is installed (or registered) and has every character of `text`. */
   public Face faceFor(String families, String text) {
-    String key = families + "\u0000" + uniqueChars(text);
+    return faceFor(families, text, 400);
+  }
+
+  /** {@link #faceFor(String, String)} for a text weight. */
+  public Face faceFor(String families, String text, double weight) {
+    String key = families + "\u0000" + weight + "\u0000" + uniqueChars(text);
     if (resolved.containsKey(key)) return resolved.get(key);
     Face first = null, best = null;
     for (String fam : splitFamilies(families)) {
-      Face face = lookup(fam);
+      Face face = lookup(fam, weight);
       if (face == null) continue;
       if (first == null) first = face;
       if (covers(face, text)) {
@@ -122,7 +203,7 @@ public class OpenBoneFonts implements Disposable {
       }
     }
     if (best == null) best = first;
-    if (best == null) best = lookup("sans-serif");
+    if (best == null) best = lookup("sans-serif", weight);
     resolved.put(key, best);
     return best;
   }
@@ -166,10 +247,21 @@ public class OpenBoneFonts implements Disposable {
     return false;
   }
 
-  private Face lookup(String family) {
+  private Face lookup(String family, double weight) {
     String fam = family.toLowerCase(Locale.ROOT);
-    FileHandle reg = registered.get(fam);
-    if (reg != null) return new Face(reg, 0);
+    List<Registered> regs = registered.get(fam);
+    if (regs != null && !regs.isEmpty()) {
+      Registered best = null;
+      double bestScore = Double.MAX_VALUE;
+      for (Registered r : regs) {
+        double score = Math.abs(r.weight - weight) * 2 + (r.italic ? 1 : 0);
+        if (score < bestScore) {
+          best = r;
+          bestScore = score;
+        }
+      }
+      return new Face(best.file, 0);
+    }
     String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
     boolean android = System.getProperty("java.vendor", "").toLowerCase(Locale.ROOT).contains("android");
     if (!android && os.contains("linux")) return fontconfig(family, fam);

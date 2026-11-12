@@ -103,19 +103,29 @@ open class OpenBoneView @JvmOverloads constructor(
   fun onAudio(handler: (AudioCommand) -> Unit) = apply { audioHandlers += handler }
 
   /** Load a .obone / .obonb document from bytes. */
-  fun load(bytes: ByteArray, images: ImageSource = ImageSource.embedded, sounds: SoundSource = SoundSource.embedded) =
-    load(DocumentLoader.load(bytes), images, sounds)
+  fun load(
+    bytes: ByteArray,
+    images: ImageSource = ImageSource.embedded,
+    sounds: SoundSource = SoundSource.embedded,
+    fonts: FontSource = FontSource { sounds.load(it) },
+  ) = load(DocumentLoader.load(bytes), images, sounds, fonts)
 
   /**
    * Load a document. Images (and atlas pages) are read through [images], sound files through [sounds] (pass e.g.
-   * `SoundSource.assets(assets, "button")` for sounds stored next to the document rather than embedded).
+   * `SoundSource.assets(assets, "button")` for sounds stored next to the document rather than embedded), the
+   * document's own fonts (`doc.fonts`) through [fonts] (by default the same place as the sounds).
    */
-  fun load(doc: OpenBoneDocument, images: ImageSource = ImageSource.embedded, sounds: SoundSource = SoundSource.embedded) = apply {
+  fun load(
+    doc: OpenBoneDocument,
+    images: ImageSource = ImageSource.embedded,
+    sounds: SoundSource = SoundSource.embedded,
+    fonts: FontSource = FontSource { sounds.load(it) },
+  ) = apply {
     instance?.dispose()
     renderer?.release()
     audio?.release()
     document = doc
-    renderer = CanvasRenderer(doc, images)
+    renderer = CanvasRenderer(doc, images, fonts, context.cacheDir)
     audio = OpenBoneAudio(context, doc, sounds)
     instance = OpenBoneInstance(doc, scriptHost).also { inst ->
       inst.addListener(object : OpenBoneInstance.Listener {

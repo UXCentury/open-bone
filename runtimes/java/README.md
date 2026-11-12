@@ -102,6 +102,8 @@ for (DrawItem it : inst.drawList()) { /* vertices, uvs, indices, color, dark, bl
 `inst.skeleton` gives bones (`world` matrices), slots, `setSkin`, `findBone`, `hitTest`, particle controls and
 `setText`. `inst.animationState` queues and mixes animations on tracks (`setAnimation`, `addAnimation`).
 Draw item vertices are skeleton space (y up); uvs are in the item's texture (an image, or an atlas page when packed).
+Document fonts are in `doc.fonts` (`FontAsset`: family, `data:` URL or relative path, weight, style);
+`doc.findFont(family, weight)` picks the one a text of that family and weight uses (null: use an installed font).
 
 ### Bounding-box queries
 
@@ -144,6 +146,7 @@ OpenBoneInstance inst = new OpenBoneInstance(doc, new QuickJsScriptHost());
 inst.useStateMachine(null);
 DocumentTextures textures = new DocumentTextures(doc, Gdx.files.internal("knight")); // data: URLs or relative paths
 OpenBoneRenderer renderer = new OpenBoneRenderer(); // text in the document's fonts (FreeType)
+renderer.useDocumentFonts(doc, Gdx.files.internal("knight")); // fonts embedded in or next to the document
 
 // render():
 inst.advance(Gdx.graphics.getDeltaTime());
@@ -156,7 +159,9 @@ renderer.draw(inst, textures, camera.combined); // camera in skeleton space (y u
 - Particles draw with per-vertex colours and the built-in soft dot texture; shapes use the atlas white block or a
   generated white texture; strokes are drawn as quads.
 - Text uses the document's own fonts through FreeType (`OpenBoneFonts`): each family in a text's list ("Noto Serif JP,
-  Georgia, serif") is looked up in fonts you register, then among installed fonts (fontconfig on Linux, the font
+  Georgia, serif") is looked up in the document's own fonts (`doc.fonts`, registered by `useDocumentFonts`: `data:`
+  URLs or paths relative to the folder you give; of several files for a family, the one whose weight is closest to
+  the text's), then in fonts you register, then among installed fonts (fontconfig on Linux, the font
   folders on Windows, macOS and Android), and the first one with every character of the text wins. Glyphs are made
   on demand, so Japanese or Chinese costs only the characters used. Outlines are drawn under the fill like the web
   player's. Add the FreeType natives for your platform:
@@ -165,7 +170,8 @@ renderer.draw(inst, textures, camera.combined); // camera in skeleton space (y u
   implementation("com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop") // Android: natives-arm64-v8a, …
   ```
 
-  Ship fonts with your game and register them, since players' machines may not have the families your file names:
+  Documents made with embedded fonts look the same everywhere. For other families, ship fonts with your game and
+  register them, since players' machines may not have the families your file names:
   `renderer.fonts().register("Noto Serif JP", Gdx.files.internal("fonts/NotoSerifJP-Regular.otf"))`. Without the
   natives, or with `new OpenBoneRenderer(myBitmapFont)`, text uses one `BitmapFont` scaled to each size (libGDX's
   built-in font has Latin only).
@@ -188,7 +194,7 @@ The sample plays sounds by default; `--mute` turns them off.
 ```kotlin
 val view = OpenBoneView(context)
 view.load(assets.open("knight/knight.obone").readBytes(), ImageSource.assets(assets, "knight"),
-  SoundSource.assets(assets, "knight"))        // sounds next to the document (default: embedded data: URLs only)
+  SoundSource.assets(assets, "knight"))        // sounds and fonts next to the document (default: embedded data: URLs only)
 view.useStateMachine("knight")                 // or view.play("walk")
 view.onEvent { e -> if (e.name == "footstep") playStep() }
 view.onStateChange { layer, from, to -> Log.d("anim", "$layer: $from → $to") }
@@ -212,8 +218,10 @@ view leaves its window or loads another document; `audio?.volume` scales everyth
 
 `CanvasRenderer` (usable on any `Canvas`) draws triangles with `drawVertices`; the two-colour tint is a colour matrix
 per item (`dark + (light − dark) × texture`, exact for uniformly tinted items, which is every image), blend modes map
-to `PorterDuff` modes, clipping masks to `clipPath`, particles use per-vertex colours, text uses the platform
-typeface named by the attachment's font (bold from weight 600).
+to `PorterDuff` modes, clipping masks to `clipPath`, particles use per-vertex colours, text walks the
+attachment's family list: a font the document carries (`doc.fonts`, read through a `FontSource`, by default the
+`SoundSource`; the closest weight; written once to the cache folder for `Typeface.createFromFile`), else an installed
+family, else the default typeface (bold from weight 600).
 
 ## Scripts: why QuickJS
 

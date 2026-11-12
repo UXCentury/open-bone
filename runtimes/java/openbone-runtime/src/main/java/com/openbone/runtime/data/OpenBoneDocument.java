@@ -12,6 +12,8 @@ public class OpenBoneDocument {
   public String background;
   public double fps = 30;
   public final List<ImageAsset> images = new ArrayList<>();
+  /** Fonts the document carries (text attachments name them by family). */
+  public final List<FontAsset> fonts = new ArrayList<>();
   /** Texture atlas the images are packed into, or null. */
   public AtlasData atlas;
   public final SkeletonData skeleton = new SkeletonData();
@@ -48,6 +50,27 @@ public class OpenBoneDocument {
   public ImageAsset imageById(String id) {
     for (ImageAsset i : images) if (i.id.equals(id)) return i;
     return null;
+  }
+
+  /**
+   * The document font for a family name (any case): of the fonts with that family, the one whose weight is closest to
+   * {@code weight} (ties: the normal style, then the earlier font). Null when the document has none of that family, so
+   * the family is looked up among the installed fonts instead.
+   */
+  public FontAsset findFont(String family, double weight) {
+    if (family == null) return null;
+    String fam = family.trim();
+    FontAsset best = null;
+    double bestScore = Double.MAX_VALUE;
+    for (FontAsset f : fonts) {
+      if (f.family == null || !f.family.trim().equalsIgnoreCase(fam)) continue;
+      double score = Math.abs(f.weight - weight) * 2 + ("italic".equals(f.style) ? 1 : 0);
+      if (score < bestScore) {
+        best = f;
+        bestScore = score;
+      }
+    }
+    return best;
   }
 
   public StateMachineData findStateMachine(String ref) {

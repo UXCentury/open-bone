@@ -51,6 +51,16 @@ class DocumentLoader {
 			i.height = num(x, "height", 0);
 			d.images.push(i);
 		}
+		for (x in maps(m.get("fonts"))) {
+			var f = new FontAsset();
+			f.id = str(x, "id", "");
+			f.name = str(x, "name", "");
+			f.family = str(x, "family", f.name);
+			f.src = str(x, "src", "");
+			f.weight = Math.max(100, Math.min(900, num(x, "weight", 400)));
+			f.style = x.get("style") == "italic" ? "italic" : "normal";
+			d.fonts.push(f);
+		}
 		if (Std.isOfType(m.get("atlas"), JObject))
 			d.atlas = atlas(m.get("atlas"));
 		skeleton(d.skeleton, map(m.get("skeleton")));

@@ -14,7 +14,9 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.Shader
 import android.graphics.Typeface
 import com.openbone.runtime.DrawItem
+import com.openbone.runtime.data.FontAsset
 import com.openbone.runtime.data.OpenBoneDocument
+import java.io.File
 import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
@@ -22,8 +24,21 @@ import kotlin.math.sqrt
  * Draws an OpenBone draw list on an Android [Canvas]: textured triangles (`drawVertices`), the two-colour tint as a
  * per-item colour matrix (`dark + (light − dark) × texture`), blend modes, clipping masks (`clipPath`), particles
  * (per-vertex colours), shape strokes and text.
+ *
+ * Text walks its CSS family list ("Brand Sans, Georgia, serif"): a family the document carries (`doc.fonts`, read
+ * through [fonts]; of several, the one whose weight is closest) wins, then an installed family, then the default
+ * typeface. Document fonts are written to temporary files in [fontDir] (default: the system temp folder) once, as
+ * `Typeface.createFromFile` needs a file.
  */
-class CanvasRenderer(private val doc: OpenBoneDocument, private val images: ImageSource) {
+class CanvasRenderer(
+  private val doc: OpenBoneDocument,
+  private val images: ImageSource,
+  private val fonts: FontSource = FontSource.embedded,
+  private val fontDir: File? = null,
+) {
+  private val docTypefaces = HashMap<String, Typeface?>()
+  private val fontFiles = ArrayList<File>()
+  private val familyTypefaces = HashMap<String, Typeface>()
   private val bitmaps = HashMap<String, Bitmap?>()
   private val shaders = HashMap<String, BitmapShader>()
   private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -208,7 +223,7 @@ class CanvasRenderer(private val doc: OpenBoneDocument, private val images: Imag
     textPaint.reset()
     textPaint.isAntiAlias = true
     textPaint.textSize = t.size.toFloat()
-    textPaint.typeface = Typeface.create(t.font.split(",").first().trim().trim('"', '\''), if (t.weight >= 600) Typeface.BOLD else Typeface.NORMAL)
+    textPaint.typeface = typeface(t.font, t.weight)
     textPaint.textAlign = when (t.align) {
       "left" -> Paint.Align.LEFT
       "right" -> Paint.Align.RIGHT
@@ -242,14 +257,64 @@ class CanvasRenderer(private val doc: OpenBoneDocument, private val images: Imag
     canvas.restore()
   }
 
-  /** Forget cached bitmaps (they are recycled). */
+  /** The typeface for a text's family list and weight (cached). */
+  fun typeface(families: String, weight: Double): Typeface = familyTypefaces.getOrPut("$weight|$families") {
+    val bold = weight >= 600
+    val style = if (bold) Typeface.BOLD else Typeface.NORMAL
+    for (fam in splitFamilies(families)) {
+      doc.findFont(fam, weight)?.let { f ->
+        val tf = documentTypeface(f) ?: return@let
+        // Like the browser: a regular-weight file drawn bold is emboldened.
+        return@getOrPut if (bold && f.weight < 600) Typeface.create(tf, Typeface.BOLD) else tf
+      }
+      installed(fam, style)?.let { return@getOrPut it }
+    }
+    Typeface.create(Typeface.DEFAULT, style)
+  }
+
+  private fun documentTypeface(f: FontAsset): Typeface? = docTypefaces.getOrPut(f.id) {
+    runCatching {
+      val bytes = fonts.load(f.src) ?: return@runCatching null
+      val ext = if (f.src.startsWith("data:font/otf") || f.src.endsWith(".otf", ignoreCase = true)) ".otf" else ".ttf"
+      val file = File.createTempFile("openbone-font", ext, fontDir)
+      file.deleteOnExit()
+      fontFiles += file
+      file.writeBytes(bytes)
+      Typeface.createFromFile(file)
+    }.getOrNull()
+  }
+
+  /** Forget cached bitmaps (they are recycled) and typefaces (their temporary files are deleted). */
   fun release() {
     bitmaps.values.forEach { it?.recycle() }
     bitmaps.clear()
     shaders.clear()
+    familyTypefaces.clear()
+    docTypefaces.clear()
+    fontFiles.forEach { it.delete() }
+    fontFiles.clear()
   }
 
   private companion object {
+    val GENERIC = setOf("serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace")
+
+    fun splitFamilies(families: String?): List<String> =
+      families.orEmpty().split(",").map { it.trim().removeSurrounding("\"").removeSurrounding("'") }.filter { it.isNotEmpty() }
+
+    /** An installed family, or null when Android doesn't have it (it would quietly give the default typeface). */
+    fun installed(family: String, style: Int): Typeface? {
+      val fam = family.lowercase()
+      val name = when (fam) {
+        "system-ui", "ui-sans-serif" -> "sans-serif"
+        "ui-serif" -> "serif"
+        "ui-monospace" -> "monospace"
+        else -> fam
+      }
+      val tf = Typeface.create(name, style)
+      if (fam in GENERIC) return tf
+      return tf.takeUnless { it === Typeface.create(null as Typeface?, style) || it === Typeface.create(Typeface.DEFAULT, style) }
+    }
+
     fun ch(v: Double) = (v.coerceIn(0.0, 1.0) * 255).roundToInt()
     fun argb(r: Double, g: Double, b: Double, a: Double) = Color.argb(ch(a), ch(r), ch(g), ch(b))
     fun argb(c: DoubleArray) = argb(c[0], c[1], c[2], c[3])

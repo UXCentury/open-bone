@@ -1,6 +1,7 @@
 package com.openbone.conformance;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.openbone.runtime.Earcut;
@@ -10,6 +11,7 @@ import com.openbone.runtime.OpenBoneInstance;
 import com.openbone.runtime.ParticleEmitter;
 import com.openbone.runtime.Template;
 import com.openbone.runtime.data.DocumentLoader;
+import com.openbone.runtime.data.FontAsset;
 import com.openbone.runtime.data.OpenBoneDocument;
 import java.io.IOException;
 import java.io.InputStream;
@@ -86,6 +88,33 @@ class UnitTest {
       for (int i = 0; i < 30; i++) inst.advance(1 / 60.0);
       assertTrue(!inst.drawList().isEmpty());
     }
+  }
+
+  /** Document fonts load from .obone and .obonb alike, and match by family (any case) and closest weight. */
+  @Test
+  void documentFonts() throws IOException {
+    for (String file : new String[] {"fonts.obone", "fonts.obonb"}) {
+      OpenBoneDocument doc = DocumentLoader.load(resource("/fonts/" + file));
+      assertEquals(3, doc.fonts.size(), file);
+      FontAsset regular = doc.fonts.get(0), bold = doc.fonts.get(1), light = doc.fonts.get(2);
+      assertEquals("f1", regular.id);
+      assertEquals("Brand Regular", regular.name);
+      assertEquals("Brand Sans", regular.family);
+      assertEquals("data:font/ttf;base64,AAEAAAALAIAAAwAw", regular.src, file);
+      assertEquals(400, regular.weight);
+      assertEquals("normal", regular.style);
+      assertEquals("fonts/BrandSans-Bold.ttf", bold.src);
+      assertEquals(700, bold.weight);
+      assertEquals(300, light.weight);
+      assertEquals("italic", light.style);
+      assertEquals(regular, doc.findFont("brand sans", 400));
+      assertEquals(regular, doc.findFont(" BRAND SANS ", 500));
+      assertEquals(bold, doc.findFont("Brand Sans", 600));
+      assertEquals(bold, doc.findFont("Brand Sans", 900));
+      assertEquals(light, doc.findFont("Brand Sans", 100));
+      assertNull(doc.findFont("Georgia", 400));
+    }
+    assertTrue(DocumentLoader.fromJson("{\"format\":\"openbone\",\"version\":1}").fonts.isEmpty());
   }
 
   @SuppressWarnings("unchecked")
