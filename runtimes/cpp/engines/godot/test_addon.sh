@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Checks an assembled addon on its own: makes a fresh Godot project that contains only addons/openbone (copied from
 # ADDON_ROOT) and one .obone document with the images it references, imports it headless, then instantiates
-# OpenBoneSprite, loads the document, advances a few frames and prints a bone transform.
+# OpenBoneSprite, loads the document, advances a few frames and prints a bone transform. Also instantiates a saved scene
+# whose OpenBoneSprite has Document set in the Inspector, which must load on its own when the node enters the tree.
 #
 #   test_addon.sh ADDON_ROOT GODOT DOCUMENT.obone [BONE] [WORK_DIR]
 #
@@ -40,6 +41,14 @@ config_version=5
 config/name="OpenBone addon check"
 EOF
 
+# A scene with Document set as a property, the way the Inspector saves it (loaded in _ready, not by load()).
+cat > "$proj/scene.tscn" <<EOF
+[gd_scene format=3]
+
+[node name="Sprite" type="OpenBoneSprite"]
+document = "res://$name"
+EOF
+
 cat > "$proj/check.gd" <<'EOF'
 extends SceneTree
 ## Loads a document with OpenBoneSprite from the installed addon and prints one bone's transform.
@@ -72,6 +81,14 @@ func _initialize() -> void:
 	print("OpenBone addon ", Engine.get_version_info().string, ": ", path.get_file(), " animation ", anims[0], " after 10 frames: bone ", bone, " = ", sprite.get_bone_transform(bone), ", ", items.size(), " draw items")
 	if items.is_empty():
 		printerr("FAIL: nothing to draw")
+		quit(1)
+		return
+	# Document set in a saved scene (the Inspector's way) loads when the node enters the tree.
+	var scene: Node = load("res://scene.tscn").instantiate()
+	root.add_child(scene)
+	await process_frame
+	if scene.get_draw_items().is_empty() or scene.document != path:
+		printerr("FAIL: a scene's Document property didn't load (document = '", scene.document, "')")
 		quit(1)
 		return
 	print("OK")

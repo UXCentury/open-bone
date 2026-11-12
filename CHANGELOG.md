@@ -2,6 +2,11 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
+## Unreleased
+
+### Godot
+- **Document set in the Inspector loads**: an `OpenBoneSprite` saved in a scene with *Document* set showed nothing (the path was emptied when the node entered the tree); only `load()` from code worked. The addon's CI check now covers a saved scene.
+
 ## 0.4.1 (2026-11-12)
 
 ### Web player

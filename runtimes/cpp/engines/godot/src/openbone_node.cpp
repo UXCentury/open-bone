@@ -312,7 +312,9 @@ void OpenBoneSprite::set_skin(const String& name) {
 
 // ---------------- Loading ----------------
 
-bool OpenBoneSprite::load(const String& path) {
+bool OpenBoneSprite::load(const String& path_ref) {
+  // Copy first: _ready() passes document_path itself, and assigning a godot::String to itself empties it.
+  const String path = path_ref;
   document_path = path;
   PackedByteArray bytes = FileAccess::get_file_as_bytes(path);
   if (bytes.is_empty()) {
