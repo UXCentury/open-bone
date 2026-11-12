@@ -21661,7 +21661,15 @@
               "speed": 1,
               "onComplete": "st_oawq51y",
               "x": 520,
-              "y": 80
+              "y": 80,
+              "sounds": [
+                {
+                  "sound": "snd_5oe130w",
+                  "on": "enter",
+                  "action": "play",
+                  "volume": 0.7
+                }
+              ]
             }
           ],
           "transitions": [
@@ -21718,7 +21726,15 @@
               "speed": 1,
               "onComplete": "st_dggr61z",
               "x": 340,
-              "y": 80
+              "y": 80,
+              "sounds": [
+                {
+                  "sound": "snd_kcfwl0y",
+                  "on": "enter",
+                  "action": "play",
+                  "volume": 0.9
+                }
+              ]
             }
           ],
           "transitions": [
@@ -21801,11 +21817,6 @@
               "volume": 0.6
             },
             {
-              "type": "playSound",
-              "sound": "snd_5oe130w",
-              "volume": 0.7
-            },
-            {
               "type": "fireTrigger",
               "input": "in_rn5a21r"
             }
@@ -21821,11 +21832,6 @@
               "type": "playSound",
               "sound": "snd_kc0p010",
               "volume": 0.5
-            },
-            {
-              "type": "playSound",
-              "sound": "snd_kcfwl0y",
-              "volume": 0.9
             },
             {
               "type": "fireTrigger",
