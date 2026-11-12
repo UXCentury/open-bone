@@ -352,6 +352,8 @@ namespace UnityEditor
 
     public delegate void CallbackFunction();
 
+    public class AssetPostprocessor { }
+
     public static class EditorApplication
     {
         public static CallbackFunction delayCall;

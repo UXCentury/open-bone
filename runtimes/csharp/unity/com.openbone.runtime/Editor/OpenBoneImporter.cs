@@ -16,7 +16,7 @@ namespace OpenBone.Unity.Editor
     /// folder next to the file (Unity can't load font bytes at runtime), imported as Font assets, and the document is
     /// re-imported to reference them.
     /// </summary>
-    [ScriptedImporter(3, new[] { "obone", "obonb" })]
+    [ScriptedImporter(4, new[] { "obone", "obonb" })]
     public sealed class OpenBoneImporter : ScriptedImporter
     {
         [Tooltip("Filter mode of textures embedded in the document.")]
@@ -112,27 +112,41 @@ namespace OpenBone.Unity.Editor
             if (pending.Count > 0) WriteFontsLater(ctx.assetPath, pending);
         }
 
+        /// <summary>Embedded fonts waiting to be written, with the documents to re-import afterwards.</summary>
+        static readonly List<(string document, List<(string path, byte[] data)> fonts)> PendingFonts = new List<(string, List<(string, byte[])>)>();
+
         /// <summary>
         /// Writes embedded fonts and re-imports the document once they are Font assets. Creating assets isn't allowed
-        /// during an import, so this runs on the editor's next update.
+        /// during an import, so <see cref="FontWriter"/> does it when the import pass ends: in the same refresh, so
+        /// batch-mode builds (-batchmode -executeMethod) get the fonts too, not only an editor that keeps running.
         /// </summary>
         static void WriteFontsLater(string documentPath, List<(string path, byte[] data)> fonts)
         {
-            EditorApplication.delayCall += () =>
+            lock (PendingFonts) PendingFonts.Add((documentPath, fonts));
+        }
+
+        sealed class FontWriter : AssetPostprocessor
+        {
+            static void OnPostprocessAllAssets(string[] imported, string[] deleted, string[] moved, string[] movedFrom)
             {
-                try
+                List<(string document, List<(string path, byte[] data)> fonts)> work;
+                lock (PendingFonts)
                 {
-                    AssetDatabase.StartAssetEditing();
+                    if (PendingFonts.Count == 0) return;
+                    work = new List<(string, List<(string, byte[])>)>(PendingFonts);
+                    PendingFonts.Clear();
+                }
+                var written = new List<string>();
+                foreach (var (_, fonts) in work)
                     foreach (var (path, data) in fonts)
                     {
                         Directory.CreateDirectory(Path.GetDirectoryName(path));
                         if (!File.Exists(path) || !SameBytes(path, data)) File.WriteAllBytes(path, data);
-                        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+                        written.Add(path);
                     }
-                }
-                finally { AssetDatabase.StopAssetEditing(); }
-                AssetDatabase.ImportAsset(documentPath, ImportAssetOptions.ForceUpdate);
-            };
+                foreach (var path in written) AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                foreach (var (document, _) in work) AssetDatabase.ImportAsset(document, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+            }
         }
 
         /// <summary>.ttf / .otf / .ttc by the font's first bytes; null for WOFF / WOFF2 and anything else.</summary>

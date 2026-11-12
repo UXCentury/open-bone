@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { GlobalFonts } from "@napi-rs/canvas";
 import { describe, expect, it } from "vitest";
 import { parseDocument } from "@openbone/core";
 import { readFileSync } from "node:fs";
@@ -41,6 +42,8 @@ describe("font tools", () => {
     expect(summary).toContain("Body 700");
     const png = await call("render_frame", {});
     expect(png.type).toBe("image");
+    // Both fonts (one from a file, one embedded as a data: URI) were registered for drawing, each as its own face.
+    expect(GlobalFonts.families.filter((f) => f.family.startsWith("OpenBone face ")).length).toBeGreaterThanOrEqual(2);
     expect((await call("validate")).text).toMatch(/no text uses family .*Body/);
     expect(errors).toEqual([]);
 

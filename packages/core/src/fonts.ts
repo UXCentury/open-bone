@@ -14,15 +14,22 @@ export function documentFontsOf(doc: OpenBoneDocument, family: string): FontAsse
   return (doc.fonts ?? []).filter((x) => x.family.toLowerCase() === f);
 }
 
+const GENERIC = new Set(["serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-serif", "ui-sans-serif", "ui-monospace", "ui-rounded", "emoji", "math", "fangsong"]);
+
 /**
- * The document font a text uses: the first family in its `font` list that the document has fonts for, and of those
- * the one whose weight is closest to `weight` (italic only when asked). Null when the text names no document font, so
- * installed fonts apply. Every runtime follows this rule.
+ * The document font a text uses. Like CSS, the text's `font` list is walked in order: the first family that the
+ * document has fonts for gives the face (of those, the one whose weight is closest to `weight`; italic only when
+ * asked), unless an earlier family is installed, which wins. Null means installed fonts apply. `isInstalled` says
+ * whether a named family is installed on this device; without it only the generic names (serif, sans-serif…) count,
+ * so they end the walk. Every runtime follows this rule.
  */
-export function pickDocumentFont(doc: OpenBoneDocument, families: string, weight = 400, italic = false): FontAsset | null {
+export function pickDocumentFont(doc: OpenBoneDocument, families: string, weight = 400, italic = false, isInstalled?: (family: string) => boolean): FontAsset | null {
   for (const fam of splitFontFamilies(families)) {
     const list = documentFontsOf(doc, fam);
-    if (!list.length) continue;
+    if (!list.length) {
+      if (GENERIC.has(fam.toLowerCase()) || isInstalled?.(fam)) return null;
+      continue;
+    }
     let best: FontAsset | null = null;
     let score = Infinity;
     for (const f of list) {

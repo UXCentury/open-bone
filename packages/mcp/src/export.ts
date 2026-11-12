@@ -24,7 +24,7 @@ import {
 import { type AtlasSettings, CanvasRenderer, type Ctx2D, atlasBuildOptions, describeAtlas } from "@openbone/render-canvas";
 import { OpenBoneInstance, type ScriptHost } from "@openbone/runtime";
 import { decodeAudio, encodeVideoFfmpeg, findFfmpeg } from "./media.ts";
-import { loadImages, packAtlasFull, packAtlasScales, useSkin } from "./render.ts";
+import { loadImages, packAtlasFull, packAtlasScales, useSkin, withRenderFonts } from "./render.ts";
 import type { ProjectSession } from "./session.ts";
 
 /**
@@ -94,8 +94,8 @@ export async function renderFrames(
   /** Filled with the audio commands the run emits, with their time (for the sound track of a video). */
   audioOut?: TimedMixCommand[],
 ): Promise<Frame[]> {
-  const doc = session.doc;
-  const images = await loadImages(session, doc);
+  const images = await loadImages(session, session.doc);
+  const doc = withRenderFonts(session.doc);
   const w = Math.max(1, Math.round(doc.width * req.scale));
   const h = Math.max(1, Math.round(doc.height * req.scale));
   const canvas = createCanvas(w, h);

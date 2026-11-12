@@ -70,6 +70,10 @@ describe("embedded fonts", () => {
     expect(pickDocumentFont(s.doc, "Missing, body serif, serif", 400)?.name).toBe("BodySerif-Regular");
     expect(pickDocumentFont(s.doc, "Missing, Body Serif", 650)?.name).toBe("BodySerif-Bold");
     expect(pickDocumentFont(s.doc, "Georgia, serif", 400)).toBeNull();
+    // Like CSS: an installed family listed earlier wins; a generic name ends the walk.
+    expect(pickDocumentFont(s.doc, "Georgia, Body Serif", 400, false, (f) => f === "Georgia")).toBeNull();
+    expect(pickDocumentFont(s.doc, "Georgia, Body Serif", 400)?.name).toBe("BodySerif-Regular");
+    expect(pickDocumentFont(s.doc, "serif, Body Serif", 400)).toBeNull();
   });
 
   it("reads family, weight and style from a font file", () => {

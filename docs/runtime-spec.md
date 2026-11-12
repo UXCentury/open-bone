@@ -669,9 +669,10 @@ sign `-` only if negative and some digit is non-zero, else `+` if `plus` and not
 Also emitted (not compared by the suite): font, size, weight, align, box size, fill/outline colours,
 `matrix = bone.world · [cos −sin; sin cos | x, y]`.
 
-Choosing a face (renderers, not the suite): for each family in `font` in order, if the document's `fonts` has that
-family (case-insensitive), use its face whose weight is closest to the text's (`core/fonts.ts:pickDocumentFont`);
-otherwise look the family up among installed fonts. Document fonts come first so text looks the same on every device.
+Choosing a face (renderers, not the suite), like CSS: walk the families in `font` in order. A family the document's
+`fonts` has (case-insensitive) gives its face whose weight is closest to the text's (`core/fonts.ts:pickDocumentFont`);
+a family installed on the device (or a generic name: serif, sans-serif, monospace…) uses the installed font; any
+other family is skipped. List the document's family first to look the same on every device.
 
 ### 8.10 Bounding-box queries (`bounds.ts:SkeletonBounds`, `Skeleton.boundingBoxes()`)
 A snapshot of the current world pose, in skeleton space (y up, the draw list's coordinates):

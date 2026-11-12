@@ -1,6 +1,6 @@
 import { type Canvas, GlobalFonts, type Image, createCanvas } from "@napi-rs/canvas";
 import { decodeImage } from "./image-load.ts";
-import { type AtlasData, type OpenBoneDocument, textureAssets } from "@openbone/core";
+import { type AtlasData, type FontAsset, type OpenBoneDocument, cloneDocument, pickDocumentFont, textureAssets } from "@openbone/core";
 import { encodePng } from "@openbone/export";
 import { type AtlasCanvas, type AtlasEnv, type AtlasScaleVariant, type BuildAtlasOptions, type BuiltAtlas, CanvasRenderer, type Ctx2D, buildAtlas, buildAtlasScales } from "@openbone/render-canvas";
 import { OpenBoneInstance, type ScriptHost } from "@openbone/runtime";
@@ -44,21 +44,53 @@ export interface RenderRequest extends PoseRequest {
   background?: string | null;
 }
 
-/** Font files registered with @napi-rs/canvas, by family and source, so a render can draw text in them. */
+/** Font files registered with @napi-rs/canvas, by alias, so a render can draw text in them. */
 const registeredFonts = new Set<string>();
+/**
+ * Each document font is registered under its own name: with several faces under one family, Skia doesn't pick the
+ * nearest weight (a 600 text skipped the 400 and 700 faces), so renders name the face the matching rule picked.
+ */
+const faceAlias = (f: FontAsset) => `OpenBone face ${f.id} ${f.src.length}`;
 
 /** Register the document's fonts so server-side renders (render_frame, GIF and video exports) draw text with them. */
 export async function loadFonts(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument) {
   for (const f of doc.fonts ?? []) {
-    const key = `${f.family}|${f.src.length > 200 ? f.src.slice(0, 200) + f.src.length : f.src}`;
-    if (registeredFonts.has(key)) continue;
+    const alias = faceAlias(f);
+    if (registeredFonts.has(alias)) continue;
     try {
-      GlobalFonts.register(Buffer.from(await session.readImageSrc(f.src)), f.family);
-      registeredFonts.add(key);
+      // readImageSrc hands data: and http(s) sources back as they are (the image decoder takes them): fetch the bytes.
+      const src = await session.readImageSrc(f.src);
+      const bytes =
+        typeof src !== "string" ? src
+        : src.startsWith("data:") ? Buffer.from(src.slice(src.indexOf(",") + 1), "base64")
+        : Buffer.from(await (await fetch(src)).arrayBuffer());
+      if (GlobalFonts.register(bytes, alias)) registeredFonts.add(alias);
     } catch {
       /* unreadable font: installed fonts apply */
     }
   }
+}
+
+/**
+ * The document as server renders draw it: each text whose font list leads (CSS order, installed families included)
+ * to a document font starts with that exact face's registered name. The document itself is not changed.
+ */
+export function withRenderFonts(doc: OpenBoneDocument): OpenBoneDocument {
+  if (!doc.fonts?.length) return doc;
+  const out = cloneDocument(doc);
+  const installed = (family: string) => GlobalFonts.has(family);
+  for (const skin of out.skeleton.skins)
+    for (const atts of Object.values(skin.attachments))
+      for (const a of Object.values(atts)) {
+        if (a.type !== "text") continue;
+        const face = pickDocumentFont(out, a.font, a.weight, false, installed);
+        if (face && registeredFonts.has(faceAlias(face))) {
+          a.font = `"${faceAlias(face)}", ${a.font}`;
+          // Skia only uses a face whose weight is the one asked for: ask for the face the rule picked.
+          a.weight = face.weight ?? 400;
+        }
+      }
+  return out;
 }
 
 export async function loadImages(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument) {
@@ -137,8 +169,8 @@ export function pose(doc: OpenBoneDocument, req: PoseRequest, scriptHost?: Scrip
 }
 
 export async function renderPng(session: ProjectSession, req: RenderRequest, scriptHost?: ScriptHost | null) {
-  const doc = session.doc;
-  const images = await loadImages(session, doc);
+  const images = await loadImages(session, session.doc);
+  const doc = withRenderFonts(session.doc);
   const { inst, log } = pose(doc, req, scriptHost);
   const scale = req.scale ?? 1;
   const canvas = createCanvas(Math.max(1, Math.round(doc.width * scale)), Math.max(1, Math.round(doc.height * scale)));
@@ -186,8 +218,8 @@ export async function renderGif(
   /** Called with each rendered frame (e.g. to build a preview); the canvas is reused, so copy what you need. */
   onFrame?: (canvas: Canvas, index: number, count: number) => void,
 ) {
-  const doc = session.doc;
-  const images = await loadImages(session, doc);
+  const images = await loadImages(session, session.doc);
+  const doc = withRenderFonts(session.doc);
   const scale = req.scale ?? 0.5;
   const w = Math.max(1, Math.round(doc.width * scale));
   const h = Math.max(1, Math.round(doc.height * scale));

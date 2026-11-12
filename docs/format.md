@@ -152,9 +152,10 @@ are centred vertically in it. `text` is a template:
 
 Hosts can replace the template per slot at runtime (`setText`).
 
-`font` is a CSS-style family list (`"Noto Serif JP, Georgia, serif"`). For each family in order, if the document has
-`fonts` of that family (case-insensitive), the text uses the one whose weight is closest to its `weight`; otherwise the runtime looks the family up among installed fonts, and the
-generic names (`serif`, `sans-serif`, `monospace`) map to the platform's defaults.
+`font` is a CSS-style family list (`"Noto Serif JP, Georgia, serif"`), walked in order as in CSS: a family the
+document has `fonts` for (case-insensitive) uses the one whose weight is closest to the text's `weight`; a family
+installed on the device uses that; others are skipped; the generic names (`serif`, `sans-serif`, `monospace`) map to
+the platform's defaults. Put the document's family first to look the same everywhere.
 
 ## Fonts
 
