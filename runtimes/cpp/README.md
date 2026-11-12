@@ -99,7 +99,7 @@ ob_document_free(doc);
 ```
 
 Also: animation / skin / state machine / input / texture listings on the document, `ob_instance_play` / `queue`,
-`set_bool` / `set_number` / `set_string` / `fire` / `get_input`, `active_state`, `set_text`, `set_transform`, bones, slots,
+`ob_document_font` (fonts the document ships), `set_bool` / `set_number` / `set_string` / `fire` / `get_input`, `active_state`, `set_text`, `set_transform`, bones, slots,
 clipping masks (`ob_instance_clip`), bounds. [`examples/c/play.c`](examples/c/play.c) is a complete program.
 
 ## Bounding boxes and path constant speed
@@ -139,14 +139,20 @@ atlas pages may be premultiplied, `Document::atlas->premultipliedAlpha`), or the
 (`@openbone/particle-dot`, `particleDotAlpha`; `ob_particle_dot_alpha` in the C API). Text items carry the resolved string, font, size, alignment, colours
 and the box-to-skeleton matrix. `engines/common/openbone_assets.hpp` decodes `data:` URLs and builds the dot sprite.
 
+Documents can ship their fonts (`Document::fonts`: `FontAsset` with `family`, `src`, `weight`, `style`; C API
+`ob_document_font_count` / `ob_document_font`), so text looks the same everywhere. A text's `font` is a CSS-like list
+("Noto Serif JP, Georgia, serif"); every runtime picks the font the same way: for each family in order
+(`splitFontFamilies`), the document's font of that family if it has one (case-insensitive, closest weight:
+`Document::findFont(family, weight)`), else the installed font of that name. The engines below all do this.
+
 ## Engines
 
 | Engine | Folder | What it is | Status here |
 | --- | --- | --- | --- |
-| Godot 4.4+ | [`engines/godot`](engines/godot) | GDExtension: `OpenBoneSprite` (Node2D) — loads a document, plays animations / state machines, mouse input, signals `animation_event`, `audio_command`, `state_changed`; draws with RenderingServer canvas items (clip-only canvas groups for masks, a canvas shader for two-colour tint and premultiplied pages, blend modes, text with the theme's fallback font) | Built against godot-cpp 4.4; loaded and run in **headless Godot 4.4.1** on the interactive and dynamics fixtures and the knight, rocket and campfire examples (`demo/test_headless.gd`, CTest with `-DGODOT_EXECUTABLE`) |
+| Godot 4.4+ | [`engines/godot`](engines/godot) | GDExtension: `OpenBoneSprite` (Node2D) — loads a document, plays animations / state machines, mouse input, signals `animation_event`, `audio_command`, `state_changed`; draws with RenderingServer canvas items (clip-only canvas groups for masks, a canvas shader for two-colour tint and premultiplied pages, blend modes, text in the document's own fonts, then installed ones (`SystemFont`), then the theme's fallback font) | Built against godot-cpp 4.4; loaded and run in **headless Godot 4.4.1** on the interactive and dynamics fixtures and the knight, rocket and campfire examples (`demo/test_headless.gd`, CTest with `-DGODOT_EXECUTABLE`) |
 | SDL2 | [`engines/sdl2`](engines/sdl2) | `SDL_RenderGeometry` sample with mouse input and sound (WAV, a software mixer in SDL's audio callback); `--frames N --out frame.bmp` renders offscreen with the software renderer | Built (SDL 2.30.9 from source) and run headless; frames checked by eye; sound checked through SDL's `disk` audio driver (the campfire loop with its fade-in) |
 | GLFW + OpenGL 3.3 | [`engines/glfw`](engines/glfw) | The WebGL2 renderer's shader and blending in plain OpenGL: two-colour tint, premultiplied pages, all four blend modes, stencil clipping masks; mouse input; `--frames N --out frame.png` renders into a hidden window. No GL loader library (functions come from `glfwGetProcAddress`) | Built (GLFW 3.4 from source) and run on Linux: examples, clipping, additive blending and a premultiplied polygon atlas checked by eye. Text is not rasterised; sound commands are printed |
-| SFML 2.6 | [`engines/sfml`](engines/sfml) | `sf::Drawable` with triangle arrays, a GLSL two-colour tint shader, mouse input, `sf::Text` for text with `--font`, sound with `sf::Sound` when sfml-audio is available; `--out frame.png` renders into an `sf::RenderTexture` | Built (SFML 2.6.2 from source, `-DOPENBONE_FETCH_SFML=ON`) and run offscreen, without sfml-audio (no OpenAL / Vorbis / FLAC headers here); the sound code only syntax-checked against SFML's headers |
+| SFML 2.6 | [`engines/sfml`](engines/sfml) | `sf::Drawable` with triangle arrays, a GLSL two-colour tint shader, mouse input, `sf::Text` for text in the document's fonts (`loadFromMemory`), else `--font`, sound with `sf::Sound` when sfml-audio is available; `--out frame.png` renders into an `sf::RenderTexture` | Built (SFML 2.6.2 from source, `-DOPENBONE_FETCH_SFML=ON`) and run offscreen, without sfml-audio (no OpenAL / Vorbis / FLAC headers here); the sound code only syntax-checked against SFML's headers |
 | Unreal Engine 5 | [`engines/unreal/OpenBone`](engines/unreal/OpenBone) | Plugin: `UOpenBoneComponent` (ProceduralMeshComponent, one section per draw item) over the C API, Blueprint events and calls; emits audio commands (`OnAudio`) but plays no sound | Source and build files only — **not compiled** (no Unreal Engine here) |
 | Cocos2d-x 4.0 | [`engines/cocos2dx`](engines/cocos2dx) | `OpenBoneNode` queuing a `TrianglesCommand` per draw item, `Label` text with outlines in the document's fonts, touch and mouse input | Built and run with Cocos2d-x 4.0 on Linux (Ubuntu 22.04, GCC 11): the knight and Windswept with their state machines, textures, meshes, blend modes and text |
 
@@ -247,8 +253,10 @@ sounds with `cocos2d::AudioEngine` (volume × bus × master, looping, fades; Coc
 
 Text attachments are `cocos2d::Label` children drawn on top of the skeleton, with their outline. Each text's font list
 ("Noto Serif JP, Georgia, serif") resolves to the first family that has all its characters: files you map with
-`setFontFile("Noto Serif JP", "fonts/NotoSerifJP-Regular.otf")` first, then (Linux) installed fonts through
-fontconfig; on other platforms the first family is used as a system font. Ship the fonts your documents name.
+`setFontFile("Noto Serif JP", "fonts/NotoSerifJP-Regular.otf")` first, then the document's own fonts (closest weight;
+embedded ones are written to the writable path once, since `Label` loads files), then (Linux) installed fonts through
+fontconfig; on other platforms the first family is used as a system font. Embed the fonts your documents name, or
+ship them.
 `setTextEnabled(false)` turns text off.
 
 Cocos2d-x 4.0 itself needs two fixes to build on current Linux distributions (both in Cocos, not OpenBone):

@@ -491,6 +491,40 @@ class OpenBoneBindings {
   late final _ob_document_audio_master = _ob_document_audio_masterPtr
       .asFunction<double Function(ffi.Pointer<ob_document>)>();
 
+  int ob_document_font(
+    ffi.Pointer<ob_document> doc,
+    int index,
+    ffi.Pointer<ob_font_asset> out,
+  ) {
+    return _ob_document_font(doc, index, out);
+  }
+
+  late final _ob_document_fontPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<ob_document>,
+            ffi.Int,
+            ffi.Pointer<ob_font_asset>,
+          )
+        >
+      >('ob_document_font');
+  late final _ob_document_font = _ob_document_fontPtr
+      .asFunction<
+        int Function(ffi.Pointer<ob_document>, int, ffi.Pointer<ob_font_asset>)
+      >();
+
+  int ob_document_font_count(ffi.Pointer<ob_document> doc) {
+    return _ob_document_font_count(doc);
+  }
+
+  late final _ob_document_font_countPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ob_document>)>>(
+        'ob_document_font_count',
+      );
+  late final _ob_document_font_count = _ob_document_font_countPtr
+      .asFunction<int Function(ffi.Pointer<ob_document>)>();
+
   void ob_document_free(ffi.Pointer<ob_document> doc) {
     return _ob_document_free(doc);
   }
@@ -1978,6 +2012,40 @@ typedef ob_event_fnFunction =
     ffi.Void Function(ffi.Pointer<ffi.Void> user, ffi.Pointer<ob_event> event);
 typedef Dartob_event_fnFunction =
     void Function(ffi.Pointer<ffi.Void> user, ffi.Pointer<ob_event> event);
+
+/// Font files of the document. Text items name `family` in their CSS-like font list; for each family in order, use the
+/// document font of that family (case-insensitive) whose weight is closest to the text's weight, else an installed font.
+/// `src` is a data: URL or a path relative to the document; `style` is "normal" or "italic".
+final class ob_font_asset extends ffi.Struct {
+  external ffi.Pointer<ffi.Char> id;
+
+  external ffi.Pointer<ffi.Char> name;
+
+  external ffi.Pointer<ffi.Char> family;
+
+  external ffi.Pointer<ffi.Char> src;
+
+  @ffi.Double()
+  external double weight;
+
+  external ffi.Pointer<ffi.Char> style;
+
+  static ffi.Pointer<ob_font_asset> $allocate(
+    ffi.Allocator $allocator, {
+    required ffi.Pointer<ffi.Char> id,
+    required ffi.Pointer<ffi.Char> name,
+    required ffi.Pointer<ffi.Char> family,
+    required ffi.Pointer<ffi.Char> src,
+    required double weight,
+    required ffi.Pointer<ffi.Char> style,
+  }) => $allocator<ob_font_asset>()
+    ..ref.id = id
+    ..ref.name = name
+    ..ref.family = family
+    ..ref.src = src
+    ..ref.weight = weight
+    ..ref.style = style;
+}
 
 final class ob_instance extends ffi.Opaque {}
 

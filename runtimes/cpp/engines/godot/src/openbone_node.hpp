@@ -78,6 +78,8 @@ class OpenBoneSprite : public Node2D {
   Array get_draw_items() const;
   Rect2 get_bounds() const;
   bool set_text(const String& slot, const String& text);
+  /** The Font text items with this CSS-like family list and weight draw with (document fonts first, see font_for). */
+  Ref<Font> get_text_font(const String& families, double weight = 400);
 
  protected:
   static void _bind_methods();
@@ -99,7 +101,9 @@ class OpenBoneSprite : public Node2D {
   std::unique_ptr<openbone::Instance> instance;
   std::unordered_map<std::string, Ref<Texture2D>> textures;
   std::unordered_map<std::string, Ref<Font>> fonts;                     // by CSS family list + weight
+  std::unordered_map<std::string, Ref<Font>> font_files;                // document fonts by asset id (null = failed)
   Ref<Font> font_for(const std::string& families, double weight);
+  Ref<Font> document_font(const openbone::FontAsset& asset);
   std::unordered_map<std::string, bool> premultiplied;
   std::vector<RID> items;  // pooled canvas items (children of this node's canvas item)
   std::map<std::tuple<int, bool, float, float, float, bool>, RID> materials;

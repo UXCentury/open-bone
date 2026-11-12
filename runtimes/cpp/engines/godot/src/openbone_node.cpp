@@ -8,6 +8,9 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <algorithm>
 #include <godot_cpp/classes/font.hpp>
+#include <godot_cpp/classes/font_file.hpp>
+#include <godot_cpp/classes/font_variation.hpp>
+#include <godot_cpp/classes/os.hpp>
 #include <godot_cpp/classes/system_font.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
@@ -263,6 +266,7 @@ void OpenBoneSprite::_bind_methods() {
   ClassDB::bind_method(D_METHOD("get_draw_items"), &OpenBoneSprite::get_draw_items);
   ClassDB::bind_method(D_METHOD("get_bounds"), &OpenBoneSprite::get_bounds);
   ClassDB::bind_method(D_METHOD("set_text", "slot", "text"), &OpenBoneSprite::set_text);
+  ClassDB::bind_method(D_METHOD("get_text_font", "families", "weight"), &OpenBoneSprite::get_text_font, DEFVAL(400.0));
   ClassDB::bind_method(D_METHOD("set_audio_enabled", "enabled"), &OpenBoneSprite::set_audio_enabled);
   ClassDB::bind_method(D_METHOD("get_audio_enabled"), &OpenBoneSprite::get_audio_enabled);
   ClassDB::bind_method(D_METHOD("set_audio_bus", "bus"), &OpenBoneSprite::set_audio_bus);
@@ -333,6 +337,8 @@ bool OpenBoneSprite::load(const String& path_ref) {
     return false;
   }
   textures.clear();
+  fonts.clear();
+  font_files.clear();
   premultiplied.clear();
   stop_all_audio();
   streams.clear();
@@ -570,32 +576,85 @@ bool OpenBoneSprite::set_text(const String& slot, const String& text) {
 
 // ---------------- Drawing ----------------
 
+/** A FontFile from a document font's bytes (data: URL, or a path relative to the document); null if it won't load. */
+Ref<Font> OpenBoneSprite::document_font(const ob::FontAsset& asset) {
+  auto it = font_files.find(asset.id);
+  if (it != font_files.end()) return it->second;
+  Ref<FontFile> ff;
+  const std::string& src = asset.src;
+  PackedByteArray raw;
+  if (src.rfind("data:", 0) == 0) {
+    const size_t comma = src.find(',');
+    raw = Marshalls::get_singleton()->base64_to_raw(S(comma == std::string::npos ? "" : src.substr(comma + 1)));
+  } else if (!src.empty()) {
+    const String path = document_path.get_base_dir().path_join(S(src));
+    if (ResourceLoader::get_singleton()->exists(path)) ff = ResourceLoader::get_singleton()->load(path);  // imported font
+    else raw = FileAccess::get_file_as_bytes(path);
+  }
+  if (ff.is_null() && !raw.is_empty()) {
+    ff.instantiate();
+    ff->set_data(raw);
+    if (ff->get_face_count() < 1) ff.unref();  // not a font file
+  }
+  if (ff.is_null()) UtilityFunctions::push_warning("OpenBone: cannot load font ", S(asset.name.empty() ? asset.family : asset.name), " (", S(src.rfind("data:", 0) == 0 ? "data:" : src), ")");
+  font_files[asset.id] = ff;
+  return ff;
+}
+
 /**
- * The font for a text item: the document's CSS family list ("Noto Serif JP, Georgia, serif") as a SystemFont, which
- * picks the first installed family (generic serif / sans-serif / monospace included) and falls back per glyph to
- * other system fonts, so Japanese shows even when the first family lacks it. Godot's default font if none resolves.
+ * The font for a text item, from the document's CSS family list ("Noto Serif JP, Georgia, serif"). For each family in
+ * order: the document's own font of that family (closest weight), else the installed font of that name (generic serif /
+ * sans-serif / monospace included). The first one found draws the text; the others follow as fallbacks for characters
+ * it lacks, and Godot falls back per glyph to other system fonts after them, so Japanese shows even when the first
+ * family lacks it. Godot's default font if nothing resolves.
  */
 Ref<Font> OpenBoneSprite::font_for(const std::string& families, double weight) {
   const std::string key = families + "|" + std::to_string((int)weight);
   auto it = fonts.find(key);
   if (it != fonts.end()) return it->second;
-  PackedStringArray names;
-  for (const String& part : S(families).split(",")) {
-    const String n = part.strip_edges().trim_prefix("\"").trim_suffix("\"").trim_prefix("'").trim_suffix("'");
-    if (!n.is_empty()) names.push_back(n);
-  }
-  Ref<Font> font;
-  if (!names.is_empty()) {
+  const int w = (int)std::clamp(weight, 100.0, 999.0);
+  auto system_font = [&](const PackedStringArray& names) {
     Ref<SystemFont> sf;
     sf.instantiate();
     sf->set_font_names(names);
-    sf->set_font_weight((int)std::clamp(weight, 100.0, 999.0));
-    font = sf;
+    sf->set_font_weight(w);
+    return Ref<Font>(sf);
+  };
+  TypedArray<Font> chain;
+  PackedStringArray system;  // families the document doesn't ship
+  for (const std::string& name : ob::splitFontFamilies(families)) {
+    const ob::FontAsset* asset = doc ? doc->findFont(name, weight) : nullptr;
+    Ref<Font> f = asset ? document_font(*asset) : Ref<Font>();
+    if (f.is_valid()) {
+      if (!chain.has(f)) chain.push_back(f);
+      continue;
+    }
+    system.push_back(S(name));
+    if (!OS::get_singleton()->get_system_font_path(S(name), w).is_empty()) {
+      PackedStringArray one;
+      one.push_back(S(name));
+      chain.push_back(system_font(one));
+    }
+  }
+  // No installed family found (or system fonts unsupported, as on the web): let SystemFont pick its fallback.
+  if (chain.is_empty() && !system.is_empty()) chain.push_back(system_font(system));
+  Ref<Font> font;
+  if (chain.size() == 1) font = chain[0];
+  else if (chain.size() > 1) {
+    // A FontVariation carries this list's fallbacks, so a document FontFile shared by other lists stays untouched.
+    Ref<FontVariation> v;
+    v.instantiate();
+    v->set_base_font(chain[0]);
+    chain.remove_at(0);
+    v->set_fallbacks(chain);
+    font = v;
   }
   if (font.is_null()) font = ThemeDB::get_singleton()->get_fallback_font();
   fonts[key] = font;
   return font;
 }
+
+Ref<Font> OpenBoneSprite::get_text_font(const String& families, double weight) { return font_for(U(families), weight); }
 
 Ref<Texture2D> OpenBoneSprite::texture_for(const std::string& id, const std::string& src, bool page) {
   auto it = textures.find(id);

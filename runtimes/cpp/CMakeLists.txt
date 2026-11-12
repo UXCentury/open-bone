@@ -130,6 +130,10 @@ if(OPENBONE_BUILD_TESTS)
   target_link_libraries(openbone_unit PRIVATE openbone)
   target_include_directories(openbone_unit PRIVATE src)
   add_test(NAME unit COMMAND openbone_unit)
+  # Document-embedded fonts: .obone/.obonb parsing, family/weight matching and the C API.
+  add_executable(openbone_fonts tests/fonts.cpp)
+  target_link_libraries(openbone_fonts PRIVATE openbone)
+  add_test(NAME fonts COMMAND openbone_fonts)
   # The engine samples' shared sound mixer (header-only, engines/common/openbone_audio.hpp).
   add_executable(openbone_engine_audio tests/engine_audio.cpp)
   target_link_libraries(openbone_engine_audio PRIVATE openbone)

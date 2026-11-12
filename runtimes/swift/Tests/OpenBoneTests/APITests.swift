@@ -180,4 +180,25 @@ final class APITests: XCTestCase {
             _ = inst.drawList()
         }
     }
+
+    func testDocumentFonts() throws {
+        let json = """
+        {"format": "openbone", "version": 1, "name": "fonts",
+         "fonts": [
+          {"id": "f1", "name": "Regular", "family": "OpenBone Display", "src": "data:font/ttf;base64,AAEAAA=="},
+          {"id": "f2", "name": "Bold", "family": "OpenBone Display", "src": "fonts/bold.ttf", "weight": 700, "style": "italic"}],
+         "skeleton": {"bones": [{"id": "b", "name": "root", "parent": null}], "slots": [], "skins": []}}
+        """
+        let doc = try OpenBoneDocument(data: Data(json.utf8))
+        XCTAssertEqual(doc.fonts.map(\.id), ["f1", "f2"])
+        XCTAssertEqual(doc.fonts[0].weight, 400)
+        XCTAssertEqual(doc.fonts[0].style, "normal")
+        XCTAssertEqual(doc.fonts[1].style, "italic")
+        XCTAssertEqual(doc.font(family: "openbone display", weight: 400)?.id, "f1")
+        XCTAssertEqual(doc.font(family: "OpenBone Display", weight: 650)?.id, "f2")
+        XCTAssertNil(doc.font(family: "Georgia"))
+        XCTAssertEqual(doc.fontData(for: doc.fonts[0].source), Data([0, 1, 0, 0]))
+        XCTAssertEqual(OpenBoneDocument.fontFamilies(" Noto Serif JP, 'Open Sans',serif"), ["Noto Serif JP", "Open Sans", "serif"])
+        XCTAssertTrue(try load("transforms").fonts.isEmpty)
+    }
 }

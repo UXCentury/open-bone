@@ -3,6 +3,8 @@
 #include "exact_math.h"  // first: no FMA contraction (bit-exact results)
 
 #include <algorithm>
+#include <cctype>
+#include <cmath>
 #include <cstring>
 #include <fstream>
 #include <sstream>
@@ -433,6 +435,8 @@ std::shared_ptr<const Document> build(const json& j) {
   d.fps = num(j, "fps", 30);
   if (const json* ims = get(j, "images"))
     for (const auto& im : *ims) d.images.push_back({str(im, "id"), str(im, "name"), str(im, "src"), num(im, "width"), num(im, "height")});
+  if (const json* fs = get(j, "fonts"))
+    for (const auto& f : *fs) d.fonts.push_back({str(f, "id"), str(f, "name"), str(f, "family"), str(f, "src"), num(f, "weight", 400), str(f, "style", "normal")});
   if (const json* at = get(j, "atlas")) {
     AtlasData a;
     if (const json* ps = get(*at, "pages"))
@@ -931,6 +935,34 @@ const EventData* Document::eventById(const Id& id) const {
     if (e.id == id) return &e;
   return nullptr;
 }
+const FontAsset* Document::findFont(const std::string& family, double weight) const {
+  auto lower = [](std::string x) {
+    for (auto& c : x) c = (char)std::tolower((unsigned char)c);
+    return x;
+  };
+  const std::string fam = lower(family);
+  const FontAsset* best = nullptr;
+  for (const auto& f : fonts)
+    if (lower(f.family) == fam && (!best || std::abs(f.weight - weight) < std::abs(best->weight - weight))) best = &f;
+  return best;
+}
+
+std::vector<std::string> splitFontFamilies(const std::string& list) {
+  std::vector<std::string> out;
+  size_t i = 0;
+  while (i <= list.size()) {
+    size_t j = list.find(',', i);
+    if (j == std::string::npos) j = list.size();
+    std::string n = list.substr(i, j - i);
+    const size_t a = n.find_first_not_of(" \t\n\r"), b = n.find_last_not_of(" \t\n\r");
+    n = a == std::string::npos ? std::string() : n.substr(a, b - a + 1);
+    if (n.size() >= 2 && (n.front() == '"' || n.front() == '\'') && n.back() == n.front()) n = n.substr(1, n.size() - 2);
+    if (!n.empty()) out.push_back(n);
+    i = j + 1;
+  }
+  return out;
+}
+
 const StateMachineData* Document::findStateMachine(const std::string& ref) const {
   for (const auto& s : stateMachines)
     if (s.name == ref || s.id == ref) return &s;
