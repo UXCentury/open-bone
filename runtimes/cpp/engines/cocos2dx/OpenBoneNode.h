@@ -7,6 +7,11 @@
 //   node->setPosition(480, 120);
 //   scene->addChild(node);
 //
+// Text attachments are drawn by cocos2d::Label children (on top of the skeleton), with their outline. Their font is the
+// document's family list ("Noto Serif JP, Georgia, serif"): setFontFile() maps a family to a .ttf/.otf you ship; on
+// Linux installed families are found with fontconfig (the first with every character of the text); elsewhere the first
+// family is used as a system font, which the OS fills in for missing characters.
+//
 // SPDX-License-Identifier: MIT
 #pragma once
 
@@ -41,16 +46,30 @@ class OpenBoneNode : public cocos2d::Node {
 
   /** Play the document's sounds with cocos2d::AudioEngine (default on; onAudio is called either way). Cocos2d-x has
       no playback rate, so `rate` is ignored. */
+  /** Use this font file (FileUtils path) for a family name in the documents' text, before system fonts. */
+  void setFontFile(const std::string& family, const std::string& file);
+  /** Draw text attachments (default on). */
+  void setTextEnabled(bool enabled);
+
   void setAudioEnabled(bool enabled);
   bool isAudioEnabled() const { return _audioEnabled; }
   void stopAllAudio();
 
   void update(float dt) override;
+  /** Stops the node's sounds when it leaves the running scene. */
+  void onExit() override;
   void draw(cocos2d::Renderer* renderer, const cocos2d::Mat4& transform, uint32_t flags) override;
   ~OpenBoneNode() override;
 
  private:
   bool init(const std::string& file, bool scripts);
+  void syncText();
+  /** Font file for a family list and text ("" = use the first family as a system font). */
+  std::string fontFileFor(const std::string& families, const std::string& text);
+  bool _textEnabled = true;
+  std::vector<cocos2d::Label*> _labels;
+  std::unordered_map<std::string, std::string> _fontFiles;   // registered: lower-case family → file
+  std::unordered_map<std::string, std::string> _fontCache;   // families + text → resolved file
   cocos2d::Texture2D* texture(const openbone::TextureRef& ref);
   void handleAudio(const openbone::AudioCommand& c);
   std::string audioFile(const std::string& assetId);

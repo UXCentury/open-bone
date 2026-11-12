@@ -153,7 +153,8 @@ knight.Draw();
 Dependencies: [MonoGame.Framework.DesktopGL](https://github.com/MonoGame/MonoGame) 3.8.6.1 (Ms-PL, a permissive
 licence: it asks to keep its notices and to license source you distribute *of MonoGame itself* under Ms-PL; it puts no
 terms on your code), which brings SDL2 (zlib), NVorbis (MIT) and an OpenAL Soft build (`MonoGame.Library.OpenAL`;
-OpenAL Soft is LGPL-2.0+, loaded as a shared library, as in every MonoGame DesktopGL game). Checked on Linux (Mesa,
+OpenAL Soft is LGPL-2.0+, loaded as a shared library, as in every MonoGame DesktopGL game), and
+[FontStashSharp](https://github.com/FontStashSharp/FontStashSharp) 1.6.2 (zlib) with StbTrueTypeSharp (MIT) for text. Checked on Linux (Mesa,
 OpenGL 4.6): the sample renders the knight in a window and off-screen (`--screenshot out.png --frames 60
 --click 520,460@5`), with clipping (campfire), additive particles (rocket), the tint effect and the BasicEffect
 fallback (`--basic-effect`). Not run on Windows or macOS yet.

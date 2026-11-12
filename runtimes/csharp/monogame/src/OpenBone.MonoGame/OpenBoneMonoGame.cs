@@ -41,6 +41,9 @@ namespace OpenBone.MonoGame
         public Document Document { get; }
         public OpenBoneInstance Instance { get; }
         public OpenBoneRenderer Renderer { get; }
+        /// <summary>The default text renderer: the document's fonts at runtime (register font files you ship on it).</summary>
+        public FontStashTextRenderer Text { get; }
+        readonly SpriteBatch _textBatch;
         public OpenBoneTextures Textures { get; }
         /// <summary>The sound player, or null when sound is off.</summary>
         public OpenBoneSoundPlayer Sound { get; }
@@ -85,6 +88,10 @@ namespace OpenBone.MonoGame
             if (options.Skin != null) Instance.Skeleton.SetSkin(options.Skin);
             Textures = OpenBoneTextures.Load(device, doc, baseDirectory);
             Renderer = new OpenBoneRenderer(device);
+            // Text in the document's fonts (installed or registered on Text); replace Renderer.TextRenderer to use
+            // SpriteFonts instead, or set it to null to skip text.
+            Text = new FontStashTextRenderer(_textBatch = new SpriteBatch(device));
+            Renderer.TextRenderer = Text;
             Renderer.MissingTexture += id => Warn($"no texture for \"{id}\"");
             if (Renderer.EffectError != null) Warn("two-colour tint effect unavailable, using BasicEffect: " + Renderer.EffectError);
             if (options.Sound)
@@ -200,10 +207,28 @@ namespace OpenBone.MonoGame
             return b == null ? (Vector2?)null : View.SkeletonToScreen(b.World.X, b.World.Y);
         }
 
+        /// <summary>
+        /// Draw only inside the stage (the artboard, as framed in the editor), like a camera: art placed past its edges is
+        /// cut off. On by default, as in the web player; false draws everything.
+        /// </summary>
+        public bool ClipToStage = true;
+
+        /// <summary>The stage (artboard) on screen through the current View.</summary>
+        public Rectangle StageRectangle()
+        {
+            double w = Document.Width > 0 ? Document.Width : 1, h = Document.Height > 0 ? Document.Height : 1;
+            var a = View.SkeletonToScreen(-Document.OriginX, Document.OriginY);
+            var b = View.SkeletonToScreen(w - Document.OriginX, Document.OriginY - h);
+            int x0 = (int)Math.Round(Math.Min(a.X, b.X)), y0 = (int)Math.Round(Math.Min(a.Y, b.Y));
+            int x1 = (int)Math.Round(Math.Max(a.X, b.X)), y1 = (int)Math.Round(Math.Max(a.Y, b.Y));
+            return new Rectangle(x0, y0, x1 - x0, y1 - y0);
+        }
+
         /// <summary>Draw the current pose (call between Clear and Present; restores device states).</summary>
         public void Draw()
         {
             if (AutoFit) View = SkeletonView.FitStage(Document, _device.Viewport.Bounds, FitPadding);
+            Renderer.Clip = ClipToStage ? StageRectangle() : (Rectangle?)null;
             Renderer.Draw(Instance, Textures, View);
         }
 
@@ -213,6 +238,8 @@ namespace OpenBone.MonoGame
             Instance.Dispose();
             Renderer.Dispose();
             Textures.Dispose();
+            Text?.Dispose();
+            _textBatch?.Dispose();
         }
     }
 }

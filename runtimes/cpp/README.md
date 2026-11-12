@@ -148,7 +148,7 @@ and the box-to-skeleton matrix. `engines/common/openbone_assets.hpp` decodes `da
 | GLFW + OpenGL 3.3 | [`engines/glfw`](engines/glfw) | The WebGL2 renderer's shader and blending in plain OpenGL: two-colour tint, premultiplied pages, all four blend modes, stencil clipping masks; mouse input; `--frames N --out frame.png` renders into a hidden window. No GL loader library (functions come from `glfwGetProcAddress`) | Built (GLFW 3.4 from source) and run on Linux: examples, clipping, additive blending and a premultiplied polygon atlas checked by eye. Text is not rasterised; sound commands are printed |
 | SFML 2.6 | [`engines/sfml`](engines/sfml) | `sf::Drawable` with triangle arrays, a GLSL two-colour tint shader, mouse input, `sf::Text` for text with `--font`, sound with `sf::Sound` when sfml-audio is available; `--out frame.png` renders into an `sf::RenderTexture` | Built (SFML 2.6.2 from source, `-DOPENBONE_FETCH_SFML=ON`) and run offscreen, without sfml-audio (no OpenAL / Vorbis / FLAC headers here); the sound code only syntax-checked against SFML's headers |
 | Unreal Engine 5 | [`engines/unreal/OpenBone`](engines/unreal/OpenBone) | Plugin: `UOpenBoneComponent` (ProceduralMeshComponent, one section per draw item) over the C API, Blueprint events and calls; emits audio commands (`OnAudio`) but plays no sound | Source and build files only — **not compiled** (no Unreal Engine here) |
-| Cocos2d-x 4.0 | [`engines/cocos2dx`](engines/cocos2dx) | `OpenBoneNode` queuing a `TrianglesCommand` per draw item, touch and mouse input | Built and run with Cocos2d-x 4.0 on Linux (Ubuntu 22.04, GCC 11): the knight with its state machine, textures, meshes and blend modes |
+| Cocos2d-x 4.0 | [`engines/cocos2dx`](engines/cocos2dx) | `OpenBoneNode` queuing a `TrianglesCommand` per draw item, `Label` text with outlines in the document's fonts, touch and mouse input | Built and run with Cocos2d-x 4.0 on Linux (Ubuntu 22.04, GCC 11): the knight and Windswept with their state machines, textures, meshes, blend modes and text |
 
 ### Godot
 
@@ -244,6 +244,12 @@ Include `engines/cocos2dx/CMakeLists.txt` from your game's CMake (see the file),
 `auto* n = OpenBoneNode::create("knight.obone"); n->useStateMachine(); n->enableTouch();`. The node plays the document's
 sounds with `cocos2d::AudioEngine` (volume × bus × master, looping, fades; Cocos has no playback rate);
 `setAudioEnabled(false)` leaves them to your `onAudio` callback.
+
+Text attachments are `cocos2d::Label` children drawn on top of the skeleton, with their outline. Each text's font list
+("Noto Serif JP, Georgia, serif") resolves to the first family that has all its characters: files you map with
+`setFontFile("Noto Serif JP", "fonts/NotoSerifJP-Regular.otf")` first, then (Linux) installed fonts through
+fontconfig; on other platforms the first family is used as a system font. Ship the fonts your documents name.
+`setTextEnabled(false)` turns text off.
 
 Cocos2d-x 4.0 itself needs two fixes to build on current Linux distributions (both in Cocos, not OpenBone):
 add `#include <memory>` to `cocos/network/SocketIO.h`, and, because the prebuilt Chipmunk library was linked against

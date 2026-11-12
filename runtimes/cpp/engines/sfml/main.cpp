@@ -105,6 +105,12 @@ class OpenBoneDrawable : public sf::Drawable, public sf::Transformable {
         const ob::TextDraw& t = *it.text;
         sf::Text text(sf::String::fromUtf8(t.content.begin(), t.content.end()), *font, (unsigned)t.size);
         text.setFillColor(colorOf(t.fill[0] * it.color[0], t.fill[1] * it.color[1], t.fill[2] * it.color[2], t.fill[3] * it.color[3]));
+        // Outline outside the glyphs by outlineWidth: the web player's canvas stroke (2 × outlineWidth, half outside).
+        if (t.outline && t.outlineWidth > 0) {
+          const ob::RGBA& o = *t.outline;
+          text.setOutlineColor(colorOf(o[0] * it.color[0], o[1] * it.color[1], o[2] * it.color[2], o[3] * it.color[3]));
+          text.setOutlineThickness(float(t.outlineWidth));
+        }
         const sf::FloatRect b = text.getLocalBounds();
         const float x = t.align == ob::TextAlign::Left ? -t.width / 2 : t.align == ob::TextAlign::Right ? t.width / 2 - b.width : -b.width / 2;
         text.setPosition(x - b.left, -b.height / 2 - b.top);

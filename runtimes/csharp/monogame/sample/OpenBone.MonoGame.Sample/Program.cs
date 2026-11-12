@@ -11,10 +11,11 @@ namespace OpenBone.MonoGame.Sample
 {
     /// <summary>
     /// Shows examples/knight.obone with its state machine: click the knight's body to attack, his head to salute or the
-    /// road to toggle walking (the listeners' slots). Space fires "attack", W toggles "walk", Esc quits.
+    /// road to toggle walking (the listeners' slots). Space fires "attack", W toggles "walk", C toggles clipping to the
+    /// stage (on by default; --no-clip starts with it off), Esc quits.
     ///
     /// Usage: OpenBone.MonoGame.Sample [file.obone] [--state-machine name] [--animation name]
-    ///        [--screenshot out.png] [--frames n] [--click x,y@frame]... [--basic-effect]
+    ///        [--screenshot out.png] [--frames n] [--click x,y@frame]... [--basic-effect] [--no-clip]
     /// --screenshot renders off-screen (after --frames frames at 60 fps, with the given clicks) to a PNG and exits.
     /// </summary>
     public sealed class SampleGame : Game
@@ -24,6 +25,7 @@ namespace OpenBone.MonoGame.Sample
         OpenBoneMonoGame _player;
         KeyboardState _keys;
         RenderTarget2D _target;
+        SpriteBatch _batch;
         int _frame;
 
         public SampleGame(Options options)
@@ -71,13 +73,20 @@ namespace OpenBone.MonoGame.Sample
                 _player.Sound?.StopAll();
                 if (_player.Sound != null) _player.Sound.Volume = 0;
             }
-            Window.Title = $"OpenBone MonoGame - {_player.Document.Name}";
+            _player.ClipToStage = !_options.NoClip;
+            Window.Title = $"OpenBone MonoGame - {_player.Document.Name} (clip {(_player.ClipToStage ? "on" : "off")}, C toggles)";
         }
 
         protected override void Update(GameTime gameTime)
         {
             var keys = Keyboard.GetState();
             if (keys.IsKeyDown(Keys.Escape)) Exit();
+            if (IsActive && keys.IsKeyDown(Keys.C) && !_keys.IsKeyDown(Keys.C))
+            {
+                _player.ClipToStage = !_player.ClipToStage;
+                Console.WriteLine("clip to stage: " + (_player.ClipToStage ? "on" : "off"));
+                Window.Title = $"OpenBone MonoGame - {_player.Document.Name} (clip {(_player.ClipToStage ? "on" : "off")}, C toggles)";
+            }
             var sm = _player.StateMachine;
             if (sm != null && IsActive)
             {
@@ -106,7 +115,17 @@ namespace OpenBone.MonoGame.Sample
         protected override void Draw(GameTime gameTime)
         {
             if (_target != null) GraphicsDevice.SetRenderTarget(_target);
-            GraphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer | ClearOptions.Stencil, Background(), 1, 0);
+            if (_player.ClipToStage)
+            {
+                // Dark bars around the stage, the document's background only on it (as the web player shows it).
+                GraphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer | ClearOptions.Stencil, new Color(11, 6, 20), 1, 0);
+                if (_player.AutoFit) _player.View = SkeletonView.FitStage(_player.Document, GraphicsDevice.Viewport.Bounds, _player.FitPadding);
+                _batch ??= new SpriteBatch(GraphicsDevice);
+                _batch.Begin();
+                _batch.Draw(_player.Textures.White, _player.StageRectangle(), Background());
+                _batch.End();
+            }
+            else GraphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer | ClearOptions.Stencil, Background(), 1, 0);
             _player.Draw();
             if (_target != null)
             {
@@ -147,7 +166,7 @@ namespace OpenBone.MonoGame.Sample
         public string File;
         public string StateMachine, Animation, Screenshot;
         public int Frames = 60;
-        public bool BasicEffect;
+        public bool BasicEffect, NoClip;
         public readonly List<Click> Clicks = new List<Click>();
 
         public static Options Parse(string[] args)
@@ -162,6 +181,7 @@ namespace OpenBone.MonoGame.Sample
                     case "--screenshot": o.Screenshot = args[++i]; break;
                     case "--frames": o.Frames = int.Parse(args[++i]); break;
                     case "--basic-effect": o.BasicEffect = true; break;
+                    case "--no-clip": o.NoClip = true; break;
                     case "--click":
                         {
                             var parts = args[++i].Split('@');

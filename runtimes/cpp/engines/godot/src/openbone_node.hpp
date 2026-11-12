@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <godot_cpp/classes/font.hpp>
 #include <godot_cpp/classes/input_event.hpp>
 #include <godot_cpp/classes/audio_stream.hpp>
 #include <godot_cpp/classes/audio_stream_player.hpp>
@@ -97,6 +98,8 @@ class OpenBoneSprite : public Node2D {
   std::shared_ptr<const openbone::Document> doc;
   std::unique_ptr<openbone::Instance> instance;
   std::unordered_map<std::string, Ref<Texture2D>> textures;
+  std::unordered_map<std::string, Ref<Font>> fonts;                     // by CSS family list + weight
+  Ref<Font> font_for(const std::string& families, double weight);
   std::unordered_map<std::string, bool> premultiplied;
   std::vector<RID> items;  // pooled canvas items (children of this node's canvas item)
   std::map<std::tuple<int, bool, float, float, float, bool>, RID> materials;

@@ -63,4 +63,41 @@ inline std::vector<uint8_t> particleDot(int n = PARTICLE_DOT_SIZE) {
   return px;
 }
 
+/**
+ * Alpha bleeding for straight-alpha RGBA pixels: give fully transparent pixels the average colour of their visible
+ * neighbours, spreading `passes` pixels out from every edge. Transparent pixels decode as black, so a renderer that
+ * filters (or blends) straight-alpha images mixes that black into the edges and draws a dark rim around every part.
+ * Bled pixels stay fully transparent; only their colour changes. Not needed for premultiplied images.
+ */
+inline void bleedTransparentEdges(uint8_t* px, int w, int h, int passes = 4) {
+  if (!px || w <= 0 || h <= 0) return;
+  std::vector<uint8_t> filled((size_t)w * h);
+  for (size_t i = 0; i < filled.size(); i++) filled[i] = px[i * 4 + 3] != 0;
+  std::vector<uint8_t> next = filled;
+  for (int pass = 0; pass < passes; pass++) {
+    bool changed = false;
+    for (int y = 0; y < h; y++)
+      for (int x = 0; x < w; x++) {
+        const size_t i = (size_t)y * w + x;
+        if (filled[i]) continue;
+        int r = 0, g = 0, b = 0, n = 0;
+        for (int dy = -1; dy <= 1; dy++)
+          for (int dx = -1; dx <= 1; dx++) {
+            const int nx = x + dx, ny = y + dy;
+            if ((dx || dy) && nx >= 0 && ny >= 0 && nx < w && ny < h && filled[(size_t)ny * w + nx]) {
+              const uint8_t* q = px + ((size_t)ny * w + nx) * 4;
+              r += q[0], g += q[1], b += q[2], n++;
+            }
+          }
+        if (!n) continue;
+        uint8_t* p = px + i * 4;
+        p[0] = (uint8_t)(r / n), p[1] = (uint8_t)(g / n), p[2] = (uint8_t)(b / n);
+        next[i] = 1;
+        changed = true;
+      }
+    if (!changed) break;
+    filled = next;
+  }
+}
+
 }  // namespace openbone::assets

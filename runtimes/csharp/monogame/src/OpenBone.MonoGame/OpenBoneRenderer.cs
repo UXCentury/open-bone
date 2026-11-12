@@ -94,6 +94,12 @@ namespace OpenBone.MonoGame
         public void Draw(OpenBoneInstance instance, OpenBoneTextures textures, SkeletonView view) =>
             Draw(instance.DrawList(), textures, view.Matrix);
 
+        /// <summary>
+        /// Screen rectangle to draw inside (a scissor rectangle), or null to draw everywhere. OpenBoneMonoGame sets it to
+        /// the stage with ClipToStage, like the web player clipping to the artboard.
+        /// </summary>
+        public Rectangle? Clip;
+
         /// <summary>Draw a draw list; <paramref name="skeletonToScreen"/> maps skeleton space to screen pixels.</summary>
         public void Draw(IReadOnlyList<DrawItem> items, OpenBoneTextures textures, Matrix skeletonToScreen)
         {
@@ -108,7 +114,16 @@ namespace OpenBone.MonoGame
             var oldDepth = d.DepthStencilState;
             var oldRaster = d.RasterizerState;
             var oldSampler = d.SamplerStates[0];
+            var oldScissor = d.ScissorRectangle;
             var vp = d.Viewport;
+            var raster = RenderStates.NoCull;
+            if (Clip is Rectangle clip)
+            {
+                var r = Rectangle.Intersect(clip, vp.Bounds);
+                if (r.Width <= 0 || r.Height <= 0) return;
+                d.ScissorRectangle = r;
+                raster = RenderStates.NoCullScissor;
+            }
             var projection = Projection ?? Matrix.CreateOrthographicOffCenter(0, vp.Width, vp.Height, 0, 0, 1);
 
             Effect effect;
@@ -140,6 +155,7 @@ namespace OpenBone.MonoGame
                     var b = _mesher.Batch(i);
                     if (b.Text != null)
                     {
+                        d.RasterizerState = raster;  // text renderers clip when this does
                         TextRenderer?.DrawText(b.Text, skeletonToScreen, RenderStates.ForStencil(b.Stencil));
                         continue;
                     }
@@ -148,7 +164,7 @@ namespace OpenBone.MonoGame
                     if (tex == null) continue;
                     d.BlendState = RenderStates.ForBatch(b.Blend, b.Stencil);
                     d.DepthStencilState = RenderStates.ForStencil(b.Stencil);
-                    d.RasterizerState = RenderStates.NoCull;
+                    d.RasterizerState = raster;
                     if (texParam != null) texParam.SetValue(tex);
                     else if (effect == _basic) _basic.Texture = tex;
                     foreach (var pass in effect.CurrentTechnique.Passes)
@@ -167,6 +183,7 @@ namespace OpenBone.MonoGame
                 d.BlendState = oldBlend;
                 d.DepthStencilState = oldDepth;
                 d.RasterizerState = oldRaster;
+                d.ScissorRectangle = oldScissor;
                 d.SamplerStates[0] = oldSampler;
             }
         }

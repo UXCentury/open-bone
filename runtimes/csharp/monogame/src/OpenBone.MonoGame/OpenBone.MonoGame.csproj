@@ -17,6 +17,8 @@
   <ItemGroup>
     <!-- MonoGame: Ms-PL (permissive; no copyleft on code that links it). -->
     <PackageReference Include="MonoGame.Framework.DesktopGL" Version="3.8.6.1" />
+    <!-- Text in the document's fonts, loaded at runtime (zlib licence). -->
+    <PackageReference Include="FontStashSharp.MonoGame" Version="1.6.2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../../../src/OpenBone.Runtime/OpenBone.Runtime.csproj" />

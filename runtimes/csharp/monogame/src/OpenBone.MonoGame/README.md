@@ -72,13 +72,14 @@ Drive the state machine from code with `knight.StateMachine.SetInput("walk", tru
 
 | Type | What it does |
 |---|---|
-| `OpenBoneMonoGame` | One document in your game. `Load(device, path, options)`, `Play`, `UseStateMachine`, `SetSkin`, `Update`, `Draw`, `Pointer(type, screenPosition)`, `BoneScreenPosition`, `ScreenToSkeleton`. Settings: `View`, `AutoFit`, `FitPadding`, `TimeScale`, `PointerInput`, `AcceptInput`. Events: `Event`, `StateChanged`, `AudioCommand`, `Warning`, `PointerSent`. Gives access to `Instance`, `Renderer`, `Textures` and `Sound`. |
+| `OpenBoneMonoGame` | One document in your game. `Load(device, path, options)`, `Play`, `UseStateMachine`, `SetSkin`, `Update`, `Draw`, `Pointer(type, screenPosition)`, `BoneScreenPosition`, `ScreenToSkeleton`. Settings: `View`, `AutoFit`, `FitPadding`, `ClipToStage` (default on: draw only inside the stage, like the web player; `StageRectangle()` gives it on screen), `TimeScale`, `PointerInput`, `AcceptInput`. Events: `Event`, `StateChanged`, `AudioCommand`, `Warning`, `PointerSent`. Gives access to `Instance`, `Renderer`, `Textures` and `Sound`. |
 | `OpenBoneMonoGameOptions` | `ScriptHost` (default: a `JintScriptHost`), `DisableScripts`, `Sound` (default true), `Skin`. |
-| `OpenBoneRenderer` | Draws a draw list with `DrawUserIndexedPrimitives`: one draw call per run of items that share a texture, blend mode and clip. Premultiplied alpha, normal / additive / multiply / screen blending, stencil clipping, two-colour tint. `LastDrawCalls`, `EffectError`, `UseTintEffect`, `Effect` (your own effect), `TextRenderer`. |
+| `OpenBoneRenderer` | Draws a draw list with `DrawUserIndexedPrimitives`: one draw call per run of items that share a texture, blend mode and clip. Premultiplied alpha, normal / additive / multiply / screen blending, stencil clipping, two-colour tint. `LastDrawCalls`, `EffectError`, `UseTintEffect`, `Effect` (your own effect), `TextRenderer`, `Clip` (a scissor rectangle). |
 | `OpenBoneTextures` | Loads the document's images and atlas pages as premultiplied `Texture2D`s, from data URIs or files. `Set(id, texture)` supplies your own. |
 | `OpenBoneSoundPlayer` | Plays audio commands with `SoundEffectInstance`: buses, master volume, rate as pitch (clamped to one octave), looping and fades. Loads WAV sounds; `Set(assetId, effect)` supplies other `SoundEffect`s. |
 | `SkeletonView` | Maps skeleton space (y up) to screen pixels. `FitStage(doc, viewport, padding)` frames the document's artboard. |
-| `SpriteFontTextRenderer` | Draws text attachments with your SpriteFonts. Without a text renderer, text is skipped. |
+| `FontStashTextRenderer` | The default text renderer (`OpenBoneMonoGame.Text`): text in the document's own fonts, loaded at runtime with FontStashSharp (zlib). Each family in a text's list ("Noto Serif JP, Georgia, serif") is found in fonts you `Register(family, file)`, then among installed fonts (fontconfig on Linux, the font folders on Windows and macOS; collections such as `.ttc` included), and later families fill in characters the first lacks. Outlines are drawn under the fill. Ship and register the fonts your documents name, since players' machines may not have them. |
+| `SpriteFontTextRenderer` | Draws text attachments with your content-pipeline SpriteFonts instead (set `Renderer.TextRenderer`). With no text renderer, text is skipped. |
 
 You can also use the parts on their own with an `OpenBoneInstance` you create yourself:
 
@@ -139,4 +140,5 @@ https://github.com/UXCentury/open-bone.git#upm
 ## License
 
 MIT. Copyright (c) UX Century and OpenBone contributors. See
-[LICENSE](https://github.com/UXCentury/open-bone/blob/main/LICENSE). MonoGame is Ms-PL.
+[LICENSE](https://github.com/UXCentury/open-bone/blob/main/LICENSE). MonoGame is Ms-PL; FontStashSharp, used for
+text, is zlib.

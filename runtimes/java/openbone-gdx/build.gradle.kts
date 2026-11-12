@@ -8,6 +8,10 @@ val gdxVersion = rootProject.extra["gdxVersion"] as String
 dependencies {
   api(project(":openbone-runtime"))
   api("com.badlogicgames.gdx:gdx:$gdxVersion")
+  // Text through FreeType (Apache-2.0): real outlines and any script the installed fonts cover. Apps add the natives
+  // for their platform (gdx-freetype-platform: natives-desktop, natives-arm64-v8a, …); without them text falls back
+  // to libGDX's built-in bitmap font.
+  api("com.badlogicgames.gdx:gdx-freetype:$gdxVersion")
 }
 
 java {

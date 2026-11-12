@@ -19,7 +19,9 @@ import java.util.List;
 
 /**
  * Draws an OpenBone draw list with libGDX: two-colour tint, normal/additive/multiply/screen blending, stencil clipping
- * masks, particles (per-vertex colours), shapes with strokes, and text through a {@link BitmapFont}.
+ * masks, particles (per-vertex colours), shapes with strokes, and text: by default through FreeType with the document's
+ * own font families resolved to installed fonts and real outlines ({@link OpenBoneFonts}; needs the gdx-freetype
+ * natives), or through one {@link BitmapFont} you pass in.
  *
  * <p>Coordinates are skeleton space (y up). Pass a projection that maps them to the screen, e.g. an
  * {@code OrthographicCamera} centred on the skeleton. Clipping needs a stencil buffer (LWJGL3:
@@ -30,6 +32,9 @@ public class OpenBoneRenderer implements Disposable {
   private final SpriteBatch textBatch = new SpriteBatch(256);
   private BitmapFont font;
   private boolean ownFont;
+  /** FreeType fonts for text (null when you passed a BitmapFont, or FreeType's natives aren't there). */
+  private OpenBoneFonts fonts;
+  private boolean fontsChecked;
   private final GlyphLayout layout = new GlyphLayout();
   private final Matrix4 projection = new Matrix4(), textTransform = new Matrix4();
   private DrawItem.ClipRegion clip;
@@ -37,13 +42,33 @@ public class OpenBoneRenderer implements Disposable {
   public int drawCalls;
 
   public OpenBoneRenderer() {
-    this(null);
+    this((BitmapFont) null);
   }
 
-  /** @param font font for text attachments (null = libGDX's default font, scaled to each text's size). */
+  /**
+   * @param font one font for every text attachment, scaled to each text's size (null = the document's own fonts
+   *     through FreeType, or libGDX's built-in font when FreeType's natives aren't available).
+   */
   public OpenBoneRenderer(BitmapFont font) {
     batch = new TwoColorBatch(32000);
     this.font = font;
+    fontsChecked = font != null;
+  }
+
+  /** Text through these FreeType fonts (register your own font files on them first); disposed with the renderer. */
+  public OpenBoneRenderer(OpenBoneFonts fonts) {
+    batch = new TwoColorBatch(32000);
+    this.fonts = fonts;
+    fontsChecked = true;
+  }
+
+  /** The FreeType fonts in use (register font files for the families your documents name), or null. */
+  public OpenBoneFonts fonts() {
+    if (!fontsChecked) {
+      fontsChecked = true;
+      if (OpenBoneFonts.isAvailable()) fonts = new OpenBoneFonts();
+    }
+    return fonts;
   }
 
   private BitmapFont font() {
@@ -194,6 +219,8 @@ public class OpenBoneRenderer implements Disposable {
     DrawItem.Text t = it.text;
     if (t.content.isEmpty()) return;
     batch.flush();
+    OpenBoneFonts ft = fonts();
+    if (ft != null && drawFreeType(ft, it)) return;
     BitmapFont f = font();
     float lineHeight = f.getData().lineHeight / f.getData().scaleY;
     float scale = (float) t.size * 1.2f / lineHeight;
@@ -235,10 +262,68 @@ public class OpenBoneRenderer implements Disposable {
     batch.begin();
   }
 
+  /**
+   * Text with the document's fonts: the outline under the fill, then the fill. The outline stamps the same glyphs
+   * around a ring of the outline width (16 directions, plus an inner ring for wide outlines), so it lines up with the
+   * fill exactly and matches the web renderer's canvas stroke (outlineWidth × 2, half of it outside the glyphs).
+   */
+  private boolean drawFreeType(OpenBoneFonts ft, DrawItem it) {
+    DrawItem.Text t = it.text;
+    boolean outlined = t.outline != null && t.outlineWidth > 0;
+    BitmapFont fill = ft.font(t.font, t.content, (float) t.size, 0);
+    if (fill == null) return false;
+    Affine m = t.matrix;
+    textTransform.idt();
+    float[] val = textTransform.val;
+    val[Matrix4.M00] = (float) m.a;
+    val[Matrix4.M01] = (float) m.b;
+    val[Matrix4.M10] = (float) m.c;
+    val[Matrix4.M11] = (float) m.d;
+    val[Matrix4.M03] = (float) m.x;
+    val[Matrix4.M13] = (float) m.y;
+    textBatch.setProjectionMatrix(projection);
+    textBatch.setTransformMatrix(textTransform);
+    textBatch.begin();
+    double[] tint = it.color;
+    int halign = "left".equals(t.align) ? Align.left : "right".equals(t.align) ? Align.right : Align.center;
+    String[] lines = t.content.split("\n", -1);
+    float lh = (float) t.size * 1.2f;
+    float y0 = (lines.length - 1) * lh / 2;
+    fill.getData().setScale(1f / ft.oversample);
+    // Centre each line on the cap height, like the canvas's "middle" baseline.
+    float cap = fill.getCapHeight();
+    float w = (float) t.outlineWidth;
+    for (int pass = outlined ? 0 : 1; pass < 2; pass++) {
+      double[] col = pass == 0 ? t.outline : t.fill;
+      if (col == null) continue;
+      fill.setColor((float) (col[0] * tint[0]), (float) (col[1] * tint[1]), (float) (col[2] * tint[2]), (float) (col[3] * tint[3]));
+      for (int i = 0; i < lines.length; i++) {
+        layout.setText(fill, lines[i], fill.getColor(), (float) t.width, halign, false);
+        float x = (float) (-t.width / 2), y = y0 - i * lh + cap / 2;
+        if (pass == 1) {
+          fill.draw(textBatch, layout, x, y);
+          continue;
+        }
+        int rings = w > 2 ? 2 : 1;
+        for (int r = 1; r <= rings; r++) {
+          float rad = w * r / rings;
+          for (int k = 0; k < 16; k++) {
+            double a = k * Math.PI / 8;
+            fill.draw(textBatch, layout, x + (float) Math.cos(a) * rad, y + (float) Math.sin(a) * rad);
+          }
+        }
+      }
+    }
+    textBatch.end();
+    batch.begin();
+    return true;
+  }
+
   @Override
   public void dispose() {
     batch.dispose();
     textBatch.dispose();
+    if (fonts != null) fonts.dispose();
     if (ownFont && font != null) font.dispose();
   }
 }

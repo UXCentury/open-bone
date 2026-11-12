@@ -2,7 +2,8 @@
 // draw list with SDL_RenderGeometry. Mouse input goes to the state machine.
 //
 //   openbone_sdl2 file.obone [--animation name] [--skin name]
-//   openbone_sdl2 file.obone --frames 60 --out frame.bmp     (headless: software renderer, no window)
+//   openbone_sdl2 file.obone --frames 60 --out frame.bmp     (hidden window and GPU renderer, like a window draws;
+//                                                            SDL's software renderer when there is no display)
 //
 // SDL's renderer has no stencil or shaders, so clipping masks and two-colour tint are not applied here and text is
 // not rasterised (the Godot extension does all three). Screen blending falls back to additive.
@@ -47,6 +48,9 @@ struct Textures {
     if (!t) return nullptr;
     SDL_UpdateTexture(t, nullptr, px, w * 4);
     SDL_SetTextureBlendMode(t, SDL_BLENDMODE_BLEND);
+#if SDL_VERSION_ATLEAST(2, 0, 12)
+    SDL_SetTextureScaleMode(t, SDL_ScaleModeLinear);  // smooth like the other renderers (SDL's default is nearest)
+#endif
     return t;
   }
 
@@ -67,6 +71,9 @@ struct Textures {
             if (p[3] && p[3] < 255)
               for (int k = 0; k < 3; k++) p[k] = (unsigned char)std::min(255, p[k] * 255 / p[3]);
           }
+        // SDL's renderer filters and blends straight alpha: without this, the black of transparent pixels darkens
+        // every edge (a dark rim around hair, faces and mouth frames).
+        ob::assets::bleedTransparentEdges(px, w, h);
         tex = fromRgba(px, w, h);
         stbi_image_free(px);
       }
@@ -318,7 +325,10 @@ int main(int argc, char** argv) {
 
   const int W = doc->width > 0 ? (int)doc->width : 800, H = doc->height > 0 ? (int)doc->height : 600;
   const float ox = (float)doc->originX, oy = (float)doc->originY;
-  if (SDL_Init(headless ? 0 : SDL_INIT_VIDEO) != 0) {
+  // --out renders like a window does (GPU renderer, filtered textures) in a hidden window when there is a display,
+  // and falls back to SDL's software renderer (nearest-pixel sampling) when there is none.
+  const bool video = SDL_Init(SDL_INIT_VIDEO) == 0;
+  if (!video && (!headless || SDL_Init(0) != 0)) {
     std::fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
     return 1;
   }
@@ -327,7 +337,12 @@ int main(int argc, char** argv) {
   SDL_Renderer* renderer = nullptr;
   if (headless) {
     surface = SDL_CreateRGBSurfaceWithFormat(0, W, H, 32, SDL_PIXELFORMAT_ARGB8888);
-    renderer = SDL_CreateSoftwareRenderer(surface);
+    if (video && (window = SDL_CreateWindow("OpenBone", 0, 0, W, H, SDL_WINDOW_HIDDEN)))
+      renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    if (!renderer) {
+      if (window) SDL_DestroyWindow(window), window = nullptr;
+      renderer = SDL_CreateSoftwareRenderer(surface);
+    }
   } else {
     window = SDL_CreateWindow(("OpenBone — " + doc->name).c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, W, H, SDL_WINDOW_RESIZABLE);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
@@ -348,10 +363,12 @@ int main(int argc, char** argv) {
   if (headless) {
     for (int i = 0; i < frames; i++) inst.advance(1.0 / 60);
     frame();
+    if (window) SDL_RenderReadPixels(renderer, nullptr, SDL_PIXELFORMAT_ARGB8888, surface->pixels, surface->pitch);
     SDL_RenderPresent(renderer);
     const int rc = SDL_SaveBMP(surface, out.c_str());
     std::printf("%s %d items -> %s\n", rc == 0 ? "wrote" : "failed", (int)inst.drawList().items.size(), out.c_str());
     SDL_DestroyRenderer(renderer);
+    if (window) SDL_DestroyWindow(window);
     SDL_FreeSurface(surface);
     SDL_Quit();
     return rc == 0 ? 0 : 1;

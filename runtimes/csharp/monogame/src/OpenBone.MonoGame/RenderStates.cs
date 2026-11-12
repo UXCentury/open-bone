@@ -40,6 +40,12 @@ namespace OpenBone.MonoGame
 
         /// <summary>No culling: the skeleton → screen flip reverses winding, and meshes may be mirrored by bones.</summary>
         public static readonly RasterizerState NoCull = new RasterizerState { Name = "OpenBone.NoCull", CullMode = CullMode.None };
+        /// <summary><see cref="NoCull"/> that also clips to the device's ScissorRectangle (the stage, with ClipToStage).</summary>
+        public static readonly RasterizerState NoCullScissor = new RasterizerState { Name = "OpenBone.NoCullScissor", CullMode = CullMode.None, ScissorTestEnable = true };
+
+        /// <summary>The rasteriser state for drawing on <paramref name="device"/>: clipped when its current state clips.</summary>
+        public static RasterizerState Raster(GraphicsDevice device) =>
+            device.RasterizerState != null && device.RasterizerState.ScissorTestEnable ? NoCullScissor : NoCull;
 
         /// <summary>BlendState for a draw-list blend mode (unknown modes draw as normal).</summary>
         public static BlendState ForBlend(string blend)

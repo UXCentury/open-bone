@@ -143,7 +143,7 @@ OpenBoneDocument doc = DocumentLoader.load(Gdx.files.internal("knight/knight.obo
 OpenBoneInstance inst = new OpenBoneInstance(doc, new QuickJsScriptHost());
 inst.useStateMachine(null);
 DocumentTextures textures = new DocumentTextures(doc, Gdx.files.internal("knight")); // data: URLs or relative paths
-OpenBoneRenderer renderer = new OpenBoneRenderer(); // or new OpenBoneRenderer(myBitmapFont)
+OpenBoneRenderer renderer = new OpenBoneRenderer(); // text in the document's fonts (FreeType)
 
 // render():
 inst.advance(Gdx.graphics.getDeltaTime());
@@ -155,7 +155,20 @@ renderer.draw(inst, textures, camera.combined); // camera in skeleton space (y u
 - Clipping masks use the stencil buffer: request one (LWJGL3 `config.setBackBufferConfig(8, 8, 8, 8, 16, 8, 0)`).
 - Particles draw with per-vertex colours and the built-in soft dot texture; shapes use the atlas white block or a
   generated white texture; strokes are drawn as quads.
-- Text uses a `BitmapFont` (libGDX's default font unless you pass one) scaled to each text's size.
+- Text uses the document's own fonts through FreeType (`OpenBoneFonts`): each family in a text's list ("Noto Serif JP,
+  Georgia, serif") is looked up in fonts you register, then among installed fonts (fontconfig on Linux, the font
+  folders on Windows, macOS and Android), and the first one with every character of the text wins. Glyphs are made
+  on demand, so Japanese or Chinese costs only the characters used. Outlines are drawn under the fill like the web
+  player's. Add the FreeType natives for your platform:
+
+  ```kotlin
+  implementation("com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-desktop") // Android: natives-arm64-v8a, …
+  ```
+
+  Ship fonts with your game and register them, since players' machines may not have the families your file names:
+  `renderer.fonts().register("Noto Serif JP", Gdx.files.internal("fonts/NotoSerifJP-Regular.otf"))`. Without the
+  natives, or with `new OpenBoneRenderer(myBitmapFont)`, text uses one `BitmapFont` scaled to each size (libGDX's
+  built-in font has Latin only).
 
 Sound: `OpenBoneAudio` plays a document's sounds with `Gdx.audio` `Sound`s (files loaded once from `data:` URLs or
 paths relative to the folder you give; rate as pitch in libGDX's 0.5…2 range; looping; fades stepped per frame). It is

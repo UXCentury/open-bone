@@ -5,7 +5,31 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 ## Unreleased
 
 ### Godot
+- **No sound leaks at exit**: quitting while looping sounds played leaked their streams and playbacks ("ObjectDB instances leaked", "resources still in use"). Stopping a voice now also detaches its stream.
+- **Text in the document's fonts, with outlines**: text used Godot's default font and ignored outlines. Each text now uses its own family list ("Noto Serif JP, Georgia, serif") as a `SystemFont` (installed families, generic `serif` / `sans-serif`, per-glyph fallback for other scripts) and draws its outline under the fill, matching the web player.
 - **Document set in the Inspector loads**: an `OpenBoneSprite` saved in a scene with *Document* set showed nothing (the path was emptied when the node entered the tree); only `load()` from code worked. The addon's CI check now covers a saved scene.
+
+### MonoGame
+- **Text**: text attachments weren't drawn unless the game supplied content-pipeline SpriteFonts. `OpenBoneMonoGame` now draws them by default in the document's own fonts, loaded at runtime with FontStashSharp (zlib licence): `FontStashTextRenderer` finds each family among registered and installed fonts (font collections such as `.ttc` included), sizes them by em like CSS, and draws outlines under the fill.
+
+- **Clips to the stage**: `OpenBoneMonoGame.ClipToStage` (on by default) draws only inside the artboard with a scissor rectangle, like the web player, so art placed past its edges no longer shows around it; `OpenBoneRenderer.Clip` takes any screen rectangle. The sample toggles it with C (`--no-clip` starts with it off).
+
+### Unity
+- **Text in the document's fonts**: every text used Unity's built-in sans font. Each text now uses its own family list as a dynamic OS font (the installed families in it, with `serif` / `sans-serif` / `monospace` mapped to the system's usual fonts), so Windswept's serif titles and Japanese labels look as in the editor. Setting `TextRenderer.Font` still uses one font for everything.
+
+### Cocos2d-x
+- **Text**: text attachments were skipped. `OpenBoneNode` now draws them as `Label` children with their outline, in the document's fonts (`setFontFile` for fonts you ship; fontconfig on Linux; the system font by family elsewhere).
+- **No dark edges on art**: Cocos2d-x premultiplies PNGs as it loads them, but the node blended them as straight alpha, so semi-transparent edges (a mouth frame over skin) showed a dark outline. Premultiplied textures now blend as premultiplied, with the vertex colour to match.
+- **No crash on exit**: with a one-shot sound playing, quitting crashed. Stopping a sound can run its finish callback at once (FMOD on Linux), which removed it from the node's voice list while that list was being walked. Voices now leave the list before they're stopped, and sounds stop when the node leaves the scene.
+
+### SDL2 sample
+- **Smooth edges**: textures are filtered (SDL's default is nearest-pixel) and their transparent pixels take their neighbours' colour (`openbone::assets::bleedTransparentEdges`, in the shared engine helpers), so edges no longer pick up a dark rim. `--out` screenshots render through a hidden window with the GPU renderer, like a window does, falling back to the software renderer without a display.
+
+### SFML sample
+- Text outlines (`sf::Text` outline thickness), so outlined titles stay readable.
+
+### libGDX
+- **Text in the document's fonts**: text drew with libGDX's built-in bitmap font, so Japanese and other non-Latin text showed as boxes and every text looked the same. `OpenBoneRenderer` now renders text through FreeType (`gdx-freetype`, Apache-2.0) with `OpenBoneFonts`, which resolves each text's family list to registered or installed fonts (the first that has all its characters) and makes glyphs on demand; outlines match the web player. Add `gdx-freetype-platform` natives for your platform; `new OpenBoneRenderer(bitmapFont)` keeps the old behaviour.
 
 ## 0.4.1 (2026-11-12)
 

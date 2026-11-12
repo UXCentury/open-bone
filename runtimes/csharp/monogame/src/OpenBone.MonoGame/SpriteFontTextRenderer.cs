@@ -57,7 +57,7 @@ namespace OpenBone.MonoGame
             float top = -lines.Length * lineHeight / 2f;
             float halfBox = (float)(t.Width / 2 / k);
 
-            _batch.Begin(SpriteSortMode.Deferred, RenderStates.ForBlend(item.Blend), SamplerState.LinearClamp, stencil, RenderStates.NoCull, null, matrix);
+            _batch.Begin(SpriteSortMode.Deferred, RenderStates.ForBlend(item.Blend), SamplerState.LinearClamp, stencil, RenderStates.Raster(_batch.GraphicsDevice), null, matrix);
             for (int pass = 0; pass < 2; pass++)
             {
                 bool outline = pass == 0;

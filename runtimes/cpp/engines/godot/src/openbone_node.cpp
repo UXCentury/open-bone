@@ -6,7 +6,9 @@
 #include <godot_cpp/classes/audio_stream_wav.hpp>
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/classes/file_access.hpp>
+#include <algorithm>
 #include <godot_cpp/classes/font.hpp>
+#include <godot_cpp/classes/system_font.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/classes/image_texture.hpp>
 #include <godot_cpp/classes/input_event_mouse_button.hpp>
@@ -77,7 +79,10 @@ void OpenBoneSprite::set_audio_enabled(bool v) {
 void OpenBoneSprite::stop_all_audio() {
   for (auto& v : voices)
     if (v.second) {
-      v.second->stop();  // releases the stream playback now, not when the audio server next mixes
+      v.second->stop();
+      // Drop the stream too: stop() leaves the playback with the audio server until its next mix, which never comes
+      // when the game is quitting, so looping sounds leaked their stream and playback at exit.
+      v.second->set_stream(Ref<AudioStream>());
       v.second->queue_free();
     }
   voices.clear();
@@ -565,6 +570,33 @@ bool OpenBoneSprite::set_text(const String& slot, const String& text) {
 
 // ---------------- Drawing ----------------
 
+/**
+ * The font for a text item: the document's CSS family list ("Noto Serif JP, Georgia, serif") as a SystemFont, which
+ * picks the first installed family (generic serif / sans-serif / monospace included) and falls back per glyph to
+ * other system fonts, so Japanese shows even when the first family lacks it. Godot's default font if none resolves.
+ */
+Ref<Font> OpenBoneSprite::font_for(const std::string& families, double weight) {
+  const std::string key = families + "|" + std::to_string((int)weight);
+  auto it = fonts.find(key);
+  if (it != fonts.end()) return it->second;
+  PackedStringArray names;
+  for (const String& part : S(families).split(",")) {
+    const String n = part.strip_edges().trim_prefix("\"").trim_suffix("\"").trim_prefix("'").trim_suffix("'");
+    if (!n.is_empty()) names.push_back(n);
+  }
+  Ref<Font> font;
+  if (!names.is_empty()) {
+    Ref<SystemFont> sf;
+    sf.instantiate();
+    sf->set_font_names(names);
+    sf->set_font_weight((int)std::clamp(weight, 100.0, 999.0));
+    font = sf;
+  }
+  if (font.is_null()) font = ThemeDB::get_singleton()->get_fallback_font();
+  fonts[key] = font;
+  return font;
+}
+
 Ref<Texture2D> OpenBoneSprite::texture_for(const std::string& id, const std::string& src, bool page) {
   auto it = textures.find(id);
   if (it != textures.end()) return it->second;
@@ -677,7 +709,7 @@ void OpenBoneSprite::redraw() {
     rs->canvas_item_set_draw_index(ci, order++);
     if (it.text) {
       const ob::TextDraw& t = *it.text;
-      Ref<Font> font = ThemeDB::get_singleton()->get_fallback_font();
+      Ref<Font> font = font_for(t.font, t.weight);
       rs->canvas_item_set_material(ci, RID());
       if (font.is_valid()) {
         rs->canvas_item_add_set_transform(ci, flip(t.matrix));
@@ -690,6 +722,14 @@ void OpenBoneSprite::redraw() {
         const PackedStringArray lines = S(t.content).split("\n");
         const double lh = t.size * 1.2;
         const double y0 = -(lines.size() - 1) * lh / 2;
+        // Outline under the fill, as wide as the web renderer's canvas stroke (outlineWidth × 2, half of it outside).
+        if (t.outline && t.outlineWidth > 0) {
+          const ob::RGBA& o = *t.outline;
+          const Color stroke(o[0] * it.color[0], o[1] * it.color[1], o[2] * it.color[2], o[3] * it.color[3]);
+          const int outline = std::max(1, (int)std::lround(t.outlineWidth * 2));
+          for (int64_t i = 0; i < lines.size(); i++)
+            font->draw_string_outline(ci, Vector2(-t.width / 2, y0 + i * lh + (asc - desc) / 2), lines[i], align, t.width, size, outline, stroke);
+        }
         for (int64_t i = 0; i < lines.size(); i++)
           font->draw_string(ci, Vector2(-t.width / 2, y0 + i * lh + (asc - desc) / 2), lines[i], align, t.width, size, fill);
       }

@@ -228,6 +228,8 @@ namespace UnityEngine
     public sealed class Font : Object
     {
         public Material material => null;
+        public static string[] GetOSInstalledFontNames() => new string[0];
+        public static Font CreateDynamicFontFromOSFont(string[] fontnames, int size) => null;
     }
 
     public enum TextAnchor { UpperLeft, UpperCenter, UpperRight, MiddleLeft, MiddleCenter, MiddleRight, LowerLeft, LowerCenter, LowerRight }
