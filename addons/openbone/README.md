@@ -37,15 +37,19 @@ You can also add an **OpenBoneSprite** node in the scene tree and set *Document*
 Inspector.
 
 Main API: `load(path)`, `play(name, loop, track)`, `queue(...)`, `use_state_machine(name)`, `set_input(name, value)`,
-`fire(name)`, `get_active_state(layer)`, `get_bone_transform(bone)`, `set_text(slot, text)`, `advance(delta)`; properties
+`fire(name)`, `get_active_state(layer)`, `get_bone_transform(bone)`, `set_text(slot, text)`,
+`get_text_font(families, weight)` (the `Font` a text with that font list draws with), `advance(delta)`; properties
 `document`, `animation`, `state_machine`, `skin`, `looping`, `playing`, `speed`, `scripts_enabled`, `handle_input`,
 `audio_enabled`, `audio_bus`; signals `animation_event`, `audio_command`, `state_changed`.
 
 ## Exporting your game
 
 `.obone` / `.obonb` files aren't Godot resources, so add them to the export: **Project → Export → Resources → Filters to
-export non-resource files/folders**: `*.obone, *.obonb`. Images and sounds referenced by the document are imported
-normally and need nothing extra.
+export non-resource files/folders**: `*.obone, *.obonb`. Images, sounds and fonts referenced by the document are
+imported normally and need nothing extra; fonts embedded in the document need no files at all.
+
+Text uses the fonts the document ships first (for each family of a text's font list: the document's font of that
+family, closest weight, else an installed font of that name), then Godot's fallback font.
 
 On macOS the libraries aren't notarized. If you unzipped the release by hand and macOS refuses to load them, run
 `xattr -dr com.apple.quarantine addons/openbone` in your project folder.
