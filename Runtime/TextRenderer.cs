@@ -7,6 +7,12 @@ namespace OpenBone.Unity
     /// <summary>
     /// Draws text attachments with legacy <see cref="TextMesh"/> children (no package dependency). Text is drawn on top of
     /// the skeleton mesh (one renderer cannot interleave), and glyph metrics come from Unity's font, not the browser's.
+    /// Each text uses its own font list ("Noto Serif JP, Georgia, serif"): the installed families in it, generic names
+    /// (serif, sans-serif, monospace) mapped to the system's usual ones, as a dynamic OS font (later families and the
+    /// system fill in missing characters). The document's own fonts (<see cref="DocumentFonts"/>, imported Font assets)
+    /// come first for their families: walking the list in order, a family the document has a font for uses it (the one
+    /// closest to the text's weight), else the installed families from there on. Set <see cref="Font"/> to use one font
+    /// for every text instead.
     /// TextMesh has no outline, so an outlined text gets a ring of outline-coloured copies, offset by the outline width,
     /// drawn just under the fill (like the MonoGame renderer).
     /// For TextMesh Pro or your own text, turn this off on the component and handle <see cref="OpenBoneBehaviour.DrawListReady"/>.
@@ -17,7 +23,10 @@ namespace OpenBone.Unity
         readonly List<TextMesh> _pool = new List<TextMesh>();
         /// <summary>Outline copies of each pooled text (children of it).</summary>
         readonly List<List<TextMesh>> _rings = new List<List<TextMesh>>();
-        Font _font;
+        Font _font, _userFont;
+        List<OpenBoneAsset.FontEntry> _docFonts;
+        readonly Dictionary<string, Font> _fonts = new Dictionary<string, Font>();
+        static HashSet<string> _installed;
 
         /// <summary>Font size TextMesh rasterises at; characterSize scales it to the attachment's size.</summary>
         const int RasterSize = 64;
@@ -27,7 +36,40 @@ namespace OpenBone.Unity
             _parent = parent;
         }
 
+        /// <summary>One font for every text (null: each text's own font list; Unity's built-in font when none is installed).</summary>
         public Font Font
+        {
+            get => _userFont != null ? _userFont : Builtin;
+            set => _userFont = value;
+        }
+
+        /// <summary>The document's fonts by family (<see cref="OpenBoneAsset.Fonts"/>), used before installed ones.</summary>
+        public List<OpenBoneAsset.FontEntry> DocumentFonts
+        {
+            get => _docFonts;
+            set
+            {
+                _docFonts = value;
+                ForgetFonts();
+            }
+        }
+
+        /// <summary>The document font of a family closest to a weight (italic only when the family has nothing else), or null.</summary>
+        Font DocumentFont(string family, double weight)
+        {
+            if (_docFonts == null) return null;
+            Font best = null;
+            double score = double.PositiveInfinity;
+            foreach (var e in _docFonts)
+            {
+                if (e == null || e.font == null || !string.Equals((e.family ?? "").Trim(), family, StringComparison.OrdinalIgnoreCase)) continue;
+                double s = Math.Abs(e.weight - weight) + (e.italic ? 1000 : 0);
+                if (s < score) { best = e.font; score = s; }
+            }
+            return best;
+        }
+
+        Font Builtin
         {
             get
             {
@@ -43,7 +85,52 @@ namespace OpenBone.Unity
                 }
                 return _font;
             }
-            set => _font = value;
+        }
+
+        static readonly string[] Serif = { "Noto Serif", "DejaVu Serif", "Liberation Serif", "Times New Roman", "Georgia", "Times" };
+        static readonly string[] Sans = { "Noto Sans", "DejaVu Sans", "Liberation Sans", "Segoe UI", "Arial", "Helvetica Neue", "Helvetica" };
+        static readonly string[] Mono = { "DejaVu Sans Mono", "Liberation Mono", "Consolas", "Menlo", "Courier New" };
+
+        /// <summary>The font for a CSS family list at a weight, found once per list and weight.</summary>
+        public Font FontFor(string families, double weight = 400)
+        {
+            if (_userFont != null || string.IsNullOrEmpty(families)) return Font;
+            string key = families + "\u0000" + Math.Round(weight);
+            if (_fonts.TryGetValue(key, out var f)) return f;
+            if (_installed == null)
+            {
+                _installed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                try { foreach (var n in Font.GetOSInstalledFontNames()) _installed.Add(n); }
+                catch (Exception) { /* platform without OS fonts */ }
+            }
+            var names = new List<string>();
+            foreach (var n in FontAsset.SplitFamilies(families))
+            {
+                var doc = DocumentFont(n, weight);
+                if (doc != null)
+                {
+                    // A document font before any installed family wins; after one, installed fonts were asked first.
+                    if (names.Count == 0) { _fonts[key] = doc; return doc; }
+                    break;
+                }
+                var lower = n.ToLowerInvariant();
+                var cands = lower == "serif" || lower == "ui-serif" ? Serif
+                    : lower == "sans-serif" || lower == "system-ui" || lower == "ui-sans-serif" ? Sans
+                    : lower == "monospace" || lower == "ui-monospace" ? Mono
+                    : new[] { n };
+                foreach (var c in cands)
+                    if (_installed.Contains(c) && !names.Contains(c)) names.Add(c);
+            }
+            f = null;
+            if (names.Count > 0)
+            {
+                try { f = Font.CreateDynamicFontFromOSFont(names.ToArray(), RasterSize); }
+                catch (Exception) { f = null; }
+                if (f != null) f.hideFlags = HideFlags.DontSave;
+            }
+            if (f == null) f = Builtin;
+            _fonts[key] = f;
+            return f;
         }
 
         /// <param name="sortingOrder">Outlines draw at this order, fills at the next one.</param>
@@ -64,7 +151,7 @@ namespace OpenBone.Unity
                 tr.localRotation = Quaternion.Euler(0, 0, (float)(Math.Atan2(m.C, m.A) * 180 / Math.PI));
                 tr.localScale = new Vector3(sx, sy, 1);
                 tm.text = t.Content;
-                tm.font = Font;
+                tm.font = FontFor(t.Font, t.Weight);
                 tm.fontSize = RasterSize;
                 // TextMesh: line height ≈ characterSize × fontSize / 10 world units.
                 tm.characterSize = (float)t.Size * s * 10f / RasterSize;
@@ -118,7 +205,7 @@ namespace OpenBone.Unity
         {
             var r = tm.GetComponent<MeshRenderer>();
             if (r == null) return;
-            if (Font != null) r.sharedMaterial = Font.material;
+            if (tm.font != null) r.sharedMaterial = tm.font.material;
             r.sortingOrder = order;
         }
 
@@ -144,6 +231,19 @@ namespace OpenBone.Unity
                 }
             _pool.Clear();
             _rings.Clear();
+            ForgetFonts();
+        }
+
+        /// <summary>Destroys the OS fonts this renderer made (never the built-in, yours or the document's assets).</summary>
+        void ForgetFonts()
+        {
+            foreach (var f in _fonts.Values)
+                if (f != null && f != _font && f != _userFont && (f.hideFlags & HideFlags.DontSave) == HideFlags.DontSave)
+                {
+                    if (Application.isPlaying) UnityEngine.Object.Destroy(f);
+                    else UnityEngine.Object.DestroyImmediate(f);
+                }
+            _fonts.Clear();
         }
     }
 }

@@ -11,9 +11,12 @@ namespace OpenBone.Unity.Editor
     /// Imports .obone (JSON) and .obonb (binary) files as an <see cref="OpenBoneAsset"/>. Textures: images and atlas
     /// pages embedded as data: URIs become sub-assets; others are looked up in the project relative to the file
     /// (their <c>src</c> path, else <c>&lt;name&gt;.png</c> next to it or in an <c>images/</c> folder). Audio: AudioClips
-    /// at the asset's <c>src</c> are referenced; embedded WAVs are decoded at runtime.
+    /// at the asset's <c>src</c> are referenced; embedded WAVs are decoded at runtime. Fonts: .ttf / .otf files at the
+    /// font's <c>src</c> are referenced; embedded fonts (data: URIs) are written once to a <c>&lt;document&gt;.fonts/</c>
+    /// folder next to the file (Unity can't load font bytes at runtime), imported as Font assets, and the document is
+    /// re-imported to reference them.
     /// </summary>
-    [ScriptedImporter(2, new[] { "obone", "obonb" })]
+    [ScriptedImporter(4, new[] { "obone", "obonb" })]
     public sealed class OpenBoneImporter : ScriptedImporter
     {
         [Tooltip("Filter mode of textures embedded in the document.")]
@@ -58,8 +61,120 @@ namespace OpenBone.Unity.Editor
                     else ctx.LogImportWarning($"OpenBone: audio \"{a.Name}\" ({a.Src}) not found in the project");
                 }
 
+            ImportFonts(ctx, asset, doc, dir);
+
             ctx.AddObjectToAsset("document", asset);
             ctx.SetMainObject(asset);
+        }
+
+        void ImportFonts(AssetImportContext ctx, OpenBoneAsset asset, Document doc, string dir)
+        {
+            string folder = null;
+            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var pending = new List<(string path, byte[] data)>();
+            foreach (var f in doc.Fonts)
+            {
+                if (string.IsNullOrEmpty(f.Family) || string.IsNullOrEmpty(f.Src)) continue;
+                Font font;
+                if (f.Src.StartsWith("data:", StringComparison.Ordinal))
+                {
+                    if (!DataUri.TryDecode(f.Src, out _, out var data) || data.Length < 4)
+                    {
+                        ctx.LogImportWarning($"OpenBone: font \"{f.Name}\" has unreadable embedded data");
+                        continue;
+                    }
+                    string ext = FontExtension(data);
+                    if (ext == null)
+                    {
+                        ctx.LogImportWarning($"OpenBone: font \"{f.Name}\" is not a TrueType / OpenType font (WOFF fonts work on the web only); \"{f.Family}\" uses installed fonts");
+                        continue;
+                    }
+                    folder ??= (dir.Length > 0 ? dir + "/" : "") + Path.GetFileNameWithoutExtension(ctx.assetPath) + ".fonts";
+                    string stem = SafeFileName(f.Name ?? f.Family);
+                    if (!usedNames.Add(stem)) usedNames.Add(stem = stem + "-" + SafeFileName(f.Id ?? usedNames.Count.ToString()));
+                    string path = folder + "/" + stem + ext;
+                    // The file stays as written: when it already holds these bytes it is used, else it is (re)written.
+                    if (File.Exists(path) && SameBytes(path, data))
+                    {
+                        ctx.DependsOnArtifact(path);
+                        font = AssetDatabase.LoadAssetAtPath<Font>(path);
+                    }
+                    else
+                    {
+                        pending.Add((path, data));
+                        continue;
+                    }
+                }
+                else font = FindInProject<Font>(ctx, dir, f.Src, f.Name, new[] { ".ttf", ".otf" });
+                if (font != null) asset.Fonts.Add(new OpenBoneAsset.FontEntry { family = f.Family, weight = (float)f.Weight, italic = f.Style == "italic", font = font });
+                else ctx.LogImportWarning($"OpenBone: font \"{f.Name}\" ({(f.Src.StartsWith("data:", StringComparison.Ordinal) ? "embedded" : f.Src)}) not found in the project; \"{f.Family}\" uses installed fonts");
+            }
+            if (pending.Count > 0) WriteFontsLater(ctx.assetPath, pending);
+        }
+
+        /// <summary>Embedded fonts waiting to be written, with the documents to re-import afterwards.</summary>
+        static readonly List<(string document, List<(string path, byte[] data)> fonts)> PendingFonts = new List<(string, List<(string, byte[])>)>();
+
+        /// <summary>
+        /// Writes embedded fonts and re-imports the document once they are Font assets. Creating assets isn't allowed
+        /// during an import, so <see cref="FontWriter"/> does it when the import pass ends: in the same refresh, so
+        /// batch-mode builds (-batchmode -executeMethod) get the fonts too, not only an editor that keeps running.
+        /// </summary>
+        static void WriteFontsLater(string documentPath, List<(string path, byte[] data)> fonts)
+        {
+            lock (PendingFonts) PendingFonts.Add((documentPath, fonts));
+        }
+
+        sealed class FontWriter : AssetPostprocessor
+        {
+            static void OnPostprocessAllAssets(string[] imported, string[] deleted, string[] moved, string[] movedFrom)
+            {
+                List<(string document, List<(string path, byte[] data)> fonts)> work;
+                lock (PendingFonts)
+                {
+                    if (PendingFonts.Count == 0) return;
+                    work = new List<(string, List<(string, byte[])>)>(PendingFonts);
+                    PendingFonts.Clear();
+                }
+                var written = new List<string>();
+                foreach (var (_, fonts) in work)
+                    foreach (var (path, data) in fonts)
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(path));
+                        if (!File.Exists(path) || !SameBytes(path, data)) File.WriteAllBytes(path, data);
+                        written.Add(path);
+                    }
+                foreach (var path in written) AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                foreach (var (document, _) in work) AssetDatabase.ImportAsset(document, ImportAssetOptions.ForceUpdate | ImportAssetOptions.ForceSynchronousImport);
+            }
+        }
+
+        /// <summary>.ttf / .otf / .ttc by the font's first bytes; null for WOFF / WOFF2 and anything else.</summary>
+        static string FontExtension(byte[] d)
+        {
+            if (d[0] == 0 && d[1] == 1 && d[2] == 0 && d[3] == 0) return ".ttf";
+            if (d[0] == 't' && d[1] == 'r' && d[2] == 'u' && d[3] == 'e') return ".ttf";
+            if (d[0] == 'O' && d[1] == 'T' && d[2] == 'T' && d[3] == 'O') return ".otf";
+            if (d[0] == 't' && d[1] == 't' && d[2] == 'c' && d[3] == 'f') return ".ttc";
+            return null;
+        }
+
+        static bool SameBytes(string path, byte[] data)
+        {
+            var info = new FileInfo(path);
+            if (info.Length != data.Length) return false;
+            var existing = File.ReadAllBytes(path);
+            for (int i = 0; i < data.Length; i++) if (existing[i] != data[i]) return false;
+            return true;
+        }
+
+        static string SafeFileName(string s)
+        {
+            var bad = Path.GetInvalidFileNameChars();
+            var chars = s.Trim().ToCharArray();
+            for (int i = 0; i < chars.Length; i++) if (Array.IndexOf(bad, chars[i]) >= 0 || chars[i] == '/' || chars[i] == '\\') chars[i] = '_';
+            var r = new string(chars);
+            return r.Length > 0 ? r : "font";
         }
 
         void AddTexture(AssetImportContext ctx, OpenBoneAsset asset, string dir, ITexture t, bool premultiplied)
@@ -142,6 +257,7 @@ namespace OpenBone.Unity.Editor
                 EditorGUILayout.LabelField("Skins", string.Join(", ", doc.Skeleton.Skins.ConvertAll(s => s.Name)));
                 EditorGUILayout.LabelField("Animations", string.Join(", ", doc.Animations.ConvertAll(a => a.Name)));
                 EditorGUILayout.LabelField("State machines", string.Join(", ", doc.StateMachines.ConvertAll(s => s.Name)));
+                if (doc.Fonts.Count > 0) EditorGUILayout.LabelField("Fonts", string.Join(", ", doc.Fonts.ConvertAll(f => $"{f.Family} {f.Weight}{(f.Style == "italic" ? " italic" : "")}")));
             }
             EditorGUILayout.Space();
             DrawDefaultInspector();
