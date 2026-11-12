@@ -132,8 +132,11 @@ on any canvas):
   gives `dark + (color − dark) × texture` for normal-blend items;
 - clipping: `canvas.clipPath` with the mask polygon around the items inside it;
 - premultiplied atlas pages are un-premultiplied once when loaded (the image decoder assumes straight alpha);
-- shapes: filled triangles plus an optional stroke; text: `TextPainter` placed with the item's box matrix (fonts come
-  from the app: the document's font family is used by name, falling back to the platform font).
+- shapes: filled triangles plus an optional stroke; text: `TextPainter` placed with the item's box matrix. Fonts the
+  document ships (`OpenBoneDocument.fonts`) are loaded with `FontLoader` (`OpenBoneFonts.load`, done by the widget;
+  each file under its own `openbone-font-…` name); the text's whole font list goes to `fontFamily` +
+  `fontFamilyFallback`, each family the document ships replaced by its font closest to the text's weight, the others
+  used by name (fonts the app bundles, or the platform's).
 
 ## Building and testing here
 

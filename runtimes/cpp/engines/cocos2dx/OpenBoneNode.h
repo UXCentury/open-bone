@@ -8,8 +8,9 @@
 //   scene->addChild(node);
 //
 // Text attachments are drawn by cocos2d::Label children (on top of the skeleton), with their outline. Their font is the
-// document's family list ("Noto Serif JP, Georgia, serif"): setFontFile() maps a family to a .ttf/.otf you ship; on
-// Linux installed families are found with fontconfig (the first with every character of the text); elsewhere the first
+// document's family list ("Noto Serif JP, Georgia, serif"): for each family in order, a font file setFontFile() maps it
+// to, else the document's own font of that family (the closest weight; an embedded one is written to the writable path
+// once), else on Linux an installed family found with fontconfig (the first with every character of the text); elsewhere the first
 // family is used as a system font, which the OS fills in for missing characters.
 //
 // SPDX-License-Identifier: MIT
@@ -64,12 +65,15 @@ class OpenBoneNode : public cocos2d::Node {
  private:
   bool init(const std::string& file, bool scripts);
   void syncText();
-  /** Font file for a family list and text ("" = use the first family as a system font). */
-  std::string fontFileFor(const std::string& families, const std::string& text);
+  /** Font file for a family list, weight and text ("" = use the first family as a system font). */
+  std::string fontFileFor(const std::string& families, double weight, const std::string& text);
+  /** A file Label can load for a document font ("" if it can't be read). */
+  std::string documentFontFile(const openbone::FontAsset& font);
   bool _textEnabled = true;
   std::vector<cocos2d::Label*> _labels;
   std::unordered_map<std::string, std::string> _fontFiles;   // registered: lower-case family → file
-  std::unordered_map<std::string, std::string> _fontCache;   // families + text → resolved file
+  std::unordered_map<std::string, std::string> _fontCache;   // families + weight + text → resolved file
+  std::unordered_map<std::string, std::string> _docFontFiles;  // document font id → file
   cocos2d::Texture2D* texture(const openbone::TextureRef& ref);
   void handleAudio(const openbone::AudioCommand& c);
   std::string audioFile(const std::string& assetId);

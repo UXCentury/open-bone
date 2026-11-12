@@ -73,6 +73,32 @@ class OpenBoneDocument implements Finalizable {
   /// Master volume: 0 when the document's audio is muted.
   late final double audioMaster;
 
+  /// Font files shipped with the document (see [font] for how text picks one).
+  late final List<OpenBoneFontAsset> fonts;
+
+  /// The document's font for one family (case-insensitive) whose weight is closest to [weight] (the first wins a
+  /// tie), or null. Every runtime picks text fonts this way: for each family of the text's font list in order, the
+  /// document's font of that family if it has one, else the installed font of that name.
+  OpenBoneFontAsset? font(String family, {double weight = 400}) {
+    final f = family.toLowerCase();
+    OpenBoneFontAsset? best;
+    for (final a in fonts) {
+      if (a.family.toLowerCase() == f && (best == null || (a.weight - weight).abs() < (best.weight - weight).abs())) {
+        best = a;
+      }
+    }
+    return best;
+  }
+
+  /// The families of a CSS-like font list ("Noto Serif JP, 'Open Sans', serif"), trimmed and unquoted, in order.
+  static List<String> fontFamilies(String list) => [
+        for (final part in list.split(','))
+          if (_unquote(part.trim()) case final n when n.isNotEmpty) n,
+      ];
+
+  static String _unquote(String s) =>
+      s.length >= 2 && (s[0] == '"' || s[0] == "'") && s[s.length - 1] == s[0] ? s.substring(1, s.length - 1) : s;
+
   bool get isDisposed => _ptr == nullptr;
 
   /// The native handle (valid until [dispose]).
@@ -154,6 +180,19 @@ class OpenBoneDocument implements Finalizable {
             OpenBoneAudioBus(id: bus.ref.id.dart, name: bus.ref.name.dart, volume: bus.ref.volume, muted: bus.ref.muted != 0),
       ];
       audioMaster = b.ob_document_audio_master(_ptr);
+      final font = arena<ob_font_asset>();
+      fonts = [
+        for (var i = 0; i < b.ob_document_font_count(_ptr); i++)
+          if (b.ob_document_font(_ptr, i, font) != 0)
+            OpenBoneFontAsset(
+              id: font.ref.id.dart,
+              name: font.ref.name.dart,
+              family: font.ref.family.dart,
+              src: font.ref.src.dart,
+              weight: font.ref.weight,
+              style: font.ref.style.dart,
+            ),
+      ];
     });
   }
 

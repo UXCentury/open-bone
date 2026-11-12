@@ -59,6 +59,8 @@ public final class OpenBoneMetalRenderer {
     private var documentTextures: [String: MTLTexture] = [:]
     private var suppliedTextures: [String: MTLTexture] = [:]
     private var textTextures: [OpenBoneTextKey: MTLTexture] = [:]
+    /// The current document's fonts by asset id (nil: the font data didn't load).
+    private var documentFonts: [String: CTFontDescriptor?] = [:]
     private weak var cachedDocument: OpenBoneDocument?
     private var vertexBuffer: MTLBuffer?
     private var indexBuffer: MTLBuffer?
@@ -156,6 +158,9 @@ public final class OpenBoneMetalRenderer {
                        into encoder: MTLRenderCommandEncoder) {
         if cachedDocument !== document {
             documentTextures.removeAll()
+            // Text keys don't name their document, and another document's fonts may draw the same family differently.
+            textTextures.removeAll()
+            documentFonts.removeAll()
             cachedDocument = document
         }
         guard !mesh.commands.isEmpty, mesh.vertexCount > 0 else { return }
@@ -227,10 +232,57 @@ public final class OpenBoneMetalRenderer {
             if let t = textTextures[k] { return t }
             if textTextures.count > 128 { textTextures.removeAll() }
             let scale = max(1, min(4, contentsScale * max(viewport.scaleX, viewport.scaleY)))
-            let t = OpenBoneMetalRenderer.rasterize(k, scale: scale, device: device) ?? white
+            let t = OpenBoneMetalRenderer.rasterize(k, font: font(for: k, document: document), scale: scale, device: device) ?? white
             textTextures[k] = t
             return t
         }
+    }
+
+    /// A document font as a CoreText descriptor, made once per font from its bytes.
+    private func descriptor(for asset: OpenBoneDocument.FontAsset, document: OpenBoneDocument) -> CTFontDescriptor? {
+        if let cached = documentFonts[asset.id] { return cached }
+        let d = document.fontData(for: asset.source).flatMap { CTFontManagerCreateFontDescriptorFromData($0 as CFData) }
+        documentFonts[asset.id] = d
+        return d
+    }
+
+    /// An installed font by family (nil = the system font) and CSS weight.
+    static func systemDescriptor(family: String?, weight: Double) -> CTFontDescriptor {
+        var traits: [CFString: Any] = [kCTFontWeightTrait: CGFloat((weight - 400) / 500)]
+        if weight >= 600 { traits[kCTFontSymbolicTrait] = CTFontSymbolicTraits.traitBold.rawValue }
+        var attrs: [CFString: Any] = [kCTFontTraitsAttribute: traits]
+        if let family = family { attrs[kCTFontFamilyNameAttribute] = family }
+        return CTFontDescriptorCreateWithAttributes(attrs as CFDictionary)
+    }
+
+    /// The font for a text: for each family of its font list in order, the document's own font of that family
+    /// (closest weight), else an installed family of that name; generic names (sans-serif, serif, system-ui,
+    /// monospace) are the system font. The first found draws the text, the rest are its cascade list (characters it
+    /// lacks), then CoreText's own fallbacks. The system font when nothing is found.
+    func font(for k: OpenBoneTextKey, document: OpenBoneDocument) -> CTFont {
+        let generic: Set<String> = ["sans-serif", "serif", "system-ui", "monospace", "ui-sans-serif", "ui-serif", "ui-monospace"]
+        let familyOnly = NSSet(object: kCTFontFamilyNameAttribute) as CFSet
+        var chain: [CTFontDescriptor] = []
+        for family in OpenBoneDocument.fontFamilies(k.font) {
+            if let asset = document.font(family: family, weight: k.weight), let d = descriptor(for: asset, document: document) {
+                chain.append(d)
+            } else if generic.contains(family.lowercased()) {
+                chain.append(OpenBoneMetalRenderer.systemDescriptor(family: nil, weight: k.weight))
+            } else {
+                let d = OpenBoneMetalRenderer.systemDescriptor(family: family, weight: k.weight)
+                // Installed? (Matching with the family as a mandatory attribute fails when it isn't.)
+                if CTFontDescriptorCreateMatchingFontDescriptor(d, familyOnly) != nil { chain.append(d) }
+            }
+        }
+        let size = CGFloat(max(1, k.size))
+        guard var primary = chain.first else {
+            return CTFontCreateWithFontDescriptor(OpenBoneMetalRenderer.systemDescriptor(family: nil, weight: k.weight), size, nil)
+        }
+        if chain.count > 1 {
+            let cascade = Array(chain.dropFirst()) as CFArray
+            primary = CTFontDescriptorCreateCopyWithAttributes(primary, [kCTFontCascadeListAttribute: cascade] as CFDictionary)
+        }
+        return CTFontCreateWithFontDescriptor(primary, size, nil)
     }
 
     static func makeTexture(_ device: MTLDevice, width: Int, height: Int, pixels: [UInt8]) -> MTLTexture? {
@@ -274,7 +326,7 @@ public final class OpenBoneMetalRenderer {
     }
 
     /// Rasterises a text box (fill and outline, alignment, wrapping) into a premultiplied texture.
-    static func rasterize(_ k: OpenBoneTextKey, scale: Double, device: MTLDevice) -> MTLTexture? {
+    static func rasterize(_ k: OpenBoneTextKey, font: CTFont, scale: Double, device: MTLDevice) -> MTLTexture? {
         let w = max(1, Int((k.width * scale).rounded(.up))), h = max(1, Int((k.height * scale).rounded(.up)))
         guard w <= 8192, h <= 8192 else { return nil }
         var px = [UInt8](repeating: 0, count: w * h * 4)
@@ -285,14 +337,6 @@ public final class OpenBoneMetalRenderer {
             else { return false }
             ctx.scaleBy(x: CGFloat(scale), y: CGFloat(scale))
             let size = CGFloat(max(1, k.size))
-            let family = k.font.split(separator: ",").first.map { $0.trimmingCharacters(in: CharacterSet(charactersIn: " \"'")) } ?? ""
-            var traits: [CFString: Any] = [kCTFontWeightTrait: CGFloat((k.weight - 400) / 500)]
-            if k.weight >= 600 { traits[kCTFontSymbolicTrait] = CTFontSymbolicTraits.traitBold.rawValue }
-            var attrs: [CFString: Any] = [kCTFontTraitsAttribute: traits]
-            if !family.isEmpty, !["sans-serif", "serif", "system-ui", "monospace"].contains(family.lowercased()) {
-                attrs[kCTFontFamilyNameAttribute] = family
-            }
-            let font = CTFontCreateWithFontDescriptor(CTFontDescriptorCreateWithAttributes(attrs as CFDictionary), size, nil)
             var alignment: CTTextAlignment = k.align == 0 ? .left : k.align == 2 ? .right : .center
             let paragraph = withUnsafeMutablePointer(to: &alignment) { p -> CTParagraphStyle in
                 var setting = CTParagraphStyleSetting(spec: .alignment, valueSize: MemoryLayout<CTTextAlignment>.size, value: p)

@@ -147,6 +147,13 @@ int ob_document_audio_bus(const ob_document* d, int i, ob_audio_bus* out) {
   *out = {b.id.c_str(), b.name.c_str(), b.volume, b.muted ? 1 : 0};
   return 1;
 }
+int ob_document_font_count(const ob_document* d) { return d ? (int)d->doc->fonts.size() : 0; }
+int ob_document_font(const ob_document* d, int i, ob_font_asset* out) {
+  if (!out || i < 0 || i >= ob_document_font_count(d)) return 0;
+  const auto& f = d->doc->fonts[i];
+  *out = {f.id.c_str(), f.name.c_str(), f.family.c_str(), f.src.c_str(), f.weight, f.style.c_str()};
+  return 1;
+}
 double ob_document_audio_master(const ob_document* d) {
   if (!d || !d->doc->audio) return 1;
   return d->doc->audio->muted ? 0 : d->doc->audio->master;

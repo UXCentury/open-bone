@@ -112,7 +112,9 @@ the running state machine's listeners, using the inverse of the view's framing. 
   `setTexture(_:forID:)` lets you supply your own;
 - particles with the built-in soft dot sprite and per-vertex colours; shapes untextured, with their stroke;
 - text rasterised with CoreText (font family, weight, size, alignment, fill, outline) into cached textures, drawn on
-  the text box's quad;
+  the text box's quad; fonts the document ships come first (for each family of the text's font list: the document's
+  font of that family, closest weight, via `CTFontManagerCreateFontDescriptorFromData`; else the installed family),
+  the remaining families are the cascade list;
 - batching: consecutive items with the same texture, blend and clip become one draw call
   (`OpenBoneRenderMesh` — platform-neutral, unit-tested).
 
@@ -160,7 +162,7 @@ two files in `Sources/OpenBoneSample` to the target (bundle the documents and th
 
 | Type | What it is |
 | --- | --- |
-| `OpenBoneDocument` | Loaded, immutable document (`init(contentsOf:)`, `init(data:baseURL:)`); `artboard`, `animations` (name, duration), `skins`, `stateMachines` (inputs with type and default), `textures` (atlas pages, images, premultiplied flag), `textureData(for:)`, `audioAssets`, `audioBuses`, `audioMaster`, `audioData(for:)`, `artboardToSkeleton` |
+| `OpenBoneDocument` | Loaded, immutable document (`init(contentsOf:)`, `init(data:baseURL:)`); `artboard`, `animations` (name, duration), `skins`, `stateMachines` (inputs with type and default), `textures` (atlas pages, images, premultiplied flag), `textureData(for:)`, `audioAssets`, `audioBuses`, `audioMaster`, `audioData(for:)`, `fonts` (`FontAsset`), `font(family:weight:)`, `fontData(for:)`, `artboardToSkeleton` |
 | `OpenBoneInstance` | A skeleton of a document: `setSkin`, `setTransform`, `play` / `queue` / `clearTracks`, `useStateMachine`, `setInput`, `fire`, `input(_:)`, `pointer`, `activeStates`, `setText(slot:_:)`, `advance`, `bones` / `bone(named:)`, `slots` / `slot(named:)`, `bounds`, `withDrawList`, `drawList()`; callbacks `onEvent`, `onAudio`, `onStateChange`, `onLog` |
 | `OpenBoneSkeletonBounds`, `OpenBoneBoundingBox` | Bounding-box queries: `instance.boundingBoxes()` (see below) |
 | `OpenBoneDrawItemView` / `OpenBoneDrawItem` | Draw item (zero-copy view or copy): slot, attachment, kind, blend, texture, vertices, uvs, indices, colour, dark, per-vertex colours, clip, text, stroke |

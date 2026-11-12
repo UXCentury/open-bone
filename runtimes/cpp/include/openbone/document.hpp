@@ -75,6 +75,20 @@ struct ImageAsset {
   double width = 0, height = 0;
 };
 
+/**
+ * A font file shipped with the document. Text attachments name `family` in their CSS-like `font` list; `src` is a
+ * data:<mime>;base64,… URL or a path relative to the document (like images and audio).
+ */
+struct FontAsset {
+  Id id;
+  std::string name, family, src;
+  double weight = 400;           // 100..900
+  std::string style = "normal";  // normal | italic
+};
+
+/** The families of a CSS-like font list ("Noto Serif JP, 'Open Sans', serif"), trimmed and unquoted, in order. */
+std::vector<std::string> splitFontFamilies(const std::string& list);
+
 struct AtlasPage {
   Id id;
   std::string name, src;
@@ -468,6 +482,7 @@ struct Document {
   std::string name;
   double width = 0, height = 0, originX = 0, originY = 0, fps = 30;
   std::vector<ImageAsset> images;
+  std::vector<FontAsset> fonts;
   std::optional<AtlasData> atlas;
   SkeletonData skeleton;
   std::vector<EventData> events;
@@ -480,6 +495,12 @@ struct Document {
   const AnimationData* animationById(const Id& id) const;
   const EventData* eventById(const Id& id) const;
   const StateMachineData* findStateMachine(const std::string& idOrName) const;
+  /**
+   * The document font for one family (case-insensitive), the one whose weight is closest to `weight` (first wins a
+   * tie); nullptr when the document has no font of that family. Every runtime matches text fonts this way: for each
+   * family of a text's font list in order, a document font if there is one, else the installed font lookup.
+   */
+  const FontAsset* findFont(const std::string& family, double weight = 400) const;
 };
 
 /** Parse a .obone JSON document. Throws std::runtime_error on invalid input. */

@@ -4,8 +4,9 @@
 //   openbone_sfml file.obone [--animation name] [--skin name] [--font file.ttf]
 //   openbone_sfml file.obone --frames 60 --out frame.png      (offscreen sf::RenderTexture, no window)
 //
-// SFML 2 has no stencil buffer access, so clipping masks are not applied; text uses sf::Text when a font is given with
-// --font path.ttf. Screen blending falls back to additive.
+// SFML 2 has no stencil buffer access, so clipping masks are not applied. Text uses sf::Text with the document's own
+// fonts (the first family of a text's font list the document ships, closest weight) and otherwise the --font path.ttf
+// (SFML can't look up installed fonts); text without either is skipped. Screen blending falls back to additive.
 //
 // Sounds play through sf::SoundBuffer / sf::Sound (built with OPENBONE_SFML_AUDIO): volume × bus × master, rate as
 // pitch, looping and fades stepped every frame (engines/common/openbone_audio.hpp). --mute turns them off; the audio
@@ -19,6 +20,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "openbone/runtime.hpp"
 #include "openbone_assets.hpp"
@@ -82,16 +84,44 @@ sf::Color colorOf(double r, double g, double b, double a) {
   return sf::Color(ch(r), ch(g), ch(b), ch(a));
 }
 
+/** sf::Font per document font (loaded from memory, so the bytes stay alive with it), falling back to --font. */
+struct Fonts {
+  std::shared_ptr<const ob::Document> doc;
+  std::string documentPath;
+  const sf::Font* fallback = nullptr;
+  struct Entry {
+    std::vector<uint8_t> bytes;  // sf::Font reads from these while it lives
+    sf::Font font;
+    bool ok = false;
+  };
+  std::map<std::string, std::unique_ptr<Entry>> cache;  // by font id
+  const sf::Font* forText(const std::string& families, double weight) {
+    for (const std::string& family : ob::splitFontFamilies(families)) {
+      const ob::FontAsset* asset = doc->findFont(family, weight);
+      if (!asset) continue;
+      auto& e = cache[asset->id];
+      if (!e) {
+        e = std::make_unique<Entry>();
+        e->bytes = ob::assets::readSource(asset->src, documentPath);
+        e->ok = !e->bytes.empty() && e->font.loadFromMemory(e->bytes.data(), e->bytes.size());
+        if (!e->ok) std::fprintf(stderr, "cannot load font %s (%s)\n", asset->family.c_str(), asset->name.c_str());
+      }
+      if (e->ok) return &e->font;
+    }
+    return fallback;
+  }
+};
+
 class OpenBoneDrawable : public sf::Drawable, public sf::Transformable {
  public:
-  OpenBoneDrawable(ob::Instance& inst, Textures& textures, sf::Shader* darkShader, const sf::Font* font)
-      : inst(inst), textures(textures), darkShader(darkShader), font(font) {}
+  OpenBoneDrawable(ob::Instance& inst, Textures& textures, sf::Shader* darkShader, Fonts& fonts)
+      : inst(inst), textures(textures), darkShader(darkShader), fonts(fonts) {}
 
  private:
   ob::Instance& inst;
   Textures& textures;
   sf::Shader* darkShader;
-  const sf::Font* font;
+  Fonts& fonts;
 
   void draw(sf::RenderTarget& target, sf::RenderStates states) const override {
     // Skeleton space is y-up: flip into SFML's y-down space.
@@ -101,8 +131,9 @@ class OpenBoneDrawable : public sf::Drawable, public sf::Transformable {
     const bool pma = inst.doc->atlas && inst.doc->atlas->premultipliedAlpha;
     for (const ob::DrawItem& it : list.items) {
       if (it.text) {
-        if (!font) continue;
         const ob::TextDraw& t = *it.text;
+        const sf::Font* font = fonts.forText(t.font, t.weight);
+        if (!font) continue;
         sf::Text text(sf::String::fromUtf8(t.content.begin(), t.content.end()), *font, (unsigned)t.size);
         text.setFillColor(colorOf(t.fill[0] * it.color[0], t.fill[1] * it.color[1], t.fill[2] * it.color[2], t.fill[3] * it.color[3]));
         // Outline outside the glyphs by outlineWidth: the web player's canvas stroke (2 × outlineWidth, half outside).
@@ -260,8 +291,8 @@ int main(int argc, char** argv) {
   sf::Shader shader;
   sf::Shader* darkShader = sf::Shader::isAvailable() && shader.loadFromMemory(DARK_SHADER, sf::Shader::Fragment) ? &shader : nullptr;
   sf::Font font;
-  const sf::Font* fontPtr = !fontPath.empty() && font.loadFromFile(fontPath) ? &font : nullptr;
-  OpenBoneDrawable drawable(inst, textures, darkShader, fontPtr);
+  Fonts fonts{doc, path, !fontPath.empty() && font.loadFromFile(fontPath) ? &font : nullptr, {}};
+  OpenBoneDrawable drawable(inst, textures, darkShader, fonts);
   drawable.setPosition(float(doc->originX), float(doc->originY));
 
   if (!out.empty()) {

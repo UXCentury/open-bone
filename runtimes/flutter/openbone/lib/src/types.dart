@@ -51,6 +51,22 @@ class OpenBoneAudioAsset {
   final double duration;
 }
 
+/// A font file of the document. Text names [family] in its CSS-like font list ("Noto Serif JP, Georgia, serif");
+/// [src] is a data: URL or a path relative to the document. [weight] is 100..900, [style] "normal" or "italic".
+class OpenBoneFontAsset {
+  const OpenBoneFontAsset({
+    required this.id,
+    required this.name,
+    required this.family,
+    required this.src,
+    this.weight = 400,
+    this.style = 'normal',
+  });
+  final String id, name, family, src;
+  final double weight;
+  final String style;
+}
+
 /// A mixer bus of the document.
 class OpenBoneAudioBus {
   const OpenBoneAudioBus({required this.id, required this.name, required this.volume, required this.muted});

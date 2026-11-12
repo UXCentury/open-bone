@@ -206,8 +206,34 @@ void OpenBoneNode::setTextEnabled(bool enabled) {
   syncText();
 }
 
-std::string OpenBoneNode::fontFileFor(const std::string& families, const std::string& text) {
-  const std::string key = families + '\n' + text;
+std::string OpenBoneNode::documentFontFile(const ob::FontAsset& font) {
+  auto found = _docFontFiles.find(font.id);
+  if (found != _docFontFiles.end()) return found->second;
+  std::string path;
+  if (font.src.rfind("data:", 0) == 0) {
+    // Label loads fonts from files: write an embedded font to the writable path once.
+    const auto bytes = ob::assets::readSource(font.src, _path);
+    if (!bytes.empty()) {
+      const std::string meta = font.src.substr(5, font.src.find(',') - 5);
+      const std::string ext = meta.find("otf") != std::string::npos ? ".otf" : meta.find("woff2") != std::string::npos ? ".woff2"
+                            : meta.find("woff") != std::string::npos ? ".woff" : ".ttf";
+      path = FileUtils::getInstance()->getWritablePath() + "openbone-" + std::to_string(std::hash<std::string>{}(_path)) + "-font-" + font.id + ext;
+      Data d;
+      d.copy(bytes.data(), (ssize_t)bytes.size());
+      if (!FileUtils::getInstance()->writeDataToFile(d, path)) path.clear();
+    }
+  } else if (!font.src.empty()) {
+    const auto slash = _path.find_last_of("/\\");
+    const std::string dir = slash == std::string::npos ? "" : _path.substr(0, slash + 1);
+    path = FileUtils::getInstance()->fullPathForFilename(dir + font.src);
+  }
+  if (path.empty()) CCLOG("OpenBone: font \"%s\" (%s) not found", font.family.c_str(), font.src.rfind("data:", 0) == 0 ? "data:" : font.src.c_str());
+  _docFontFiles[font.id] = path;
+  return path;
+}
+
+std::string OpenBoneNode::fontFileFor(const std::string& families, double weight, const std::string& text) {
+  const std::string key = families + '\n' + std::to_string((int)weight) + '\n' + text;
   auto hit = _fontCache.find(key);
   if (hit != _fontCache.end()) return hit->second;
   std::string file;
@@ -217,6 +243,10 @@ std::string OpenBoneNode::fontFileFor(const std::string& families, const std::st
     if (reg != _fontFiles.end()) {
       file = reg->second;
       break;
+    }
+    if (const ob::FontAsset* doc = _doc ? _doc->findFont(f, weight) : nullptr) {
+      file = documentFontFile(*doc);
+      if (!file.empty()) break;
     }
 #if CC_TARGET_PLATFORM == CC_PLATFORM_LINUX
     file = fontconfigFile(f, codepoints(text));
@@ -238,7 +268,7 @@ void OpenBoneNode::syncText() {
     for (const ob::DrawItem& it : list.items) {
       if (!it.text || it.text->content.empty()) continue;
       const ob::TextDraw& t = *it.text;
-      const std::string file = fontFileFor(t.font, t.content);
+      const std::string file = fontFileFor(t.font, t.weight, t.content);
       const auto fams = splitFamilies(t.font);
       const float size = (float)t.size;
       Label* label = used < _labels.size() ? _labels[used] : nullptr;

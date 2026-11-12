@@ -12,6 +12,7 @@ import '../instance.dart';
 import '../types.dart';
 import 'audio.dart';
 import 'controller.dart';
+import 'fonts.dart';
 import 'renderer.dart';
 import 'textures.dart';
 
@@ -154,6 +155,7 @@ class _OpenBoneWidgetState extends State<OpenBoneWidget> with SingleTickerProvid
   OpenBoneDocument? _ownDocument;
   OpenBoneInstance? _instance;
   OpenBoneTextures? _textures;
+  OpenBoneFonts? _fonts;
   OpenBoneAudio? _audio;
   StreamSubscription<OpenBoneAudioCommand>? _audioSub;
   OpenBoneDrawList? _drawList;
@@ -224,7 +226,9 @@ class _OpenBoneWidgetState extends State<OpenBoneWidget> with SingleTickerProvid
             doc = own = OpenBoneDocument.bytes(bytes, basePath: basePath);
         }
       }
+      final pendingFonts = OpenBoneFonts.load(doc, source: widget.source); // never throws: unreadable fonts are skipped
       final textures = await OpenBoneTextures.load(doc, source: widget.source, loader: widget.imageLoader);
+      final fonts = await pendingFonts;
       if (!mounted || gen != _generation) {
         textures.dispose();
         own?.dispose();
@@ -233,6 +237,7 @@ class _OpenBoneWidgetState extends State<OpenBoneWidget> with SingleTickerProvid
       final inst = doc.createInstance(scripts: widget.scripts);
       _ownDocument = own;
       _textures = textures;
+      _fonts = fonts;
       _instance = inst;
       if (widget.audio) {
         // Subscribe before the first frame so sounds of the entry state aren't missed.
@@ -302,6 +307,7 @@ class _OpenBoneWidgetState extends State<OpenBoneWidget> with SingleTickerProvid
     _instance = null;
     _textures?.dispose();
     _textures = null;
+    _fonts = null;
     _ownDocument?.dispose();
     _ownDocument = null;
     _drawList = null;
@@ -350,7 +356,7 @@ class _OpenBonePainter extends CustomPainter {
     canvas.save();
     canvas.clipRect(Offset.zero & size);
     OpenBoneViewTransform(inst.document, size, fit: state.widget.fit, alignment: state.widget.alignment).apply(canvas);
-    state._renderer.draw(canvas, list, textures);
+    state._renderer.draw(canvas, list, textures, fonts: state._fonts);
     canvas.restore();
   }
 

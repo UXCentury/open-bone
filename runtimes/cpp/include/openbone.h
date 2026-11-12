@@ -218,6 +218,21 @@ OB_API int ob_document_audio_asset_count(const ob_document* doc);
 OB_API int ob_document_audio_asset(const ob_document* doc, int index, ob_audio_asset* out);
 OB_API int ob_document_audio_bus_count(const ob_document* doc);
 OB_API int ob_document_audio_bus(const ob_document* doc, int index, ob_audio_bus* out);
+/**
+ * Font files of the document. Text items name `family` in their CSS-like font list; for each family in order, use the
+ * document font of that family (case-insensitive) whose weight is closest to the text's weight, else an installed font.
+ * `src` is a data: URL or a path relative to the document; `style` is "normal" or "italic".
+ */
+typedef struct ob_font_asset {
+  const char* id;
+  const char* name;
+  const char* family;
+  const char* src;
+  double weight;
+  const char* style;
+} ob_font_asset;
+OB_API int ob_document_font_count(const ob_document* doc);
+OB_API int ob_document_font(const ob_document* doc, int index, ob_font_asset* out);
 /** Master volume (0 when the document's audio is muted, 1 when it has no audio settings). */
 OB_API double ob_document_audio_master(const ob_document* doc);
 OB_API int ob_document_skin_count(const ob_document* doc);

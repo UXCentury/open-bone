@@ -182,6 +182,66 @@ public final class OpenBoneDocument {
     /// Master volume: 0 when the document's audio is muted, 1 when it has no audio settings.
     public var audioMaster: Double { ob_document_audio_master(handle) }
 
+    /// A font file shipped with the document. Text names `family` in its CSS-like font list
+    /// ("Noto Serif JP, Georgia, serif"); see `font(family:weight:)` for how a text picks one.
+    public struct FontAsset: Equatable {
+        public var id: String
+        public var name: String
+        /// The family name text uses in its font list.
+        public var family: String
+        /// A `data:` URL or a path relative to the document.
+        public var source: String
+        /// 100...900.
+        public var weight: Double
+        /// "normal" or "italic".
+        public var style: String
+
+        public init(id: String, name: String = "", family: String, source: String, weight: Double = 400,
+                    style: String = "normal") {
+            self.id = id
+            self.name = name
+            self.family = family
+            self.source = source
+            self.weight = weight
+            self.style = style
+        }
+    }
+
+    public var fonts: [FontAsset] {
+        (0 ..< Int(ob_document_font_count(handle))).compactMap { i in
+            var f = ob_font_asset()
+            guard ob_document_font(handle, Int32(i), &f) != 0 else { return nil }
+            return FontAsset(id: optionalString(f.id) ?? "", name: optionalString(f.name) ?? "",
+                             family: optionalString(f.family) ?? "", source: optionalString(f.src) ?? "",
+                             weight: f.weight, style: optionalString(f.style) ?? "normal")
+        }
+    }
+
+    /// The document's font for one family (case-insensitive) whose weight is closest to `weight` (the first wins a
+    /// tie), or nil. Every runtime picks text fonts this way: for each family of the text's font list in order, the
+    /// document's font of that family if it has one, else the installed font of that name.
+    public func font(family: String, weight: Double = 400) -> FontAsset? {
+        var best: FontAsset?
+        for f in fonts where f.family.caseInsensitiveCompare(family) == .orderedSame {
+            if best == nil || abs(f.weight - weight) < abs(best!.weight - weight) { best = f }
+        }
+        return best
+    }
+
+    /// The families of a CSS-like font list ("Noto Serif JP, 'Open Sans', serif"), trimmed and unquoted, in order.
+    public static func fontFamilies(_ list: String) -> [String] {
+        list.split(separator: ",").compactMap { part -> String? in
+            var n = part.trimmingCharacters(in: .whitespacesAndNewlines)
+            if n.count >= 2, let q = n.first, q == "\"" || q == "'", n.last == q { n = String(n.dropFirst().dropLast()) }
+            return n.isEmpty ? nil : n
+        }
+    }
+
+    /// Bytes of a font source (a `data:` URL, or a path relative to `baseURL`), or nil when it cannot be resolved.
+    public func fontData(for source: String) -> Data? {
+        OpenBoneDocument.resolve(source: source, baseURL: baseURL)
+    }
+
     /// Bytes of a sound source (a `data:` URL, or a path relative to `baseURL`), or nil when it cannot be resolved.
     public func audioData(for source: String) -> Data? {
         OpenBoneDocument.resolve(source: source, baseURL: baseURL)

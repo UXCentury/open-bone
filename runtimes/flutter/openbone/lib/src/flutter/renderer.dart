@@ -7,6 +7,7 @@ import 'package:flutter/painting.dart';
 
 import '../document.dart';
 import '../types.dart';
+import 'fonts.dart';
 import 'textures.dart';
 
 /// Maps the document's artboard into a widget box ([fit] + [alignment]) and skeleton space (y up) into the artboard.
@@ -64,8 +65,9 @@ class OpenBoneRenderer {
     return (c(a) << 24) | (c(r) << 16) | (c(g) << 8) | c(b);
   }
 
-  /// Draws [list] in skeleton space: call after [OpenBoneViewTransform.apply] (or any y-up transform).
-  void draw(Canvas canvas, OpenBoneDrawList list, OpenBoneTextures textures) {
+  /// Draws [list] in skeleton space: call after [OpenBoneViewTransform.apply] (or any y-up transform). Text uses the
+  /// document's own [fonts] when given (see [OpenBoneFonts.load]), else its font list as installed families.
+  void draw(Canvas canvas, OpenBoneDrawList list, OpenBoneTextures textures, {OpenBoneFonts? fonts}) {
     var clip = -1;
     for (final item in list.items) {
       if (item.clip != clip) {
@@ -80,7 +82,7 @@ class OpenBoneRenderer {
       }
       switch (item.kind) {
         case OpenBoneItemKind.text:
-          _text(canvas, item);
+          _text(canvas, item, fonts);
         case OpenBoneItemKind.shape:
           _shape(canvas, item);
         default:
@@ -183,7 +185,7 @@ class OpenBoneRenderer {
     }
   }
 
-  void _text(Canvas canvas, OpenBoneDrawItem item) {
+  void _text(Canvas canvas, OpenBoneDrawItem item, OpenBoneFonts? fonts) {
     final t = item.text;
     if (t == null || t.content.isEmpty) return;
     final m = t.matrix;
@@ -193,11 +195,14 @@ class OpenBoneRenderer {
     final align = switch (t.align) { 0 => TextAlign.left, 2 => TextAlign.right, _ => TextAlign.center };
     final weight = FontWeight.values[((t.weight / 100).round() - 1).clamp(0, FontWeight.values.length - 1)];
     final tint = item.color;
+    // The whole list: unavailable families are skipped, and later ones fill in characters the first lacks.
+    final families = fonts?.families(t.font, t.weight) ?? OpenBoneDocument.fontFamilies(t.font);
     TextPainter painter(Paint? foreground, Color? color) => TextPainter(
           text: TextSpan(
             text: t.content,
             style: TextStyle(
-              fontFamily: t.font.isEmpty ? null : t.font.split(',').first.trim().replaceAll('"', '').replaceAll("'", ''),
+              fontFamily: families.isEmpty ? null : families.first,
+              fontFamilyFallback: families.length > 1 ? families.sublist(1) : null,
               fontSize: t.size,
               fontWeight: weight,
               color: color,
