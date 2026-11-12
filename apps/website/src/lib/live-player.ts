@@ -18,11 +18,12 @@ interface PlayerElement extends HTMLElement {
 
 let script: Promise<void> | null = null;
 
-function loadPlayerScript(): Promise<void> {
+/** The player script's URL, versioned by the build (data-player); the plain path as a fallback. */
+function loadPlayerScript(src = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/player/openbone-player.js`): Promise<void> {
   if (customElements.get("openbone-player")) return Promise.resolve();
   script ??= new Promise<void>((resolve, reject) => {
     const s = document.createElement("script");
-    s.src = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/player/openbone-player.js`;
+    s.src = src;
     s.onload = () => resolve();
     s.onerror = () => reject(new Error("could not load the OpenBone player"));
     document.head.append(s);
@@ -69,7 +70,7 @@ function run(fig: HTMLElement): Promise<void> {
       { once: true },
     );
   });
-  const p = loadPlayerScript()
+  const p = loadPlayerScript(fig.dataset.player || undefined)
     .then(() => customElements.whenDefined("openbone-player"))
     .then(() => {
       el.audioContext = ctx;

@@ -14,7 +14,8 @@
 /pagefind/*
   Cache-Control: public, max-age=3600
 
-# Example projects, their art and the web player change only with a release.
+# Example projects, their art and the web player. The pages load the player and the projects with ?v=<content hash>
+# (versionedUrl in src/lib/examples.ts), so a deploy reaches visitors at once despite these caches.
 /projects/*
   Cache-Control: public, max-age=86400
 

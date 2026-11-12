@@ -7,7 +7,7 @@
  * no document, art or sound is loaded. The play click loads it and starts it with sound (that click unlocks audio).
  * A fullscreen button shows the player and its controls full screen. Started players pause off screen.
  */
-import { getExample, url } from "../lib/examples";
+import { getExample, url, versionedUrl } from "../lib/examples";
 
 interface Props {
   example: string;
@@ -24,7 +24,8 @@ interface Props {
 
 const { example, animation, controls = true, header = true, eager = false, class: cls } = Astro.props;
 const ex = getExample(example);
-const src = url(`projects/${ex.id}.obone`);
+const src = versionedUrl(`projects/${ex.id}.obone`);
+const player = versionedUrl("player/openbone-player.js");
 const poster = url(`posters/${ex.id}.webp`);
 const bg = ex.background ?? "transparent";
 ---
@@ -32,6 +33,7 @@ const bg = ex.background ?? "transparent";
 <figure
   class:list={["ob-live not-content", cls]}
   data-src={src}
+  data-player={player}
   data-audio={ex.hasAudio ? "" : undefined}
   style={`--ob-aspect: ${ex.width} / ${ex.height}; --ob-bg: ${bg};`}
 >

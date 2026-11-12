@@ -2,6 +2,7 @@
  * The example projects as the site shows them: read from examples/*.obone at build time (size, background, state
  * machine inputs), plus a line of copy and which inputs get a control.
  */
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -134,4 +135,19 @@ export const allExamples = () => EXAMPLE_IDS.map(getExample);
 export function url(p: string): string {
   const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   return `${base}/${p.replace(/^\//, "")}`;
+}
+
+/**
+ * url() plus `?v=<content hash>` for a file in public/ (written by scripts/sync.ts before the build). Browsers cache
+ * /player/* and /projects/* for a day under fixed names; the hash changes with the file, so a deploy reaches visitors
+ * at once instead of after their cached copy expires.
+ */
+export function versionedUrl(p: string): string {
+  const file = path.resolve(process.cwd(), "public", p.replace(/^\//, ""));
+  try {
+    const hash = createHash("sha256").update(fs.readFileSync(file)).digest("hex").slice(0, 10);
+    return `${url(p)}?v=${hash}`;
+  } catch {
+    return url(p);
+  }
 }
