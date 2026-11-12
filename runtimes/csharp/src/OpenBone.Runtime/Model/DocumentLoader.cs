@@ -72,6 +72,16 @@ namespace OpenBone
             };
             foreach (var x in j.Arr("images"))
                 d.Images.Add(new ImageAsset { Id = S(x, "id"), Name = S(x, "name"), Src = S(x, "src"), Width = x.Num("width"), Height = x.Num("height") });
+            foreach (var x in j.Arr("fonts"))
+                d.Fonts.Add(new FontAsset
+                {
+                    Id = S(x, "id"),
+                    Name = S(x, "name"),
+                    Family = x.Str("family", ""),
+                    Src = S(x, "src"),
+                    Weight = x.Num("weight", 400),
+                    Style = x.Str("style", "normal"),
+                });
             var atlas = j.Get("atlas");
             if (atlas != null && atlas.IsObject) d.Atlas = BuildAtlas(atlas);
             var sk = j.Get("skeleton") ?? JsonValue.NewObject();

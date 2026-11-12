@@ -83,6 +83,75 @@ namespace OpenBone.MonoGame.Tests
             finally { File.Delete(path); }
         }
 
+        /// <summary>A synthetic single font whose units per em tells it apart.</summary>
+        static byte[] Font(int unitsPerEm)
+        {
+            var (_, head, hhea) = Tables(unitsPerEm, unitsPerEm, 0);
+            var dir = Sfnt(0, head, hhea, out var body);
+            return dir.Concat(body).ToArray();
+        }
+
+        static int UnitsPerEm(byte[] font) => font[44 + 18] << 8 | font[44 + 19];  // head is the first table, after a 44-byte directory
+
+        [Fact]
+        public void RegisteredFamiliesComeFirstAtTheClosestWeight()
+        {
+            var fonts = new FontRegistry();
+            fonts.Register("Brand Sans", Font(1000));
+            fonts.Register("Brand Sans", Font(1700), 700);
+            fonts.Register("Brand Sans", Font(1400), 400, italic: true);
+            Assert.Equal(1000, UnitsPerEm(fonts.FontDataFor("brand sans, serif", 400)[0]));
+            Assert.Equal(1700, UnitsPerEm(fonts.FontDataFor("'BRAND SANS'", 600)[0]));
+            Assert.Equal(1000, UnitsPerEm(fonts.FontDataFor("Brand Sans", 550)[0]));  // tie: the first registered
+            // A family the registry lacks is skipped (when not installed); the registered one still follows.
+            Assert.Equal(1700, UnitsPerEm(fonts.FontDataFor("No Such Family Anywhere, Brand Sans", 900)[0]));
+        }
+
+        [Fact]
+        public void RegisteredCollectionsUseTheirFirstFace()
+        {
+            var (_, h1, x1) = Tables(1000, 800, -200);
+            var (_, h2, x2) = Tables(2048, 1900, -500);
+            const int header = 12 + 4 * 2;
+            var face1 = Sfnt(header, h1, x1, out var body1);
+            int face2At = header + face1.Count + body1.Count;
+            var face2 = Sfnt(face2At, h2, x2, out var body2);
+            var file = new List<byte>(Encoding.ASCII.GetBytes("ttcf"));
+            Put32(file, 0x00010000);
+            Put32(file, 2);
+            Put32(file, header);
+            Put32(file, face2At);
+            file.AddRange(face1); file.AddRange(body1); file.AddRange(face2); file.AddRange(body2);
+            var fonts = new FontRegistry();
+            fonts.Register("Collected", file.ToArray());
+            var first = fonts.FontDataFor("Collected")[0];
+            Assert.Equal(0x00, first[0]);
+            Assert.Equal(1.0f, FontFiles.HeightPerEm(first), 3);
+        }
+
+        [Fact]
+        public void DocumentFontsLoadFromDataUrisAndFilesBesideTheDocument()
+        {
+            var dir = Path.Combine(Path.GetTempPath(), "openbone-fonts-" + System.Guid.NewGuid());
+            Directory.CreateDirectory(Path.Combine(dir, "fonts"));
+            try
+            {
+                File.WriteAllBytes(Path.Combine(dir, "fonts", "Bold.ttf"), Font(1700));
+                var json = "{\"format\":\"openbone\",\"version\":1,\"skeleton\":{},\"fonts\":["
+                    + "{\"id\":\"a\",\"name\":\"Regular\",\"family\":\"Brand Sans\",\"src\":\"data:font/ttf;base64," + System.Convert.ToBase64String(Font(1000)) + "\"},"
+                    + "{\"id\":\"b\",\"name\":\"Bold\",\"family\":\"Brand Sans\",\"src\":\"fonts/Bold.ttf\",\"weight\":700},"
+                    + "{\"id\":\"c\",\"name\":\"Gone\",\"family\":\"Other\",\"src\":\"fonts/Missing.ttf\"}]}";
+                var fonts = new FontRegistry();
+                var warnings = fonts.AddDocumentFonts(DocumentLoader.FromJson(json), dir);
+                Assert.Single(warnings);
+                Assert.Contains("Gone", warnings[0]);
+                Assert.False(fonts.Has("Other"));
+                Assert.Equal(1000, UnitsPerEm(fonts.FontDataFor("Brand Sans", 400)[0]));
+                Assert.Equal(1700, UnitsPerEm(fonts.FontDataFor("Brand Sans", 800)[0]));
+            }
+            finally { Directory.Delete(dir, true); }
+        }
+
         [Fact]
         public void SplitsCssFamilyLists()
         {

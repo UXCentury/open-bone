@@ -18,6 +18,8 @@ namespace OpenBone
         public List<StateMachineData> StateMachines = new List<StateMachineData>();
         public List<ScriptData> Scripts = new List<ScriptData>();
         public AudioData Audio;
+        /// <summary>Font files text attachments use by family (embedded data: URIs or paths relative to the document).</summary>
+        public List<FontAsset> Fonts = new List<FontAsset>();
         /// <summary>The JSON the document was read from (normalised).</summary>
         public JsonValue Json;
 
@@ -34,6 +36,29 @@ namespace OpenBone
         {
             if (id == null) return null;
             foreach (var a in Animations) if (a.Id == id) return a;
+            return null;
+        }
+
+        /// <summary>
+        /// The document font a text uses: the first family in its CSS-like <paramref name="families"/> list that the
+        /// document has fonts for (case-insensitive), and of those the one whose weight is closest to
+        /// <paramref name="weight"/> (italic only when asked). Null when the text names no document font, so installed
+        /// fonts apply. Every runtime follows this rule (packages/core pickDocumentFont).
+        /// </summary>
+        public FontAsset PickFont(string families, double weight = 400, bool italic = false)
+        {
+            foreach (var fam in FontAsset.SplitFamilies(families))
+            {
+                FontAsset best = null;
+                double score = double.PositiveInfinity;
+                foreach (var f in Fonts)
+                {
+                    if (!string.Equals(f.Family, fam, System.StringComparison.OrdinalIgnoreCase)) continue;
+                    double s = System.Math.Abs(f.Weight - weight) + ((f.Style == "italic") != italic ? 1000 : 0);
+                    if (s < score) { best = f; score = s; }
+                }
+                if (best != null) return best;
+            }
             return null;
         }
 
@@ -64,6 +89,34 @@ namespace OpenBone
         string Src { get; }
         double Width { get; }
         double Height { get; }
+    }
+
+    /// <summary>A font file for text attachments (TTF / OTF), used by its <see cref="Family"/> name.</summary>
+    public sealed class FontAsset
+    {
+        public string Id, Name;
+        /// <summary>The family name text attachments use in their font list ("Noto Serif JP").</summary>
+        public string Family;
+        /// <summary>data: URI (embedded) or a path relative to the document.</summary>
+        public string Src;
+        /// <summary>CSS weight 100..900.</summary>
+        public double Weight = 400;
+        /// <summary>"normal" or "italic".</summary>
+        public string Style = "normal";
+
+        /// <summary>A CSS font-family list ("Noto Serif JP, 'Georgia', serif") as names, without quotes.</summary>
+        public static List<string> SplitFamilies(string list)
+        {
+            var r = new List<string>();
+            if (string.IsNullOrEmpty(list)) return r;
+            foreach (var part in list.Split(','))
+            {
+                var p = part.Trim();
+                if (p.Length >= 2 && (p[0] == '"' || p[0] == '\'') && p[p.Length - 1] == p[0]) p = p.Substring(1, p.Length - 2).Trim();
+                if (p.Length > 0) r.Add(p);
+            }
+            return r;
+        }
     }
 
     public sealed class ImageAsset : ITexture

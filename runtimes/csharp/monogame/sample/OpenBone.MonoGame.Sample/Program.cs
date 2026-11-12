@@ -50,6 +50,7 @@ namespace OpenBone.MonoGame.Sample
             _player = OpenBoneMonoGame.Load(GraphicsDevice, _options.File);
             _player.Warning += w => Console.WriteLine("warning: " + w);
             foreach (var w in _player.Textures.Warnings) Console.WriteLine("warning: " + w);
+            foreach (var w in _player.FontWarnings) Console.WriteLine("warning: " + w);
             _player.AcceptInput = () => IsActive && _options.Screenshot == null;
             _player.Event += e => Console.WriteLine($"event {e.Name} at {e.Time:0.###}");
             _player.StateChanged += s => Console.WriteLine($"state {s.Layer}: {s.From ?? "-"} -> {s.To}");

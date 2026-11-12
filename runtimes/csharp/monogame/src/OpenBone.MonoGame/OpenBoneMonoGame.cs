@@ -43,6 +43,8 @@ namespace OpenBone.MonoGame
         public OpenBoneRenderer Renderer { get; }
         /// <summary>The default text renderer: the document's fonts at runtime (register font files you ship on it).</summary>
         public FontStashTextRenderer Text { get; }
+        /// <summary>Document fonts that could not be read when loading (their texts use installed fonts).</summary>
+        public List<string> FontWarnings { get; } = new List<string>();
         readonly SpriteBatch _textBatch;
         public OpenBoneTextures Textures { get; }
         /// <summary>The sound player, or null when sound is off.</summary>
@@ -92,6 +94,8 @@ namespace OpenBone.MonoGame
             // SpriteFonts instead, or set it to null to skip text.
             Text = new FontStashTextRenderer(_textBatch = new SpriteBatch(device));
             Renderer.TextRenderer = Text;
+            // The document's own fonts (embedded or beside it) come first for their families, whatever is installed.
+            FontWarnings.AddRange(Text.Fonts.AddDocumentFonts(doc, baseDirectory));
             Renderer.MissingTexture += id => Warn($"no texture for \"{id}\"");
             if (Renderer.EffectError != null) Warn("two-colour tint effect unavailable, using BasicEffect: " + Renderer.EffectError);
             if (options.Sound)

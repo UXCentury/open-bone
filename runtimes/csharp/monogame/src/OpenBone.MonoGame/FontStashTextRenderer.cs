@@ -12,15 +12,16 @@ namespace OpenBone.MonoGame
     /// <summary>
     /// Draws OpenBone text items in the document's own fonts, loaded at runtime with FontStashSharp (no content
     /// pipeline). A text's font is a CSS family list ("Noto Serif JP, Georgia, serif"): each family is looked up in the
-    /// files you <see cref="Register"/>, then among installed fonts (fontconfig on Linux, the font folders on Windows and
+    /// files you <see cref="Register(string, byte[], int, bool)"/>, then among installed fonts (fontconfig on Linux, the font folders on Windows and
     /// macOS), and every family found joins one font system in list order, so characters the first font lacks (Japanese
     /// in a Latin font) come from the next. Glyphs are rasterised on demand. Outlines are drawn under the fill as a ring
-    /// of offset copies, matching the web player's stroke. Weight is ignored.
+    /// of offset copies, matching the web player's stroke. When a family has several registered fonts (a document's
+    /// regular and bold, say), the one whose weight is closest to the text's is used; installed fonts ignore weight.
     /// </summary>
     public sealed class FontStashTextRenderer : IOpenBoneTextRenderer, IDisposable
     {
         readonly SpriteBatch _batch;
-        readonly Dictionary<string, string> _registered = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        int _version;
         readonly Dictionary<string, FontSystem> _systems = new Dictionary<string, FontSystem>();
         /// <summary>Per family list: FontStashSharp's size unit (ascent to descent) per em of its first font.</summary>
         readonly Dictionary<string, float> _emScale = new Dictionary<string, float>();
@@ -33,13 +34,24 @@ namespace OpenBone.MonoGame
             _batch = batch ?? throw new ArgumentNullException(nameof(batch));
         }
 
+        /// <summary>The registered fonts (a document's own, or yours), looked up before installed fonts.</summary>
+        public FontRegistry Fonts { get; } = new FontRegistry();
+
         /// <summary>Use this .ttf / .otf file for a family name (as the document writes it), before installed fonts.</summary>
         public FontStashTextRenderer Register(string family, string file)
         {
-            _registered[family.Trim()] = file;
-            foreach (var s in _systems.Values) s.Dispose();
-            _systems.Clear();
-            _emScale.Clear();
+            Fonts.Register(family, file);
+            return this;
+        }
+
+        /// <summary>
+        /// Use this font (.ttf / .otf bytes; for a .ttc collection its first face) for a family name, before installed
+        /// fonts. Register several weights of one family and texts get the closest to their own weight
+        /// (<see cref="OpenBoneMonoGame"/> does this for the document's embedded fonts).
+        /// </summary>
+        public FontStashTextRenderer Register(string family, byte[] data, int weight = 400, bool italic = false)
+        {
+            Fonts.Register(family, data, weight, italic);
             return this;
         }
 
@@ -47,10 +59,11 @@ namespace OpenBone.MonoGame
         {
             var t = item.Text;
             if (t == null || string.IsNullOrEmpty(t.Content)) return;
-            var system = SystemFor(t.Font);
+            int weight = (int)Math.Round(t.Weight > 0 ? t.Weight : 400);
+            var system = SystemFor(t.Font, weight, out var key);
             if (system == null) return;
             // FontStashSharp sizes a font by its ascent-to-descent height, CSS by its em: convert so the em matches.
-            float em = _emScale.TryGetValue(t.Font ?? "sans-serif", out var e) ? e : 1f;
+            float em = _emScale.TryGetValue(key, out var e) ? e : 1f;
             var font = system.GetFont(Math.Max(4, (float)t.Size * em * Oversample));
             double k = 1 / Oversample;  // skeleton units per glyph pixel
             var matrix = SpriteFontTextRenderer.GlyphMatrix(t, k, skeletonToScreen);
@@ -97,43 +110,152 @@ namespace OpenBone.MonoGame
             _batch.End();
         }
 
-        /// <summary>The font system for a CSS family list: its installed / registered families, in order.</summary>
-        FontSystem SystemFor(string families)
+        /// <summary>The font system for a CSS family list at a weight: its registered / installed families, in order.</summary>
+        FontSystem SystemFor(string families, int weight, out string key)
         {
             families ??= "sans-serif";
-            if (_systems.TryGetValue(families, out var sys)) return sys;
-            var faces = new List<FontFiles.Face>();
-            foreach (var fam in SplitFamilies(families).Append("sans-serif"))
+            key = families + "\u0000" + weight;
+            if (_systems.TryGetValue(key, out var sys) && _version == Fonts.Version) return sys;
+            if (_version != Fonts.Version)
             {
-                var face = _registered.TryGetValue(fam, out var reg) ? new FontFiles.Face(reg, 0) : FontFiles.Find(fam);
-                if (face != null && File.Exists(face.Path) && !faces.Contains(face)) faces.Add(face);
+                foreach (var s in _systems.Values) s?.Dispose();
+                _systems.Clear();
+                _emScale.Clear();
+                _version = Fonts.Version;
             }
             sys = null;
-            foreach (var f in faces)
+            foreach (var bytes in Fonts.FontDataFor(families, weight))
             {
                 try
                 {
-                    var bytes = FontFiles.ReadFace(f);
-                    if (bytes == null) continue;
-                    if (sys == null) _emScale[families] = FontFiles.HeightPerEm(bytes);
-                    sys ??= new FontSystem();
-                    sys.AddFont(bytes);
+                    var next = sys ?? new FontSystem();
+                    next.AddFont(bytes);
+                    if (sys == null) _emScale[key] = FontFiles.HeightPerEm(bytes);
+                    sys = next;
                 }
-                catch (Exception) { /* unreadable or unsupported font file */ }
+                catch (Exception) { /* unsupported font data */ }
             }
-            _systems[families] = sys;
+            _systems[key] = sys;
             return sys;
         }
 
         /// <summary>A CSS font-family list as names, without quotes.</summary>
-        public static IEnumerable<string> SplitFamilies(string list) =>
-            list.Split(',').Select(p => p.Trim().Trim('"', '\'')).Where(p => p.Length > 0);
+        public static IEnumerable<string> SplitFamilies(string list) => FontAsset.SplitFamilies(list);
 
         public void Dispose()
         {
             foreach (var s in _systems.Values) s?.Dispose();
             _systems.Clear();
         }
+    }
+
+    /// <summary>
+    /// Font files registered by family name (a document's embedded fonts, or your own) and the lookup a text's CSS family
+    /// list goes through: per family the registered font closest to the text's weight, else the installed one.
+    /// </summary>
+    public sealed class FontRegistry
+    {
+        /// <summary>A registered font: a file (with the face to use) or bytes, at a weight.</summary>
+        sealed class Registered
+        {
+            public FontFiles.Face File;
+            public byte[] Data;
+            public int Weight;
+            public bool Italic;
+        }
+
+        readonly Dictionary<string, List<Registered>> _registered = new Dictionary<string, List<Registered>>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Bumped by every registration, so renderers rebuild their cached fonts.</summary>
+        public int Version { get; private set; }
+
+        /// <summary>Use this .ttf / .otf / .ttc file for a family name, replacing what the family had.</summary>
+        public void Register(string family, string file) => Add(family, new Registered { File = new FontFiles.Face(file, 0), Weight = 400 }, true);
+
+        /// <summary>Add font data (.ttf / .otf, or a .ttc whose first face is used) to a family at a weight.</summary>
+        public void Register(string family, byte[] data, int weight = 400, bool italic = false) =>
+            Add(family, new Registered { Data = data ?? throw new ArgumentNullException(nameof(data)), Weight = weight, Italic = italic }, false);
+
+        void Add(string family, Registered r, bool replace)
+        {
+            family = family.Trim();
+            if (replace || !_registered.TryGetValue(family, out var list)) _registered[family] = list = new List<Registered>();
+            list.Add(r);
+            Version++;
+        }
+
+        /// <summary>Whether any font is registered for this family (case-insensitive).</summary>
+        public bool Has(string family) => _registered.ContainsKey(family.Trim());
+
+        /// <summary>
+        /// Registers a document's fonts (data: URIs, or paths relative to <paramref name="baseDirectory"/>) under their
+        /// families. Returns a warning per font that could not be read (its texts fall back to installed fonts).
+        /// </summary>
+        public List<string> AddDocumentFonts(Document doc, string baseDirectory)
+        {
+            var warnings = new List<string>();
+            foreach (var f in doc.Fonts)
+            {
+                if (string.IsNullOrEmpty(f.Family) || string.IsNullOrEmpty(f.Src)) continue;
+                byte[] bytes = null;
+                if (f.Src.StartsWith("data:", StringComparison.Ordinal))
+                {
+                    if (!DataUri.TryDecode(f.Src, out _, out bytes) || bytes.Length == 0) bytes = null;
+                }
+                else
+                {
+                    var path = Path.IsPathRooted(f.Src) || baseDirectory == null ? f.Src : Path.Combine(baseDirectory, f.Src);
+                    try { if (File.Exists(path)) bytes = File.ReadAllBytes(path); }
+                    catch (Exception) { bytes = null; }
+                }
+                if (bytes == null) { warnings.Add($"font \"{f.Name ?? f.Family}\" could not be read, using installed fonts for \"{f.Family}\""); continue; }
+                Register(f.Family, bytes, (int)Math.Round(f.Weight), f.Style == "italic");
+            }
+            return warnings;
+        }
+
+        /// <summary>The registered font of a family closest to a weight (the document font rule; italic last), or null.</summary>
+        Registered Pick(string family, int weight)
+        {
+            if (!_registered.TryGetValue(family, out var list)) return null;
+            Registered best = null;
+            int score = int.MaxValue;
+            foreach (var r in list)
+            {
+                int s = Math.Abs(r.Weight - weight) + (r.Italic ? 1000 : 0);
+                if (s < score) { best = r; score = s; }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// The fonts (standalone .ttf / .otf data) a text with this CSS family list and weight is drawn with, in fallback
+        /// order: per family its registered font closest to the weight, else the installed one; "sans-serif" last.
+        /// </summary>
+        public List<byte[]> FontDataFor(string families, double weight = 400)
+        {
+            int w = (int)Math.Round(weight > 0 ? weight : 400);
+            var sources = new List<object>();
+            foreach (var fam in FontAsset.SplitFamilies(families ?? "sans-serif").Append("sans-serif"))
+            {
+                var reg = Pick(fam, w);
+                object src = reg != null ? (reg.Data != null ? (object)reg.Data : reg.File) : FontFiles.Find(fam);
+                if (src is FontFiles.Face face && !File.Exists(face.Path)) continue;
+                if (src != null && !sources.Contains(src)) sources.Add(src);
+            }
+            var r = new List<byte[]>();
+            foreach (var src in sources)
+            {
+                try
+                {
+                    var bytes = src is byte[] b ? FontFiles.SingleFace(b, 0) : FontFiles.ReadFace((FontFiles.Face)src);
+                    if (bytes != null) r.Add(bytes);
+                }
+                catch (Exception) { /* unreadable font file */ }
+            }
+            return r;
+        }
+
     }
 
     /// <summary>Installed font files by family name (generic serif / sans-serif / monospace included).</summary>
@@ -172,15 +294,20 @@ namespace OpenBone.MonoGame
         /// The bytes of one face as a standalone font: the file itself, or for a collection (.ttc, "ttcf") the chosen
         /// face's tables copied into a font of their own, since FontStashSharp reads single fonts only.
         /// </summary>
-        public static byte[] ReadFace(Face face)
+        public static byte[] ReadFace(Face face) => SingleFace(File.ReadAllBytes(face.Path), face.Index);
+
+        /// <summary>
+        /// One face of font data as a standalone font: the data itself, or for a collection (.ttc, "ttcf") face
+        /// <paramref name="index"/>'s tables copied into a font of their own. Null when the collection has no such face.
+        /// </summary>
+        public static byte[] SingleFace(byte[] data, int index)
         {
-            var data = File.ReadAllBytes(face.Path);
             if (data.Length < 12 || data[0] != 't' || data[1] != 't' || data[2] != 'c' || data[3] != 'f') return data;
             uint U32(int o) => (uint)(data[o] << 24 | data[o + 1] << 16 | data[o + 2] << 8 | data[o + 3]);
             int U16(int o) => data[o] << 8 | data[o + 1];
             int count = (int)U32(8);
-            if (face.Index < 0 || face.Index >= count) return null;
-            int dir = (int)U32(12 + 4 * face.Index);
+            if (index < 0 || index >= count) return null;
+            int dir = (int)U32(12 + 4 * index);
             int tables = U16(dir + 4);
             int headerSize = 12 + 16 * tables;
             var entries = new List<(int rec, int offset, int length)>();
