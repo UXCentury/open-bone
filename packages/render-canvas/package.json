@@ -1,6 +1,6 @@
 {
   "name": "@openbone/render-canvas",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Canvas 2D renderer for OpenBone skeletal animations",
   "keywords": [
     "openbone",

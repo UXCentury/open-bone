@@ -2,7 +2,7 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
-## Unreleased
+## 0.4.1 (2026-11-12)
 
 ### Web player
 - **Clips to the artboard** by default, like a camera: art placed past the artboard's edges (scenery bleed, birds flying in) no longer shows in the bars around it, the bars stay transparent and clicks there are ignored. `clip="false"` (or `clip: false`, `data-clip="false"` in WebView bundles) draws the whole canvas as before.

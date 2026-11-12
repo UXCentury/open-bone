@@ -1,3 +1,7 @@
+## 0.4.1
+
+- No changes to the Flutter plugin; released with OpenBone 0.4.1 (web player fixes), so every package keeps the same version.
+
 ## 0.4.0
 
 - Mute a sound bus from your app: `OpenBoneInstance.setBusMuted("music", muted: true)` (or `null` to toggle, and
