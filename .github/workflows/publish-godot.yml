@@ -8,11 +8,20 @@
 #   attaches openbone-godot-<version>.zip to that release and updates the orphan branch `godot-addon`, whose root holds
 #   only addons/openbone (+ README, LICENSE, icon). The Godot Asset Library downloads GitHub's archive of a commit on
 #   that branch; the job summary prints the commit hash and icon URL to enter there. Safe to re-run.
+# - On pushes to main that touch the C++ runtime, and weekly: build and test only. Besides catching a broken addon
+#   build before a release, these keep the compiler caches warm: a release runs on its new tag, which can only read
+#   caches made on that tag or on main (and GitHub drops caches unused for 7 days), so without them every release
+#   compiled godot-cpp from scratch (10–15 minutes per platform instead of 1–2).
 name: Godot addon
 
 on:
   release:
     types: [published]
+  push:
+    branches: [main]
+    paths: ["runtimes/cpp/**", ".github/workflows/publish-godot.yml"]
+  schedule:
+    - cron: "17 4 * * 1"
   workflow_dispatch:
     inputs:
       release:
@@ -65,18 +74,22 @@ jobs:
       - name: Build tools (Linux arm64 image)
         if: matrix.name == 'linux-arm64'
         run: command -v cmake >/dev/null && command -v g++ >/dev/null || { sudo apt-get update && sudo apt-get install -y cmake g++; }
-      # godot-cpp (built twice: template_debug and template_release) is most of the compile time; ccache keeps it
-      # between runs. MSVC builds without it.
+      # godot-cpp (built twice: template_debug and template_release) is most of the compile time; a compiler cache
+      # keeps it between runs: ccache, or sccache for MSVC on Windows (which needs the Ninja generator, since Visual
+      # Studio projects ignore compiler launchers, and so the MSVC developer environment).
+      - name: MSVC environment (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1.13.0
       - uses: hendrikmuhs/ccache-action@v1.2.24
-        if: runner.os != 'Windows'
         with:
           key: godot-addon-${{ matrix.name }}
+          variant: ${{ runner.os == 'Windows' && 'sccache' || 'ccache' }}
           max-size: 1G
       - name: Configure
         run: >-
           cmake -S runtimes/cpp/engines/godot -B build-godot -DCMAKE_BUILD_TYPE=Release
           -DOPENBONE_GODOT_ADDON=ON -DOPENBONE_GODOT_OUT="$GITHUB_WORKSPACE/godot-bin"
-          ${{ runner.os != 'Windows' && '-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache' || '' }}
+          ${{ runner.os == 'Windows' && '-G Ninja -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl -DCMAKE_C_COMPILER_LAUNCHER=sccache -DCMAKE_CXX_COMPILER_LAUNCHER=sccache -DCMAKE_POLICY_DEFAULT_CMP0141=NEW -DCMAKE_MSVC_DEBUG_INFORMATION_FORMAT=Embedded' || '-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache' }}
           ${{ matrix.cmake }}
       - name: Build
         run: cmake --build build-godot --config Release --parallel 4
