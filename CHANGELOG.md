@@ -2,7 +2,7 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
-## Unreleased
+## 0.4.2 (2026-11-12)
 
 ### Embedded fonts
 - **Fonts travel with the document**: a new `fonts` list holds font files (TTF/OTF; WOFF/WOFF2 on the web), embedded or next to the project like images and sounds. A text whose font list names one of their families draws with it (the face nearest its weight) before any installed font, so text looks the same in the editor, the web player, exports and every runtime, Japanese included, whatever the device has installed.

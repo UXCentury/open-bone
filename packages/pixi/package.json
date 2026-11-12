@@ -1,6 +1,6 @@
 {
   "name": "@openbone/pixi",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "OpenBone runtime for PixiJS v8: a Container that plays OpenBone documents",
   "keywords": [
     "openbone",

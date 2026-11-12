@@ -54,6 +54,7 @@
 
 - **Rig like Spine**: bones, weighted meshes with free-form deformation, IK, transform, path and physics constraints, skins, clipping, two-colour tint, texture atlases.
 - **Make it interactive like Rive**: state machines with inputs, pointer listeners, live text, input bindings and sandboxed scripts.
+- **Text that looks the same everywhere**: fonts travel inside the project, so every runtime draws your text in your typeface, Japanese included.
 - **Sound built in**: sounds on the timeline, events and states, a mixer with buses and mute buttons, lip sync from a voice recording, and video exports with the sound mixed in.
 - **Play it anywhere**: web (WebGL, Canvas, PixiJS, Phaser, Three.js, CanvasKit) and native runtimes for C/C++ (Godot, Unreal, Cocos2d-x, SDL2, SFML, OpenGL), C# (Unity, MonoGame), Java (libGDX, Android), Swift, Flutter and Haxe, all checked against one conformance suite.
 - **Let an agent do it**: every edit is an MCP tool, and the editor shows an agent's work live.
@@ -227,6 +228,7 @@ covers the installers, releases and code signing.
 - **Sprite sequences** from numbered images, sprite sheets (grid, TexturePacker or Aseprite JSON) or a ZIP of frames: own fps, loop / once / ping-pong / hold-last, driven by time, keys or a number input.
 - **Particle emitters** on any slot: rate and bursts, shapes, world or local space, lifetime, speed, gravity, drag, size, rotation and colour over life, dots, squares, sparks or **any image** as the particle. Presets (fire, smoke, sparks, confetti, exhaust, coins) plus **your own presets**, saved once and usable in every project. Seeded, so previews and exports match.
 - **Text attachments** (font, size, weight, colour, alignment, outline) whose content can be a live template bound to inputs.
+- **Embedded fonts**: TTF/OTF files (WOFF2 for the web) carried by the project like images and sounds; the family, weight and style are read from the file. Every runtime draws text with them before any installed font, so it looks the same in the editor, the web player, exports and each engine.
 - **Texture atlas packing**: rotation, scaling (several scales in one pack), whitespace stripping, polygon outlines, alias (identical images stored once), blank-image skipping, edge padding and bleed, page size rules, PNG or JPEG pages, premultiplied alpha, and filter, wrap and pixel format for the runtimes.
 
 </details>
@@ -249,6 +251,7 @@ covers the installers, releases and code signing.
 - **State machines** with layers, bool/number/string/trigger inputs, animation and 1D blend states, any-state transitions, conditions, exit times, cross-fades, "on complete" hand-offs and inputs set on enter.
 - **Live data**: text templates (`{multiplier:0.00}x`) and **input bindings** that drive bone, slot and constraint properties from a number input.
 - **Pointer listeners** on hit boxes (down, up, enter, exit, move, click) that set inputs, fire triggers, report events, play sounds, start particles or run scripts.
+- **Checks** catch mistakes such as a trigger whose sound only plays when its button is clicked (silent when the game or a page button fires it); the State Machine panel marks the listener.
 - **Sandboxed scripts** (QuickJS, memory cap and per-call deadline) with an `ob` API: `onStart`, `onUpdate`, `onEvent`, `onPointer`.
 
 </details>
@@ -284,7 +287,7 @@ covers the installers, releases and code signing.
 - **Project** (`.obone`) and **data**: JSON or compact **binary** (`.obonb`, about 40% of JSON), with atlas packing and clean-up options.
 - **Images**: PNG and JPEG (one frame or a ZIP of frames), animated **GIF** and **APNG**, layered **PSD**.
 - **Video**: **MP4** (H.264), **WebM** (VP9, with transparency where the browser supports it), **MOV** and **AVI**, all with sound.
-- **Web**: the `<openbone-player>` component with your animation, a demo page and embed snippets (ZIP), or **one self-contained HTML file**.
+- **Web**: the `<openbone-player>` component with your animation, a demo page and embed snippets (ZIP), or **one self-contained HTML file**. The player clips to the artboard and fills the screen in full screen; fit, clipping and full-screen fit are export options.
 - **Engine packs**: sprite sheets for Unity, Godot 4, Flutter and generic engines, plus WebView packages for Flutter, Android and iOS. For full rigs in an engine, use the native runtimes above.
 
 </details>
@@ -338,6 +341,7 @@ OpenBone stands on the shoulders of these open-source projects. Thank you to eve
 | [quickjs-emscripten](https://github.com/justjake/quickjs-emscripten) | Sandboxed state-machine scripts on the web | MIT |
 | [earcut](https://github.com/mapbox/earcut) | Triangulating traced meshes | ISC |
 | [@napi-rs/canvas](https://github.com/Brooooooklyn/canvas) | Rendering frames in Node (CLI, MCP) | MIT |
+| [Noto Serif CJK JP](https://github.com/notofonts/noto-cjk) (subset) | The font embedded in the Windswept example | SIL OFL 1.1 |
 | [gifenc](https://github.com/mattdesl/gifenc) | GIF export | MIT |
 | [ag-psd](https://github.com/Agamnentzar/ag-psd) | PSD export | MIT |
 | [mp4-muxer](https://github.com/Vanilagy/mp4-muxer), [webm-muxer](https://github.com/Vanilagy/webm-muxer) | MP4 and WebM video export in the browser | MIT |
@@ -360,7 +364,8 @@ Building and testing use [TypeScript](https://www.typescriptlang.org), [Vite](ht
 | [stb_image](https://github.com/nothings/stb) | Loading images in the C++ samples | MIT or public domain |
 | [Jint](https://github.com/sebastienros/jint) | Scripts in the C# runtime | BSD-2-Clause |
 | [MonoGame](https://monogame.net) | The MonoGame renderer and sample | Ms-PL |
-| [libGDX](https://libgdx.com) | The libGDX renderer and sample | Apache-2.0 |
+| [FontStashSharp](https://github.com/FontStashSharp/FontStashSharp) | Text in the document's fonts in MonoGame | zlib |
+| [libGDX](https://libgdx.com) | The libGDX renderer and sample (with gdx-freetype for text) | Apache-2.0 |
 | [quickjs-kt](https://github.com/dokar3/quickjs-kt), [kotlinx.coroutines](https://github.com/Kotlin/kotlinx.coroutines) | Scripts in the Java and Android runtime | Apache-2.0 |
 | [flutter_soloud](https://github.com/alnitak/flutter_soloud) ([SoLoud](https://solhsa.com/soloud/)), [ffi](https://pub.dev/packages/ffi) | Sound and the native bridge in the Flutter plugin | MIT, zlib; BSD-3-Clause |
 

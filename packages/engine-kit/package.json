@@ -1,6 +1,6 @@
 {
   "name": "@openbone/engine-kit",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Shared loading, playback and draw batching for the OpenBone game-engine runtimes",
   "keywords": [
     "openbone",

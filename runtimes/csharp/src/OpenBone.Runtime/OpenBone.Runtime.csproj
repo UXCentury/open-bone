@@ -5,7 +5,7 @@
     <Nullable>disable</Nullable>
     <RootNamespace>OpenBone</RootNamespace>
     <AssemblyName>OpenBone.Runtime</AssemblyName>
-    <Version>0.4.1</Version>
+    <Version>0.4.2</Version>
     <IsPackable>true</IsPackable>
     <PackageId>OpenBone.Runtime</PackageId>
     <Description>OpenBone runtime for .NET and Unity: load .obone / .obonb files and play skeletons, animations, constraints, particles, text, state machines and audio commands. No dependencies; produces a renderer-agnostic draw list.</Description>

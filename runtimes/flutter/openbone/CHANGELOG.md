@@ -1,3 +1,10 @@
+## 0.4.2
+
+- Document fonts: fonts a document carries (embedded or beside it) are loaded with `FontLoader` and used for their
+  families before installed fonts, at the weight closest to each text's; `OpenBoneDocument.fonts` lists them.
+- Text passes the document's whole font list (`fontFamily` + `fontFamilyFallback`), not only its first family.
+- The C++ runtime underneath: `ob_font_asset`, `ob_document_font_count` and `ob_document_font` in the C API.
+
 ## 0.4.1
 
 - No changes to the Flutter plugin; released with OpenBone 0.4.1 (web player fixes), so every package keeps the same version.

@@ -90,7 +90,7 @@ int copyIndices(const std::vector<int>& list, int* out, int capacity) {
 extern "C" {
 
 int ob_api_version(void) { return OB_API_VERSION; }
-const char* ob_version(void) { return "0.4.1"; }
+const char* ob_version(void) { return "0.4.2"; }
 const char* ob_last_error(void) { return lastError.c_str(); }
 int ob_has_scripts(void) { return createQuickJsHost() ? 1 : 0; }
 

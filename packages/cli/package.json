@@ -1,6 +1,6 @@
 {
   "name": "@openbone/cli",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "OpenBone command line: validate, render, export and edit .obone files, and start the MCP server",
   "keywords": [
     "openbone",
