@@ -43,6 +43,7 @@ export const DOCS: DocSource[] = [
   { src: "conformance/README.md", slug: "reference/conformance", label: "Conformance suite", description: "The reference results every runtime is tested against." },
   { src: "docs/releasing.md", slug: "reference/releasing", label: "Releasing", description: "Desktop installers, releases, package publishing and code signing." },
   { src: "CHANGELOG.md", slug: "reference/changelog", label: "Changelog", title: "Changelog", description: "What changed in each version of OpenBone." },
+  { src: "CONTRIBUTING.md", slug: "community/contributing", label: "Contributing", title: "Contributing to OpenBone", description: "How to contribute to OpenBone: the rules, best practices, checks and pull requests." },
   { src: "SECURITY.md", slug: "reference/security", label: "Security", description: "Security fixes, the latest audit and how to report a vulnerability." },
 
   { src: "runtimes/cpp/README.md", slug: "runtimes/cpp", label: "C / C++", description: "The C++17 runtime, its C API and the Godot, Cocos2d-x, SDL2, SFML, OpenGL and Unreal integrations." },

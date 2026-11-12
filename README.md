@@ -304,6 +304,7 @@ every example running live, and the reference docs below. Its source is [apps/we
 - [docs/mcp.md](docs/mcp.md): the MCP server and its tools
 - [docs/engine-exports.md](docs/engine-exports.md): sprite-sheet and WebView engine packs
 - [CHANGELOG.md](CHANGELOG.md): what changed in each version
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to contribute, the rules and best practices
 
 <details>
 <summary><b>Repository layout</b></summary>
@@ -380,6 +381,10 @@ The example characters, backgrounds, sounds, music and voices were made with [El
 One version covers the whole repo: `pnpm version:set <major|minor|patch|x.y.z>` updates every package, the editor and the desktop app, and `pnpm version:check` fails when they drift. The editor shows its version, commit and build date under **☰ Menu → About OpenBone**.
 
 OpenBone is made by [UXCentury](https://uxcentury.com).
+
+## Contributing
+
+Contributions are welcome: bug reports, fixes, runtime ports, engine integrations, docs and examples. Read [CONTRIBUTING.md](CONTRIBUTING.md) for the rules (MIT, permissive dependencies only, clean room, one format for every runtime) and the checks to run before opening a pull request. Report security problems privately as described in [SECURITY.md](SECURITY.md).
 
 ## Open core
 

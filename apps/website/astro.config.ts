@@ -59,6 +59,7 @@ export default defineConfig({
           customSets: [
             { label: "Guides", paths: ["getting-started/**", "guides/**"], description: "how to rig, animate, make interactive, add sound, export, and use the CLI and the MCP server" },
             { label: "Engine quick starts", paths: ["engines/**", "runtimes/**", "packages/**"], description: "playing OpenBone files in each engine and runtime" },
+            { label: "Community", paths: ["community/**"], description: "how to contribute: rules, best practices and pull requests" },
             { label: "Reference", paths: ["reference/**"], description: "file format, runtime specification, MCP tools, architecture" },
           ],
           exclude: ["index"],
@@ -90,6 +91,14 @@ export default defineConfig({
         { label: "Runtimes", collapsed: true, items: imported("runtimes") },
         { label: "Web packages", collapsed: true, items: imported("packages") },
         { label: "Reference", items: imported("reference") },
+        {
+          label: "Community",
+          items: [
+            { label: "Contributing", link: "/community/contributing/" },
+            { label: "Report a security issue", link: "/reference/security/" },
+            { label: "Discussions and issues", link: `${GITHUB}/issues`, attrs: { target: "_blank", rel: "noopener" } },
+          ],
+        },
       ],
     }),
   ],
