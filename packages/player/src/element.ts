@@ -1,5 +1,5 @@
 import type { FiredEvent } from "@openbone/runtime";
-import { Player } from "./player.ts";
+import { type Fit, Player } from "./player.ts";
 
 /**
  * <openbone-player src="hero.obone" state-machine="ui" animation="idle" skin="red" fit="contain" renderer="webgl">
@@ -8,10 +8,12 @@ import { Player } from "./player.ts";
  * setMuted(muted), setBusMuted(bus, muted | "toggle"), toggleBus(bus), isBusMuted(bus), buses, player (the underlying Player).
  * Audio plays after the first click/key press; `muted` attribute starts muted, `audio="off"` disables it.
  * Changing the `skin` attribute switches the outfit without reloading.
+ * Only the artboard is drawn (anything past its edges is cut off); `clip="false"` draws the whole canvas. Full screen
+ * fills the screen when that crops only a little (`fullscreen-fit`, default "auto"; "same" keeps `fit`). Both change without reloading.
  */
 export class OpenBonePlayerElement extends HTMLElement {
   /** `skin` switches skins in place; any other of these reloads the player with the new settings. */
-  static observedAttributes = ["src", "skin", "animation", "state-machine", "fit", "renderer", "autoplay", "background", "scripts", "audio", "muted"];
+  static observedAttributes = ["src", "skin", "clip", "fullscreen-fit", "animation", "state-machine", "fit", "renderer", "autoplay", "background", "scripts", "audio", "muted"];
   player: Player | null = null;
   /**
    * An AudioContext to play through instead of creating one, set before `src`. Create and resume it in a click
@@ -39,15 +41,27 @@ export class OpenBonePlayerElement extends HTMLElement {
   attributeChangedCallback(n: string, old: string | null, val: string | null) {
     if (old === val || !this.isConnected) return;
     if (n === "skin") this.player?.setSkin(val);
+    else if (n === "clip") this.player?.setClip(this.clip());
+    else if (n === "fullscreen-fit") this.player?.setFullscreenFit(this.fullscreenFit() ?? (val === null ? "auto" : null));
     // Includes `src` set for the first time after the element was added to the page. Upgrading an element reports each
     // attribute it already has; those match what the player was built with, so they don't reload it.
     else if (this.settings() !== this.loadedWith) this.init();
   }
 
-  /** The attributes the current player was built with (everything observed except `skin`). */
+  /** The attributes the current player was built with (everything observed except those that change in place). */
   private loadedWith: string | undefined;
   private settings() {
-    return JSON.stringify(OpenBonePlayerElement.observedAttributes.filter((a) => a !== "skin").map((a) => this.getAttribute(a)));
+    const live = ["skin", "clip", "fullscreen-fit"];
+    return JSON.stringify(OpenBonePlayerElement.observedAttributes.filter((a) => !live.includes(a)).map((a) => this.getAttribute(a)));
+  }
+  private clip() {
+    return this.getAttribute("clip") !== "false";
+  }
+  /** `fullscreen-fit`: contain / cover / auto / none; "same" (or "") = the `fit` attribute; absent = auto. */
+  private fullscreenFit(): Fit | null | undefined {
+    const v = this.getAttribute("fullscreen-fit");
+    if (v === null) return undefined;
+    return v === "contain" || v === "cover" || v === "auto" || v === "none" ? v : null;
   }
 
   private init() {
@@ -62,7 +76,9 @@ export class OpenBonePlayerElement extends HTMLElement {
       stateMachine: this.getAttribute("state-machine") ?? undefined,
       animation: this.getAttribute("animation") ?? undefined,
       skin: this.getAttribute("skin") ?? undefined,
-      fit: (this.getAttribute("fit") as "contain") ?? "contain",
+      fit: (this.getAttribute("fit") as Fit) ?? "contain",
+      fullscreenFit: this.fullscreenFit(),
+      clip: this.clip(),
       renderer: (this.getAttribute("renderer") as "webgl") ?? "webgl",
       autoplay: this.getAttribute("autoplay") !== "false",
       background: this.background(),

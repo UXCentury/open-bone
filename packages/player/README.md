@@ -69,14 +69,16 @@ Images and sounds load relative to the document's URL. The element is 400 × 300
 | `state-machine` | first | State machine to run, by name or id. |
 | `animation` | | Play this animation instead of a state machine. |
 | `skin` | default skin | Skin (outfit) by name or id. Changing it switches the outfit without reloading. |
-| `fit` | `contain` | `contain`, `cover` or `none` (actual size, centred). |
+| `fit` | `contain` | `contain`, `cover`, `auto` (cover when it crops at most 15% of a side, contain otherwise) or `none` (actual size, centred). |
+| `clip` | on | Only the artboard is drawn: art past its edges is cut off, the bars around it stay transparent and clicks there are ignored. `clip="false"` draws the whole canvas. |
+| `fullscreen-fit` | `auto` | Fit while the player (or a parent) is full screen. `auto` fills the screen when that crops only a little of the artboard and shows all of it otherwise; `cover`, `contain`, `none`, or `same` to keep `fit`. |
 | `renderer` | `webgl` | `webgl` or `canvas`. WebGL falls back to Canvas 2D when WebGL2 is not available. |
 | `background` | the file's | Any CSS colour (`#fff`, `rebeccapurple`, `rgb(0 0 0 / 50%)`, …), or `transparent` / `none`. |
 | `autoplay` | on | `autoplay="false"` loads and draws the first frame, then waits for `play()`. |
 | `scripts` | on | `scripts="none"` never runs the document's scripts. |
 | `audio` / `muted` | on | `audio="off"` disables sound; `muted` loads sounds but starts muted. |
 
-Changing `skin` switches the skin in place. Changing any other attribute, including setting `src` after the element is
+Changing `skin`, `clip` or `fullscreen-fit` applies in place. Changing any other attribute, including setting `src` after the element is
 on the page, reloads the player with the new settings.
 
 ### Element methods and events
@@ -128,14 +130,14 @@ player.speed = 0.5;
 | `src` | A URL, or an already parsed `OpenBoneDocument`. |
 | `baseUrl` | Folder for relative image and audio paths (default: the folder of `src`). |
 | `resolveImageUrl(src)`, `resolveAudioUrl(asset)` | Map asset paths to URLs yourself (overrides `baseUrl`). |
-| `stateMachine`, `animation`, `skin`, `autoplay`, `fit`, `renderer`, `background` | As the attributes above. `background: null` is transparent. |
+| `stateMachine`, `animation`, `skin`, `autoplay`, `fit`, `clip`, `fullscreenFit`, `renderer`, `background` | As the attributes above. `background: null` is transparent; `fullscreenFit: null` keeps `fit`. |
 | `scripts` | `"quickjs"` (default when the document has scripts), `"none"`, or your own `ScriptHost`. |
 | `audio` | `true` (default), `false` or `"muted"`. |
 | `audioContext` | Share an existing `AudioContext` instead of creating one. |
 | `onEvent`, `onStateChange`, `onLoad` | Callbacks. |
 
 Members: `ready` (promise), `play()`, `pause()`, `playing`, `speed` (sounds follow it), `setInput`, `getInput`,
-`fire`, `setText`, `setSkin`, `skins`, `playAnimation(name, loop?)`, `setFit(fit)`, `setMuted(muted)`, `muted`,
+`fire`, `setText`, `setSkin`, `skins`, `playAnimation(name, loop?)`, `setFit(fit)`, `setFullscreenFit(fit)`, `setClip(clip)`, `currentFit`, `setMuted(muted)`, `muted`,
 `audio`, `instance` (the runtime `OpenBoneInstance`), `stateMachine`, `doc`, `clientToSkeleton(clientX, clientY)`,
 `boundingBoxes()` and `dispose()`.
 

@@ -18,7 +18,7 @@ export interface WebViewPage {
   animation?: string;
   /** CSS colour, or null for transparent (the default, so native backgrounds show through). */
   background?: string | null;
-  fit?: "contain" | "cover" | "none";
+  fit?: "contain" | "cover" | "auto" | "none";
   /** Script file name next to the page. Default `openbone-player.js`. */
   bundleFile?: string;
 }

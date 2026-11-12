@@ -200,7 +200,9 @@ ${o.format === "esm" ? `\`\`\`html\n<script type="module" src="${playerFile}"></
 | \`state-machine\` | State machine to run (default: the first) |
 | \`animation\` | Play an animation instead of a state machine |
 | \`skin\` | Skin (outfit) to show; change it any time |
-| \`fit\` | \`contain\` (default), \`cover\` or \`none\` |
+| \`fit\` | \`contain\` (default), \`cover\`, \`auto\` (cover unless it would crop more than 15%) or \`none\` |
+| \`clip\` | \`false\` to draw past the artboard's edges (by default only the artboard shows) |
+| \`fullscreen-fit\` | Fit while full screen: \`auto\` (default: fills the screen unless that crops more than 15%), \`cover\`, \`contain\`, \`none\` or \`same\` (keep \`fit\`) |
 | \`renderer\` | \`webgl\` (default, falls back to canvas) or \`canvas\` |
 | \`background\` | A colour, or omit for the file's background |
 | \`autoplay\` | \`false\` to start paused |

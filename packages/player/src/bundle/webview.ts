@@ -6,7 +6,7 @@
  *   - `?src=url` in the page URL (fetched; needs http(s), not file://)
  *   - `window.OPENBONE_SRC` (a URL or a parsed document)
  * Options come from `data-*` attributes on `<body>`: data-state-machine, data-animation, data-skin, data-fit,
- * data-background ("none" = transparent), data-renderer.
+ * data-background ("none" = transparent), data-renderer, data-clip ("false" draws past the artboard's edges).
  *
  * It exposes `window.OpenBone` (see bridge.ts for the message format).
  */
@@ -140,6 +140,7 @@ function start() {
         animation: opt("animation"),
         skin: opt("skin"),
         fit: (opt("fit") as "contain") ?? "contain",
+        clip: opt("clip") !== "false",
         renderer: (opt("renderer") as "webgl") ?? "webgl",
         ...(bg !== undefined ? { background: bg === "none" ? null : bg } : {}),
         scripts: host ?? "none",
