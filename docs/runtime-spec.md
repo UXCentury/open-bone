@@ -69,7 +69,7 @@ fresh instance with `setSkin(name)` called right after construction.
    - Transform: `mixShear` 0, `offsetScaleX/Y` 0, `offsetShear` 0, `local` false, `relative` false.
    - Every `particles` attachment: each missing field from `core/particles.ts:defaultParticleSettings` (except `image`).
    - Nothing else is filled. `skeleton.sliders`, `slot.dark`, `animation.audio`, `event.volume`, `state.*` optional
-     lists are treated as absent/empty where read.
+     lists and the top-level `fonts` are treated as absent/empty where read.
 4. **Linked meshes** are *not* resolved at load: the file already holds the parent's copied geometry
    (`core/linked.ts:syncLinkedMeshes` runs in the editor). A port treats a linked mesh as a plain mesh, except for
    deform lookup (§8.3).
@@ -668,6 +668,10 @@ sign `-` only if negative and some digit is non-zero, else `+` if `plus` and not
 
 Also emitted (not compared by the suite): font, size, weight, align, box size, fill/outline colours,
 `matrix = bone.world · [cos −sin; sin cos | x, y]`.
+
+Choosing a face (renderers, not the suite): for each family in `font` in order, if the document's `fonts` has that
+family (case-insensitive), use its face whose weight is closest to the text's (`core/fonts.ts:pickDocumentFont`);
+otherwise look the family up among installed fonts. Document fonts come first so text looks the same on every device.
 
 ### 8.10 Bounding-box queries (`bounds.ts:SkeletonBounds`, `Skeleton.boundingBoxes()`)
 A snapshot of the current world pose, in skeleton space (y up, the draw list's coordinates):

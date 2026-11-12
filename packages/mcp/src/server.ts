@@ -3,7 +3,7 @@ import { decodeImage } from "./image-load.ts";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { isTrimmed, registry, serialize, summarize, validate } from "@openbone/core";
+import { FONT_MIME, fontNameFromFile, isTrimmed, readFontMeta, registry, serialize, summarize, validate } from "@openbone/core";
 import type { ScriptHost } from "@openbone/runtime";
 import { createQuickJsHost } from "@openbone/scripting";
 import { z } from "zod";
@@ -188,6 +188,43 @@ export function createServer(opts: ServerOptions = {}) {
         });
         await session.maybeAutosave();
         return text({ ok: true, ...(result as object), width: img.width, height: img.height });
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "import_font",
+    {
+      description:
+        "Import a font file (TTF/OTF; WOFF/WOFF2 work on the web only) from disk as a font asset. Its family, weight and style are read from the file unless given. Texts whose font list names that family draw with it in the editor, render_frame, exports and every runtime, before installed fonts, so text looks the same everywhere. Stored as a path relative to the project file, or embedded when `embed` is true or the project is unsaved.",
+      inputSchema: {
+        path: z.string(),
+        family: z.string().optional().describe("Family name texts use (default: the family in the file)"),
+        weight: z.number().int().min(100).max(1000).optional(),
+        style: z.enum(["normal", "italic"]).optional(),
+        name: z.string().optional(),
+        embed: z.boolean().default(false),
+      },
+    },
+    async (a) => {
+      try {
+        const abs = path.resolve(a.path);
+        const buf = await readFile(abs);
+        const ext = path.extname(abs).slice(1).toLowerCase();
+        const meta = readFontMeta(new Uint8Array(buf));
+        const src = a.embed || !session.filePath ? `data:${FONT_MIME[ext] ?? "font/otf"};base64,${buf.toString("base64")}` : path.relative(session.baseDir, abs).split(path.sep).join("/");
+        const family = a.family ?? meta?.family ?? fontNameFromFile(abs);
+        const result = session.store.apply("addFont", {
+          name: a.name ?? fontNameFromFile(abs),
+          family,
+          src,
+          weight: a.weight ?? meta?.weight ?? 400,
+          style: a.style ?? meta?.style ?? "normal",
+        });
+        await session.maybeAutosave();
+        return text({ ok: true, ...(result as object), family, hint: `Use it with update_attachment … font: "${family}, serif" (or add_text font).` });
       } catch (e) {
         return fail(e);
       }

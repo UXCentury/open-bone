@@ -1,6 +1,7 @@
 import { For, Show, onCleanup, onMount } from "solid-js";
 import { Toolbar, importImages } from "./panels/Toolbar.tsx";
 import { importAudio } from "./audio.ts";
+import { importFonts } from "./fonts.ts";
 import { Viewport } from "./panels/Viewport.tsx";
 import { Dock, DragOverlay, Splitter } from "./panels/Workspace.tsx";
 import { ExportDialog } from "./panels/ExportDialog.tsx";
@@ -40,6 +41,7 @@ export function App() {
             if (e.dataTransfer?.files.length) {
               void importFiles(e.dataTransfer.files, importImages);
               void importAudio(e.dataTransfer.files);
+              void importFonts(e.dataTransfer.files);
             }
           }}
         >

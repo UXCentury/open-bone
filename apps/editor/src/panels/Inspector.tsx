@@ -1,4 +1,4 @@
-import { animationDuration, type Attachment, attachmentOwner, constraintOrder, INHERIT_MODES, type BindingTarget, type BoneProperty, type ClippingAttachment, CONSTRAINT_PROPERTIES, defaultSkin, descendantIds, estimateTextBox, getAttachment, type SequenceAttachment, shapeOutline, type SkinData, slotAttachments, templateInputs } from "@openbone/core";
+import { animationDuration, type Attachment, attachmentOwner, constraintOrder, INHERIT_MODES, type BindingTarget, type BoneProperty, type ClippingAttachment, CONSTRAINT_PROPERTIES, defaultSkin, descendantIds, estimateTextBox, getAttachment, type SequenceAttachment, shapeOutline, type SkinData, slotAttachments, splitFontFamilies, templateInputs } from "@openbone/core";
 import { regionGridMesh, retraceMesh, traceRegion } from "../mesh-trace.ts";
 import { lastBackground, setBackground } from "../background.ts";
 import { reorderSlot } from "../visibility.ts";
@@ -11,6 +11,7 @@ import { askConfirm, askForm, confirmDelete } from "../dialogs.tsx";
 import { deleteAttachmentAsk, deleteBoneAsk, deleteConstraintAsk, deleteSlotAsk } from "../destructive.ts";
 import { ColorField, NumberField, Section, SelectField, TextField } from "./fields.tsx";
 import { AudioAssetInspector, BusInspector, SoundInspector } from "./AudioPanel.tsx";
+import { FontInspector, pickFonts } from "./FontsPanel.tsx";
 import { SequenceEditor } from "./SequenceEditor.tsx";
 import { PRESET_NAMES, ParticlesEditor } from "./ParticlesInspector.tsx";
 import { presetSettings, userPresetNames } from "../particle-presets.ts";
@@ -965,6 +966,7 @@ export function Inspector() {
         <Match when={selection()?.kind === "sound" && selection()}>{(s) => <SoundInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "bus" && selection()}>{(s) => <BusInspector id={s().id} />}</Match>
         <Match when={selection()?.kind === "audio" && selection()}>{(s) => <AudioAssetInspector id={s().id} />}</Match>
+        <Match when={selection()?.kind === "font" && selection()}>{(s) => <FontInspector id={s().id} />}</Match>
       </Switch>
       <Show when={bindingTarget()}>
         {(t) => (
@@ -989,6 +991,24 @@ function bindingTarget(): { target: BindingTarget; id: string } | null {
 
 const WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
+const quoteFamily = (f: string) => (/^[\w-]+$/.test(f) && !/\s/.test(f) ? f : `"${f}"`);
+/** The first family in a font list that the project has a font file for ("" when none). */
+function documentFamilyOf(list: string): string {
+  const have = new Map((doc().fonts ?? []).map((f) => [f.family.toLowerCase(), f.family]));
+  for (const f of splitFontFamilies(list)) if (have.has(f.toLowerCase())) return have.get(f.toLowerCase())!;
+  return "";
+}
+/** Put a family first in a font list, keeping the rest as fallbacks. */
+function withFirstFamily(list: string, family: string): string {
+  const rest = splitFontFamilies(list).filter((f) => f.toLowerCase() !== family.toLowerCase());
+  return [quoteFamily(family), ...rest.map(quoteFamily)].join(", ") || family;
+}
+/** Remove the project's font families from a font list, so installed fonts apply. */
+function withoutDocumentFamilies(list: string): string {
+  const have = new Set((doc().fonts ?? []).map((f) => f.family.toLowerCase()));
+  return splitFontFamilies(list).filter((f) => !have.has(f.toLowerCase())).map(quoteFamily).join(", ") || "sans-serif";
+}
+
 /** Text attachment: template, font and box. */
 function TextAttachmentEditor(p: { att: () => Extract<Attachment, { type: "text" }>; set: (props: Record<string, unknown>) => void }) {
   const t = () => (doc(), p.att());
@@ -1004,6 +1024,23 @@ function TextAttachmentEditor(p: { att: () => Extract<Attachment, { type: "text"
         <Show when={used().length}> Uses: {used().join(", ")}.</Show>
       </div>
       <TextField label="Font" value={t().font} placeholder="sans-serif" onCommit={(v) => p.set({ font: v || "sans-serif" })} />
+      <SelectField
+        label="Project font"
+        value={documentFamilyOf(t().font)}
+        options={[
+          { value: "", label: "(installed fonts only)" },
+          ...[...new Set((doc().fonts ?? []).map((f) => f.family))].map((f) => ({ value: f, label: f })),
+          { value: "@add", label: "Add a font file…" },
+        ]}
+        onCommit={(v) => {
+          if (v === "@add") {
+            void pickFonts().then((id) => {
+              const fam = (doc().fonts ?? []).find((f) => f.id === id)?.family;
+              if (fam) p.set({ font: withFirstFamily(t().font, fam) });
+            });
+          } else p.set({ font: v ? withFirstFamily(t().font, v) : withoutDocumentFamilies(t().font) });
+        }}
+      />
       <NumberField label="Size" value={t().size} onCommit={(v) => p.set({ size: Math.max(1, v) })} />
       <SelectField label="Weight" value={String(t().weight)} options={WEIGHTS.map((w) => ({ value: String(w), label: String(w) }))} onCommit={(v) => p.set({ weight: Number(v) })} />
       <SelectField label="Align" value={t().align} options={["left", "center", "right"].map((v) => ({ value: v, label: v }))} onCommit={(v) => p.set({ align: v })} />

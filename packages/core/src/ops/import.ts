@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { defaultSkin, deserialize, newId, normalizeDocument } from "../document.ts";
+import { splitFontFamilies } from "../fonts.ts";
 import type {
   AnimationData,
   Attachment,
@@ -29,6 +30,7 @@ export interface ImportReport {
   constraints: number;
   images: string[];
   sounds: string[];
+  fonts: string[];
   events: string[];
   /** Human-readable notes about what could not be brought over (missing bones or slots, name conflicts). */
   skipped: string[];
@@ -80,7 +82,7 @@ class Importer {
   private asset = new Map<Id, Id | null>();
   private bus = new Map<Id, Id | null>();
   private event = new Map<Id, Id>();
-  report: ImportReport = { animations: [], skins: [], bones: 0, slots: 0, constraints: 0, images: [], sounds: [], events: [], skipped: [] };
+  report: ImportReport = { animations: [], skins: [], bones: 0, slots: 0, constraints: 0, images: [], sounds: [], fonts: [], events: [], skipped: [] };
   private notes = new Set<string>();
 
   constructor(
@@ -543,6 +545,23 @@ defineOp({
       );
       doc.animations.push({ id, name, ...body });
       im.report.animations.push({ from: srcAnim.name, name, id, replaced: false });
+    }
+    // Fonts the imported texts name come along (skipped when this project already has that family).
+    if (src.fonts?.length) {
+      const families = new Set<string>();
+      for (const skin of doc.skeleton.skins)
+        for (const atts of Object.values(skin.attachments))
+          for (const att of Object.values(atts)) if (att.type === "text") for (const f of splitFontFamilies(att.font)) families.add(f.toLowerCase());
+      const have = new Set((doc.fonts ?? []).map((f) => f.family.toLowerCase()));
+      for (const f of src.fonts) {
+        const fam = f.family.toLowerCase();
+        if (!families.has(fam) || have.has(fam)) continue;
+        doc.fonts ??= [];
+        const id = doc.fonts.some((x) => x.id === f.id) ? newId("fnt") : f.id;
+        const name = uniqueName(doc.fonts.map((x) => x.name), f.name);
+        doc.fonts.push({ ...f, id, name });
+        im.report.fonts.push(f.name);
+      }
     }
     return im.report;
   },

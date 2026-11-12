@@ -8,10 +8,11 @@ import {
   buildBatches,
   folderOf,
   particleDotCanvas,
+  resolveAssetUrl,
   textureRequests,
 } from "@openbone/engine-kit";
 import { CanvasRenderer, straightAlphaCopy } from "@openbone/render-canvas";
-import { type ClipRegion, PARTICLE_DOT_TEXTURE, type ScriptHost } from "@openbone/runtime";
+import { type ClipRegion, PARTICLE_DOT_TEXTURE, type ScriptHost, loadDocumentFonts } from "@openbone/runtime";
 import * as Phaser from "phaser";
 
 export type { DriverOptions, InputValue } from "@openbone/engine-kit";
@@ -76,6 +77,8 @@ export class OpenBoneFile extends Phaser.Loader.File {
         // Queued while the loader runs: it finishes only after these images too.
         if (!textures.exists(key)) this.loader.image(key, req.url);
       }
+      // The document's own fonts, before the file counts as loaded, so text draws with them from the first frame.
+      await loadDocumentFonts(doc, (f) => resolveAssetUrl(f.src, baseUrl));
       let scriptHost: ScriptHost | undefined;
       if (this.opts.scripts !== false && doc.scripts.length) {
         const { createQuickJsHost } = await import("@openbone/scripting");

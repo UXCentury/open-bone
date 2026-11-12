@@ -1,6 +1,7 @@
 import { type OpenBoneDocument, parseDocument, serialize, textureAssets } from "@openbone/core";
 import { confirmDiscard } from "./destructive.ts";
 import { audioAsDataUrl, registerAudioOverride, resolveAudioUrl } from "./audio.ts";
+import { fontAsDataUrl, registerFontOverride, resolveFontUrl } from "./fonts.ts";
 import { imageAsDataUrl, registerImageOverride, resolveImageUrl } from "./images.ts";
 import { fileName, loadDocument, setFileName, store, toast } from "./state.ts";
 
@@ -29,6 +30,14 @@ export async function bundledDocument(doc: OpenBoneDocument): Promise<{ doc: Ope
       missing.push(a.src);
     }
   }
+  for (const f of out.fonts ?? []) {
+    if (!isRelative(f.src)) continue;
+    try {
+      f.src = await fontAsDataUrl(f);
+    } catch {
+      missing.push(f.src);
+    }
+  }
   return { doc: out, missing };
 }
 
@@ -42,6 +51,7 @@ async function copyAssetsTo(dir: string, doc: OpenBoneDocument): Promise<string[
   const jobs: { src: string; url: string }[] = [
     ...textureAssets(doc).filter((t) => isRelative(t.src)).map((t) => ({ src: t.src, url: resolveImageUrl(t as never) })),
     ...(doc.audio?.assets ?? []).filter((a) => isRelative(a.src)).map((a) => ({ src: a.src, url: resolveAudioUrl(a) })),
+    ...(doc.fonts ?? []).filter((f) => isRelative(f.src)).map((f) => ({ src: f.src, url: resolveFontUrl(f) })),
   ];
   for (const j of jobs) {
     try {
@@ -110,6 +120,11 @@ export async function openProject(webFallback: () => void) {
       if (/^(data:|https?:)/.test(a.src)) continue;
       const bytes = await readFile(`${dir}/${a.src}`).catch(() => null);
       if (bytes) registerAudioOverride(a.src, URL.createObjectURL(new Blob([bytes])));
+    }
+    for (const f of doc.fonts ?? []) {
+      if (/^(data:|https?:)/.test(f.src)) continue;
+      const bytes = await readFile(`${dir}/${f.src}`).catch(() => null);
+      if (bytes) registerFontOverride(f.src, URL.createObjectURL(new Blob([bytes])));
     }
     // Save writes JSON, so a binary file opened here is saved as a new .obone next to it.
     const binary = /\.obonb$/i.test(path);
@@ -209,16 +224,17 @@ export const saveTextFile = (suggestedName: string, text: string, ext = "obone",
 const MIME_EXT: Record<string, string> = {
   "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif", "image/svg+xml": "svg",
   "audio/wav": "wav", "audio/x-wav": "wav", "audio/wave": "wav", "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/aac": "aac", "audio/flac": "flac", "audio/webm": "webm",
+  "font/ttf": "ttf", "font/otf": "otf", "font/woff": "woff", "font/woff2": "woff2", "font/collection": "ttc", "application/x-font-ttf": "ttf", "application/font-sfnt": "otf",
 };
 const safeName = (s: string) => s.replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "") || "asset";
 
 /** Bytes and a file name for an asset: data: URLs are decoded, relative and absolute paths are fetched. */
-async function assetBytes(src: string, url: string, fallbackName: string, kind: "image" | "audio"): Promise<{ bytes: Uint8Array; path: string }> {
+async function assetBytes(src: string, url: string, fallbackName: string, kind: "image" | "audio" | "font"): Promise<{ bytes: Uint8Array; path: string }> {
   if (src.startsWith("data:")) {
     const m = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(src);
     if (!m) throw new Error("bad data URL");
     const bytes = m[2] ? Uint8Array.from(atob(m[3]), (c) => c.charCodeAt(0)) : new TextEncoder().encode(decodeURIComponent(m[3]));
-    const ext = MIME_EXT[m[1] ?? ""] ?? (kind === "image" ? "png" : "wav");
+    const ext = MIME_EXT[m[1] ?? ""] ?? (kind === "image" ? "png" : kind === "font" ? "otf" : "wav");
     return { bytes, path: `assets/${safeName(fallbackName)}.${ext}` };
   }
   const res = await fetch(url);
@@ -264,6 +280,16 @@ export async function saveProjectToFolder() {
       a.src = p;
     } catch {
       missing.push(a.name);
+    }
+  }
+  for (const f of doc.fonts ?? []) {
+    try {
+      const { bytes, path } = await assetBytes(f.src, resolveFontUrl(f), f.name, "font");
+      const p = unique(path);
+      files.push({ path: p, bytes });
+      f.src = p;
+    } catch {
+      missing.push(f.name);
     }
   }
   const json = serialize(doc);

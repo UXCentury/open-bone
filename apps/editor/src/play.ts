@@ -37,7 +37,9 @@ export const [playTarget, setPlayTarget] = createSignal<PlayTarget>(null);
 export const [playSkin, setPlaySkin] = createSignal<string | null>(null);
 export const [playSpeed, setPlaySpeed] = createSignal(1);
 export const [playPaused, setPlayPaused] = createSignal(false);
-export const [playFit, setPlayFit] = createSignal<"contain" | "none">("contain");
+export const [playFit, setPlayFit] = createSignal<"contain" | "cover" | "none">("contain");
+/** Draw only inside the artboard (the web player's default), as exported pages show it. */
+export const [playClip, setPlayClip] = createSignal(true);
 export const [playFullWindow, setPlayFullWindow] = createSignal(false);
 /** Bumped to restart the player from the beginning. */
 export const [playEpoch, setPlayEpoch] = createSignal(0);

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { createCanvas } from "@napi-rs/canvas";
-import { type OpenBoneDocument, animationDuration, applyOp, exportDocument, serialize, serializeBinary } from "@openbone/core";
+import { FONT_MIME, type OpenBoneDocument, animationDuration, applyOp, exportDocument, serialize, serializeBinary } from "@openbone/core";
 import {
   type Frame,
   type SheetEngine,
@@ -59,6 +59,10 @@ export interface ExportRequest {
   time?: number;
   engine?: SheetEngine;
   singleFile?: boolean;
+  /** web: player display (defaults: contain, clipped, auto in full screen). */
+  fit?: "contain" | "cover" | "auto" | "none";
+  clip?: boolean;
+  fullscreenFit?: "auto" | "cover" | "contain" | "none" | "same";
   minify?: boolean;
   binary?: boolean;
   /** avi/mov/mp4/webm: include the sound the run plays (default true). */
@@ -153,7 +157,7 @@ export function jpegOf(f: Frame, bg: string, quality = 90): Uint8Array {
   return new Uint8Array(c.toBuffer("image/jpeg", quality));
 }
 
-const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", wav: "audio/wav", mp3: "audio/mpeg", ogg: "audio/ogg" };
+const MIME: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", wav: "audio/wav", mp3: "audio/mpeg", ogg: "audio/ogg", ...FONT_MIME };
 
 /** Bytes of a document asset src (data: URI or a path relative to the project). */
 export async function assetBytes(session: ProjectSession, src: string): Promise<Buffer> {
@@ -162,7 +166,7 @@ export async function assetBytes(session: ProjectSession, src: string): Promise<
   return readFile(path.isAbsolute(src) ? src : path.join(session.baseDir, src));
 }
 
-/** Copy of a document with every image, atlas page and audio file embedded as data: URIs (for self-contained exports). */
+/** Copy of a document with every image, atlas page, audio and font file embedded as data: URIs (self-contained exports). */
 export async function embedAssets(session: ProjectSession, d: OpenBoneDocument): Promise<OpenBoneDocument> {
   const out = structuredClone(d);
   const embed = async (src: string) => {
@@ -173,6 +177,7 @@ export async function embedAssets(session: ProjectSession, d: OpenBoneDocument):
   for (const img of out.images) if (img.src) img.src = await embed(img.src);
   for (const p of out.atlas?.pages ?? []) p.src = await embed(p.src);
   for (const a of out.audio?.assets ?? []) a.src = await embed(a.src);
+  for (const f of out.fonts ?? []) f.src = await embed(f.src);
   return out;
 }
 
@@ -303,6 +308,9 @@ export async function exportFile(session: ProjectSession, a: ExportRequest, scri
       width: d.width,
       height: d.height,
       background: a.transparent ? "transparent" : undefined,
+      fit: a.fit,
+      clip: a.clip,
+      fullscreenFit: a.fullscreenFit,
       inputs: sm?.inputs.map((i) => ({ name: i.name, type: i.type })) ?? [],
       hasScripts,
       hasAudio: !!d.audio?.assets.length,

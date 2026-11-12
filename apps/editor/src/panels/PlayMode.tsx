@@ -6,6 +6,8 @@ import {
   SPEEDS,
   playEpoch,
   playFit,
+  playClip,
+  setPlayClip,
   playFullWindow,
   playPaused,
   playSkin,
@@ -23,6 +25,7 @@ import {
 import { tip } from "../shortcuts/index.ts";
 import { baseUrl, doc, store } from "../state.ts";
 import { audio, resolveAudioUrl } from "../audio.ts";
+import { resolveFontUrl } from "../fonts.ts";
 
 type Value = boolean | number | string;
 /** A number for the inputs panel and the log: at most 4 decimals, never in exponent form (4.5e-13 shows as 0). */
@@ -127,11 +130,13 @@ export function PlayStage() {
       ...(s ? { stateMachine: s.id } : a ? { animation: a.name } : {}),
       ...(skin ? { skin } : {}),
       fit: playFit(),
+      clip: playClip(),
       // Resolve relative image/audio paths like the editor does (examples live under /examples/, desktop files are
       // read from disk), and share the editor's audio context: the Play click already unlocked it.
       baseUrl: baseUrl(),
       resolveImageUrl: (src) => resolveImageUrl({ src } as ImageAsset),
       resolveAudioUrl,
+      resolveFontUrl: (src) => resolveFontUrl({ src }),
       // Started right after the Play click: still a user activation, so the shared context can start now.
       ...(audio.activate() ? { audioContext: audio.activate()! } : {}),
       onEvent: (e) => push("event", `⚡ ${e.name}${e.string ? ` "${e.string}"` : ""}${e.int ? ` int ${e.int}` : ""}${e.float ? ` float ${e.float}` : ""}`),
@@ -177,6 +182,7 @@ export function PlayStage() {
     createEffect(on(playSkin, (id) => player?.setSkin(id ? (store.doc.skeleton.skins.find((k) => k.id === id)?.name ?? null) : null), { defer: true }));
     createEffect(on(playSpeed, (v) => player && (player.speed = v)));
     createEffect(on(playFit, (f) => player?.setFit(f), { defer: true }));
+    createEffect(on(playClip, (c) => player?.setClip(c), { defer: true }));
     createEffect(on(playPaused, (paused) => (paused ? player?.pause() : player?.play()), { defer: true }));
     // Polling keeps script-driven input/state values fresh without per-frame signals.
     const poll = window.setInterval(() => player?.stateMachine && syncValues(), 250);
@@ -253,10 +259,20 @@ export function PlayStage() {
           <button classList={{ active: playFit() === "contain" }} title={tip("Fit to view", "play.fit")} onClick={() => setPlayFit("contain")}>
             Fit
           </button>
+          <button classList={{ active: playFit() === "cover" }} title="Fill the view, cropping the artboard's edges (how pages that use fit=cover show it)" onClick={() => setPlayFit("cover")}>
+            Fill
+          </button>
           <button classList={{ active: playFit() === "none" }} title={tip("Actual size", "play.actual")} onClick={() => setPlayFit("none")}>
             1:1
           </button>
         </div>
+        <button
+          classList={{ active: playClip() }}
+          title={playClip() ? "Clipped to the artboard, as exported players show it: click to also see art past its edges" : "Showing art past the artboard's edges: click to clip to the artboard"}
+          onClick={() => setPlayClip(!playClip())}
+        >
+          ⬚ Clip
+        </button>
         <button classList={{ active: playFullWindow() }} title={tip(playFullWindow() ? "Exit full window" : "Play in full window", "play.fullWindow")} onClick={() => setPlayFullWindow(!playFullWindow())}>
           ⛶
         </button>

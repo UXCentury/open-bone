@@ -24,7 +24,7 @@ const bytesToDataUrl = (bytes: Uint8Array, mime: string) =>
     r.onerror = rej;
     r.readAsDataURL(new Blob([bytes as BlobPart], { type: mime }));
   });
-const mimeOf = (path: string) => ({ png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", wav: "audio/wav", mp3: "audio/mpeg", ogg: "audio/ogg" })[path.split(".").pop()!.toLowerCase()] ?? "application/octet-stream";
+const mimeOf = (path: string) => ({ png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", wav: "audio/wav", mp3: "audio/mpeg", ogg: "audio/ogg", ttf: "font/ttf", otf: "font/otf", woff: "font/woff", woff2: "font/woff2" })[path.split(".").pop()!.toLowerCase()] ?? "application/octet-stream";
 const isRelative = (src: string) => !!src && !/^(data:|https?:|blob:)/.test(src);
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -85,6 +85,7 @@ async function embedAssets(d: OpenBoneDocument, dir: string | null): Promise<str
     }
   }
   for (const a of d.audio?.assets ?? []) if (isRelative(a.src)) a.src = (await read(a.src)) ?? a.src;
+  for (const f of d.fonts ?? []) if (isRelative(f.src)) f.src = (await read(f.src)) ?? f.src;
   return unreadable;
 }
 

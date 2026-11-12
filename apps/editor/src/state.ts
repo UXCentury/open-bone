@@ -143,6 +143,7 @@ export type Selection =
   /** id "master" selects the master mix. */
   | { kind: "bus"; id: string }
   | { kind: "audio"; id: string }
+  | { kind: "font"; id: string }
   | null;
 
 export const [mode, setMode] = createSignal<Mode>("setup");

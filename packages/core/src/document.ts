@@ -218,9 +218,15 @@ export function animationDuration(a: AnimationData): number {
 }
 
 export function cloneDocument(d: OpenBoneDocument): OpenBoneDocument {
-  // Images, audio assets and the atlas (large data: URIs) are treated as immutable and shared; everything else is deep-cloned.
-  const { images, atlas, audio, ...rest } = d;
-  const out = { ...(structuredClone(rest) as Omit<OpenBoneDocument, "images" | "atlas" | "audio">), images: images.slice(), ...(atlas ? { atlas } : {}) } as OpenBoneDocument;
+  // Images, fonts, audio assets and the atlas (large data: URIs) are treated as immutable and shared; everything else is
+  // deep-cloned.
+  const { images, atlas, audio, fonts, ...rest } = d;
+  const out = {
+    ...(structuredClone(rest) as Omit<OpenBoneDocument, "images" | "atlas" | "audio" | "fonts">),
+    images: images.slice(),
+    ...(atlas ? { atlas } : {}),
+    ...(fonts ? { fonts: fonts.slice() } : {}),
+  } as OpenBoneDocument;
   if (audio) {
     const { assets, ...mix } = audio;
     out.audio = { ...structuredClone(mix), assets: assets.slice() };

@@ -17757,7 +17757,7 @@
               "x": 0,
               "y": -313,
               "rotation": 0,
-              "font": "Georgia, serif",
+              "font": "Noto Serif JP, Georgia, serif",
               "size": 17,
               "weight": 400,
               "color": "#f4f1e8",
@@ -17774,7 +17774,7 @@
               "x": 0,
               "y": -313,
               "rotation": 0,
-              "font": "Georgia, serif",
+              "font": "Noto Serif JP, Georgia, serif",
               "size": 17,
               "weight": 400,
               "color": "#f4f1e8",
@@ -17812,7 +17812,7 @@
               "x": 14,
               "y": -46,
               "rotation": 0,
-              "font": "Georgia, serif",
+              "font": "Noto Serif JP, Georgia, serif",
               "size": 15,
               "weight": 400,
               "color": "#f8f3e6",
@@ -22279,5 +22279,23 @@
         "fadeOut": 0
       }
     ]
-  }
+  },
+  "fonts": [
+    {
+      "id": "fnt_noto_serif_jp_400",
+      "name": "NotoSerifJP-Regular-subset",
+      "family": "Noto Serif JP",
+      "src": "assets/fonts/NotoSerifJP-Regular-subset.otf",
+      "weight": 400,
+      "style": "normal"
+    },
+    {
+      "id": "fnt_noto_serif_jp_700",
+      "name": "NotoSerifJP-Bold-subset",
+      "family": "Noto Serif JP",
+      "src": "assets/fonts/NotoSerifJP-Bold-subset.otf",
+      "weight": 700,
+      "style": "normal"
+    }
+  ]
 }

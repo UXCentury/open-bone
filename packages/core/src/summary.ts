@@ -21,6 +21,7 @@ export function summarize(d: OpenBoneDocument): string {
     const atts = Object.values(skin.attachments[s.id] ?? {}).map((a) => `${a.name}:${a.type}${(a.type === "mesh" || a.type === "path" || a.type === "boundingBox") && a.weights ? "(weighted)" : ""}`);
     lines.push(`- ${s.name} [${s.id}] on ${name(s.bone)} shows ${s.attachment ?? "nothing"}; attachments: ${atts.join(", ") || "none"}`);
   }
+  if (d.fonts?.length) lines.push(`## Fonts: ${d.fonts.map((f) => `${f.family} ${f.weight ?? 400}${f.style === "italic" ? " italic" : ""} [${f.id}] ${f.src.startsWith("data:") ? "embedded" : f.src}`).join("; ")}`);
   if (d.images.length) lines.push(`## Images: ${d.images.map((i) => `${i.name} [${i.id}] ${i.width}x${i.height}`).join("; ")}`);
   if (d.skeleton.skins.length > 1) lines.push(`## Skins: ${d.skeleton.skins.map((s) => s.name).join(", ")}`);
   for (const c of d.skeleton.ik) lines.push(`- IK ${c.name} [${c.id}]: ${c.bones.map(name).join("→")} → ${name(c.target)} mix ${c.mix}${c.softness ? ` softness ${c.softness}` : ""}${c.stretch ? " stretch" : ""}${c.compress ? " compress" : ""}`);

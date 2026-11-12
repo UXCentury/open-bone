@@ -39,6 +39,21 @@ export const cssFont = (t: Pick<TextDraw, "weight" | "size" | "font">) => `${t.w
 type Measurer = { font: string; measureText(text: string): { width: number } };
 let measurer: Measurer | null | undefined;
 const measured = new Map<string, number>();
+let generation = 0;
+
+/**
+ * Bumped whenever fonts finish loading. Renderers that cache rasterised text put it in their cache key, so text drawn
+ * with a fallback font before a document font arrived is redrawn with the right one.
+ */
+export function fontGeneration(): number {
+  return generation;
+}
+
+/** Call after adding fonts: forgets measurements made with the fonts that were there before. */
+export function fontsChanged() {
+  generation++;
+  measured.clear();
+}
 
 /**
  * How far (skeleton units) the widest line of a text item runs past its box, measured with the real font. Renderers

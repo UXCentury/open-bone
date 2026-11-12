@@ -1,4 +1,4 @@
-import { ANY_STATE, type Condition, type ConditionOp, type InputData, type InputValue, type LayerData, type StateData, type TransitionData } from "@openbone/core";
+import { ANY_STATE, type Condition, type ConditionOp, type InputData, type InputValue, type LayerData, type StateData, type TransitionData, validate } from "@openbone/core";
 import { For, Match, Show, Switch, createEffect, createSignal, on, onCleanup, onMount } from "solid-js";
 import { apply, currentStateMachine, doc, running, setRunning, setStateMachineId, toast } from "../state.ts";
 import { eventLog, smInstance } from "./Viewport.tsx";
@@ -844,6 +844,13 @@ function ListenerList() {
             : { type: action(), input: t };
     apply("addListener", { stateMachine: sm().id, slot: slot() || null, event: event(), actions: [act] });
   };
+  // Validator warnings about each listener (e.g. a trigger whose sound only plays when this button is clicked).
+  const warnings = () => {
+    const prefix = `${sm().name} listener `;
+    const out = new Map<string, string[]>();
+    for (const i of validate(doc())) if (i.level === "warning" && i.path.startsWith(prefix)) out.set(i.path.slice(prefix.length), [...(out.get(i.path.slice(prefix.length)) ?? []), i.message]);
+    return out;
+  };
   return (
     <>
       <For each={sm().listeners} fallback={<div class="muted pad">Pointer events on hit boxes → actions.</div>}>
@@ -852,6 +859,13 @@ function ListenerList() {
             <span class="grow">
               <b>{l.event}</b> on {doc().skeleton.slots.find((s) => s.id === l.slot)?.name ?? "artboard"} → {l.actions.map(describe).join(", ")}
             </span>
+            <Show when={warnings().get(l.name)}>
+              {(w) => (
+                <span class="warn-badge" title={w().join("\n")} aria-label={`Warning: ${w().join(" ")}`}>
+                  ⚠
+                </span>
+              )}
+            </Show>
             <button class="row-del" title="Delete listener" onClick={() => void confirmDelete(`this ${l.event} listener`, null, () => apply("deleteListener", { stateMachine: sm().id, listener: l.id }))}>
               ×
             </button>

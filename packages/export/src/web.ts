@@ -40,6 +40,12 @@ export interface WebPackOptions {
   height: number;
   /** Player background ("transparent" or a colour); undefined = the document's background. */
   background?: string;
+  /** How the artboard fits the player (default contain). */
+  fit?: "contain" | "cover" | "auto" | "none";
+  /** false: draw past the artboard's edges (the player clips to the artboard by default). */
+  clip?: boolean;
+  /** Fit while full screen (default auto); "same" keeps `fit`. */
+  fullscreenFit?: "auto" | "cover" | "contain" | "none" | "same";
   inputs: { name: string; type: "bool" | "number" | "trigger" | "string" }[];
   hasScripts: boolean;
   hasAudio: boolean;
@@ -64,6 +70,9 @@ function playerAttrs(o: WebPackOptions, src: string): string {
     ["state-machine", o.stateMachine],
     ["animation", o.stateMachine ? undefined : o.animation],
     ["background", o.background],
+    ["fit", o.fit && o.fit !== "contain" ? o.fit : undefined],
+    ["clip", o.clip === false ? "false" : undefined],
+    ["fullscreen-fit", o.fullscreenFit && o.fullscreenFit !== "auto" ? o.fullscreenFit : undefined],
     ["scripts", o.hasScripts && !o.scripts ? "none" : undefined],
   ];
   return attrs
@@ -173,7 +182,8 @@ export function webReadme(o: WebPackOptions): string {
   const playerFile = playerFileName(o);
   const sm = o.stateMachine ? ` state-machine="${o.stateMachine}"` : o.animation ? ` animation="${o.animation}"` : "";
   const docFile = `${o.baseName}.${o.docExt}`;
-  const tag = `<openbone-player src="${docFile}"${sm} style="width:${o.width}px;height:${o.height}px"></openbone-player>`;
+  const display = `${o.fit && o.fit !== "contain" ? ` fit="${o.fit}"` : ""}${o.clip === false ? ` clip="false"` : ""}${o.fullscreenFit && o.fullscreenFit !== "auto" ? ` fullscreen-fit="${o.fullscreenFit}"` : ""}`;
+  const tag = `<openbone-player src="${docFile}"${sm}${display} style="width:${o.width}px;height:${o.height}px"></openbone-player>`;
   const firstTrigger = o.inputs.find((i) => i.type === "trigger");
   const firstValue = o.inputs.find((i) => i.type !== "trigger");
   const exampleValue = firstValue ? (firstValue.type === "bool" ? "true" : firstValue.type === "number" ? "1" : '"Hello"') : "";

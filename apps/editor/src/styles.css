@@ -65,6 +65,8 @@ input.tiny { width: 52px; }
 .tree-row:hover { background: #262b35; }
 .tree-row.selected { background: #2b3f6b; }
 .tree-row .icon { width: 16px; text-align: center; opacity: 0.85; }
+.font-sample { font-size: 22px; line-height: 1.3; padding: 6px 8px 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.warn-badge { color: #f5b942; cursor: help; padding: 0 4px; font-size: 13px; }
 /* Tree guide lines: each nested group draws a vertical line under its parent's arrow, each row a short connector;
    the line stops halfway down the last child. */
 .tree .tnode { position: relative; }

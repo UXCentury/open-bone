@@ -20,7 +20,11 @@ import type { ProjectSession } from "./session.ts";
  * server sends the file's bytes ("files"), and the editor shows and plays them from memory.
  */
 
-const MEDIA: Record<string, { kind: "image" | "audio"; mime: string }> = {
+const MEDIA: Record<string, { kind: "image" | "audio" | "font"; mime: string }> = {
+  ttf: { kind: "font", mime: "font/ttf" },
+  otf: { kind: "font", mime: "font/otf" },
+  woff: { kind: "font", mime: "font/woff" },
+  woff2: { kind: "font", mime: "font/woff2" },
   png: { kind: "image", mime: "image/png" },
   jpg: { kind: "image", mime: "image/jpeg" },
   jpeg: { kind: "image", mime: "image/jpeg" },
@@ -36,19 +40,20 @@ const MEDIA: Record<string, { kind: "image" | "audio"; mime: string }> = {
 
 export interface BridgeFile {
   src: string;
-  kind: "image" | "audio";
+  kind: "image" | "audio" | "font";
   mime: string;
   base64: string;
 }
 
 /**
  * Files the document refers to by a relative path that `sent` (src → modification time) hasn't had yet, or that
- * changed on disk since. Only image and audio files, read from `baseDir`. Missing files are skipped.
+ * changed on disk since. Only image, audio and font files, read from `baseDir`. Missing files are skipped.
  */
 export function pendingFiles(doc: OpenBoneDocument, baseDir: string, sent: Map<string, number>): BridgeFile[] {
   const srcs = new Set<string>();
   for (const a of textureAssets(doc)) if (a.src) srcs.add(a.src);
   for (const a of doc.audio?.assets ?? []) if (a.src) srcs.add(a.src);
+  for (const f of doc.fonts ?? []) if (f.src) srcs.add(f.src);
   const out: BridgeFile[] = [];
   for (const src of srcs) {
     if (/^(data:|https?:|blob:)/i.test(src)) continue;

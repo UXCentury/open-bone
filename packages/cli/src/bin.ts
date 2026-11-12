@@ -20,7 +20,7 @@ Usage:
       options: --animation walk  --animations walk,run (spritesheet, json, obonb)  --skin name
                --scale 1  --fps 30  --duration 2  --time 0  --state-machine ui  --steps '<json>'
                --transparent  --sequence (png/jpeg: every frame, ZIP)
-               --engine unity|godot|flutter|generic (spritesheet)  --single-file (web)  --binary
+               --engine unity|godot|flutter|generic (spritesheet)  --single-file (web)  --fit contain|cover|auto|none  --no-clip  --fullscreen-fit auto|cover|contain|same (web)  --binary
                --pack (json/obonb/web: embed an atlas)
                --embed (obone/json/obonb: put every image and sound inside the file, so it opens on its own)
                --no-audio (avi/mov/mp4/webm: leave the sound out)  --quality 0.85 (mp4/webm)
@@ -65,7 +65,7 @@ async function session(): Promise<ProjectSession> {
 
 /** Flags that take no value (everything else starting with -- takes the next argument). */
 const SWITCHES = new Set([
-  "bones", "bounding-boxes", "transparent", "sequence", "single-file", "binary", "pack", "embed", "no-audio", "no-pot", "rotate", "strip-whitespace", "polygons", "premultiplied", "no-minify",
+  "bones", "bounding-boxes", "transparent", "sequence", "single-file", "binary", "pack", "embed", "no-audio", "no-pot", "rotate", "strip-whitespace", "polygons", "premultiplied", "no-minify", "no-clip",
   "square", "multiple-of-4", "no-alias", "keep-blank", "no-edge-padding", "no-duplicate-padding", "bleed", "no-bleed", "debug",
 ]);
 
@@ -173,6 +173,9 @@ async function exportCommand() {
           sequence: flag("sequence"),
           engine: opt("engine") as never,
           singleFile: flag("single-file"),
+          fit: choice("fit", ["contain", "cover", "auto", "none"] as const),
+          ...(flag("no-clip") ? { clip: false } : {}),
+          fullscreenFit: choice("fullscreen-fit", ["auto", "cover", "contain", "none", "same"] as const),
           minify: !flag("no-minify"),
           binary: flag("binary") ? true : undefined,
           pack: flag("pack"),

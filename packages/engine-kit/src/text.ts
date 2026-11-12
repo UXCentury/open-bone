@@ -1,4 +1,4 @@
-import { type TextContext, type TextDraw, cssFont, drawTextBox } from "@openbone/runtime";
+import { type TextContext, type TextDraw, cssFont, drawTextBox, fontGeneration } from "@openbone/runtime";
 import { textPad, textPadX } from "./batch.ts";
 
 /** A canvas the rasteriser can draw into (HTMLCanvasElement, OffscreenCanvas or a headless canvas). */
@@ -66,7 +66,7 @@ export class TextRasterizer {
     const w = t.width + padX * 2;
     const h = t.height + pad * 2;
     scale = Math.min(scale, MAX_TEXT_TEXTURE / Math.max(w, h));
-    const key = `${t.content}|${cssFont(t)}|${t.align}|${t.width}x${t.height}|${t.fill}|${t.outline}|${t.outlineWidth}|${scale}`;
+    const key = `${t.content}|${cssFont(t)}|${t.align}|${t.width}x${t.height}|${t.fill}|${t.outline}|${t.outlineWidth}|${scale}|${fontGeneration()}`;
     let entry = this.entries.get(id);
     if (entry && entry.key === key) {
       entry.used = this.frame;

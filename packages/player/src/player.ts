@@ -1,7 +1,7 @@
 import { type AudioAsset, type OpenBoneDocument, parseDocument, textureAssets } from "@openbone/core";
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { WebGLRenderer } from "@openbone/render-webgl";
-import { type FiredEvent, OpenBoneInstance, type ScriptHost, type SkeletonBounds, type StateMachineInstance } from "@openbone/runtime";
+import { type FiredEvent, OpenBoneInstance, loadDocumentFonts, type ScriptHost, type SkeletonBounds, type StateMachineInstance } from "@openbone/runtime";
 import { WebAudioBackend } from "./audio.ts";
 
 export interface PlayerOptions {
@@ -37,6 +37,8 @@ export interface PlayerOptions {
   audioContext?: AudioContext;
   /** Map an audio asset to the URL to load (overrides baseUrl), e.g. for files read from disk. */
   resolveAudioUrl?: (asset: AudioAsset) => string;
+  /** Map a font src to the URL to load (overrides baseUrl). */
+  resolveFontUrl?: (src: string) => string;
   /** Map an image src to the URL to load (overrides baseUrl). */
   resolveImageUrl?: (src: string) => string;
   onEvent?: (e: FiredEvent) => void;
@@ -143,8 +145,11 @@ export class Player {
         }
       }
     } else this.doc = o.src;
-    await Promise.all(
-      textureAssets(this.doc).map(
+    const abs = (src: string) => (/^(data:|https?:|blob:|\/)/.test(src) ? src : base + src);
+    await Promise.all([
+      // The document's own fonts, so the first frame already draws text with them.
+      loadDocumentFonts(this.doc, (f) => (o.resolveFontUrl ? o.resolveFontUrl(f.src) : abs(f.src))),
+      ...textureAssets(this.doc).map(
         (img) =>
           new Promise<void>((resolve) => {
             const el = new Image();
@@ -154,10 +159,10 @@ export class Player {
               resolve();
             };
             el.onerror = () => resolve();
-            el.src = o.resolveImageUrl ? o.resolveImageUrl(img.src) : /^(data:|https?:|blob:|\/)/.test(img.src) ? img.src : base + img.src;
+            el.src = o.resolveImageUrl ? o.resolveImageUrl(img.src) : abs(img.src);
           }),
       ),
-    );
+    ]);
     // null: scripts off on purpose ("none", no scripts, or no sandbox in this build, which warns above).
     let scriptHost: ScriptHost | null = null;
     if (typeof o.scripts === "object") scriptHost = o.scripts;

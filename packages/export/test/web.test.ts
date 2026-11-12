@@ -42,6 +42,16 @@ describe("web pack", () => {
     expect(html).toContain('"name":"multiplier"');
   });
 
+  it("writes the display options to the player tag", () => {
+    const html = webIndexHtml({ ...base, fit: "cover", clip: false, fullscreenFit: "contain" });
+    expect(html).toContain('fit="cover"');
+    expect(html).toContain('clip="false"');
+    expect(html).toContain('fullscreen-fit="contain"');
+    const plain = webIndexHtml(base);
+    expect(plain).not.toContain(" fit=");
+    expect(plain).not.toContain("clip=");
+  });
+
   it("ES module pages load the player as a module", () => {
     const o = { ...base, format: "esm" as const, minified: false };
     expect(names(o)).toContain("openbone-player.mjs");

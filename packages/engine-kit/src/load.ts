@@ -1,4 +1,5 @@
 import { type OpenBoneDocument, parseDocument, textureAssets } from "@openbone/core";
+import { loadDocumentFonts } from "@openbone/runtime";
 
 /** Where a document comes from: a URL, its bytes (.obone JSON or .obonb binary), or an already parsed document. */
 export type OpenBoneSource = string | URL | ArrayBuffer | Uint8Array | OpenBoneDocument;
@@ -95,11 +96,14 @@ export async function loadTextures<T = HTMLImageElement>(
 ): Promise<Map<string, T>> {
   const load = opts.load ?? ((url: string) => loadImageElement(url) as Promise<T | null>);
   const out = new Map<string, T>();
+  // The document's own fonts load with its textures (text is rasterised with canvas fonts).
+  const fonts = loadDocumentFonts(doc, (f) => resolveAssetUrl(f.src, baseUrl));
   await Promise.all(
     textureRequests(doc, baseUrl, opts.resolveImageUrl).map(async (r) => {
       const t = await load(r.url, r);
       if (t) out.set(r.id, t);
     }),
   );
+  await fonts;
   return out;
 }

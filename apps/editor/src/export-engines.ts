@@ -4,6 +4,8 @@ import { type SheetClipInput, type SheetEngine, type SpriteSheetSet, buildSprite
 import { Skeleton, applyAnimation } from "@openbone/runtime";
 import { packForExport } from "./atlas.ts";
 import { frameTimes, renderFrames } from "./export-media.ts";
+import { audioAsDataUrl } from "./audio.ts";
+import { fontAsDataUrl } from "./fonts.ts";
 import { imageAsDataUrl } from "./images.ts";
 
 /**
@@ -118,6 +120,9 @@ export interface WebViewExportOptions {
   pack: boolean;
   binary: boolean;
   background: string | null;
+  /** How the artboard fits the WebView, and whether drawing is clipped to it (player defaults when absent). */
+  fit?: "contain" | "cover" | "auto" | "none";
+  clip?: boolean;
   androidPackage: string;
   /** Re-encode images as WebP at this quality (0..1) when smaller; null keeps them as they are. */
   webpQuality?: number | null;
@@ -141,6 +146,9 @@ export async function webViewDocument(
     for (const img of d.images) if (img.src) img.src = await imageAsDataUrl(img);
     for (const page of d.atlas?.pages ?? []) page.src = await imageAsDataUrl(page);
   }
+  // Sounds and fonts travel inside the document too: a web or WebView export is one self-contained file.
+  for (const a of d.audio?.assets ?? []) if (a.src && !a.src.startsWith("data:")) a.src = await audioAsDataUrl(a);
+  for (const f of d.fonts ?? []) if (f.src && !f.src.startsWith("data:")) f.src = await fontAsDataUrl(f);
   if (o.webpQuality) await compressImages(d, o.webpQuality);
   const bytes = o.binary ? serializeBinary(d, { precision: "float32" }) : new TextEncoder().encode(serialize(d));
   return { bytes, doc: d };
@@ -161,6 +169,8 @@ export async function exportWebViewPack(platform: WebViewTarget, source: OpenBon
     bundle,
     stateMachine: sm?.name,
     background: o.background,
+    fit: o.fit,
+    clip: o.clip,
     inputs: sm?.inputs.map((i) => ({ name: i.name, type: i.type })) ?? [],
     androidPackage: o.androidPackage,
   });

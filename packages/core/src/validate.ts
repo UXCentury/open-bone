@@ -1,5 +1,6 @@
 import { resolveSound } from "./audio.ts";
 import { descendantIds, getAttachment } from "./document.ts";
+import { usedFonts } from "./fonts.ts";
 import type { OpenBoneDocument } from "./types.ts";
 
 export interface Issue {
@@ -173,7 +174,44 @@ export function validate(d: OpenBoneDocument): Issue[] {
     for (const b of sm.bindings ?? []) if (!inputIds.has(b.input)) err(`${sm.name} binding ${b.id}`, "input missing");
   }
   validateAudio(d, err, warn);
+  validateTriggerSounds(d, warn);
+  const used = usedFonts(d);
+  (d.fonts ?? []).forEach((f, i) => {
+    if (!f.src) err(`fonts[${i}]`, `"${f.name}" has no src`);
+    if (!f.family) err(`fonts[${i}]`, `"${f.name}" has no family`);
+    else if (!used.has(f)) warn(`fonts[${i}]`, `"${f.name}": no text uses family "${f.family}"`);
+  });
   return issues;
+}
+
+/**
+ * A button that plays a sound and fires a trigger, where nothing the trigger leads to makes a sound: firing that
+ * trigger from code or from a page button (outside the artboard) is silent. The sound belongs on the state.
+ */
+function validateTriggerSounds(d: OpenBoneDocument, warn: (p: string, m: string) => void) {
+  const animAudio = new Set(d.animations.filter((a) => a.audio?.length).map((a) => a.id));
+  for (const sm of d.stateMachines) {
+    for (const li of sm.listeners) {
+      if (!li.actions.some((a) => a.type === "playSound")) continue;
+      for (const act of li.actions) {
+        if (act.type !== "fireTrigger") continue;
+        const input = sm.inputs.find((i) => i.id === act.input);
+        if (!input || input.type !== "trigger") continue;
+        const targets = sm.layers.flatMap((l) =>
+          l.transitions.filter((t) => t.conditions.some((c) => c.input === input.id)).map((t) => l.states.find((s) => s.id === t.to)).filter((s) => !!s),
+        );
+        if (!targets.length) continue;
+        const sounding = targets.some(
+          (s) => s!.sounds?.some((x) => x.action === "play") || (s!.animation && animAudio.has(s!.animation)) || s!.blend?.some((b) => animAudio.has(b.animation)),
+        );
+        if (!sounding)
+          warn(
+            `${sm.name} listener ${li.name}`,
+            `trigger "${input.name}" only makes a sound when this button is clicked: firing it from code or a page button is silent. Add the sound to state ${targets.map((s) => `"${s!.name}"`).join(" / ")} (Sounds on enter) instead.`,
+          );
+      }
+    }
+  }
 }
 
 function validateAudio(d: OpenBoneDocument, err: (p: string, m: string) => void, warn: (p: string, m: string) => void) {

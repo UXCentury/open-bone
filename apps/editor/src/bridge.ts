@@ -2,12 +2,13 @@ import type { OpCall } from "@openbone/core";
 import { createSignal } from "solid-js";
 import { logActivity } from "./activity.ts";
 import { registerAudioOverride } from "./audio.ts";
+import { registerFontOverride } from "./fonts.ts";
 import { registerImageOverride } from "./images.ts";
 import { loadDocument, setFileName, store, toast } from "./state.ts";
 
 interface BridgeFile {
   src: string;
-  kind: "image" | "audio";
+  kind: "image" | "audio" | "font";
   mime: string;
   base64: string;
 }
@@ -20,6 +21,7 @@ function receiveFiles(files: BridgeFile[]) {
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     const url = URL.createObjectURL(new Blob([bytes], { type: f.mime }));
     if (f.kind === "image") registerImageOverride(f.src, url);
+    else if (f.kind === "font") registerFontOverride(f.src, url);
     else registerAudioOverride(f.src, url);
   }
   // Already-loaded documents: nudge the views to pick up the new pixels (not sent back to the server).

@@ -19,6 +19,10 @@ export interface WebExportOptions {
   webpQuality: number | null;
   /** Player background, or null for transparent; undefined keeps the document's. */
   background: string | null | undefined;
+  /** How the artboard fits the player; clip to the artboard; fit while full screen. Player defaults when absent. */
+  fit?: "contain" | "cover" | "auto" | "none";
+  clip?: boolean;
+  fullscreenFit?: "auto" | "cover" | "contain" | "none" | "same";
 }
 
 // One lazily built bundle per variant (see the webPlayerBundle plugin in vite.config.ts).
@@ -90,6 +94,9 @@ export async function exportWebPack(
     width: doc.width,
     height: doc.height,
     background: o.background === null ? "transparent" : (o.background ?? undefined),
+    fit: o.fit,
+    clip: o.clip,
+    fullscreenFit: o.fullscreenFit,
     inputs: sm?.inputs.map((i) => ({ name: i.name, type: i.type })) ?? [],
     hasScripts: doc.scripts.length > 0,
     hasAudio: !!doc.audio?.assets.length,

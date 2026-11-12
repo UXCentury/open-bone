@@ -1,5 +1,5 @@
 import { type OpenBoneDocument, type TextureSampling, filterParts, premultipliedTextures, textureSamplings } from "@openbone/core";
-import { type ClipRegion, type DrawItem, PARTICLE_DOT_SIZE, PARTICLE_DOT_TEXTURE, type Skeleton, type TextContext, type TextDraw, cssFont, drawTextBox, particleDotAlpha, textOverflow } from "@openbone/runtime";
+import { type ClipRegion, type DrawItem, PARTICLE_DOT_SIZE, PARTICLE_DOT_TEXTURE, type Skeleton, type TextContext, type TextDraw, cssFont, drawTextBox, fontGeneration, particleDotAlpha, textOverflow } from "@openbone/runtime";
 
 /** One rasterised text item: re-drawn only when its content, style or pixel scale changes. */
 interface TextTexture {
@@ -211,7 +211,7 @@ export class WebGLRenderer {
     const h = t.height + pad * 2;
     scale = Math.min(scale, MAX_TEXT_TEXTURE / Math.max(w, h));
     const id = `${it.slot.data.id}/${it.attachment.name}`;
-    const key = `${t.content}|${cssFont(t)}|${t.align}|${t.width}x${t.height}|${t.fill}|${t.outline}|${t.outlineWidth}|${scale}`;
+    const key = `${t.content}|${cssFont(t)}|${t.align}|${t.width}x${t.height}|${t.fill}|${t.outline}|${t.outlineWidth}|${scale}|${fontGeneration()}`;
     let entry = this.texts.get(id);
     if (entry && entry.key === key) {
       entry.used = this.frame;

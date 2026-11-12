@@ -25,6 +25,7 @@ import { showPanel } from "../layout.ts";
 import { Section } from "./fields.tsx";
 import { askConfirm, askText, uniqueName } from "../dialogs.tsx";
 import { AudioSection } from "./AudioPanel.tsx";
+import { FontsSection } from "./FontsPanel.tsx";
 import { boneLocked, cycleVis, isIsolated, isLocked, slotLocked, toggleIsolateSelection, toggleLock, visOf } from "../visibility.ts";
 import { resolveImageUrl } from "../images.ts";
 import { StatsSection } from "./Stats.tsx";
@@ -603,6 +604,7 @@ export function Hierarchy() {
         </For>
       </Section>
       <AudioSection />
+      <FontsSection />
       <Section
         title="Animations"
         actions={

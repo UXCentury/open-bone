@@ -11,6 +11,7 @@ import { imageAsDataUrl, resolveImageUrl } from "../images.ts";
 import { isDesktop, savedToast, saveFile, saveTextFile } from "../storage.ts";
 import { animationId, doc, fileName, setExportOpen, toast } from "../state.ts";
 import { audioAsDataUrl } from "../audio.ts";
+import { fontAsDataUrl } from "../fonts.ts";
 import { exportWebPack, playerSizeKb } from "../export-web.ts";
 
 type Named = { id: string; name: string };
@@ -162,7 +163,11 @@ interface SavedSettings {
     webp?: number | null;
   };
   web?: { format?: "iife" | "esm"; minify?: boolean; scripts?: boolean; singleFile?: boolean; demo?: boolean };
+  /** Player display for web and WebView exports. */
+  display?: { fit?: PlayerFit; clip?: boolean; fullscreenFit?: FullscreenFit };
 }
+type PlayerFit = "contain" | "cover" | "auto" | "none";
+type FullscreenFit = "auto" | "cover" | "contain" | "none" | "same";
 const readSaved = (): SavedSettings => {
   try {
     return JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? "{}") ?? {};
@@ -251,6 +256,10 @@ export function ExportDialog() {
   const [webScripts, setWebScripts] = createSignal(sw.scripts ?? source.scripts.length > 0);
   const [webSingle, setWebSingle] = createSignal(sw.singleFile ?? false);
   const [webDemo, setWebDemo] = createSignal(sw.demo ?? true);
+  const sdisp = saved.display ?? {};
+  const [dispFit, setDispFit] = createSignal<PlayerFit>(sdisp.fit ?? "contain");
+  const [dispClip, setDispClip] = createSignal(sdisp.clip ?? true);
+  const [dispFullscreen, setDispFullscreen] = createSignal<FullscreenFit>(sdisp.fullscreenFit ?? "auto");
   /** The engine being exported, if any. */
   const engine = () => (isEngine(format()) ? (format() as EngineFormat) : null);
   const sheetMode = () => !!engine() && (ENGINES[engine()!].sheet && (engine() !== "flutter" || flutterMode() === "sheet"));
@@ -530,6 +539,7 @@ export function ExportDialog() {
       webp: wvWebp(),
     },
     web: { format: webFmt(), minify: webMin(), scripts: webScripts(), singleFile: webSingle(), demo: webDemo() },
+    display: { fit: dispFit(), clip: dispClip(), fullscreenFit: dispFullscreen() },
   });
   const remember = () => {
     try {
@@ -602,6 +612,12 @@ export function ExportDialog() {
       if (w.singleFile !== undefined) setWebSingle(w.singleFile);
       if (w.demo !== undefined) setWebDemo(w.demo);
     }
+    const dsp = s.display;
+    if (dsp) {
+      if (dsp.fit) setDispFit(dsp.fit);
+      if (dsp.clip !== undefined) setDispClip(dsp.clip);
+      if (dsp.fullscreenFit) setDispFullscreen(dsp.fullscreenFit);
+    }
   };
   let settingsInput!: HTMLInputElement;
   const saveSettings = async () => {
@@ -645,6 +661,7 @@ export function ExportDialog() {
             : await packScalesForExport(result().doc, { ...packSettings(), scales: scaleRows() })
           : [{ suffix: "", ...(packed() ?? (await packForExport(result().doc, packSettings()))) }];
         for (const v of variants) if (v.doc.audio) v.doc.audio.assets = await Promise.all(v.doc.audio.assets.map(async (a) => ({ ...a, src: await audioAsDataUrl(a) })));
+        for (const v of variants) if (v.doc.fonts) v.doc.fonts = await Promise.all(v.doc.fonts.map(async (f) => ({ ...f, src: await fontAsDataUrl(f) })));
         const files = atlasExportFiles(base, variants, { binary: format() === "binary", pretty: pretty(), precision: precision() });
         const data = createZip(files);
         const savedName = await saveFile(`${base}.zip`, data, { ext: "zip", description: "Runtime data and atlas pages (ZIP)", mime: "application/zip" });
@@ -659,6 +676,7 @@ export function ExportDialog() {
         if (embed() && !usePack()) for (const img of d.images) img.src = await imageAsDataUrl(img);
         // Audio assets are shared (immutable) objects: replace them rather than editing in place.
         if ((embed() || usePack()) && d.audio) d.audio.assets = await Promise.all(d.audio.assets.map(async (a) => ({ ...a, src: await audioAsDataUrl(a) })));
+        if ((embed() || usePack()) && d.fonts) d.fonts = await Promise.all(d.fonts.map(async (f) => ({ ...f, src: await fontAsDataUrl(f) })));
         const data = format() === "binary" ? serializeBinary(d, { precision: precision() }) : pretty() ? serialize(d) : JSON.stringify(d);
         const savedName =
           typeof data !== "string"
@@ -678,7 +696,7 @@ export function ExportDialog() {
         const title = fileName().replace(/\.obone$/i, "") || base;
         const f = await exportWebPack(
           source,
-          { format: webFmt(), minify: webMin(), scripts: webScripts(), singleFile: webSingle(), demoControls: webDemo(), stateMachine: wvSm(), pack: wvPack(), binary: wvBinary(), webpQuality: wvWebp(), background: wvTransparent() ? null : bgColor() },
+          { format: webFmt(), minify: webMin(), scripts: webScripts(), singleFile: webSingle(), demoControls: webDemo(), stateMachine: wvSm(), pack: wvPack(), binary: wvBinary(), webpQuality: wvWebp(), background: wvTransparent() ? null : bgColor(), fit: dispFit(), clip: dispClip(), fullscreenFit: dispFullscreen() },
           base,
           title,
           onProgress,
@@ -695,7 +713,7 @@ export function ExportDialog() {
       if (e) {
         const data = sheetMode()
           ? (await exportSpritePack(e === "unity" || e === "godot" || e === "flutter" ? e : "generic", source, sheetOptions(), base, onProgress)).data
-          : await exportWebViewPack(e as "flutter" | "android" | "ios", source, { stateMachine: wvSm(), pack: wvPack(), binary: wvBinary(), webpQuality: wvWebp(), background: wvTransparent() ? null : bgColor(), androidPackage: androidPackage().trim() || "com.openbone" }, base, fileName().replace(/\.obone$/i, "") || base, onProgress);
+          : await exportWebViewPack(e as "flutter" | "android" | "ios", source, { stateMachine: wvSm(), pack: wvPack(), binary: wvBinary(), webpQuality: wvWebp(), background: wvTransparent() ? null : bgColor(), fit: dispFit(), clip: dispClip(), androidPackage: androidPackage().trim() || "com.openbone" }, base, fileName().replace(/\.obone$/i, "") || base, onProgress);
         setProgress("Saving…");
         const label = `${formatLabel()} ${sheetMode() ? "sprite sheet" : "WebView"} package (ZIP)`;
         const savedName = await saveFile(`${base}.zip`, data, { ext: "zip", description: label, mime: "application/zip" });
@@ -785,7 +803,7 @@ export function ExportDialog() {
               <fieldset class="export-group">
                 <legend>Output</legend>
                 <label class="check">
-                  <input type="checkbox" checked={embed()} onChange={(e) => setEmbed(e.currentTarget.checked)} /> Embed images and audio in the file
+                  <input type="checkbox" checked={embed()} onChange={(e) => setEmbed(e.currentTarget.checked)} /> Embed images, audio and fonts in the file
                   <span class="muted small">{needsEmbed ? "(one self-contained file)" : "(already embedded)"}</span>
                 </label>
                 <label class="check">
@@ -847,7 +865,7 @@ export function ExportDialog() {
                   <input type="checkbox" checked={prune()} onChange={(e) => setPrune(e.currentTarget.checked)} /> Leave out unused images and events
                 </label>
                 <label class="check" title={pack() ? "Atlas pages are always embedded" : undefined}>
-                  <input type="checkbox" checked={embed() || pack()} disabled={pack()} onChange={(e) => setEmbed(e.currentTarget.checked)} /> Embed images and audio in the file
+                  <input type="checkbox" checked={embed() || pack()} disabled={pack()} onChange={(e) => setEmbed(e.currentTarget.checked)} /> Embed images, audio and fonts in the file
                   <span class="muted small">{needsEmbed ? "(one self-contained file)" : "(already embedded)"}</span>
                 </label>
               </fieldset>
@@ -1289,6 +1307,30 @@ export function ExportDialog() {
                       </Show>
                       <Show when={e() !== "web"}>
                         <div class="muted small">Includes the OpenBone web player (≈ 0.8 MB, works offline) and a README with integration steps.</div>
+                      </Show>
+                    </fieldset>
+                    <fieldset class="export-group">
+                      <legend>Display</legend>
+                      <Row label="Fit" title="How the artboard fits the player's box">
+                        <select value={dispFit()} onChange={(ev) => setDispFit(ev.currentTarget.value as PlayerFit)}>
+                          <option value="contain" selected={dispFit() === "contain"}>Contain: all of the artboard</option>
+                          <option value="cover" selected={dispFit() === "cover"}>Cover: fill, crop the edges</option>
+                          <option value="auto" selected={dispFit() === "auto"}>Auto: cover unless it crops more than 15%</option>
+                          <option value="none" selected={dispFit() === "none"}>Actual size, centred</option>
+                        </select>
+                      </Row>
+                      <label class="check" title="Draw only inside the artboard, like a camera: art placed past its edges is cut off and the space around it stays empty">
+                        <input type="checkbox" checked={dispClip()} onChange={(ev) => setDispClip(ev.currentTarget.checked)} /> Clip to the artboard
+                      </label>
+                      <Show when={e() === "web"}>
+                        <Row label="Full screen" title="Fit while the player (or the page section holding it) is full screen">
+                          <select value={dispFullscreen()} onChange={(ev) => setDispFullscreen(ev.currentTarget.value as FullscreenFit)}>
+                            <option value="auto" selected={dispFullscreen() === "auto"}>Auto: fill the screen unless that crops more than 15%</option>
+                            <option value="cover" selected={dispFullscreen() === "cover"}>Cover: always fill the screen</option>
+                            <option value="contain" selected={dispFullscreen() === "contain"}>Contain: all of the artboard</option>
+                            <option value="same" selected={dispFullscreen() === "same"}>Same as Fit</option>
+                          </select>
+                        </Row>
                       </Show>
                     </fieldset>
                     <Show when={e() === "web"}>

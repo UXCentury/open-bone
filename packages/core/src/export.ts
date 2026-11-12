@@ -1,5 +1,6 @@
 import { usedSounds } from "./audio.ts";
 import { cloneDocument } from "./document.ts";
+import { usedFonts } from "./fonts.ts";
 import type { Id, OpenBoneDocument } from "./types.ts";
 
 /** What to put in an exported file. Lists hold ids; omitted = everything of that kind. */
@@ -30,6 +31,8 @@ export interface ExportStats {
   scripts: number;
   /** Audio assets kept. */
   audio: number;
+  /** Font files kept. */
+  fonts: number;
 }
 
 export interface ExportResult {
@@ -123,6 +126,12 @@ export function exportDocument(source: OpenBoneDocument, opts: ExportOptions = {
       d.audio = { ...d.audio, sounds: d.audio.sounds.filter((s) => sounds.has(s.id)), assets: d.audio.assets.filter((a) => assets.has(a.id)) };
       if (!d.audio.sounds.length && !d.audio.assets.length) delete d.audio;
     }
+    if (d.fonts) {
+      // Keep fonts whose family some kept text names.
+      const fonts = usedFonts(d);
+      d.fonts = d.fonts.filter((f) => fonts.has(f));
+      if (!d.fonts.length) delete d.fonts;
+    }
   }
 
   const removedKeys = opts.cleanUpAnimations ? cleanUpAnimations(d) : 0;
@@ -145,6 +154,7 @@ export function exportDocument(source: OpenBoneDocument, opts: ExportOptions = {
       stateMachines: d.stateMachines.length,
       scripts: d.scripts.length,
       audio: d.audio?.assets.length ?? 0,
+      fonts: d.fonts?.length ?? 0,
     },
   };
 }

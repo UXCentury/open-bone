@@ -71,7 +71,11 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
    app embedding the animation mutes it the same way (setInput("musicOff", true), or player.setBusMuted("music", true)).
    Looping sounds stop when their state or
    animation ends. Mix with update_sound {volume, rate, loop, fadeIn, fadeOut, bus}, add_bus/update_bus {volume, muted},
-   set_audio_mix {master, muted}. simulate_state_machine lists the audio commands.
+   set_audio_mix {master, muted}. simulate_state_machine lists the audio commands. A sound that should play whenever a
+   trigger fires belongs on the state it enters (set_state_sound), not only on the button's listener: code and page
+   buttons fire triggers without clicking the art (validate warns about this).
+   Fonts: import_font {path} adds a TTF/OTF as a document font (family read from the file). Texts whose font list names
+   that family ("Noto Serif JP, serif") use it everywhere (editor, renders, every runtime) instead of whatever is installed.
 11. Sprite sequences (frame-by-frame, e.g. fire or explosions): add_image for each frame (or one sheet image), then
    add_sequence {slot, frames:["fire_0001","fire_0002",...], fps, mode:"loop"|"once"|"pingPong"|"holdLast", offset}
    or add_sequence {slot, grid:{image:"sheet", cols, rows}}. Bind input (a number input) to pick the frame from a state

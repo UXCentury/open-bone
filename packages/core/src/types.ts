@@ -41,6 +41,22 @@ export interface SlotData {
   folder?: string;
 }
 
+/**
+ * A font file carried by the document. Text attachments name fonts by family in their `font` list; a family that has
+ * document fonts uses them (the one whose weight is closest to the text's), before any installed font.
+ */
+export interface FontAsset {
+  id: Id;
+  name: string;
+  /** The family name text attachments use in their `font` list ("Noto Serif JP"). */
+  family: string;
+  /** data: URI (embedded), relative path, or URL (TTF, OTF; WOFF/WOFF2 on the web only). */
+  src: string;
+  /** CSS weight 100..900 (default 400). */
+  weight?: number;
+  style?: "normal" | "italic";
+}
+
 export interface ImageAsset {
   id: Id;
   name: string;
@@ -964,6 +980,8 @@ export interface OpenBoneDocument {
   scripts: ScriptData[];
   /** Audio assets, sounds and the mixer. Absent when the document has no audio. */
   audio?: AudioData;
+  /** Font files for text attachments, by family. Absent when the document embeds no fonts. */
+  fonts?: FontAsset[];
 }
 
 export const FORMAT_VERSION = 1 as const;

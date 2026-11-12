@@ -4,6 +4,21 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 
 ## Unreleased
 
+### Embedded fonts
+- **Fonts travel with the document**: a new `fonts` list holds font files (TTF/OTF; WOFF/WOFF2 on the web), embedded or next to the project like images and sounds. A text whose font list names one of their families draws with it (the face nearest its weight) before any installed font, so text looks the same in the editor, the web player, exports and every runtime, Japanese included, whatever the device has installed.
+- **Editor**: a Fonts section (add with + or drop TTF/OTF files on the viewport; the family, weight and style are read from the file), a font inspector with a live sample, and a **Project font** picker in the Text inspector that puts a document family first in the text's font list (or adds a new font file). Saved, bundled, exported, imported from other projects and sent over the MCP bridge like other assets.
+- **Web player and engines**: the player, Pixi, Phaser, Three and CanvasKit load document fonts (FontFace) before the first frame, and cached text redraws once they arrive.
+- **MCP and CLI**: `import_font {path}` (family read from the file), `add_font` / `update_font` / `delete_font`; `render_frame`, GIF and video exports draw with document fonts; exports with `embed` embed them; `get_summary` lists them.
+- **Windswept** carries subsets of Noto Serif CJK JP (Regular and Bold, SIL Open Font License, about 30 KB each), and all its texts list that family first.
+
+### Checks
+- **Trigger sound check**: `validate` warns when a button plays a sound and fires a trigger, but nothing the trigger leads to makes a sound, so firing it from code or a page button is silent (the bug Windswept's gust had). The State Machine panel shows a ⚠ on that listener. Unused document fonts and fonts without a file are reported too.
+
+### Export and Play mode
+- **Display options in exports**: Website and WebView exports get Fit (contain, cover, auto, actual size), Clip to the artboard, and (website) Full-screen fit, written to the page's player. Also `fit` / `clip` / `fullscreenFit` on MCP `export_file` and `--fit`, `--no-clip`, `--fullscreen-fit` in the CLI.
+- **Play mode**: a Fill fit (cover) next to Fit and 1:1, and a Clip toggle to see art placed past the artboard's edges.
+- Website and WebView exports embed the document's sounds and fonts too (relative sound paths used to stay relative and miss in the package).
+
 ### Godot
 - **No sound leaks at exit**: quitting while looping sounds played leaked their streams and playbacks ("ObjectDB instances leaked", "resources still in use"). Stopping a voice now also detaches its stream.
 - **Text in the document's fonts, with outlines**: text used Godot's default font and ignored outlines. Each text now uses its own family list ("Noto Serif JP, Georgia, serif") as a `SystemFont` (installed families, generic `serif` / `sans-serif`, per-glyph fallback for other scripts) and draws its outline under the fill, matching the web player.

@@ -1,4 +1,4 @@
-import { type Canvas, type Image, createCanvas } from "@napi-rs/canvas";
+import { type Canvas, GlobalFonts, type Image, createCanvas } from "@napi-rs/canvas";
 import { decodeImage } from "./image-load.ts";
 import { type AtlasData, type OpenBoneDocument, textureAssets } from "@openbone/core";
 import { encodePng } from "@openbone/export";
@@ -44,7 +44,25 @@ export interface RenderRequest extends PoseRequest {
   background?: string | null;
 }
 
+/** Font files registered with @napi-rs/canvas, by family and source, so a render can draw text in them. */
+const registeredFonts = new Set<string>();
+
+/** Register the document's fonts so server-side renders (render_frame, GIF and video exports) draw text with them. */
+export async function loadFonts(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument) {
+  for (const f of doc.fonts ?? []) {
+    const key = `${f.family}|${f.src.length > 200 ? f.src.slice(0, 200) + f.src.length : f.src}`;
+    if (registeredFonts.has(key)) continue;
+    try {
+      GlobalFonts.register(Buffer.from(await session.readImageSrc(f.src)), f.family);
+      registeredFonts.add(key);
+    } catch {
+      /* unreadable font: installed fonts apply */
+    }
+  }
+}
+
 export async function loadImages(session: Pick<ProjectSession, "readImageSrc">, doc: OpenBoneDocument) {
+  await loadFonts(session, doc);
   const map = new Map<string, Image>();
   // Atlas pages and loose images, keyed by id (the renderers ask for page ids when images are packed).
   for (const img of textureAssets(doc)) {

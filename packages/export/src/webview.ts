@@ -19,6 +19,8 @@ export interface WebViewPage {
   /** CSS colour, or null for transparent (the default, so native backgrounds show through). */
   background?: string | null;
   fit?: "contain" | "cover" | "auto" | "none";
+  /** false: draw past the artboard's edges (clipped to the artboard by default). */
+  clip?: boolean;
   /** Script file name next to the page. Default `openbone-player.js`. */
   bundleFile?: string;
 }
@@ -41,6 +43,7 @@ export function webViewHtml(p: WebViewPage): string {
   if (p.animation) data.push(`data-animation="${escAttr(p.animation)}"`);
   data.push(`data-background="${escAttr(p.background ?? "none")}"`);
   if (p.fit) data.push(`data-fit="${p.fit}"`);
+  if (p.clip === false) data.push(`data-clip="false"`);
   const b64 = toBase64(p.doc).replace(/.{1,120}/g, "$&\n");
   return `<!doctype html>
 <html lang="en">

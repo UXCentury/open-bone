@@ -23,6 +23,8 @@ in the [runtime specification](runtime-spec.md).
   "format": "openbone", "version": 1, "name": "Walker",
   "width": 800, "height": 600, "originX": 400, "originY": 500, "background": "#eef2f7", "fps": 30,
   "images":   [{ "id": "img_…", "name": "cape", "src": "assets/cape.png", "width": 120, "height": 60 }],
+  "fonts?":   [{ "id": "fnt_…", "name": "NotoSerifJP-Regular", "family": "Noto Serif JP", "src": "assets/fonts/NotoSerifJP-Regular.otf",
+                 "weight?": 400, "style?": "normal" | "italic" }],
   "atlas?":   { "pages": [{ "id", "name", "src", "width", "height" }],
                 "regions": [{ "image", "page", "x", "y", "width", "height", "offsetX", "offsetY", "originalWidth", "originalHeight" }],
                 "white?": { "page", "x", "y", "width", "height" }, "padding" },
@@ -149,6 +151,17 @@ are centred vertically in it. `text` is a template:
 | `{unknown}` | stays as written |
 
 Hosts can replace the template per slot at runtime (`setText`).
+
+`font` is a CSS-style family list (`"Noto Serif JP, Georgia, serif"`). For each family in order, if the document has
+`fonts` of that family (case-insensitive), the text uses the one whose weight is closest to its `weight`; otherwise the runtime looks the family up among installed fonts, and the
+generic names (`serif`, `sans-serif`, `monospace`) map to the platform's defaults.
+
+## Fonts
+
+`fonts` lists font files carried by the document: `src` is a data: URI (embedded) or a path relative to the document,
+like images and audio; `family` is the name texts use; `weight` (default 400) and `style` (default `normal`) say which
+face the file is. TrueType and OpenType files (`.ttf`, `.otf`) work everywhere; WOFF and WOFF2 only on the web. Binary
+files store embedded fonts as raw bytes. Absent `fonts` means none.
 
 ### Sequences
 
