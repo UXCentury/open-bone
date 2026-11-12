@@ -28,9 +28,21 @@ namespace OpenBone.Unity
             public AudioClip clip;
         }
 
+        [Serializable]
+        public sealed class FontEntry
+        {
+            [Tooltip("The family name text attachments use in their font list.")]
+            public string family;
+            [Tooltip("CSS weight 100..900: a text gets the family's font closest to its own weight.")]
+            public float weight = 400;
+            public bool italic;
+            public Font font;
+        }
+
         [SerializeField, HideInInspector] byte[] data = new byte[0];
         [SerializeField] List<TextureEntry> textures = new List<TextureEntry>();
         [SerializeField] List<AudioEntry> audioClips = new List<AudioEntry>();
+        [SerializeField] List<FontEntry> fonts = new List<FontEntry>();
 
         [NonSerialized] Document _doc;
         [NonSerialized] Dictionary<string, TextureEntry> _textureById;
@@ -40,6 +52,8 @@ namespace OpenBone.Unity
         public byte[] Data => data;
         public List<TextureEntry> Textures => textures;
         public List<AudioEntry> AudioClips => audioClips;
+        /// <summary>The document's fonts as imported Font assets (the importer fills this; add your own at runtime).</summary>
+        public List<FontEntry> Fonts => fonts;
 
         /// <summary>Build an asset at runtime from file bytes and textures (by image / atlas page id).</summary>
         public static OpenBoneAsset Create(byte[] bytes, IDictionary<string, Texture2D> textureById = null, IDictionary<string, AudioClip> clips = null)

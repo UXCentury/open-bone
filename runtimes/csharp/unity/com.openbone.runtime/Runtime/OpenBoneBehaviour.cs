@@ -122,7 +122,7 @@ namespace OpenBone.Unity
             GetComponent<MeshFilter>().sharedMesh = _mesh;
             _generator = new MeshGenerator { MissingTexture = id => Warn($"no texture for \"{id}\" in {asset.name}") };
             _materials = new MaterialCache(shader);
-            _text = new TextRenderer(transform);
+            _text = new TextRenderer(transform) { DocumentFonts = asset.Fonts };
             Instance = new OpenBoneInstance(doc, new StateMachineOptions { ScriptHost = CreateScriptHost() });
             Instance.Skeleton.SetSkin(string.IsNullOrEmpty(skin) ? null : skin);
             Instance.AudioCommand += OnAudio;

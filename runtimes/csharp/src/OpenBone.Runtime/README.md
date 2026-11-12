@@ -74,7 +74,7 @@ Without a script host, scripts attached to the document are skipped and everythi
 | Type | What it does |
 |---|---|
 | `DocumentLoader` | `Load(byte[])` reads `.obone` (JSON) or `.obonb` (binary) and returns a `Document`. `FromJson(string)` reads JSON. Throws `OpenBoneFormatException` for data that is not an OpenBone document or is a newer version, and `OpenBone.Json.JsonException` for malformed JSON. |
-| `Document` | The loaded data: artboard size and origin, images, atlas, skeleton, animations, state machines, scripts, audio. |
+| `Document` | The loaded data: artboard size and origin, images, fonts, atlas, skeleton, animations, state machines, scripts, audio. `Fonts` lists the document's own font files (`FontAsset`: `Family`, `Src` as a data: URI or a path relative to the document, `Weight`, `Style`); `PickFont(fontList, weight)` applies the matching rule every runtime shares (first family in the list the document has fonts for, closest weight). |
 | `OpenBoneInstance` | The usual entry point. `Play`, `UseStateMachine`, `Advance(dt)`, `DrawList()`, `Pointer`, `ArtboardToSkeleton`, events `Event`, `StateChanged`, `AudioCommand`. `OpenBoneInstance.Load(bytes)` loads and creates in one call. |
 | `AnimationState` | Tracks and mixing: `SetAnimation`, `AddAnimation` (with delay and mix), `ClearTrack`, `ClearTracks`. |
 | `Skeleton` | Bones, slots and draw order: `FindBone`, `FindSlot`, `SetSkin`, `SetToSetupPose`, `UpdateWorldTransform`, `BoundingBoxes()`. |

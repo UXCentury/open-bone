@@ -343,6 +343,18 @@ namespace UnityEditor
     public static class AssetDatabase
     {
         public static T LoadAssetAtPath<T>(string path) where T : UnityEngine.Object => default;
+        public static void ImportAsset(string path, ImportAssetOptions options = ImportAssetOptions.Default) { }
+        public static void StartAssetEditing() { }
+        public static void StopAssetEditing() { }
+    }
+
+    [Flags] public enum ImportAssetOptions { Default = 0, ForceUpdate = 1, ForceSynchronousImport = 8, ImportRecursive = 256, DontDownloadFromCacheServer = 8192, ForceUncompressedImport = 16384 }
+
+    public delegate void CallbackFunction();
+
+    public static class EditorApplication
+    {
+        public static CallbackFunction delayCall;
     }
 
     [AttributeUsage(AttributeTargets.Class)] public sealed class CustomEditor : Attribute { public CustomEditor(Type t) { } }

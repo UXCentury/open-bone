@@ -108,7 +108,7 @@ Texture keys are image ids, or atlas page ids for packed documents.
 - Vertex colours are straight (not premultiplied); the shader outputs premultiplied colour, so the blend modes are: normal `One, OneMinusSrcAlpha`; additive `One, One`; multiply `DstColor, OneMinusSrcAlpha`; screen `One, OneMinusSrcColor`. Atlas pages packed with premultiplied alpha are marked by the importer and divided back in the shader.
 - Clipping uses stencil value 1 (written by the mask, tested by the clipped run, cleared after it). The camera's target needs a stencil buffer (the default).
 - Two-colour tint: `dark + (light − dark) × texture` per channel; without a dark colour it is the usual multiply.
-- Text attachments are drawn with legacy `TextMesh` children on top of the skeleton mesh, in Unity's font. For TextMesh Pro, turn **Render Text** off and draw `DrawItem.Text` (content, size, alignment, colour, matrix) from the `DrawListReady` event.
+- Text attachments are drawn with legacy `TextMesh` children on top of the skeleton mesh. The document's own fonts come first for their families: the importer references `.ttf` / `.otf` files at a font's `src`, and writes embedded fonts once to a `<document>.fonts/` folder next to it (Unity imports them as Font assets; the document then re-imports to reference them). They are listed under **Fonts** on the imported asset (family, weight, Font); a text gets its family's font closest to its weight. Other families use installed fonts. WOFF / WOFF2 fonts work on the web only. For TextMesh Pro, turn **Render Text** off and draw `DrawItem.Text` (content, size, alignment, colour, matrix) from the `DrawListReady` event.
 
 ## Scripts
 

@@ -25,11 +25,13 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 - **Document set in the Inspector loads**: an `OpenBoneSprite` saved in a scene with *Document* set showed nothing (the path was emptied when the node entered the tree); only `load()` from code worked. The addon's CI check now covers a saved scene.
 
 ### MonoGame
+- **Document fonts**: the fonts a document embeds or names beside it (`fonts`) are registered when it loads, so its text looks the same whatever is installed; a family with several weights gives each text the closest one. `FontStashTextRenderer.Register(family, bytes, weight)` adds fonts from code. The C# runtime reads `Document.Fonts` (`.obone` and `.obonb`) with the shared matching rule in `Document.PickFont`.
 - **Text**: text attachments weren't drawn unless the game supplied content-pipeline SpriteFonts. `OpenBoneMonoGame` now draws them by default in the document's own fonts, loaded at runtime with FontStashSharp (zlib licence): `FontStashTextRenderer` finds each family among registered and installed fonts (font collections such as `.ttc` included), sizes them by em like CSS, and draws outlines under the fill.
 
 - **Clips to the stage**: `OpenBoneMonoGame.ClipToStage` (on by default) draws only inside the artboard with a scissor rectangle, like the web player, so art placed past its edges no longer shows around it; `OpenBoneRenderer.Clip` takes any screen rectangle. The sample toggles it with C (`--no-clip` starts with it off).
 
 ### Unity
+- **Document fonts**: embedded fonts are written once to a `<document>.fonts/` folder and imported as Font assets, fonts at a relative `src` are referenced from the project, and texts use them for their families before installed fonts, at the closest weight.
 - **Text in the document's fonts**: every text used Unity's built-in sans font. Each text now uses its own family list as a dynamic OS font (the installed families in it, with `serif` / `sans-serif` / `monospace` mapped to the system's usual fonts), so Windswept's serif titles and Japanese labels look as in the editor. Setting `TextRenderer.Font` still uses one font for everything.
 
 ### Cocos2d-x
