@@ -91,6 +91,7 @@ public class SampleApp extends ApplicationAdapter {
     else if (!doc.animations.isEmpty()) instance.play(doc.animations.get(0).name, true);
     textures = new DocumentTextures(doc, file.parent());
     renderer = new OpenBoneRenderer();
+    renderer.useDocumentFonts(doc, file.parent());
     Gdx.input.setInputProcessor(new InputAdapter() {
       final Vector3 v = new Vector3();
 

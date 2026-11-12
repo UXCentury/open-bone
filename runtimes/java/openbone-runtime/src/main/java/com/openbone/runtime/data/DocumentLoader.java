@@ -54,6 +54,16 @@ public final class DocumentLoader {
       i.height = num(x, "height", 0);
       d.images.add(i);
     }
+    for (Map<String, Object> x : maps(m.get("fonts"))) {
+      FontAsset f = new FontAsset();
+      f.id = str(x, "id", "");
+      f.name = str(x, "name", "");
+      f.family = str(x, "family", f.name);
+      f.src = str(x, "src", "");
+      f.weight = Math.max(100, Math.min(900, num(x, "weight", 400)));
+      f.style = "italic".equals(x.get("style")) ? "italic" : "normal";
+      d.fonts.add(f);
+    }
     if (m.get("atlas") instanceof Map) d.atlas = atlas((Map<String, Object>) m.get("atlas"));
     skeleton(d.skeleton, map(m.get("skeleton")));
     for (Map<String, Object> x : maps(m.get("events"))) {

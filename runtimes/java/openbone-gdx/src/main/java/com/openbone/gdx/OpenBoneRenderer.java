@@ -1,6 +1,7 @@
 package com.openbone.gdx;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Camera;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
@@ -15,6 +16,7 @@ import com.badlogic.gdx.utils.Disposable;
 import com.openbone.runtime.Affine;
 import com.openbone.runtime.DrawItem;
 import com.openbone.runtime.OpenBoneInstance;
+import com.openbone.runtime.data.OpenBoneDocument;
 import java.util.List;
 
 /**
@@ -69,6 +71,16 @@ public class OpenBoneRenderer implements Disposable {
       if (OpenBoneFonts.isAvailable()) fonts = new OpenBoneFonts();
     }
     return fonts;
+  }
+
+  /**
+   * Draw a document's text in the fonts it carries ({@code doc.fonts}; paths relative to {@code base}, the document's
+   * folder). Call once per loaded document; no effect when text uses a BitmapFont.
+   */
+  public OpenBoneRenderer useDocumentFonts(OpenBoneDocument doc, FileHandle base) {
+    OpenBoneFonts ft = fonts();
+    if (ft != null && !doc.fonts.isEmpty()) ft.registerDocument(doc, base);
+    return this;
   }
 
   private BitmapFont font() {
@@ -270,7 +282,7 @@ public class OpenBoneRenderer implements Disposable {
   private boolean drawFreeType(OpenBoneFonts ft, DrawItem it) {
     DrawItem.Text t = it.text;
     boolean outlined = t.outline != null && t.outlineWidth > 0;
-    BitmapFont fill = ft.font(t.font, t.content, (float) t.size, 0);
+    BitmapFont fill = ft.font(t.font, t.content, (float) t.size, t.weight, 0);
     if (fill == null) return false;
     Affine m = t.matrix;
     textTransform.idt();

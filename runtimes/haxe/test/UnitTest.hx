@@ -20,6 +20,7 @@ class UnitTest {
 		earcutSquareAndConcave();
 		angles();
 		binaryDocumentsDecodeLikeTypeScript();
+		documentFonts();
 		setMuteOverridesTheDocumentMix();
 		for (f in failures)
 			Platform.println("  FAIL " + f);
@@ -118,6 +119,32 @@ class UnitTest {
 				inst.advance(1 / 60.0);
 			eq(name + " draws", inst.drawList().length > 0, true);
 		}
+	}
+
+	/** Document fonts load from .obone and .obonb alike, and match by family (any case) and closest weight. */
+	static function documentFonts() {
+		for (file in ["fonts.obone", "fonts.obonb"]) {
+			var doc = DocumentLoader.load(Platform.readBytes("test/data/" + file));
+			eq(file + " fonts", doc.fonts.length, 3);
+			var regular = doc.fonts[0], bold = doc.fonts[1], light = doc.fonts[2];
+			eq(file + " id", regular.id, "f1");
+			eq(file + " name", regular.name, "Brand Regular");
+			eq(file + " family", regular.family, "Brand Sans");
+			eq(file + " data src", regular.src, "data:font/ttf;base64,AAEAAAALAIAAAwAw");
+			eq(file + " default weight", regular.weight, 400);
+			eq(file + " default style", regular.style, "normal");
+			eq(file + " path src", bold.src, "fonts/BrandSans-Bold.ttf");
+			eq(file + " weight", bold.weight, 700);
+			eq(file + " italic weight", light.weight, 300);
+			eq(file + " style", light.style, "italic");
+			eq(file + " match 400", doc.findFont("brand sans", 400) == regular, true);
+			eq(file + " match 500", doc.findFont(" BRAND SANS ", 500) == regular, true);
+			eq(file + " match 600", doc.findFont("Brand Sans", 600) == bold, true);
+			eq(file + " match 900", doc.findFont("Brand Sans", 900) == bold, true);
+			eq(file + " match 100", doc.findFont("Brand Sans", 100) == light, true);
+			eq(file + " other family", doc.findFont("Georgia", 400) == null, true);
+		}
+		eq("no fonts", DocumentLoader.fromJson('{"format":"openbone","version":1}').fonts.length, 0);
 	}
 
 	/** setMute listener actions: parsing (null bus = master, missing muted = toggle) and AudioDirector overrides. */

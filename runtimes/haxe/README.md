@@ -16,7 +16,7 @@ events and audio commands. It does no rendering: draw the `DrawItem`s with your 
 | Python 3 | `haxe test-python.hxml` | **86/92**, 6 scripted cases skipped |
 
 Each command also runs the unit tests (`test/UnitTest.hx`: JS number strings, `toFixed` ties, `Math.fround`,
-templates, mulberry32, FNV-1a, earcut, `.obonb` decoding against the TypeScript decoder's output). Checked with Haxe
+templates, mulberry32, FNV-1a, earcut, `.obonb` decoding against the TypeScript decoder's output, document fonts). Checked with Haxe
 4.3.7, node 20 and Python 3.12. Other targets (HashLink, C++, JVM, C#…) should work, since the runtime uses only the
 standard library, but have not been run.
 
@@ -91,6 +91,12 @@ the pose changes. Bounding boxes may be weighted and deformed like meshes and pa
 Path constraints honour `constantSpeed` (default true: arc-length placement). With `constantSpeed: false` the segment
 is still found by arc length but the point inside it is at the raw bezier parameter, so bones bunch up where the handles
 are short (Spine's "constant speed" off).
+
+Fonts: `doc.fonts` lists the fonts the document carries (`FontAsset`: `id`, `name`, `family`, `src` as a `data:` URL
+or a path relative to the document, `weight` 100..900, `style` `"normal"` / `"italic"`). For each family in a text's
+`font` list, `doc.findFont(family, weight)` gives the document's font of that family (any case) whose weight is closest
+to the text's; when it returns null, look the family up among installed fonts. Loading the font files is up to your
+renderer.
 
 Audio: the runtime never plays sound. It emits `AudioCommand`s (`play` with sound, asset, bus, volume, rate, loop,
 fade-in; `stop` with a fade; `fade`; `mix` with `bus` (null = the master) and `muted`, from a `setMute` listener

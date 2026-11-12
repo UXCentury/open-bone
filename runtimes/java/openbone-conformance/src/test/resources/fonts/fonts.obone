@@ -1,0 +1,14 @@
+{
+  "format": "openbone",
+  "version": 1,
+  "name": "fonts",
+  "width": 200,
+  "height": 100,
+  "fonts": [
+    { "id": "f1", "name": "Brand Regular", "family": "Brand Sans", "src": "data:font/ttf;base64,AAEAAAALAIAAAwAw" },
+    { "id": "f2", "name": "Brand Bold", "family": "Brand Sans", "src": "fonts/BrandSans-Bold.ttf", "weight": 700 },
+    { "id": "f3", "name": "Brand Light Italic", "family": "Brand Sans", "src": "fonts/BrandSans-LightItalic.ttf", "weight": 300, "style": "italic" }
+  ],
+  "skeleton": { "bones": [{ "id": "root", "name": "root" }], "slots": [], "skins": [{ "id": "default", "name": "default", "attachments": {} }] },
+  "animations": []
+}

@@ -19,6 +19,9 @@ class OpenBoneDocument {
 	public var fps = 30.0;
 	public final images:Array<ImageAsset> = [];
 
+	/** Fonts the document carries (text attachments name them by family). */
+	public final fonts:Array<FontAsset> = [];
+
 	/** Texture atlas the images are packed into, or null. */
 	public var atlas:AtlasData;
 
@@ -72,6 +75,29 @@ class OpenBoneDocument {
 			if (i.id == id)
 				return i;
 		return null;
+	}
+
+	/**
+		The document font for a family name (any case): of the fonts with that family, the one whose weight is closest
+		to `weight` (ties: the normal style, then the earlier font). Null when the document has none of that family, so
+		the family is looked up among the installed fonts instead.
+	**/
+	public function findFont(family:String, weight:Float):FontAsset {
+		if (family == null)
+			return null;
+		var fam = StringTools.trim(family).toLowerCase();
+		var best:FontAsset = null;
+		var bestScore = Math.POSITIVE_INFINITY;
+		for (f in fonts) {
+			if (f.family == null || StringTools.trim(f.family).toLowerCase() != fam)
+				continue;
+			var score = Math.abs(f.weight - weight) * 2 + (f.style == "italic" ? 1 : 0);
+			if (score < bestScore) {
+				best = f;
+				bestScore = score;
+			}
+		}
+		return best;
 	}
 
 	public function findStateMachine(ref:String):StateMachineData {
@@ -129,6 +155,25 @@ class OpenBoneDocument {
 }
 
 /** An image the document uses (src is a data: URL or a path). */
+/**
+	A font the document carries, so text looks the same everywhere. Text attachments name it through `family` in their
+	CSS-like font list; `src` is a data: URL or a path relative to the document (like images and audio).
+**/
+class FontAsset {
+	public var id:String;
+	public var name:String;
+	public var family:String;
+	public var src:String;
+
+	/** 100..900 (400 = regular). */
+	public var weight = 400.0;
+
+	/** "normal" or "italic". */
+	public var style = "normal";
+
+	public function new() {}
+}
+
 class ImageAsset {
 	public var id:String;
 	public var name:String;
