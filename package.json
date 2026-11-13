@@ -1,6 +1,6 @@
 {
   "name": "com.openbone.runtime",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "displayName": "OpenBone Runtime",
   "description": "Play OpenBone skeletal animations and interactive state machines in Unity: .obone/.obonb importer, animation and state-machine components, a mesh renderer with blend modes, clipping and two-colour tint, and an AudioSource bridge.",
   "unity": "2021.3",

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.3
+
+- No changes to the Unity package; released with OpenBone 0.4.3 (editor and desktop app fixes), so every package keeps the same version.
+
 ## 0.4.2
 
 - Document fonts: fonts embedded in a document (or beside it) are imported as Font assets (`<document>.fonts/`) and used
