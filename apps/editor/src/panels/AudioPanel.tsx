@@ -44,6 +44,70 @@ export function MuteButton() {
   );
 }
 
+// ---------------- Delete (rows and inspectors) ----------------
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** What playing a sound is wired to: removed with it (deleteSound / deleteAudio drop the same references). */
+function soundUses(ids: Set<string>, names: Set<string>) {
+  const d = doc();
+  let keys = 0, hooks = 0, actions = 0, events = 0;
+  for (const a of d.animations) keys += (a.audio ?? []).filter((k) => ids.has(k.sound)).length;
+  for (const sm of d.stateMachines) {
+    for (const l of sm.layers) for (const st of l.states) hooks += (st.sounds ?? []).filter((x) => ids.has(x.sound)).length;
+    for (const li of sm.listeners) actions += li.actions.filter((x) => (x.type === "playSound" || x.type === "stopSound") && ids.has(x.sound)).length;
+  }
+  for (const e of d.events) if (e.audio && (ids.has(e.audio) || names.has(e.audio))) events++;
+  const parts = [
+    keys && plural(keys, "audio key"),
+    hooks && plural(hooks, "state sound"),
+    actions && plural(actions, "listener action"),
+    events && `the sound of ${plural(events, "event")}`,
+  ].filter(Boolean);
+  return parts.length ? parts.join(", ") : "";
+}
+
+export function deleteSoundAsk(id: string) {
+  const s = sounds().find((x) => x.id === id);
+  if (!s) return;
+  const uses = soundUses(new Set([s.id]), new Set([s.name]));
+  void askConfirm({
+    title: `Delete sound “${s.name}”?`,
+    message: `${uses ? `Also removes ${uses}. ` : "Nothing plays it yet. "}The audio file stays. You can undo this.`,
+    confirmLabel: "Delete",
+    danger: true,
+  }).then((ok) => {
+    if (ok && apply("deleteSound", { sound: id }) !== undefined && selection()?.id === id) setSelection(null);
+  });
+}
+
+export function deleteAudioAsk(id: string) {
+  const a = assets().find((x) => x.id === id);
+  if (!a) return;
+  const used = sounds().filter((x) => x.asset === id);
+  const uses = soundUses(new Set(used.map((x) => x.id)), new Set([...used.map((x) => x.name), a.id, a.name]));
+  const parts = [used.length && `${plural(used.length, "sound")} (${used.map((x) => x.name).join(", ")})`, uses].filter(Boolean);
+  void askConfirm({
+    title: `Delete audio file “${a.name}”?`,
+    message: `${parts.length ? `Also removes ${parts.join(", and ")}. ` : ""}You can undo this.`,
+    confirmLabel: "Delete",
+    danger: true,
+  }).then((ok) => {
+    if (!ok || apply("deleteAudio", { asset: id }) === undefined) return;
+    const sel = selection();
+    if (sel && (sel.id === id || used.some((x) => x.id === sel.id))) setSelection(null);
+  });
+}
+
+export function deleteBusAsk(id: string) {
+  const b = buses().find((x) => x.id === id);
+  if (!b) return;
+  const n = sounds().filter((x) => x.bus === id).length;
+  void confirmDelete(`bus “${b.name}”`, n ? `Its ${plural(n, "sound")} play straight into the master instead.` : "No sounds use it.", () => {
+    if (apply("deleteBus", { bus: id }) !== undefined && selection()?.id === id) setSelection({ kind: "bus", id: "master" });
+  });
+}
+
 // ---------------- Hierarchy ----------------
 
 /** Hierarchy section: sounds, buses (with mute) and files. */
@@ -76,6 +140,7 @@ export function AudioSection() {
               <span class="muted"> {busName(live().bus)}{live().loop ? " · loop" : ""}</span>
               <span class="row-actions">
                 <button class="row-btn" title="Play" onClick={(e) => { e.stopPropagation(); audition(s.id); }}>▶</button>
+                <button class="row-btn" title="Delete sound" onClick={(e) => { e.stopPropagation(); deleteSoundAsk(s.id); }}>×</button>
               </span>
             </div>
           );
@@ -106,6 +171,7 @@ export function AudioSection() {
                   <button class="row-btn" title={live().muted ? "Unmute bus" : "Mute bus"} onClick={(e) => { e.stopPropagation(); apply("updateBus", { bus: b.id, muted: !live().muted }); }}>
                     {live().muted ? "🔇" : "🔈"}
                   </button>
+                  <button class="row-btn row-hover" title="Delete bus" onClick={(e) => { e.stopPropagation(); deleteBusAsk(b.id); }}>×</button>
                 </span>
               </div>
             );
@@ -115,6 +181,9 @@ export function AudioSection() {
           {(a) => (
             <div class="tree-row" classList={{ selected: sel()?.kind === "audio" && sel()!.id === a.id }} onClick={() => setSelection({ kind: "audio", id: a.id })} title="Audio file">
               <span class="icon"><WaveIcon /></span> {(doc(), a).name} <span class="muted">{fmt(a.duration)}s</span>
+              <span class="row-actions">
+                <button class="row-btn" title="Delete audio file and the sounds that use it" onClick={(e) => { e.stopPropagation(); deleteAudioAsk(a.id); }}>×</button>
+              </span>
             </div>
           )}
         </For>
@@ -159,11 +228,7 @@ export function SoundInspector(p: { id: string }) {
         <div class="btn-row">
           <button
             class="danger"
-            onClick={() =>
-              void askConfirm({ title: `Delete sound “${s()!.name}”?`, message: "Audio keys, state hooks, listener actions and event links that play it are removed too. The file stays. You can undo this.", confirmLabel: "Delete", danger: true }).then(
-                (ok) => ok && apply("deleteSound", { sound: p.id }) !== undefined && setSelection(null),
-              )
-            }
+            onClick={() => deleteSoundAsk(p.id)}
           >
             Delete
           </button>
@@ -223,7 +288,7 @@ export function BusInspector(p: { id: string }) {
           <div class="hint">Sounds: {sounds().filter((s) => s.bus === p.id).map((s) => s.name).join(", ") || "none"}</div>
           <div class="btn-row">
             <button onClick={addBus}>+ Bus</button>
-            <button class="danger" onClick={() => void confirmDelete(`bus “${b()!.name}”`, "Its sounds play straight into the master instead.", () => apply("deleteBus", { bus: p.id }) !== undefined && setSelection({ kind: "bus", id: "master" }))}>
+            <button class="danger" onClick={() => deleteBusAsk(p.id)}>
               Delete
             </button>
           </div>
@@ -257,11 +322,7 @@ export function AudioAssetInspector(p: { id: string }) {
           </button>
           <button
             class="danger"
-            onClick={() =>
-              void askConfirm({ title: `Delete “${a()!.name}”?`, message: "Sounds that use this file, and everything that plays them, are removed too. You can undo this.", confirmLabel: "Delete", danger: true }).then(
-                (ok) => ok && apply("deleteAudio", { asset: p.id }) !== undefined && setSelection(null),
-              )
-            }
+            onClick={() => deleteAudioAsk(p.id)}
           >
             Delete
           </button>

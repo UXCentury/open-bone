@@ -21,10 +21,6 @@
   },
   "license": "MIT",
   "type": "module",
-  "sideEffects": [
-    "./src/ops/*.ts",
-    "./dist/ops/*.js"
-  ],
   "exports": {
     ".": "./src/index.ts",
     "./lite": "./src/lite.ts"

@@ -93,6 +93,9 @@ input.tiny { width: 52px; }
 .tree-row:hover .row-actions, .tree-row.selected .row-actions { visibility: visible; }
 .row-btn { padding: 0 4px; border: none; background: transparent; color: var(--muted); }
 .row-btn:hover { color: inherit; }
+/* Rows whose actions are always shown (buses: mute) keep their delete for hover and selection. */
+.row-actions .row-hover { visibility: hidden; }
+.tree-row:hover .row-actions .row-hover, .tree-row.selected .row-actions .row-hover { visibility: visible; }
 .skin-badge { margin-left: auto; font-size: 10px; padding: 0 5px; border-radius: 8px; background: #4b3a73; color: #e3d8ff; }
 .skin-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .tree-row:hover .row-del, .input-row:hover .row-del, .track-row:hover .row-del, .cond .row-del { visibility: visible; }

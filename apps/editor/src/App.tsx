@@ -1,7 +1,5 @@
 import { For, Show, onCleanup, onMount } from "solid-js";
-import { Toolbar, importImages } from "./panels/Toolbar.tsx";
-import { importAudio } from "./audio.ts";
-import { importFonts } from "./fonts.ts";
+import { Toolbar } from "./panels/Toolbar.tsx";
 import { Viewport } from "./panels/Viewport.tsx";
 import { Dock, DragOverlay, Splitter } from "./panels/Workspace.tsx";
 import { ExportDialog } from "./panels/ExportDialog.tsx";
@@ -12,7 +10,7 @@ import { dismissToast, exportOpen, toasts } from "./state.ts";
 import { DialogHost } from "./dialogs.tsx";
 import { playActive } from "./play.ts";
 import { setupShortcuts, shortcutsOpen } from "./shortcuts/actions.ts";
-import { importFiles } from "./sequence-import.ts";
+import { setupFileDrop } from "./file-drop.ts";
 import { MenuHost } from "./menu.tsx";
 import { aboutOpen, contextItems, examplesOpen } from "./editor-menus.ts";
 import { AboutDialog } from "./panels/AboutDialog.tsx";
@@ -24,6 +22,7 @@ import { ExamplesDialog } from "./panels/ExamplesDialog.tsx";
 export function App() {
   onMount(() => onCleanup(setupShortcuts()));
   onMount(scheduleUpdateCheck);
+  onMount(() => onCleanup(setupFileDrop()));
 
   return (
     <div class="app" classList={{ playing: playActive() }}>
@@ -33,18 +32,7 @@ export function App() {
           <Dock id="left" />
           <Splitter dock="left" />
         </div>
-        <div
-          class="center"
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            if (e.dataTransfer?.files.length) {
-              void importFiles(e.dataTransfer.files, importImages);
-              void importAudio(e.dataTransfer.files);
-              void importFonts(e.dataTransfer.files);
-            }
-          }}
-        >
+        <div class="center">
           <div class="lockable column" inert={playActive() || undefined}>
             <Viewport />
             <Splitter dock="bottom" />

@@ -55,7 +55,21 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 file
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf libfuse2 file gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+
+      # WebKitGTK decodes and plays audio through GStreamer, so the AppImage bundles its plugins (bundleMediaFramework);
+      # without them, importing an MP3 crashes the page. Hand the bundler only the LGPL core, base and good plugins,
+      # never whatever else is installed (ugly, bad and libav include GPL code).
+      - name: GStreamer plugins for the AppImage
+        if: runner.os == 'Linux'
+        run: |
+          dir="$RUNNER_TEMP/gstreamer-plugins"
+          mkdir -p "$dir"
+          for pkg in libgstreamer1.0-0 gstreamer1.0-plugins-base gstreamer1.0-plugins-good; do
+            dpkg -L "$pkg" | grep -E '/gstreamer-1\.0/[^/]+\.so$' | xargs -r cp -t "$dir"
+          done
+          ls "$dir"
+          echo "GSTREAMER_PLUGINS_DIR=$dir" >> "$GITHUB_ENV"
 
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7

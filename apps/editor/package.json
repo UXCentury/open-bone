@@ -16,6 +16,7 @@
     "@openbone/render-canvas": "workspace:*",
     "@openbone/runtime": "workspace:*",
     "@openbone/scripting": "workspace:*",
+    "@tauri-apps/api": "^2.12.4",
     "@tauri-apps/plugin-dialog": "^2.4.0",
     "@tauri-apps/plugin-fs": "^2.4.0",
     "@tauri-apps/plugin-opener": "^2.7.2",
