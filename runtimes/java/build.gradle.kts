@@ -11,7 +11,7 @@ plugins {
 allprojects {
   // Maven coordinates: io.openbone:openbone-<module>. The Java/Kotlin packages stay com.openbone.*.
   group = "io.openbone"
-  version = "0.4.2"
+  version = "0.4.3"
 }
 
 extra["gdxVersion"] = "1.14.2"

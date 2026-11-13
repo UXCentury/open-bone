@@ -1,3 +1,7 @@
+## 0.4.3
+
+- No changes to the Flutter plugin; released with OpenBone 0.4.3 (editor and desktop app fixes), so every package keeps the same version.
+
 ## 0.4.2
 
 - Document fonts: fonts a document carries (embedded or beside it) are loaded with `FontLoader` and used for their

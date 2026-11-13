@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(openbone_runtime VERSION 0.4.2 LANGUAGES C CXX)
+project(openbone_runtime VERSION 0.4.3 LANGUAGES C CXX)
 
 # OpenBone C++ runtime: C++17, no engine dependencies. nlohmann/json and QuickJS (quickjs-ng v0.10.1, MIT) are
 # vendored in third_party/; OPENBONE_QUICKJS_DIR can point at another quickjs-ng source tree.

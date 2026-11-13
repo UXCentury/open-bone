@@ -2,6 +2,14 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
+## 0.4.3 (2026-11-13)
+
+### Desktop app and editor fixes
+- **Every editing command works again in the desktop app and production web builds.** Since 0.3, the bundler dropped the op modules the editor didn't import a name from, so importing sound, animating, editing state machines, images or fonts failed with `Unknown op "addAudio"` (and 110 others). Dev builds were never affected. A test now bundles core as the production build does and checks that every op is in it.
+- **Drag and drop imports by type, anywhere on the window**: images, numbered sequences, sprite sheets (JSON), PSD, ZIP, sounds, fonts, and `.obone` / `.obonb` (opens Import from project). Files it can't import get a message. A drop no longer replaces the editor with the file (a media player or an image). The desktop app on Linux and macOS reads the dropped files' paths natively (inside your home folder); Windows uses ordinary HTML drops.
+- **Linux AppImage plays sound, and importing an MP3 no longer turns the window white**: it now bundles GStreamer's LGPL core, base and good plugins (MP3, OGG, WAV, FLAC and audio output), and nothing GPL.
+- **Audio section**: a × on sounds, buses and audio files. The confirmation names what else goes (sounds using the file, audio keys, state sounds, listener actions, event sounds); undo restores it.
+
 ## 0.4.2 (2026-11-12)
 
 ### Embedded fonts
