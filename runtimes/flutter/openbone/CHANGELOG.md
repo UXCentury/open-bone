@@ -1,3 +1,7 @@
+## 0.4.4
+
+- No changes to the Flutter plugin; released with OpenBone 0.4.4 (editor fixes), so every package keeps the same version.
+
 ## 0.4.3
 
 - No changes to the Flutter plugin; released with OpenBone 0.4.3 (editor and desktop app fixes), so every package keeps the same version.
