@@ -1,119 +1,32 @@
 import type { AudioAsset } from "@openbone/core";
-import { Show, createEffect, createSignal, onCleanup } from "solid-js";
-import { audio, audioMuted } from "../audio.ts";
+import { Show, createEffect, untrack } from "solid-js";
+import { audioMuted } from "../audio.ts";
+import { type PreviewParams, preview } from "../preview-player.ts";
 import { PEAK_RATE, decodedNow } from "../waveform.ts";
 
 /**
  * A small audio player for the Inspector: the waveform (played part highlighted, click or drag to seek), play/pause,
- * stop and the time. Plays the decoded file through the editor's audio context with the sound's volume, rate and loop.
+ * stop and the time. It shows the editor's one sound preview (preview-player.ts), which the ▶ buttons on Audio rows
+ * start too; `id` names what this player holds (`sound:<id>` or `audio:<id>`).
  */
-export function MiniPlayer(p: { asset: AudioAsset | undefined; volume?: number; rate?: number; loop?: boolean }) {
+export function MiniPlayer(p: { id: string; asset: AudioAsset | undefined; volume?: number; rate?: number; loop?: boolean }) {
   let canvas!: HTMLCanvasElement;
   const decoded = () => decodedNow(p.asset);
   const duration = () => decoded()?.duration ?? p.asset?.duration ?? 0;
-  const rate = () => p.rate ?? 1;
-  const [playing, setPlaying] = createSignal(false);
-  const [pos, setPos] = createSignal(0); // seconds into the file
+  const params = (): PreviewParams => ({ asset: p.asset, volume: p.volume, rate: p.rate, loop: p.loop });
+  const mine = () => preview.key() === p.id;
+  const playing = () => preview.isPlaying(p.id);
+  const pos = () => (mine() ? preview.pos() : 0);
+  const play = () => void preview.play(p.id, params());
+  const pause = () => preview.pause();
+  const stop = () => mine() && preview.stop();
+  const seek = (t: number) => preview.seek(p.id, params(), t);
 
-  let src: AudioBufferSourceNode | null = null;
-  let gain: GainNode | null = null;
-  let startedAt = 0; // context time when playback (re)started
-  let startPos = 0; // file position at that moment
-  let raf = 0;
-  let buffer: AudioBuffer | null = null;
-  let bufferFor: Float32Array | null = null;
-
-  const ctx = () => audio.activate();
-  const now = () => {
-    const c = ctx();
-    if (!c || !playing()) return pos();
-    const t = startPos + (c.currentTime - startedAt) * rate();
-    const d = duration();
-    return p.loop && d > 0 ? t % d : Math.min(t, d);
-  };
-
-  const halt = () => {
-    if (src) {
-      src.onended = null;
-      try {
-        src.stop();
-      } catch {
-        /* already stopped */
-      }
-      src.disconnect();
-      src = null;
-    }
-    gain?.disconnect();
-    gain = null;
-    cancelAnimationFrame(raf);
-  };
-
-  const tick = () => {
-    setPos(now());
-    raf = requestAnimationFrame(tick);
-  };
-
-  const play = (from = pos()) => {
-    const c = ctx();
-    const d = decoded();
-    if (!c || !d) return;
-    halt();
-    if (!buffer || bufferFor !== d.samples) {
-      buffer = c.createBuffer(1, d.samples.length, d.sampleRate);
-      buffer.copyToChannel(d.samples as Float32Array<ArrayBuffer>, 0);
-      bufferFor = d.samples;
-    }
-    gain = c.createGain();
-    gain.gain.value = audioMuted() ? 0 : (p.volume ?? 1);
-    gain.connect(c.destination);
-    src = c.createBufferSource();
-    src.buffer = buffer;
-    src.playbackRate.value = rate();
-    src.loop = !!p.loop;
-    src.connect(gain);
-    const at = from >= d.duration - 0.01 ? 0 : from;
-    src.start(0, at);
-    startedAt = c.currentTime;
-    startPos = at;
-    src.onended = () => {
-      halt();
-      setPlaying(false);
-      setPos(0);
-    };
-    setPlaying(true);
-    raf = requestAnimationFrame(tick);
-  };
-  const pause = () => {
-    setPos(now());
-    halt();
-    setPlaying(false);
-  };
-  const stop = () => {
-    halt();
-    setPlaying(false);
-    setPos(0);
-  };
-  const seek = (t: number) => {
-    const c = Math.max(0, Math.min(duration(), t));
-    if (playing()) play(c);
-    else setPos(c);
-  };
-
-  // A different file, or volume/rate/loop changed while playing: restart from the same spot.
+  // Volume, rate, loop or file changed in the Inspector: the playing preview follows.
   createEffect(() => {
-    void p.asset?.id;
-    stop();
+    const q = params();
+    untrack(() => preview.update(p.id, q));
   });
-  createEffect(() => {
-    const v = audioMuted() ? 0 : (p.volume ?? 1);
-    if (gain) gain.gain.value = v;
-  });
-  createEffect(() => {
-    void rate();
-    void p.loop;
-    if (src) play(now());
-  });
-  onCleanup(halt);
 
   // Waveform: peaks across the width, the played part in the accent colour, the playhead on top.
   createEffect(() => {

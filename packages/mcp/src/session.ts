@@ -8,6 +8,18 @@ export class ProjectSession {
   store = new DocumentStore(createDocument("Untitled"));
   filePath: string | null = null;
   autosave = true;
+  /** Nothing has happened yet: no project created or opened, no edit. An editor that connects now keeps its scene. */
+  private touched = false;
+
+  constructor() {
+    this.store.subscribe(() => {
+      this.touched = true;
+    });
+  }
+
+  get pristine(): boolean {
+    return !this.touched && this.filePath === null;
+  }
 
   get doc(): OpenBoneDocument {
     return this.store.doc;

@@ -11,13 +11,17 @@ import type { ProjectSession } from "./session.ts";
  * agent appear instantly in the editor, and edits made in the editor are visible to the agent.
  *
  * Messages (JSON):
- *   editor → server: {type:"hello"} | {type:"op", op, args} | {type:"undo"} | {type:"redo"} | {type:"load", doc}
+ *   editor → server: {type:"hello", doc?} | {type:"op", op, args} | {type:"undo"} | {type:"redo"} | {type:"load", doc}
  *   server → editor: {type:"load", doc, path} | {type:"ops", ops} | {type:"error", message}
  *                    | {type:"files", files:[{src, kind, mime, base64}]}
  *
  * The server stores imported art and sound as paths relative to the project file, which the editor (a web page, or
  * the desktop app without that project open) can't read. So before the document or ops that use such a path, the
  * server sends the file's bytes ("files"), and the editor shows and plays them from memory.
+ *
+ * Connecting never replaces the editor's scene with an empty one: the editor's hello carries its document, and a
+ * server that has no project yet (nothing created, opened or edited) takes it over and waits for the agent. A server
+ * already working on a project sends that project instead.
  */
 
 const MEDIA: Record<string, { kind: "image" | "audio" | "font"; mime: string }> = {
@@ -105,14 +109,12 @@ export function startBridge(session: ProjectSession, port: number, log: (m: stri
     const origin = e.origin;
     const except = origin === "bridge" ? current : undefined;
     if (e.kind === "op" || e.kind === "transaction") broadcast({ type: "ops", ops: e.ops as OpCall[] }, except);
-    else broadcast({ type: "load", doc, path: session.filePath });
+    else broadcast({ type: "load", doc, path: session.filePath }, except);
   });
 
   wss.on("connection", (ws) => {
     clients.add(ws);
     log(`editor connected (${clients.size})`);
-    sendFiles(ws);
-    send(ws, { type: "load", doc: session.doc, path: session.filePath });
     ws.on("close", () => clients.delete(ws));
     ws.on("message", async (raw) => {
       let msg: { type: string; op?: string; args?: Record<string, unknown>; doc?: unknown };
@@ -125,13 +127,18 @@ export function startBridge(session: ProjectSession, port: number, log: (m: stri
       try {
         if (msg.type === "hello") {
           sentFiles.delete(ws); // a fresh editor page: send every file again
-          sendFiles(ws);
-          send(ws, { type: "load", doc: session.doc, path: session.filePath });
+          if (msg.doc && session.pristine) {
+            session.store.load(msg.doc as never, "bridge");
+            log("bridge: took over the editor's open project");
+          } else {
+            sendFiles(ws);
+            send(ws, { type: "load", doc: session.doc, path: session.filePath });
+          }
         }
         else if (msg.type === "op" && msg.op) session.store.apply(msg.op, msg.args ?? {}, "bridge");
         else if (msg.type === "undo") session.store.undo();
         else if (msg.type === "redo") session.store.redo();
-        else if (msg.type === "load" && msg.doc) session.store.load(msg.doc as never);
+        else if (msg.type === "load" && msg.doc) session.store.load(msg.doc as never, "bridge");
         await session.maybeAutosave();
       } catch (e) {
         send(ws, { type: "error", message: (e as Error).message });

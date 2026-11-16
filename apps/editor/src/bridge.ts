@@ -34,8 +34,9 @@ let ws: WebSocket | null = null;
 let unsub: (() => void) | null = null;
 
 /**
- * Live link to `openbone-mcp` (ws://127.0.0.1:7717). The server owns the document; local edits are
- * applied optimistically and sent as ops, remote ops are replayed here.
+ * Live link to `openbone-mcp` (ws://127.0.0.1:7717). Connecting keeps the open scene when the server has no project
+ * yet (the server takes it over); a server already working on a project sends that one. Local edits are applied
+ * optimistically and sent as ops, remote ops are replayed here.
  */
 export function connectBridge(url = localStorageGet("openbone.bridge") ?? "ws://127.0.0.1:7717") {
   disconnectBridge();
@@ -44,7 +45,8 @@ export function connectBridge(url = localStorageGet("openbone.bridge") ?? "ws://
   ws = new WebSocket(url);
   ws.onopen = () => {
     setBridgeStatus("connected");
-    ws!.send(JSON.stringify({ type: "hello" }));
+    // The editor's scene goes along: a server with no project yet keeps it instead of sending an empty one.
+    ws!.send(JSON.stringify({ type: "hello", doc: store.doc }));
     unsub = store.subscribe((_d, e) => {
       if (e.origin === "bridge" || !ws || ws.readyState !== WebSocket.OPEN) return;
       if (e.kind === "op" || e.kind === "transaction") for (const o of e.ops) ws.send(JSON.stringify({ type: "op", op: o.op, args: o.args }));

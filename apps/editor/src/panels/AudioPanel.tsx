@@ -1,6 +1,7 @@
 import { type AnimationData, type LayerData, type SoundData, type StateData, animationDuration } from "@openbone/core";
 import { For, Show, createEffect, createSignal } from "solid-js";
-import { audioMuted, audition, importAudio, setAudioMuted } from "../audio.ts";
+import { audioMuted, importAudio, setAudioMuted } from "../audio.ts";
+import { type PreviewParams, audioPreview, preview, soundPreview } from "../preview-player.ts";
 import { askConfirm, askForm, askText, confirmDelete, uniqueName } from "../dialogs.tsx";
 import { decodedNow, drawWaveform } from "../waveform.ts";
 import { apply, currentStateMachine, doc, selection, setSelection, time } from "../state.ts";
@@ -110,6 +111,35 @@ export function deleteBusAsk(id: string) {
 
 // ---------------- Hierarchy ----------------
 
+/**
+ * ▶ on an Audio row: selects the row and plays it in the Inspector's player; ⏸ pauses, ■ stops. While it plays or is
+ * paused part way the buttons stay visible.
+ */
+function PreviewButtons(p: { id: string; params: () => PreviewParams; select: () => void }) {
+  return (
+    <>
+      <button
+        class="row-btn"
+        style={preview.active(p.id) ? { visibility: "visible" } : undefined}
+        title={preview.isPlaying(p.id) ? "Pause" : "Play in the Inspector"}
+        aria-label={preview.isPlaying(p.id) ? "Pause" : "Play"}
+        onClick={(e) => {
+          e.stopPropagation();
+          p.select();
+          preview.toggle(p.id, p.params());
+        }}
+      >
+        {preview.isPlaying(p.id) ? "⏸" : "▶"}
+      </button>
+      <Show when={preview.active(p.id)}>
+        <button class="row-btn" style={{ visibility: "visible" }} title="Stop" aria-label="Stop" onClick={(e) => { e.stopPropagation(); preview.stop(); }}>
+          ■
+        </button>
+      </Show>
+    </>
+  );
+}
+
 /** Hierarchy section: sounds, buses (with mute) and files. */
 export function AudioSection() {
   const sel = () => selection();
@@ -133,13 +163,13 @@ export function AudioSection() {
             <div
               class="tree-row"
               classList={{ selected: sel()?.kind === "sound" && sel()!.id === s.id }}
-              title="Sound: click to edit; ▶ plays it"
+              title="Sound: click to edit; ▶ plays it in the Inspector"
               onClick={() => setSelection({ kind: "sound", id: s.id })}
             >
               <span class="icon">♪</span> {live().name}
               <span class="muted"> {busName(live().bus)}{live().loop ? " · loop" : ""}</span>
               <span class="row-actions">
-                <button class="row-btn" title="Play" onClick={(e) => { e.stopPropagation(); audition(s.id); }}>▶</button>
+                <PreviewButtons id={`sound:${s.id}`} params={() => soundPreview(s.id)} select={() => setSelection({ kind: "sound", id: s.id })} />
                 <button class="row-btn" title="Delete sound" onClick={(e) => { e.stopPropagation(); deleteSoundAsk(s.id); }}>×</button>
               </span>
             </div>
@@ -182,6 +212,7 @@ export function AudioSection() {
             <div class="tree-row" classList={{ selected: sel()?.kind === "audio" && sel()!.id === a.id }} onClick={() => setSelection({ kind: "audio", id: a.id })} title="Audio file">
               <span class="icon"><WaveIcon /></span> {(doc(), a).name} <span class="muted">{fmt(a.duration)}s</span>
               <span class="row-actions">
+                <PreviewButtons id={`audio:${a.id}`} params={() => audioPreview(a.id)} select={() => setSelection({ kind: "audio", id: a.id })} />
                 <button class="row-btn" title="Delete audio file and the sounds that use it" onClick={(e) => { e.stopPropagation(); deleteAudioAsk(a.id); }}>×</button>
               </span>
             </div>
@@ -224,7 +255,7 @@ export function SoundInspector(p: { id: string }) {
         <Check label="Loop" checked={s()!.loop} onChange={(v) => set({ loop: v })} title="Looping sounds stop when the state or animation that started them ends" />
         <NumberField label="Fade in" step={0.05} value={s()!.fadeIn} onCommit={(v) => set({ fadeIn: Math.max(0, v) })} />
         <NumberField label="Fade out" step={0.05} value={s()!.fadeOut} onCommit={(v) => set({ fadeOut: Math.max(0, v) })} />
-        <MiniPlayer asset={assets().find((a) => a.id === s()!.asset)} volume={s()!.volume} rate={s()!.rate} loop={s()!.loop} />
+        <MiniPlayer id={`sound:${p.id}`} asset={assets().find((a) => a.id === s()!.asset)} volume={s()!.volume} rate={s()!.rate} loop={s()!.loop} />
         <div class="btn-row">
           <button
             class="danger"
@@ -309,7 +340,7 @@ export function AudioAssetInspector(p: { id: string }) {
           {fmt(a()!.duration)}s · {a()!.src.startsWith("data:") ? "embedded" : a()!.src}
         </div>
         <div class="hint">Used by: {used().map((s) => s.name).join(", ") || "no sound"}</div>
-        <MiniPlayer asset={a()} />
+        <MiniPlayer id={`audio:${a()!.id}`} asset={a()} />
         <div class="btn-row">
           <button
             onClick={async () => {

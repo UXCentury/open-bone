@@ -2,6 +2,11 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
+## Unreleased
+
+- **Connecting to the MCP server keeps your scene.** A server with no project yet takes over the editor's open scene and waits for the agent, instead of replacing it with an empty one. A server already working on a project still sends that project. The server also no longer sends an editor's own scene straight back to it (which reset its undo history).
+- **Audio rows play in the Inspector's player.** ▶ on a sound or audio file selects it and plays it in the Inspector (waveform and time), turns into ⏸ while it plays, and shows ■ to stop. The row and the Inspector control the same sound.
+
 ## 0.4.3 (2026-11-13)
 
 ### Desktop app and editor fixes
