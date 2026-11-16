@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 /** Start a bridge on a free port; connect an "editor" that says hello with `doc` and collect what it receives. */
-async function connect(session: ProjectSession, doc: unknown) {
+async function connect(session: ProjectSession, doc: unknown, then?: (ws: WebSocket) => void) {
   const wss = startBridge(session, 0, () => {});
   servers.push(wss);
   await new Promise<void>((ok) => wss.on("listening", () => ok()));
@@ -21,6 +21,10 @@ async function connect(session: ProjectSession, doc: unknown) {
   await new Promise<void>((ok) => ws.on("open", () => ok()));
   ws.send(JSON.stringify({ type: "hello", doc }));
   await new Promise((ok) => setTimeout(ok, 100));
+  if (then) {
+    then(ws);
+    await new Promise((ok) => setTimeout(ok, 100));
+  }
   ws.close();
   return got;
 }
@@ -31,6 +35,7 @@ describe("live bridge connect", () => {
     const got = await connect(session, createDocument("Hero"));
     expect(session.doc.name).toBe("Hero");
     expect(got.filter((m) => m.type === "load").map((m) => m.doc?.name)).toEqual([]);
+    expect(got.some((m) => m.type === "synced")).toBe(true);
   });
 
   it("a server already working on a project sends it to the editor", async () => {
@@ -39,5 +44,19 @@ describe("live bridge connect", () => {
     const got = await connect(session, createDocument("Hero"));
     expect(session.doc.name).toBe("Agent scene");
     expect(got.find((m) => m.type === "load")?.doc?.name).toBe("Agent scene");
+  });
+
+  it("an editor sending its own scene detaches the server from its project file, so autosave never overwrites it", async () => {
+    const session = new ProjectSession();
+    session.newProject("Agent scene", "/tmp/agent-scene.obone");
+    const saved: string[] = [];
+    session.save = async () => {
+      saved.push(session.doc.name);
+      return "";
+    };
+    await connect(session, createDocument("Hero"), (ws) => ws.send(JSON.stringify({ type: "load", doc: createDocument("Hero") })));
+    expect(session.doc.name).toBe("Hero");
+    expect(session.filePath).toBeNull();
+    expect(saved).not.toContain("Hero");
   });
 });

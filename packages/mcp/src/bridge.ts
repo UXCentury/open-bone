@@ -12,7 +12,7 @@ import type { ProjectSession } from "./session.ts";
  *
  * Messages (JSON):
  *   editor → server: {type:"hello", doc?} | {type:"op", op, args} | {type:"undo"} | {type:"redo"} | {type:"load", doc}
- *   server → editor: {type:"load", doc, path} | {type:"ops", ops} | {type:"error", message}
+ *   server → editor: {type:"load", doc, path} | {type:"synced"} (took over the hello's scene) | {type:"ops", ops} | {type:"error", message}
  *                    | {type:"files", files:[{src, kind, mime, base64}]}
  *
  * The server stores imported art and sound as paths relative to the project file, which the editor (a web page, or
@@ -20,8 +20,9 @@ import type { ProjectSession } from "./session.ts";
  * server sends the file's bytes ("files"), and the editor shows and plays them from memory.
  *
  * Connecting never replaces the editor's scene with an empty one: the editor's hello carries its document, and a
- * server that has no project yet (nothing created, opened or edited) takes it over and waits for the agent. A server
- * already working on a project sends that project instead.
+ * server that has no project yet (nothing created, opened or edited) takes it over, answers "synced" and waits for the
+ * agent. A server already working on a project sends that project, and the editor asks whether to open it or send its
+ * own scene ("load", which detaches the server from its project file so autosave never overwrites it).
  */
 
 const MEDIA: Record<string, { kind: "image" | "audio" | "font"; mime: string }> = {
@@ -129,6 +130,7 @@ export function startBridge(session: ProjectSession, port: number, log: (m: stri
           sentFiles.delete(ws); // a fresh editor page: send every file again
           if (msg.doc && session.pristine) {
             session.store.load(msg.doc as never, "bridge");
+            send(ws, { type: "synced" });
             log("bridge: took over the editor's open project");
           } else {
             sendFiles(ws);
@@ -138,7 +140,11 @@ export function startBridge(session: ProjectSession, port: number, log: (m: stri
         else if (msg.type === "op" && msg.op) session.store.apply(msg.op, msg.args ?? {}, "bridge");
         else if (msg.type === "undo") session.store.undo();
         else if (msg.type === "redo") session.store.redo();
-        else if (msg.type === "load" && msg.doc) session.store.load(msg.doc as never, "bridge");
+        else if (msg.type === "load" && msg.doc) {
+          // The editor's scene, not the project file the server had open: never autosave it over that file.
+          session.filePath = null;
+          session.store.load(msg.doc as never, "bridge");
+        }
         await session.maybeAutosave();
       } catch (e) {
         send(ws, { type: "error", message: (e as Error).message });

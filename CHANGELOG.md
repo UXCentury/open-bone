@@ -2,6 +2,11 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
+## Unreleased
+
+- **Connecting to MCP asks before replacing your scene.** When the MCP server already has another project open, the editor asks whether to open the agent's project or send your scene to the agent; an empty project on either side is resolved without asking. Sending your scene detaches the server from its project file, so autosave never writes your scene over it. This also covers MCP servers from before this version, which always sent their own project.
+- **Desktop app reads project files in hidden folders** (such as `.claude`), except `~/.ssh`, `~/.gnupg` and `~/.aws`, and says which files it couldn't read instead of skipping them silently.
+
 ## 0.4.4 (2026-11-16)
 
 ### Editor fixes
