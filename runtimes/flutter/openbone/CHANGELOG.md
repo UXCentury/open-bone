@@ -1,3 +1,7 @@
+## 0.4.6
+
+- No changes to the Flutter plugin; released with OpenBone 0.4.6 (editor: live view of MCP agent edits), so every package keeps the same version.
+
 ## 0.4.5
 
 - No changes to the Flutter plugin; released with OpenBone 0.4.5 (editor and desktop app fixes), so every package keeps the same version.

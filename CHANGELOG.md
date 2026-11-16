@@ -2,8 +2,9 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
-## Unreleased
+## 0.4.6 (2026-11-16)
 
+### Editor
 - **See what an MCP agent is doing, live.** Every edit an agent makes lights up what it touched: bones glow along their length with a ripple at the joint, parts glow around their outline, and the edit's name ("Update bone “head”") floats up from the spot. The same bones and parts flash in the Hierarchy, and a pill next to Live MCP shows the agent's latest action while it works. Your own edits don't light up; reduced-motion settings turn the animations off.
 
 ## 0.4.5 (2026-11-16)
