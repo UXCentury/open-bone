@@ -6,6 +6,7 @@ import { For, type JSX, Show, createEffect, createSignal, onCleanup } from "soli
 import { McpConfigButton } from "./McpConfig.tsx";
 import { currentVersion, installUpdate, updateAvailable } from "../updates.ts";
 import { bridgeStatus, connectBridge, disconnectBridge, bridgeUndo, bridgeRedo } from "../bridge.ts";
+import { agentAction } from "../agent-fx.ts";
 import { imageSize, readFileAsDataUrl } from "../images.ts";
 import { closeMenu, menuOpen, menuOwner, openMenu } from "../menu.tsx";
 import { mainMenu } from "../editor-menus.ts";
@@ -314,6 +315,14 @@ export function Toolbar() {
           }
         >
           <button class="live" onClick={disconnectBridge} title="Live-synced with the MCP server. Click to disconnect.">● Live MCP</button>
+          <Show when={agentAction()}>
+            {(a) => (
+              <span class="agent-pill" role="status" aria-live="polite" title={`The agent's latest edit (${a().count} this burst)`}>
+                <span class="agent-dot" />
+                <span class="agent-text">{a().text}</span>
+              </span>
+            )}
+          </Show>
         </Show>
         <McpConfigButton compact />
         <Show when={updateAvailable()}>

@@ -1,5 +1,6 @@
 import { type BoneData, type SlotData, slotAttachments } from "@openbone/core";
 import { For, Show, createEffect, createMemo, createRoot, createSignal, untrack } from "solid-js";
+import { agentFlash } from "../agent-fx.ts";
 import {
   activeSkin,
   activeSkinId,
@@ -228,7 +229,7 @@ function BoneNode(p: { bone: BoneData }) {
   const boneSelected = () => (sel()?.kind === "bone" && sel()!.id === p.bone.id) || multiBones().includes(p.bone.id);
   return (
     <div class="tnode">
-      <div class="tree-row" ref={(el) => scrollWhenSelected(el, boneSelected)} classList={{ selected: boneSelected(), "vis-off": visOf(p.bone.id) !== "shown" }} onClick={(e) => pick("bone", p.bone.id, e)}>
+      <div class="tree-row" ref={(el) => scrollWhenSelected(el, boneSelected)} classList={{ selected: boneSelected(), "vis-off": visOf(p.bone.id) !== "shown", "agent-flash": agentFlash(p.bone.id) }} onClick={(e) => pick("bone", p.bone.id, e)}>
         <Twisty id={p.bone.id} has={has()} subtree={() => subtreeIds(p.bone.id)} />
         <span class="icon bone-icon">🦴</span> <Name text={p.bone.name} />
         <LockBtn id={p.bone.id} name={p.bone.name} inherited={() => boneLocked(p.bone.id)} />
@@ -259,7 +260,7 @@ function SlotNode(p: { s: SlotData }) {
         {...draggableItem("slot", s.id, s.bone)}
         class="tree-row slot-row"
         ref={(el) => scrollWhenSelected(el, slotSelected)}
-        classList={{ selected: selectedSlotIds().includes(s.id), "vis-off": visOf(s.id) !== "shown" }}
+        classList={{ selected: selectedSlotIds().includes(s.id), "vis-off": visOf(s.id) !== "shown", "agent-flash": agentFlash(s.id) }}
         onClick={(e) => pick("slot", s.id, e)}
       >
         <Twisty id={s.id} has={atts().length + sounds().length > 0} />

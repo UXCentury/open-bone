@@ -1,5 +1,6 @@
 import { EXAMPLES_BASE, fetchExample } from "./examples.ts";
 import { logActivity, watchStoreActivity } from "./activity.ts";
+import { onStoreChange as showAgentChange } from "./agent-fx.ts";
 import {
   type Attachment,
   DocumentStore,
@@ -15,6 +16,7 @@ import { createSignal } from "solid-js";
 
 export const store = new DocumentStore(createDocument("Untitled"));
 watchStoreActivity(store);
+store.subscribe(showAgentChange);
 
 const [rev, setRev] = createSignal(0);
 store.subscribe(() => setRev((r) => r + 1));

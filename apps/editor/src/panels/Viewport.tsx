@@ -1,4 +1,5 @@
 import { type Affine, type Attachment, type BoneData, RAD, localFromWorld, type SnapLine, type SnapTarget, animationDuration, apply as applyM, artboardTargets, invert, pointInPolygon, pointTargets, snapPoint, textureAssets } from "@openbone/core";
+import { FX_MS, agentEffects } from "../agent-fx.ts";
 import { toggleBackground } from "../background.ts";
 import { checkerPattern, fillArtboard } from "../checker.ts";
 import { boneLocked, showImages, slotLocked, slotOpacity } from "../visibility.ts";
@@ -544,6 +545,7 @@ export function Viewport() {
     if (pg) drawPartGizmo(ctx, dpr, pg);
     if (drag?.kind === "pose") drawPoseTarget(ctx, dpr, drag);
     drawMultiSelection(ctx, dpr, shown);
+    drawAgentFx(ctx, dpr, shown);
     if (drag?.kind === "create") {
       ctx.setTransform(v.zoom, 0, 0, -v.zoom, v.x + d.originX * v.zoom, v.y + d.originY * v.zoom);
       ctx.beginPath();
@@ -561,6 +563,113 @@ export function Viewport() {
       ctx.fillStyle = "#9aa3b2";
       ctx.fillText(hoverInfo, 8 * dpr, canvas.height - 8 * dpr);
     }
+  }
+
+  /**
+   * What an MCP agent just changed (agent-fx.ts): bones glow along their length with a ripple at the joint, parts glow
+   * around their outline, and the op's name floats up from the spot. Screen space, so it reads at any zoom.
+   */
+  function drawAgentFx(ctx: CanvasRenderingContext2D, dpr: number, sk_: Skeleton) {
+    const now = performance.now();
+    const list = agentEffects(now);
+    if (!list.length) return;
+    const GLOW = "94,234,212"; // teal: not the yellow of your own selection
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    const labels: { x: number; y: number; text: string; t: number }[] = [];
+    for (const f of list) {
+      const t = Math.min(1, (now - f.start) / FX_MS);
+      const fade = 1 - t * t; // holds, then falls off
+      let at: [number, number] | null = null;
+      if (f.kind === "bone") {
+        const b = sk_.boneById_(f.id);
+        if (!b || !b.active) continue;
+        const ox = skToScreenX(b.world.x);
+        const oy = skToScreenY(b.world.y);
+        const [ex, ey] = applyM(b.world, Math.max(b.data.length, 0.001), 0);
+        const tx = skToScreenX(ex);
+        const ty = skToScreenY(ey);
+        ctx.shadowColor = `rgba(${GLOW},${0.9 * fade})`;
+        ctx.shadowBlur = 16;
+        ctx.strokeStyle = `rgba(${GLOW},${0.85 * fade})`;
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(ox, oy);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+        // Ripple: a ring that grows from the joint and thins out.
+        ctx.shadowBlur = 0;
+        const ease = 1 - (1 - t) ** 3;
+        ctx.strokeStyle = `rgba(${GLOW},${0.9 * (1 - t)})`;
+        ctx.lineWidth = 2.5 * (1 - t) + 0.5;
+        ctx.beginPath();
+        ctx.arc(ox, oy, 5 + 28 * ease, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = `rgba(${GLOW},${fade})`;
+        ctx.beginPath();
+        ctx.arc(ox, oy, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        at = [ox, oy];
+      } else {
+        const slot = sk_.slotById_(f.id);
+        const poly = slot && slot.bone.active ? partShape(sk_, slot) : null;
+        if (!poly || poly.length < 6) continue;
+        ctx.beginPath();
+        let top = Infinity;
+        let cx = 0;
+        for (let i = 0; i < poly.length; i += 2) {
+          const x = skToScreenX(poly[i]);
+          const y = skToScreenY(poly[i + 1]);
+          (i ? ctx.lineTo : ctx.moveTo).call(ctx, x, y);
+          if (y < top) top = y;
+          cx += x;
+        }
+        ctx.closePath();
+        ctx.fillStyle = `rgba(${GLOW},${0.12 * fade})`;
+        ctx.fill();
+        ctx.shadowColor = `rgba(${GLOW},${0.9 * fade})`;
+        ctx.shadowBlur = 14;
+        ctx.strokeStyle = `rgba(${GLOW},${0.9 * fade})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        at = [cx / (poly.length / 2), top];
+      }
+      if (f.label && at) labels.push({ x: at[0], y: at[1], text: f.label, t });
+    }
+    // Labels last, over every glow: a tag that drifts up and fades. Newest on top; ones that would overlap stack upward.
+    ctx.font = "600 11px system-ui, sans-serif";
+    ctx.textBaseline = "middle";
+    const placed: { x0: number; x1: number; y: number }[] = [];
+    for (const l of labels.reverse().slice(0, 3)) {
+      const a = l.t < 0.75 ? 1 : 1 - (l.t - 0.75) / 0.25;
+      const text = `◆ ${l.text}`;
+      const w = ctx.measureText(text).width + 14;
+      const x = Math.round(l.x - w / 2);
+      let y = Math.round(l.y - 18 - 22 * l.t);
+      for (let moved = true; moved; ) {
+        moved = false;
+        for (const p of placed)
+          if (x < p.x1 && x + w > p.x0 && Math.abs(y - p.y) < 22) {
+            y = p.y - 22;
+            moved = true;
+          }
+      }
+      placed.push({ x0: x, x1: x + w, y });
+      ctx.globalAlpha = a;
+      ctx.fillStyle = "rgba(10,40,38,0.92)";
+      ctx.strokeStyle = `rgba(${GLOW},0.9)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(x, y - 10, w, 20, 10);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = `rgb(${GLOW})`;
+      ctx.fillText(text, x + 7, y + 0.5);
+    }
+    ctx.restore();
   }
 
   // ---- Z view: draw order as left-to-right depth (see zview.ts) ----

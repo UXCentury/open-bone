@@ -1,6 +1,7 @@
 import type { OpCall, OpenBoneDocument } from "@openbone/core";
 import { createSignal } from "solid-js";
 import { logActivity } from "./activity.ts";
+import { clearAgentFx } from "./agent-fx.ts";
 import { registerAudioOverride } from "./audio.ts";
 import { askConfirm } from "./dialogs.tsx";
 import { registerFontOverride } from "./fonts.ts";
@@ -139,6 +140,7 @@ export function connectBridge(url = localStorageGet("openbone.bridge") ?? "ws://
 }
 
 export function disconnectBridge() {
+  clearAgentFx();
   unsub?.();
   unsub = null;
   ws?.close();

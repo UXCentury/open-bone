@@ -29,6 +29,15 @@ button:disabled { opacity: 0.45; cursor: default; }
 button.active, button.primary { background: var(--accent); border-color: var(--accent); color: white; }
 button.danger { color: var(--danger); }
 button.live { background: #133d27; border-color: var(--ok); color: var(--ok); }
+/* MCP agent at work (agent-fx.ts): the toolbar pill and the Hierarchy row flash. Teal, apart from the selection's yellow. */
+.agent-pill { display: inline-flex; align-items: center; gap: 6px; max-width: 260px; padding: 2px 10px 2px 8px; border: 1px solid #5eead4aa; border-radius: 999px; background: #0d2c2a; color: #5eead4; font-size: 12px; white-space: nowrap; box-shadow: 0 0 12px #5eead433; animation: agent-pill-in 0.18s ease-out; }
+.agent-text { overflow: hidden; text-overflow: ellipsis; }
+.agent-dot { width: 7px; height: 7px; flex: none; border-radius: 50%; background: #5eead4; animation: agent-pulse 0.9s ease-in-out infinite; }
+@keyframes agent-pulse { 0%, 100% { box-shadow: 0 0 0 0 #5eead499; } 50% { box-shadow: 0 0 0 5px #5eead400; } }
+@keyframes agent-pill-in { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.tree-row.agent-flash { animation: agent-row 1.6s ease-out; }
+@keyframes agent-row { 0% { background: #5eead455; box-shadow: inset 3px 0 0 #5eead4; } 100% { background: transparent; box-shadow: inset 3px 0 0 transparent; } }
+@media (prefers-reduced-motion: reduce) { .agent-dot, .agent-pill, .tree-row.agent-flash { animation: none; } .tree-row.agent-flash { background: #5eead422; } }
 select, input[type="text"], input[type="number"], input:not([type]) {
   background: #14161b; border: 1px solid var(--line); border-radius: 4px; padding: 2px 5px; min-width: 0;
 }
