@@ -99,6 +99,13 @@ let desktopPath: string | null = null;
 /** Desktop: the project file being edited (null for unsaved projects, on the web, or a binary file opened read-only). */
 export const projectFilePath = () => desktopPath;
 
+/** One toast for files that could not be read, so missing art never goes unnoticed. */
+export function reportUnreadable(paths: string[], what = "asset") {
+  if (!paths.length) return;
+  const n = paths.length;
+  toast(`${n} ${what}${n === 1 ? "" : "s"} could not be read${n === 1 ? "" : `, first`}: ${paths[0]}`, "error");
+}
+
 /** ProjectStorage: native dialogs + filesystem on desktop, File System Access API or download on the web. */
 export async function openProject(webFallback: () => void) {
   if (!isDesktop()) return webFallback();
@@ -111,25 +118,24 @@ export async function openProject(webFallback: () => void) {
     const doc: OpenBoneDocument = parseDocument(await readFile(path));
     const dir = path.replace(/[\\/][^\\/]*$/, "");
     // Relative image paths are read from disk and shown via in-memory data URLs (the file keeps its paths).
-    for (const img of textureAssets(doc)) {
-      if (/^(data:|https?:)/.test(img.src)) continue;
-      const bytes = await readFile(`${dir}/${img.src}`).catch(() => null);
-      if (bytes) registerImageOverride(img.src, URL.createObjectURL(new Blob([bytes])));
-    }
-    for (const a of doc.audio?.assets ?? []) {
-      if (/^(data:|https?:)/.test(a.src)) continue;
-      const bytes = await readFile(`${dir}/${a.src}`).catch(() => null);
-      if (bytes) registerAudioOverride(a.src, URL.createObjectURL(new Blob([bytes])));
-    }
-    for (const f of doc.fonts ?? []) {
-      if (/^(data:|https?:)/.test(f.src)) continue;
-      const bytes = await readFile(`${dir}/${f.src}`).catch(() => null);
-      if (bytes) registerFontOverride(f.src, URL.createObjectURL(new Blob([bytes])));
-    }
+    const missing: string[] = [];
+    const load = async (src: string, register: (src: string, url: string) => void) => {
+      if (/^(data:|https?:)/.test(src)) return;
+      const file = `${dir}/${src}`;
+      try {
+        register(src, URL.createObjectURL(new Blob([await readFile(file)])));
+      } catch {
+        missing.push(file);
+      }
+    };
+    for (const img of textureAssets(doc)) await load(img.src, registerImageOverride);
+    for (const a of doc.audio?.assets ?? []) await load(a.src, registerAudioOverride);
+    for (const f of doc.fonts ?? []) await load(f.src, registerFontOverride);
     // Save writes JSON, so a binary file opened here is saved as a new .obone next to it.
     const binary = /\.obonb$/i.test(path);
     desktopPath = binary ? null : path;
     loadDocument(doc, path.split(/[\\/]/).pop()!.replace(/\.obonb$/i, ".obone"), "");
+    reportUnreadable(missing);
   } catch (e) {
     toast((e as Error).message, "error");
   }

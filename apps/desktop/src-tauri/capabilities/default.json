@@ -9,9 +9,9 @@
     "fs:default",
     "opener:default",
     "opener:allow-reveal-item-in-dir",
-    { "identifier": "fs:allow-read-text-file", "allow": [{ "path": "$HOME/**" }] },
-    { "identifier": "fs:allow-write-text-file", "allow": [{ "path": "$HOME/**" }] },
-    { "identifier": "fs:allow-read-file", "allow": [{ "path": "$HOME/**" }] },
+    { "identifier": "fs:allow-read-text-file", "allow": [{ "path": "$HOME/**" }], "deny": [{ "path": "$HOME/.ssh/**" }, { "path": "$HOME/.gnupg/**" }, { "path": "$HOME/.aws/**" }] },
+    { "identifier": "fs:allow-write-text-file", "allow": [{ "path": "$HOME/**" }], "deny": [{ "path": "$HOME/.ssh/**" }, { "path": "$HOME/.gnupg/**" }, { "path": "$HOME/.aws/**" }] },
+    { "identifier": "fs:allow-read-file", "allow": [{ "path": "$HOME/**" }], "deny": [{ "path": "$HOME/.ssh/**" }, { "path": "$HOME/.gnupg/**" }, { "path": "$HOME/.aws/**" }] },
     { "identifier": "fs:allow-watch", "allow": [{ "path": "$HOME" }, { "path": "$HOME/**" }] },
     "fs:allow-unwatch"
   ]

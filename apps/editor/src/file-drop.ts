@@ -21,7 +21,7 @@ import { openImportDialogWith } from "./panels/ImportDialog.tsx";
 import { playActive } from "./play.ts";
 import { importFiles } from "./sequence-import.ts";
 import { toast } from "./state.ts";
-import { isDesktop } from "./storage.ts";
+import { isDesktop, reportUnreadable } from "./storage.ts";
 
 /** MIME types by extension, for files read from a path (they arrive without one). */
 const MIME: Record<string, string> = {
@@ -55,15 +55,17 @@ async function filesFromPaths(paths: string[]): Promise<File[]> {
   if (!paths.length || !isDesktop()) return [];
   const { readFile } = await import("@tauri-apps/plugin-fs");
   const out: File[] = [];
+  const unreadable: string[] = [];
   for (const p of paths) {
     const name = p.split(/[\\/]/).pop() ?? p;
     try {
       const bytes = await readFile(p);
       out.push(new File([bytes], name, { type: mimeFromName(name) }));
-    } catch (err) {
-      toast(`Couldn't read ${name}: ${(err as Error)?.message ?? err}`, "error");
+    } catch {
+      unreadable.push(p);
     }
   }
+  reportUnreadable(unreadable, "dropped file");
   return out;
 }
 
