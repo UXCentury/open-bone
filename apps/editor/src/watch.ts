@@ -3,7 +3,7 @@ import { createSignal } from "solid-js";
 import { registerAudioOverride } from "./audio.ts";
 import { readFileAsDataUrl, registerImageOverride } from "./images.ts";
 import { store, toast } from "./state.ts";
-import { isDesktop, projectFilePath } from "./storage.ts";
+import { isDesktop, projectFilePath, reportUnreadable } from "./storage.ts";
 import { AUDIO_EXT, IMAGE_EXT, assetFolders, assetsForFile, isFileSrc } from "./watch-match.ts";
 
 /**
@@ -110,6 +110,7 @@ async function startDesktop() {
     return false;
   }
   const watched: string[] = [];
+  const unwatchable: string[] = [];
   for (const dir of folders) {
     try {
       const stop = await watch(
@@ -122,9 +123,10 @@ async function startDesktop() {
       stops.push(stop);
       watched.push(dir);
     } catch {
-      /* folder gone or outside the allowed scope */
+      unwatchable.push(dir); // folder gone or outside the allowed scope
     }
   }
+  reportUnreadable(unwatchable, "art folder");
   setWatchedFolders(watched);
   return watched.length > 0;
 }
