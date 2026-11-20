@@ -101,6 +101,7 @@ The editor opens at http://localhost:5180 with the *Walker* example. **☰ Menu 
 | **Pip the fox**, **Robot** | Lip sync to a real voice and to a robot voice |
 | **Tail** | A painted tail mesh bending along a path, spring antennae, a camera pan on a second state-machine layer |
 | **Rocket** | Click to launch: particles, ignition and engine sounds, a landing back on the pad |
+| **Pearl of the Deep** | A slot game in [`examples/slot`](examples/slot): sprite-sequence reels driven by one script, five paylines, a multiplier reel with nudges, a meshed sea-serpent mascot, coin particles, music and sound effects (demo credits only) |
 | **Crash game** | A staged flow (idle → fly-out → flying → crash or cash-out), a live multiplier text, input bindings driving the parallax |
 | **Button** | A state machine with a clipping mask, hover and click sounds |
 | **Campfire** | Sprite-sequence flames, flickering firelight, a bending flame mesh, a crackle loop |

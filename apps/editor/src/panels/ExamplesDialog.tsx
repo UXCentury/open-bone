@@ -11,6 +11,7 @@ import { renderInstance } from "./Preview.tsx";
 
 const EXAMPLES: { id: string; title: string; text: string; tags: string[] }[] = [
   { id: "windswept", title: "Windswept", text: "A girl on a windy cliff speaks two Japanese lines with lip sync while her hair, the tree, the grass, fog and gulls move in the wind; buttons make her talk, send gulls or a gust, and mute the music or sound effects.", tags: ["Lip sync", "Mesh", "Particles", "Audio"] },
+  { id: "slot/pearl-of-the-deep", title: "Pearl of the Deep", text: "A 3x3 slot with a multiplier reel, played in demo credits: reels spin and stop left to right, Tide Pearl wilds and the Riptide nudge collect multipliers, and Ondra the sea serpent cheers on big wins. All game logic is one script.", tags: ["Script", "Sequences", "Particles", "Audio"] },
   { id: "knight", title: "Knight", text: "Side-view knight with sword and shield: walk on a scrolling castle road (click it), attack (click him), salute (click the helmet).", tags: ["IK legs", "Parallax", "Audio"] },
   { id: "walker", title: "Walker", text: "An adventurer walking through a forest with parallax scrolling and a proper jump: crouch, take-off, tuck, land.", tags: ["IK", "Blend", "Script"] },
   { id: "fox", title: "Pip the fox", text: "Click the head: a real recorded voice with mouth shapes keyed by lip sync.", tags: ["Lip sync", "Audio", "State machine"] },
@@ -98,7 +99,7 @@ export function ExamplesDialog() {
     setProgress("");
     try {
       const doc = await bundleExample(id, (done, total) => setProgress(`${done}/${total}`));
-      const saved = await saveTextFile(`${id}.obone`, serialize(doc));
+      const saved = await saveTextFile(`${id.split("/").pop()}.obone`, serialize(doc));
       if (saved) savedToast(`Downloaded ${title} (${saved}): open it with ☰ Menu → Open…`, saved);
     } catch (e) {
       toast(`Couldn't download ${title}: ${(e as Error).message}`, "error");

@@ -20,7 +20,13 @@ function walk(dir: string, rel = ""): string[] {
 
 /** Serve (dev) and copy (build) the repo's example projects at /examples/. */
 function examples(): Plugin {
-  const files = () => [...fs.readdirSync(EXAMPLES).filter((f) => f.endsWith(".obone")), ...walk(EXAMPLES, "assets")];
+  // Projects at the top and in example folders such as slot/ (engines/ is a demo app, not projects).
+  const folders = () => fs.readdirSync(EXAMPLES, { withFileTypes: true }).filter((e) => e.isDirectory() && !["assets", "engines", "node_modules"].includes(e.name));
+  const files = () => [
+    ...fs.readdirSync(EXAMPLES).filter((f) => f.endsWith(".obone")),
+    ...folders().flatMap((d) => walk(EXAMPLES, d.name).filter((f) => f.endsWith(".obone"))),
+    ...walk(EXAMPLES, "assets"),
+  ];
   return {
     name: "openbone-examples",
     configureServer(server) {
