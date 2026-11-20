@@ -4,14 +4,21 @@ import { createEffect, createRoot, on } from "solid-js";
 import { render } from "solid-js/web";
 import { App } from "./App.tsx";
 import { fileName, loadDocument, modified, openExample, setModified, store } from "./state.ts";
+import { projectAssetDir, projectFilePath, restoreDesktopAssets } from "./storage.ts";
 import "./styles.css";
 
 // Restore the last session (autosaved to IndexedDB, with its undo/redo history), else open the walker example.
 (async () => {
   try {
-    const saved = (await get("openbone.autosave")) as { json: string; name: string; history?: SavedHistory; modified?: boolean } | undefined;
+    const saved = (await get("openbone.autosave")) as
+      | { json: string; name: string; history?: SavedHistory; modified?: boolean; dir?: string | null; path?: string | null }
+      | undefined;
     if (saved) {
-      loadDocument(deserialize(saved.json), saved.name, "/examples/");
+      const doc = deserialize(saved.json);
+      // Desktop: art stored next to the project file is read again from that folder.
+      const restored = await restoreDesktopAssets(doc, saved);
+      loadDocument(doc, saved.name, "/examples/");
+      restored();
       // Ctrl+Z keeps working after a reload: the history is stored as patches against the saved document.
       restoreHistory(store, saved.history);
       setModified(saved.modified ?? false);
@@ -29,7 +36,7 @@ import "./styles.css";
     } catch (e) {
       console.warn("[openbone] could not save the undo history", e);
     }
-    set("openbone.autosave", { json: serialize(store.doc, false), name: fileName(), history, modified: modified() }).catch(() => {});
+    set("openbone.autosave", { json: serialize(store.doc, false), name: fileName(), history, modified: modified(), dir: projectAssetDir(), path: projectFilePath() }).catch(() => {});
   };
   store.subscribe(() => {
     clearTimeout(t);

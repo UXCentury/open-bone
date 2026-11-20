@@ -99,6 +99,66 @@ let desktopPath: string | null = null;
 /** Desktop: the project file being edited (null for unsaved projects, on the web, or a binary file opened read-only). */
 export const projectFilePath = () => desktopPath;
 
+/**
+ * Desktop: the folder the open project's relative asset paths ("assets/arm.png") are read from — the folder of the
+ * project file, or of the MCP server's project file. Kept in the autosave, so the art comes back after a restart.
+ * Any other load (an example, a new project, a dropped file) clears it.
+ */
+let assetDir: string | null = null;
+export const projectAssetDir = () => assetDir;
+export const dirOf = (path: string) => path.replace(/[\\/][^\\/]*$/, "");
+/** After the load that brought this project in (loads clear it): where its relative assets live. */
+export function setProjectAssetDir(dir: string | null) {
+  assetDir = dir;
+}
+store.subscribe((_d, e) => {
+  if (e.kind === "load") assetDir = null;
+});
+
+/**
+ * Desktop: read a project's relative images, sounds and fonts from `dir` and show them from memory (the document
+ * keeps its paths). Returns the files that could not be read.
+ */
+export async function loadAssetsFromDisk(doc: OpenBoneDocument, dir: string): Promise<string[]> {
+  const { readFile } = await import("@tauri-apps/plugin-fs");
+  const missing: string[] = [];
+  const load = async (src: string, register: (src: string, url: string) => void) => {
+    if (!isRelative(src)) return;
+    const file = `${dir}/${src}`;
+    try {
+      register(src, URL.createObjectURL(new Blob([await readFile(file)])));
+    } catch {
+      missing.push(file);
+    }
+  };
+  for (const img of textureAssets(doc)) await load(img.src, registerImageOverride);
+  for (const a of doc.audio?.assets ?? []) await load(a.src, registerAudioOverride);
+  for (const f of doc.fonts ?? []) await load(f.src, registerFontOverride);
+  return missing;
+}
+
+/** True when a document has images, sounds or fonts stored as paths next to its file. */
+export const hasRelativeAssets = (doc: OpenBoneDocument) =>
+  textureAssets(doc).some((i) => isRelative(i.src)) || (doc.audio?.assets ?? []).some((a) => isRelative(a.src)) || (doc.fonts ?? []).some((f) => isRelative(f.src));
+
+/**
+ * Desktop, at startup: the autosaved project's art comes back from the folder it was in. Call before loading the
+ * document; then `afterRestore` marks the folder (and file) again. Without a folder (autosaves from before 0.4.7),
+ * say how to get the art back instead of showing empty parts silently.
+ */
+export async function restoreDesktopAssets(doc: OpenBoneDocument, saved: { dir?: string | null; path?: string | null }) {
+  if (!isDesktop() || !hasRelativeAssets(doc)) return () => {};
+  if (!saved.dir) {
+    return () => toast("This project's images are next to its file, which the editor doesn't know yet: open it again with ☰ Menu → Open to show them.", "error");
+  }
+  const missing = await loadAssetsFromDisk(doc, saved.dir);
+  return () => {
+    assetDir = saved.dir!;
+    if (saved.path) desktopPath = saved.path;
+    reportUnreadable(missing);
+  };
+}
+
 /** One toast for files that could not be read, so missing art never goes unnoticed. */
 export function reportUnreadable(paths: string[], what = "asset") {
   if (!paths.length) return;
@@ -116,25 +176,14 @@ export async function openProject(webFallback: () => void) {
   if (typeof path !== "string") return;
   try {
     const doc: OpenBoneDocument = parseDocument(await readFile(path));
-    const dir = path.replace(/[\\/][^\\/]*$/, "");
+    const dir = dirOf(path);
     // Relative image paths are read from disk and shown via in-memory data URLs (the file keeps its paths).
-    const missing: string[] = [];
-    const load = async (src: string, register: (src: string, url: string) => void) => {
-      if (/^(data:|https?:)/.test(src)) return;
-      const file = `${dir}/${src}`;
-      try {
-        register(src, URL.createObjectURL(new Blob([await readFile(file)])));
-      } catch {
-        missing.push(file);
-      }
-    };
-    for (const img of textureAssets(doc)) await load(img.src, registerImageOverride);
-    for (const a of doc.audio?.assets ?? []) await load(a.src, registerAudioOverride);
-    for (const f of doc.fonts ?? []) await load(f.src, registerFontOverride);
+    const missing = await loadAssetsFromDisk(doc, dir);
     // Save writes JSON, so a binary file opened here is saved as a new .obone next to it.
     const binary = /\.obonb$/i.test(path);
     desktopPath = binary ? null : path;
     loadDocument(doc, path.split(/[\\/]/).pop()!.replace(/\.obonb$/i, ".obone"), "");
+    assetDir = dir;
     reportUnreadable(missing);
   } catch (e) {
     toast((e as Error).message, "error");
@@ -156,6 +205,7 @@ export async function saveProject(saveAs = false) {
     // The images and sounds go into the same folder, so the project opens complete from there.
     warnMissing(await copyAssetsTo(path.replace(/[\\/][^\\/]*$/, ""), doc));
     desktopPath = path;
+    assetDir = dirOf(path);
     setFileName(path.split(/[\\/]/).pop()!);
     savedToast(`Saved ${path}`, path);
     return;
@@ -313,6 +363,7 @@ export async function saveProjectToFolder() {
     }
     await writeTextFile(`${dir}/${name}`, json);
     desktopPath = `${dir}/${name}`;
+    assetDir = dir;
     setFileName(name);
     warnMissing(missing);
     savedToast(`Saved ${name} and ${files.length} asset files to ${dir}`, `${dir}/${name}`);

@@ -7,6 +7,7 @@ import { askConfirm } from "./dialogs.tsx";
 import { registerFontOverride } from "./fonts.ts";
 import { registerImageOverride } from "./images.ts";
 import { loadDocument, setFileName, store, toast } from "./state.ts";
+import { dirOf, isDesktop, setProjectAssetDir } from "./storage.ts";
 
 interface BridgeFile {
   src: string;
@@ -63,7 +64,11 @@ export function connectBridge(url = localStorageGet("openbone.bridge") ?? "ws://
   };
   const openTheirs = (doc: OpenBoneDocument, path?: string) => {
     store.load(doc, "bridge");
-    if (path) setFileName(path.split(/[\\/]/).pop() ?? "project.obone");
+    if (path) {
+      setFileName(path.split(/[\\/]/).pop() ?? "project.obone");
+      // The server sends the art over the link; remembering its folder brings it back after a restart too.
+      if (isDesktop()) setProjectAssetDir(dirOf(path));
+    }
   };
   const firstLoad = async (doc: OpenBoneDocument, path?: string) => {
     const json = JSON.stringify(doc);
@@ -116,7 +121,7 @@ export function connectBridge(url = localStorageGet("openbone.bridge") ?? "ws://
       if (phase === "waiting") void firstLoad(msg.doc, msg.path);
       else if (declined === null || JSON.stringify(msg.doc) !== declined) {
         declined = null;
-        openTheirs(msg.doc);
+        openTheirs(msg.doc, msg.path);
       }
     } else if (msg.type === "ops" && msg.ops) {
       if (phase === "asking") return; // edits to the project not (yet) shown here; opening it fetches the latest copy
