@@ -4,6 +4,7 @@ import { audioAsDataUrl, registerAudioOverride, resolveAudioUrl } from "./audio.
 import { fontAsDataUrl, registerFontOverride, resolveFontUrl } from "./fonts.ts";
 import { imageAsDataUrl, registerImageOverride, resolveImageUrl } from "./images.ts";
 import { fileName, loadDocument, setFileName, store, toast } from "./state.ts";
+import { addRecent, recentLabel, removeRecent } from "./recent.ts";
 
 const isRelative = (src: string) => !!src && !/^(data:|https?:|blob:)/.test(src);
 
@@ -171,9 +172,24 @@ export async function openProject(webFallback: () => void) {
   if (!isDesktop()) return webFallback();
   if (!(await confirmDiscard("Opening another project"))) return;
   const { open } = await import("@tauri-apps/plugin-dialog");
-  const { readTextFile, readFile } = await import("@tauri-apps/plugin-fs");
   const path = await open({ multiple: false, filters: [{ name: "OpenBone", extensions: ["obone", "obonb", "json"] }] });
   if (typeof path !== "string") return;
+  await openProjectFile(path);
+}
+
+/** Desktop: ☰ Menu → Open recent. A project that is gone is taken off the list. */
+export async function openRecentProject(path: string) {
+  if (!isDesktop()) return;
+  if (!(await confirmDiscard("Opening another project"))) return;
+  if (!(await openProjectFile(path))) {
+    removeRecent(path);
+    toast(`${recentLabel(path)} could not be opened, so it was removed from Open recent.`, "error");
+  }
+}
+
+/** Desktop: open the project file at `path` with its art. Returns whether it opened. */
+async function openProjectFile(path: string): Promise<boolean> {
+  const { readFile } = await import("@tauri-apps/plugin-fs");
   try {
     const doc: OpenBoneDocument = parseDocument(await readFile(path));
     const dir = dirOf(path);
@@ -184,9 +200,12 @@ export async function openProject(webFallback: () => void) {
     desktopPath = binary ? null : path;
     loadDocument(doc, path.split(/[\\/]/).pop()!.replace(/\.obonb$/i, ".obone"), "");
     assetDir = dir;
+    addRecent(path);
     reportUnreadable(missing);
+    return true;
   } catch (e) {
     toast((e as Error).message, "error");
+    return false;
   }
 }
 
@@ -206,6 +225,7 @@ export async function saveProject(saveAs = false) {
     warnMissing(await copyAssetsTo(path.replace(/[\\/][^\\/]*$/, ""), doc));
     desktopPath = path;
     assetDir = dirOf(path);
+    addRecent(path);
     setFileName(path.split(/[\\/]/).pop()!);
     savedToast(`Saved ${path}`, path);
     return;
@@ -364,6 +384,7 @@ export async function saveProjectToFolder() {
     await writeTextFile(`${dir}/${name}`, json);
     desktopPath = `${dir}/${name}`;
     assetDir = dir;
+    addRecent(desktopPath);
     setFileName(name);
     warnMissing(missing);
     savedToast(`Saved ${name} and ${files.length} asset files to ${dir}`, `${dir}/${name}`);

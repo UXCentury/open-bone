@@ -2,7 +2,7 @@
 
 ## 0.4.7
 
-- No changes to the Unity package; released with OpenBone 0.4.7 (desktop app fix), so every package keeps the same version.
+- No changes to the Unity package; released with OpenBone 0.4.7 (desktop app: Open recent, art after a restart), so every package keeps the same version.
 
 ## 0.4.6
 

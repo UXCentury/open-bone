@@ -4,7 +4,8 @@ import { openMcpConfig } from "./panels/McpConfig.tsx";
 import { confirmDiscard } from "./destructive.ts";
 import { createSignal } from "solid-js";
 import { bridgeStatus } from "./bridge.ts";
-import { saveProjectToFolder } from "./storage.ts";
+import { isDesktop, openRecentProject, projectFilePath, saveProjectToFolder } from "./storage.ts";
+import { clearRecent, recentLabel, recentProjects } from "./recent.ts";
 import { toggleWatching, watchFolder, watchedFolders, watching } from "./watch.ts";
 import { toggleViewAid, viewAids } from "./guides.ts";
 import { PANELS, type PanelId, applyLayout, deleteLayout, isCurrentLayout, movePanel, renameLayout, resetLayout, saveLayoutAs, savedLayoutNames, showPanel, swapSides, whereIs } from "./layout.ts";
@@ -166,12 +167,25 @@ const shortList = (paths: string[]) => {
   return s.length > 40 ? `${s.slice(0, 39)}…` : s;
 };
 
+/** ☰ Menu → Open recent (desktop): newest first, then a way to clear the list. */
+const recentItems = (): MenuItem[] => {
+  const list = recentProjects();
+  if (!list.length) return [{ label: "No recent projects", disabled: true }];
+  const current = projectFilePath();
+  return [
+    ...list.map((r): MenuItem => ({ label: recentLabel(r.path), checked: r.path === current, action: () => void openRecentProject(r.path) })),
+    "sep",
+    { label: "Clear recent projects", action: clearRecent },
+  ];
+};
+
 /** The toolbar's Menu button. */
 export function mainMenu(): MenuItem[] {
   const locked = playActive();
   return [
     { label: "New project", action: newProject, disabled: locked },
     { label: "Open…", shortcut: "file.open", disabled: locked },
+    ...(isDesktop() ? [{ label: "Open recent", submenu: recentItems(), disabled: locked }] : []),
     { label: "Save", shortcut: "file.save" },
     { label: "Save as…", shortcut: "file.saveAs" },
     { label: "Save to folder…", action: () => void saveProjectToFolder().catch((e) => toast((e as Error).message, "error")) },

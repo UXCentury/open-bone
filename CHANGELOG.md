@@ -4,7 +4,8 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 
 ## 0.4.7 (2026-11-20)
 
-### Desktop app fix
+### Desktop app
+- **Open recent:** ☰ Menu → Open recent lists the last 10 projects you opened or saved, newest first, with their folder; the open one is checked. A project that was moved or deleted is taken off the list when you pick it, and Clear recent projects empties it.
 - **Desktop app: a project's art comes back after a restart.** The editor reopens your last project from its autosave, but images, sounds and fonts stored next to the project file (like `assets/arm.png`) stayed blank, because the autosave didn't know which folder they were in. It now remembers the folder of the project you opened or saved, or of the MCP server's project, and reads them from there again. An autosave from an older version says to open the project again (☰ Menu → Open) instead of showing empty parts silently.
 
 ## 0.4.6 (2026-11-16)
