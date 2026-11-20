@@ -10,10 +10,31 @@ export const EXAMPLES_BASE = configured ? configured.replace(/\/?$/, "/") : "/ex
 /** URL of a file inside the examples (relative paths only; absolute and data: URLs pass through). */
 export const exampleUrl = (src: string) => (/^(data:|https?:|blob:|\/)/.test(src) ? src : `${EXAMPLES_BASE}${src}`);
 
+/** `dir/file` relative to the examples root, with `.` and `..` segments resolved (e.g. slot + ../assets/x → assets/x). */
+function joinRelative(dir: string, src: string): string {
+  const out: string[] = [];
+  for (const part of `${dir}/${src}`.split("/")) {
+    if (part === "..") out.pop();
+    else if (part && part !== ".") out.push(part);
+  }
+  return out.join("/");
+}
+
+/** Fetch an example by name; one in a subfolder (e.g. "slot/pearl-of-the-deep") gets its asset paths rebased to the examples root. */
 export async function fetchExample(name: string): Promise<OpenBoneDocument> {
   const res = await fetch(exampleUrl(`${name}.obone`));
   if (!res.ok) throw new Error(`Example “${name}” could not be downloaded (${res.status})`);
-  return deserialize(await res.text());
+  const doc = deserialize(await res.text());
+  const dir = name.includes("/") ? name.slice(0, name.lastIndexOf("/")) : "";
+  if (dir) {
+    const rebase = <T extends { src: string }>(a: T) => {
+      if (a.src && !/^(data:|https?:|blob:|\/)/.test(a.src)) a.src = joinRelative(dir, a.src);
+    };
+    textureAssets(doc).forEach(rebase);
+    doc.audio?.assets.forEach(rebase);
+    doc.fonts?.forEach(rebase);
+  }
+  return doc;
 }
 
 const EXT: Record<string, string> = {
