@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.7
+
+- No changes to the Unity package; released with OpenBone 0.4.7 (desktop app fix), so every package keeps the same version.
+
 ## 0.4.6
 
 - No changes to the Unity package; released with OpenBone 0.4.6 (editor: live view of MCP agent edits), so every package keeps the same version.
