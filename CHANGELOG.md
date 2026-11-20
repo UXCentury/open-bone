@@ -2,8 +2,9 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
-## Unreleased
+## 0.4.8 (2026-11-20)
 
+### Desktop app fix
 - **Desktop app: binary exports save again.** The app was only allowed to write text files, so after you picked where to save, ZIP exports (sprite sheets for Unity, Godot, Flutter and others, WebView packages, runtime data), `.obonb` files, videos and GIFs, and the images copied by Save and Save to folder were refused. It may now write any file and create folders in your home folder (still not `~/.ssh`, `~/.gnupg` or `~/.aws`). A test checks that every file function the editor uses is allowed.
 
 ## 0.4.7 (2026-11-20)

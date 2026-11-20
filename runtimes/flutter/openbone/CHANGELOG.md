@@ -1,3 +1,7 @@
+## 0.4.8
+
+- No changes to the Flutter plugin; released with OpenBone 0.4.8 (desktop app: binary exports save again), so every package keeps the same version.
+
 ## 0.4.7
 
 - No changes to the Flutter plugin; released with OpenBone 0.4.7 (desktop app: Open recent, art after a restart), so every package keeps the same version.
