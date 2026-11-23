@@ -138,6 +138,74 @@ export async function loadAssetsFromDisk(doc: OpenBoneDocument, dir: string): Pr
   return missing;
 }
 
+/**
+ * Web: a page can't read the files next to a project it opened, so its relative images, sounds and fonts come from a
+ * folder the user picks (a folder input, which every browser has). A file matches an asset when its path inside the
+ * picked folder is the asset's path, or ends with it (a parent folder was picked). Returns the paths still missing.
+ */
+export function pickAssetFolder(doc: OpenBoneDocument = store.doc): Promise<string[]> {
+  return new Promise((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    (input as HTMLInputElement & { webkitdirectory: boolean }).webkitdirectory = true;
+    input.onchange = () => resolve(registerPickedAssets(doc, [...(input.files ?? [])]));
+    input.click();
+  });
+}
+
+/** Show a project's relative assets from picked files (see `pickAssetFolder`). Exported for tests. */
+export function registerPickedAssets(doc: OpenBoneDocument, files: File[]): string[] {
+  // The first part of webkitRelativePath is the picked folder itself.
+  const byPath = files.map((f) => ({ f, rel: (f.webkitRelativePath || f.name).replace(/^[^/]*\//, "") }));
+  const find = (src: string) => {
+    const want = src.replace(/^\.\//, "");
+    return byPath.find((x) => x.rel === want)?.f ?? byPath.find((x) => x.rel.endsWith(`/${want}`))?.f;
+  };
+  const missing: string[] = [];
+  let found = 0;
+  const load = (src: string, register: (src: string, url: string) => void) => {
+    if (!isRelative(src)) return;
+    const f = find(src);
+    if (!f) return missing.push(src);
+    register(src, URL.createObjectURL(f));
+    found++;
+  };
+  for (const img of textureAssets(doc)) load(img.src, registerImageOverride);
+  for (const a of doc.audio?.assets ?? []) load(a.src, registerAudioOverride);
+  for (const f of doc.fonts ?? []) load(f.src, registerFontOverride);
+  // Redraw with the new pixels (no undo step, nothing changes in the document).
+  for (const img of doc.images) if (isRelative(img.src) && find(img.src)) store.applyQuiet("updateImage", { image: img.id }, "assets");
+  if (found) toast(`Loaded ${found} file${found === 1 ? "" : "s"} from the project folder`);
+  reportUnreadable(missing);
+  return missing;
+}
+
+/** Web: after opening a project whose art is stored next to its file, offer to read it from the project folder. */
+export function offerAssetFolder(doc: OpenBoneDocument) {
+  if (isDesktop() || !hasRelativeAssets(doc)) return;
+  toast("This project's images and sounds are files next to it, which a web page can't read on its own. Choose the project's folder to show them.", "info", {
+    label: "Choose folder",
+    run: () => void pickAssetFolder(doc),
+  });
+}
+
+/**
+ * Web: offer the folder only when the art really can't be fetched (the examples' relative paths load from the site).
+ * Dev servers answer unknown paths with the app page, so only an image response counts.
+ */
+export async function offerAssetFolderIfMissing(doc: OpenBoneDocument, base = "") {
+  if (isDesktop()) return;
+  const src = textureAssets(doc).map((t) => t.src).find(isRelative);
+  if (!src) return;
+  try {
+    const r = await fetch(`${base}${src}`, { method: "HEAD" });
+    if (r.ok && (r.headers.get("content-type") ?? "").startsWith("image/")) return;
+  } catch {
+    /* unreachable: offer the folder */
+  }
+  offerAssetFolder(doc);
+}
+
 /** True when a document has images, sounds or fonts stored as paths next to its file. */
 export const hasRelativeAssets = (doc: OpenBoneDocument) =>
   textureAssets(doc).some((i) => isRelative(i.src)) || (doc.audio?.assets ?? []).some((a) => isRelative(a.src)) || (doc.fonts ?? []).some((f) => isRelative(f.src));

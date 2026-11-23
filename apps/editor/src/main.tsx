@@ -4,7 +4,7 @@ import { createEffect, createRoot, on } from "solid-js";
 import { render } from "solid-js/web";
 import { App } from "./App.tsx";
 import { fileName, loadDocument, modified, openExample, setModified, store } from "./state.ts";
-import { projectAssetDir, projectFilePath, restoreDesktopAssets } from "./storage.ts";
+import { offerAssetFolderIfMissing, projectAssetDir, projectFilePath, restoreDesktopAssets } from "./storage.ts";
 import "./styles.css";
 
 // Restore the last session (autosaved to IndexedDB, with its undo/redo history), else open the walker example.
@@ -19,6 +19,8 @@ import "./styles.css";
       const restored = await restoreDesktopAssets(doc, saved);
       loadDocument(doc, saved.name, "/examples/");
       restored();
+      // Web: art next to a project opened from disk (or sent by the MCP server) is gone after a reload.
+      void offerAssetFolderIfMissing(doc, "/examples/");
       // Ctrl+Z keeps working after a reload: the history is stored as patches against the saved document.
       restoreHistory(store, saved.history);
       setModified(saved.modified ?? false);

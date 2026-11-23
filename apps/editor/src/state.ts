@@ -270,7 +270,9 @@ export const currentAnimation = () => {
 export const currentStateMachine = () => {
   const d = doc();
   const id = stateMachineId();
-  return (id ? d.stateMachines.find((s) => s.id === id) : d.stateMachines[0]) ?? null;
+  // An id left over from another project (one the MCP server sent replaces the document without resetting it) falls
+  // back to the first state machine, so Play runs the machine instead of an animation.
+  return (id ? d.stateMachines.find((s) => s.id === id) : undefined) ?? d.stateMachines[0] ?? null;
 };
 
 export function selectedAttachment(): { slotId: string; att: Attachment } | null {

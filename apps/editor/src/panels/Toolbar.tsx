@@ -10,7 +10,7 @@ import { agentAction } from "../agent-fx.ts";
 import { imageSize, readFileAsDataUrl } from "../images.ts";
 import { closeMenu, menuOpen, menuOwner, openMenu } from "../menu.tsx";
 import { mainMenu } from "../editor-menus.ts";
-import { openProject } from "../storage.ts";
+import { offerAssetFolderIfMissing, openProject } from "../storage.ts";
 import {
   apply,
   fileName,
@@ -133,7 +133,10 @@ export function Toolbar() {
     if (!f) return;
     if (!(await confirmDiscard(`Opening “${f.name}”`))) return;
     try {
-      loadDocument(parseDocument(new Uint8Array(await f.arrayBuffer())), f.name.replace(/\.obonb$/i, ".obone"));
+      const d = parseDocument(new Uint8Array(await f.arrayBuffer()));
+      loadDocument(d, f.name.replace(/\.obonb$/i, ".obone"));
+      // A page can't read the files next to the one picked: offer the project folder for its art.
+      void offerAssetFolderIfMissing(d);
     } catch (e) {
       toast((e as Error).message, "error");
     }

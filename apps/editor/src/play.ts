@@ -19,6 +19,7 @@ import {
   setSelection,
   setTime,
   setTool,
+  store,
   time,
   tool,
 } from "./state.ts";
@@ -45,6 +46,12 @@ export const [playFullWindow, setPlayFullWindow] = createSignal(false);
 export const [playEpoch, setPlayEpoch] = createSignal(0);
 
 export const SPEEDS = [0.25, 0.5, 0.75, 1, 1.5, 2];
+
+// Another project (opened, or sent by the MCP server) gets its own default: its state machine, not what the last
+// project was played with.
+store.subscribe((_d, e) => {
+  if (e.kind === "load" && !playActive()) setPlayTarget(null);
+});
 
 interface Snapshot {
   mode: Mode;
