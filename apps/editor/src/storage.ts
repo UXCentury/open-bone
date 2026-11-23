@@ -142,6 +142,15 @@ export async function loadAssetsFromDisk(doc: OpenBoneDocument, dir: string): Pr
 export const hasRelativeAssets = (doc: OpenBoneDocument) =>
   textureAssets(doc).some((i) => isRelative(i.src)) || (doc.audio?.assets ?? []).some((a) => isRelative(a.src)) || (doc.fonts ?? []).some((f) => isRelative(f.src));
 
+const relativeSrcs = (doc: OpenBoneDocument) =>
+  new Set([...textureAssets(doc), ...(doc.audio?.assets ?? []), ...(doc.fonts ?? [])].map((a) => a.src).filter(isRelative));
+
+/** The two documents load some of the same files by relative path: the same project, so its folder still applies. */
+export function sharesRelativeAssets(a: OpenBoneDocument, b: OpenBoneDocument) {
+  const mine = relativeSrcs(a);
+  return [...relativeSrcs(b)].some((s) => mine.has(s));
+}
+
 /**
  * Desktop, at startup: the autosaved project's art comes back from the folder it was in. Call before loading the
  * document; then `afterRestore` marks the folder (and file) again. Without a folder (autosaves from before 0.4.7),

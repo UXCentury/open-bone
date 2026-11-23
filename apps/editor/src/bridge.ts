@@ -7,7 +7,7 @@ import { askConfirm } from "./dialogs.tsx";
 import { registerFontOverride } from "./fonts.ts";
 import { registerImageOverride } from "./images.ts";
 import { loadDocument, setFileName, store, toast } from "./state.ts";
-import { dirOf, isDesktop, setProjectAssetDir } from "./storage.ts";
+import { dirOf, isDesktop, projectAssetDir, setProjectAssetDir, sharesRelativeAssets } from "./storage.ts";
 
 interface BridgeFile {
   src: string;
@@ -63,12 +63,16 @@ export function connectBridge(url = localStorageGet("openbone.bridge") ?? "ws://
     logActivity("mcp", "Sent this scene to the MCP server: the agent now works on it");
   };
   const openTheirs = (doc: OpenBoneDocument, path?: string) => {
+    if (!path && JSON.stringify(doc) === JSON.stringify(store.doc)) return; // our own scene back (a reconnect): nothing changes
+    // A server without a file (it took this editor's scene) sends the same project back: keep the folder its art is in,
+    // or the autosave forgets it and the art is gone after a restart.
+    const keepDir = !path && sharesRelativeAssets(store.doc, doc) ? projectAssetDir() : null;
     store.load(doc, "bridge");
     if (path) {
       setFileName(path.split(/[\\/]/).pop() ?? "project.obone");
       // The server sends the art over the link; remembering its folder brings it back after a restart too.
       if (isDesktop()) setProjectAssetDir(dirOf(path));
-    }
+    } else if (keepDir) setProjectAssetDir(keepDir);
   };
   const firstLoad = async (doc: OpenBoneDocument, path?: string) => {
     const json = JSON.stringify(doc);
