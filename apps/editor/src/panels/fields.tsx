@@ -1,6 +1,10 @@
 import { type JSX, Show, createSignal } from "solid-js";
+import { evalNumberExpr } from "../expr.ts";
 
-/** Numeric input with drag-to-scrub label. Commits on change / Enter / drag end. */
+/**
+ * Numeric input with drag-to-scrub label. Commits on change / Enter / drag end. Accepts maths (`v*2`, `+=10`,
+ * `clamp(v, 0, 1)`; see expr.ts), with `vars` as extra named constants; Up/Down step the value (Shift ×10).
+ */
 export function NumberField(p: {
   label: string;
   value: number;
@@ -8,6 +12,7 @@ export function NumberField(p: {
   onCommit: (v: number) => void;
   onKey?: () => void;
   keyed?: boolean;
+  vars?: Record<string, number>;
 }) {
   let startX = 0;
   let startV = 0;
@@ -36,12 +41,31 @@ export function NumberField(p: {
       </span>
       <input
         ref={input}
-        type="number"
-        step={p.step ?? 1}
+        class="num-expr"
+        inputmode="decimal"
+        spellcheck={false}
+        title="A number or maths: v*2, +=10, clamp(v, 0, 1)… (v = current value)"
         value={round(p.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+          e.preventDefault();
+          const cur = evalNumberExpr(e.currentTarget.value, p.value, p.vars) ?? p.value;
+          const v = round(cur + (e.key === "ArrowUp" ? 1 : -1) * (p.step ?? 1) * (e.shiftKey ? 10 : 1));
+          e.currentTarget.value = String(v);
+          p.onCommit(v);
+        }}
+        onInput={(e) => e.currentTarget.classList.remove("invalid")}
         onChange={(e) => {
-          const v = Number(e.currentTarget.value);
-          if (Number.isFinite(v)) p.onCommit(v);
+          const el = e.currentTarget;
+          const v = evalNumberExpr(el.value, p.value, p.vars);
+          if (v === null) {
+            el.classList.add("invalid");
+            return;
+          }
+          el.classList.remove("invalid");
+          const r = round(v);
+          el.value = String(r);
+          if (r !== round(p.value)) p.onCommit(r);
         }}
       />
       <Show when={p.onKey}>

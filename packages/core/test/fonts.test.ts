@@ -91,7 +91,9 @@ describe("embedded fonts", () => {
       ["Body Serif", "data:font/otf;b"],
       ["Unused", "fonts/u.otf"],
     ]);
-    expect(validate(s.doc).filter((i) => i.path.startsWith("fonts"))).toEqual([{ level: "warning", path: "fonts[1]", message: '"Unused": no text uses family "Unused"' }]);
+    const fontIssues = validate(s.doc).filter((i) => i.path.startsWith("fonts"));
+    expect(fontIssues).toMatchObject([{ level: "warning", path: "fonts[1]", message: '"Unused": no text uses family "Unused"', fix: { op: "deleteFont" } }]);
+    expect(fontIssues.length).toBe(1);
     const out = exportDocument(s.doc);
     expect(out.doc.fonts?.map((f) => f.name)).toEqual(["BodySerif"]);
     expect(out.stats.fonts).toBe(1);

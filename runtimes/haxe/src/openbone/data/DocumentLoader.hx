@@ -199,6 +199,7 @@ class DocumentLoader {
 			c.stretch = bool(x, "stretch", false);
 			c.compress = bool(x, "compress", false);
 			c.uniform = bool(x, "uniform", false);
+			c.volume = bool(x, "volume", false);
 			sk.ik.push(c);
 		}
 		for (x in maps(m.get("transform"))) {
@@ -219,6 +220,18 @@ class DocumentLoader {
 			c.offsetShear = num(x, "offsetShear", 0);
 			c.local = bool(x, "local", false);
 			c.relative = bool(x, "relative", false);
+			for (mx in maps(x.get("map"))) {
+				var mm = new TransformMapping();
+				mm.from = str(mx, "from", "rotation");
+				mm.to = str(mx, "to", "rotation");
+				mm.scale = num(mx, "scale", 1);
+				mm.offset = num(mx, "offset", 0);
+				mm.min = optNum(mx, "min");
+				mm.max = optNum(mx, "max");
+				c.map.push(mm);
+			}
+			var ls:Dynamic = x.get("localSource");
+			c.localSource = Std.isOfType(ls, Bool) ? (ls : Bool) : null;
 			sk.transform.push(c);
 		}
 		for (x in maps(m.get("path"))) {
@@ -255,6 +268,7 @@ class DocumentLoader {
 			c.wind = num(x, "wind", 0);
 			c.mix = num(x, "mix", 0);
 			c.fps = num(x, "fps", 0);
+			c.volume = bool(x, "volume", false);
 			sk.physics.push(c);
 		}
 		for (x in maps(m.get("sliders"))) {

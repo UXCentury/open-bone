@@ -21,6 +21,7 @@ import { StateMachinePanel } from "./StateMachinePanel.tsx";
 import { Timeline } from "./Timeline.tsx";
 import { OutlinePanel, PreviewPanel } from "./Preview.tsx";
 import { ActivityPanel } from "./ActivityPanel.tsx";
+import { ProblemsPanel, problemErrors } from "./ProblemsPanel.tsx";
 import { activityUnseen } from "../activity.ts";
 
 function PanelContent(p: { id: PanelId }) {
@@ -49,6 +50,9 @@ function PanelContent(p: { id: PanelId }) {
       </Match>
       <Match when={p.id === "activity"}>
         <ActivityPanel />
+      </Match>
+      <Match when={p.id === "problems"}>
+        <ProblemsPanel />
       </Match>
     </Switch>
   );
@@ -189,6 +193,11 @@ function TabGroup(p: { dock: DockId; group: GroupId; panels: PanelId[]; active: 
               <Show when={panel === "activity" && p.active !== panel && activityUnseen() > 0}>
                 <span class="tab-badge" aria-label={`${activityUnseen()} new`}>
                   {activityUnseen() > 99 ? "99+" : activityUnseen()}
+                </span>
+              </Show>
+              <Show when={panel === "problems" && problemErrors() > 0}>
+                <span class="tab-badge error" aria-label={`${problemErrors()} errors`}>
+                  {problemErrors() > 99 ? "99+" : problemErrors()}
                 </span>
               </Show>
             </button>

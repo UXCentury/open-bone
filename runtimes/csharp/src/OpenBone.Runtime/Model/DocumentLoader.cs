@@ -199,6 +199,7 @@ namespace OpenBone
                     Stretch = c.Bool("stretch"),
                     Compress = c.Bool("compress"),
                     Uniform = c.Bool("uniform"),
+                    Volume = c.Bool("volume"),
                 }, c));
             foreach (var c in sk.Arr("transform"))
                 s.Transform.Add(Base(new TransformConstraintData
@@ -217,6 +218,8 @@ namespace OpenBone
                     OffsetShear = c.Num("offsetShear"),
                     Local = c.Bool("local"),
                     Relative = c.Bool("relative"),
+                    Map = TransformMap(c),
+                    LocalSource = c.Has("localSource") && !c.Get("localSource").IsNull ? c.Get("localSource").Truthy : (bool?)null,
                 }, c));
             foreach (var c in sk.Arr("path"))
                 s.Path.Add(Base(new PathConstraintData
@@ -250,6 +253,7 @@ namespace OpenBone
                     Wind = c.Num("wind"),
                     Mix = c.Num("mix"),
                     Fps = c.Num("fps"),
+                    Volume = c.Bool("volume"),
                 }, c));
             foreach (var x in sk.Arr("sliders"))
                 s.Sliders.Add(new SliderData
@@ -285,6 +289,24 @@ namespace OpenBone
         {
             var v = c.Get("constantSpeed");
             return !(v != null && v.Kind == JsonKind.Bool && !v.Truthy);
+        }
+
+        /// <summary>Transform constraint `map` (property mapping); empty when unset.</summary>
+        static List<TransformMapping> TransformMap(JsonValue c)
+        {
+            var r = new List<TransformMapping>();
+            foreach (var m in c.Arr("map"))
+                if (m != null && m.IsObject)
+                    r.Add(new TransformMapping
+                    {
+                        From = m.Str("from"),
+                        To = m.Str("to"),
+                        Scale = m.Num("scale"),
+                        Offset = m.Num("offset"),
+                        Min = m.NumOpt("min"),
+                        Max = m.NumOpt("max"),
+                    });
+            return r;
         }
 
         static VertexWeight[][] Weights(JsonValue a)

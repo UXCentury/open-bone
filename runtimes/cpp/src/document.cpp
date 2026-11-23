@@ -104,6 +104,15 @@ bool boolean(const json& o, const char* k, bool def = false) {
   if (v->is_number()) return v->get<double>() != 0;
   return def;
 }
+std::optional<TransformChannel> transformChannel(const std::string& s) {
+  if (s == "rotation") return TransformChannel::Rotation;
+  if (s == "x") return TransformChannel::X;
+  if (s == "y") return TransformChannel::Y;
+  if (s == "scaleX") return TransformChannel::ScaleX;
+  if (s == "scaleY") return TransformChannel::ScaleY;
+  if (s == "shearY") return TransformChannel::ShearY;
+  return std::nullopt;
+}
 std::vector<double> nums(const json& o, const char* k) {
   std::vector<double> out;
   const json* v = get(o, k);
@@ -537,6 +546,7 @@ std::shared_ptr<const Document> build(const json& j) {
       x.stretch = boolean(c, "stretch");
       x.compress = boolean(c, "compress");
       x.uniform = boolean(c, "uniform");
+      x.volume = boolean(c, "volume");
       s.ik.push_back(std::move(x));
     }
   if (const json* cs = get(sk, "transform"))
@@ -559,6 +569,22 @@ std::shared_ptr<const Document> build(const json& j) {
       x.offsetShear = num(c, "offsetShear");
       x.local = boolean(c, "local");
       x.relative = boolean(c, "relative");
+      if (const json* ms = get(c, "map"))
+        if (ms->is_array())
+          for (const auto& m : *ms) {
+            TransformMapping tm;
+            const auto from = transformChannel(str(m, "from")), to = transformChannel(str(m, "to"));
+            if (!from || !to) continue;
+            tm.from = *from;
+            tm.to = *to;
+            tm.scale = num(m, "scale", 1);
+            tm.offset = num(m, "offset");
+            tm.min = optNum(m, "min");
+            tm.max = optNum(m, "max");
+            x.map.push_back(tm);
+          }
+      if (const json* ls = get(c, "localSource"))
+        if (ls->is_boolean()) x.localSource = ls->get<bool>();
       s.transform.push_back(std::move(x));
     }
   if (const json* cs = get(sk, "path"))
@@ -602,6 +628,7 @@ std::shared_ptr<const Document> build(const json& j) {
       x.wind = num(c, "wind");
       x.mix = num(c, "mix");
       x.fps = num(c, "fps");
+      x.volume = boolean(c, "volume");
       s.physics.push_back(std::move(x));
     }
   if (const json* ss = get(sk, "sliders"))

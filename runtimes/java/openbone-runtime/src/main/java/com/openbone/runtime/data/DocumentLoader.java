@@ -193,6 +193,7 @@ public final class DocumentLoader {
       c.stretch = bool(x, "stretch", false);
       c.compress = bool(x, "compress", false);
       c.uniform = bool(x, "uniform", false);
+      c.volume = bool(x, "volume", false);
       sk.ik.add(c);
     }
     for (Map<String, Object> x : maps(m.get("transform"))) {
@@ -212,6 +213,17 @@ public final class DocumentLoader {
       c.offsetShear = num(x, "offsetShear", 0);
       c.local = bool(x, "local", false);
       c.relative = bool(x, "relative", false);
+      for (Map<String, Object> mx : maps(x.get("map"))) {
+        TransformMapping tm = new TransformMapping();
+        tm.from = str(mx, "from", "rotation");
+        tm.to = str(mx, "to", "rotation");
+        tm.scale = num(mx, "scale", 0);
+        tm.offset = num(mx, "offset", 0);
+        tm.min = optNum(mx, "min");
+        tm.max = optNum(mx, "max");
+        c.map.add(tm);
+      }
+      if (x.get("localSource") instanceof Boolean) c.localSource = (Boolean) x.get("localSource");
       sk.transform.add(c);
     }
     for (Map<String, Object> x : maps(m.get("path"))) {
@@ -247,6 +259,7 @@ public final class DocumentLoader {
       c.wind = num(x, "wind", 0);
       c.mix = num(x, "mix", 0);
       c.fps = num(x, "fps", 0);
+      c.volume = bool(x, "volume", false);
       sk.physics.add(c);
     }
     for (Map<String, Object> x : maps(m.get("sliders"))) {

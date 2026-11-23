@@ -6,7 +6,7 @@ skeletons, skins and skin bones, every attachment type, animation mixing, IK / t
 in custom order, sliders, sprite sequences, particles (same RNG), text templates, the draw list, state machines with
 listeners and input bindings, events, audio commands (played by the libGDX and Android modules) and scripts.
 
-It passes the whole conformance suite: all 92 cases of the 21 files in [`conformance/expected`](../../conformance/expected),
+It passes the whole conformance suite: all 102 cases of the 23 files in [`conformance/expected`](../../conformance/expected),
 on the JVM and on an Android emulator.
 
 | Module | Language | What it is |

@@ -307,7 +307,76 @@ function paths(): OpenBoneDocument {
   return s.doc;
 }
 
-export const FIXTURES: Record<string, () => OpenBoneDocument> = { transforms, constraints, meshes, dynamics, interactive, rigging, mixing, bounds, paths };
+/** Transform constraints with property mappings (world, local, mixed source space, relative, clamped), plus volume-keeping IK and physics stretch. */
+function mapping(): OpenBoneDocument {
+  const s = store("mapping");
+  image(s, "seg", 60, 12);
+  s.apply("addBone", { name: "driver", x: 0, y: 40, rotation: 20, length: 40 });
+  s.apply("addBone", { name: "f-world", x: -150, y: 120, length: 40 });
+  s.apply("addBone", { name: "f-local", x: -50, y: 120, rotation: 10, length: 40 });
+  s.apply("addBone", { name: "f-relw", x: 50, y: 120, length: 40 });
+  s.apply("addBone", { name: "f-rell", parent: "f-relw", x: 40, y: 0, rotation: 30, length: 40 });
+  s.apply("addTransformConstraint", {
+    name: "world-map", bones: ["f-world"], target: "driver", mixRotate: 1, mixTranslate: 0.8, mixScale: 1, mixShear: 0.5,
+    map: [
+      { from: "x", to: "rotation", scale: 0.5, offset: 10, min: -45, max: 45 },
+      { from: "rotation", to: "y", scale: 0.5, offset: 100 },
+      { from: "rotation", to: "y", scale: 0.25 },
+      { from: "x", to: "scaleY", scale: 0.01, offset: 1, min: 0.5, max: 2 },
+      { from: "scaleX", to: "shearY", scale: 20 },
+    ],
+  });
+  s.apply("addTransformConstraint", {
+    name: "local-map", bones: ["f-local"], target: "driver", local: true, localSource: false, mixRotate: 0.7, mixTranslate: 0, mixScale: 1,
+    map: [
+      { from: "rotation", to: "scaleX", scale: 0.01, offset: 1, min: 0.5, max: 2 },
+      { from: "rotation", to: "rotation", scale: -1 },
+      { from: "y", to: "x", scale: 1 },
+    ],
+  });
+  s.apply("addTransformConstraint", {
+    name: "rel-world", bones: ["f-relw"], target: "driver", relative: true, mixRotate: 1, mixTranslate: 1, mixScale: 1, mixShear: 1,
+    map: [
+      { from: "rotation", to: "rotation", scale: -1 },
+      { from: "x", to: "x", scale: 2 },
+      { from: "scaleX", to: "scaleY", scale: 1 },
+      { from: "rotation", to: "shearY", scale: 0.2, max: 15 },
+    ],
+  });
+  s.apply("addTransformConstraint", {
+    name: "rel-local", bones: ["f-rell"], target: "driver", relative: true, local: true, mixRotate: 0.5, mixTranslate: 1, mixScale: 1,
+    map: [
+      { from: "rotation", to: "x", scale: 0.3 },
+      { from: "scaleX", to: "scaleX", scale: -0.5 },
+      { from: "x", to: "rotation", scale: 1, min: -30, max: 30 },
+    ],
+  });
+  s.apply("addBone", { name: "arm", x: 150, y: 40, length: 50 });
+  s.apply("addBone", { name: "aim", x: 230, y: 40 });
+  s.apply("addIkConstraint", { name: "squash", bones: ["arm"], target: "aim", stretch: true, compress: true, volume: true });
+  s.apply("addBone", { name: "thigh", x: 150, y: 250, rotation: -80, length: 50 });
+  s.apply("addBone", { name: "shin", parent: "thigh", x: 50, rotation: 10, length: 50 });
+  s.apply("addBone", { name: "foot", x: 170, y: 150 });
+  s.apply("addIkConstraint", { name: "leg", bones: ["thigh", "shin"], target: "foot", stretch: true, volume: true });
+  s.apply("addBone", { name: "tail", x: -150, y: 260, rotation: -90, length: 40 });
+  s.apply("addPhysicsConstraint", { name: "wobble", bone: "tail", x: 0.5, y: 0.5, rotate: 1, scaleX: 1, strength: 80, damping: 2, volume: true });
+  for (const b of ["driver", "f-world", "f-local", "f-relw", "f-rell", "arm", "thigh", "shin", "tail"]) {
+    s.apply("addSlot", { name: b, bone: b });
+    s.apply("addRegion", { slot: b, image: "seg", x: 30 });
+  }
+  s.apply("createAnimation", { name: "drive" });
+  s.apply("setKeys", { animation: "drive", target: "bone", id: "driver", property: "rotation", keys: [{ time: 0, value: 20 }, { time: 1, value: 160 }, { time: 2, value: -60 }] });
+  s.apply("setKeys", { animation: "drive", target: "bone", id: "driver", property: "x", keys: [{ time: 0, value: 0 }, { time: 1, value: 120 }, { time: 2, value: -90 }] });
+  s.apply("setKeys", { animation: "drive", target: "bone", id: "driver", property: "y", keys: [{ time: 0, value: 40 }, { time: 2, value: -20 }] });
+  s.apply("setKeys", { animation: "drive", target: "bone", id: "driver", property: "scaleX", keys: [{ time: 0, value: 1 }, { time: 1, value: 1.8 }, { time: 2, value: 0.6 }] });
+  s.apply("setKeys", { animation: "drive", target: "bone", id: "aim", property: "x", keys: [{ time: 0, value: 230 }, { time: 1, value: 170 }, { time: 2, value: 260 }] });
+  s.apply("setKeys", { animation: "drive", target: "bone", id: "foot", property: "y", keys: [{ time: 0, value: 150 }, { time: 1, value: 60 }, { time: 2, value: 150 }] });
+  s.apply("setKeys", { animation: "drive", target: "bone", id: "tail", property: "x", keys: [{ time: 0, value: -150 }, { time: 0.5, value: -100 }, { time: 1, value: -170 }, { time: 2, value: -150 }] });
+  s.apply("setKeys", { animation: "drive", target: "transform", id: "world-map", property: "mix", keys: [{ time: 0, value: 1 }, { time: 2, value: 0.4 }] });
+  return s.doc;
+}
+
+export const FIXTURES: Record<string, () => OpenBoneDocument> = { transforms, constraints, meshes, dynamics, interactive, rigging, mixing, bounds, paths, mapping };
 
 /** Bounding-box queries recorded for a fixture (see conformance/README.md). Candidates unstable under a tiny nudge are dropped. */
 export interface BoundsQueries {

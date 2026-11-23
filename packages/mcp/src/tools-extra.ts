@@ -4,7 +4,7 @@ import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createCanvas } from "@napi-rs/canvas";
 import { type MouthShape, type TracePlacement, guessMouthMapping, lipSync, meshUvAffine, slotAttachments, traceMesh } from "@openbone/core";
-import { OpenBoneInstance, type ScriptHost, Skeleton, applyAnimation, poseChainFrom, solvePose } from "@openbone/runtime";
+import { OpenBoneInstance, type ScriptHost, Skeleton, applyAnimation, bakeConstraints, poseChainFrom, solvePose } from "@openbone/runtime";
 import { z } from "zod";
 import { atlasSettingsSchema } from "./atlas-schema.ts";
 import { EXPORT_FORMATS, assetBytes, exportBaseName, exportFile } from "./export.ts";
@@ -285,6 +285,39 @@ export function registerExtraTools(server: McpServer, session: ProjectSession, s
         });
         await commit();
         return text({ ok: true, bones: changed.map((b) => `${b.data.name} ${Math.round(b.rotation * 10) / 10}°`), reached: miss < 0.5, distanceLeft: Math.round(miss * 10) / 10 });
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  // ---------------- bake constraints ----------------
+  server.registerTool(
+    "bake_constraints",
+    {
+      description:
+        "Bake constraints into keys (\"key constrained\"): play `animation`, sample the bones' local values as they are after IK, transform, path and physics constraints (and sliders), and write them as ordinary bone keys. By default the bones are every bone a constraint moves, and the mixes of those constraints are keyed to 0 over the range so the motion is not applied twice. Use it to freeze physics into editable keys, or to hand off a rig to a runtime without constraints. One undo step.",
+      inputSchema: {
+        animation: z.string().describe("Animation id or name"),
+        bones: z.array(z.string()).optional().describe("Bones (ids or names) to bake; default: every constrained bone"),
+        start: z.number().min(0).optional().describe("Range start in seconds (default 0)"),
+        end: z.number().min(0).optional().describe("Range end in seconds (default: the animation's length)"),
+        fps: z.number().min(1).max(240).default(30).describe("Samples per second"),
+        tolerance: z.number().min(0).default(0.01).describe("Drop keys a straight line between their neighbours reproduces within this (degrees/units; scales use 1/100 of it). 0 = a key per sample"),
+        disableConstraints: z.boolean().default(true).describe("Key the mixes of the constraints that moved the baked bones to 0 over the range"),
+        skin: z.string().optional().describe("Skin to bake with (skin bones/constraints follow it)"),
+      },
+    },
+    async (a) => {
+      try {
+        const res = bakeConstraints(session.doc, a);
+        if (!res.ops.length) return text({ ok: true, bones: [], note: "Nothing to bake: the constrained bones never leave their setup pose" });
+        session.store.transaction("bake constraints", (s) => {
+          for (const op of res.ops) s.apply("setKeys", op);
+        });
+        await commit();
+        const keys = res.ops.filter((o) => o.target === "bone").reduce((n, o) => n + o.keys.length, 0);
+        return text({ ok: true, bones: res.bones, constraintsKeyedOff: res.constraints, samples: res.samples, boneKeys: keys });
       } catch (e) {
         return fail(e);
       }

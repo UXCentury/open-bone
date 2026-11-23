@@ -5,7 +5,7 @@ import { createSignal } from "solid-js";
  * tabs and has a size; panels can be dragged between docks. Saved per browser in localStorage.
  */
 
-export type PanelId = "hierarchy" | "inspector" | "timeline" | "statemachine" | "scripts" | "preview" | "outline" | "activity";
+export type PanelId = "hierarchy" | "inspector" | "timeline" | "statemachine" | "scripts" | "preview" | "outline" | "activity" | "problems";
 export type DockId = "left" | "right" | "bottom";
 
 export interface DockState {
@@ -34,9 +34,10 @@ export const PANELS: Record<PanelId, { title: string }> = {
   preview: { title: "Preview" },
   outline: { title: "Outline" },
   activity: { title: "Activity" },
+  problems: { title: "Problems" },
 };
 /** Where a panel goes when a saved layout from an older version doesn't have it yet. */
-const HOME_DOCK: Partial<Record<PanelId, DockId>> = { activity: "bottom" };
+const HOME_DOCK: Partial<Record<PanelId, DockId>> = { activity: "bottom", problems: "bottom" };
 export const DOCKS: DockId[] = ["left", "right", "bottom"];
 export const DEFAULT_SIZE: Record<DockId, number> = { left: 250, right: 280, bottom: 290 };
 export const MIN_SIZE: Record<DockId, number> = { left: 170, right: 200, bottom: 120 };
@@ -47,7 +48,7 @@ export function defaultLayout(): Layout {
   return {
     left: { panels: ["hierarchy"], active: "hierarchy", size: DEFAULT_SIZE.left },
     right: { panels: ["inspector", "preview", "outline"], active: "inspector", size: DEFAULT_SIZE.right },
-    bottom: { panels: ["timeline", "statemachine", "scripts", "activity"], active: "timeline", size: DEFAULT_SIZE.bottom },
+    bottom: { panels: ["timeline", "statemachine", "scripts", "activity", "problems"], active: "timeline", size: DEFAULT_SIZE.bottom },
   };
 }
 

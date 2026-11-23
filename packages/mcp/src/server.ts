@@ -3,7 +3,7 @@ import { decodeImage } from "./image-load.ts";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { FONT_MIME, fontNameFromFile, isTrimmed, readFontMeta, registry, serialize, summarize, validate } from "@openbone/core";
+import { FONT_MIME, findProblems, fontNameFromFile, isTrimmed, readFontMeta, registry, serialize, summarize, validate } from "@openbone/core";
 import type { ScriptHost } from "@openbone/runtime";
 import { createQuickJsHost } from "@openbone/scripting";
 import { z } from "zod";
@@ -147,10 +147,18 @@ export function createServer(opts: ServerOptions = {}) {
     },
   );
 
-  server.registerTool("validate", { description: "Check the document for broken references and problems." }, async () => {
-    const issues = validate(session.doc);
-    return text(issues.length ? issues : "No issues found.");
-  });
+  server.registerTool(
+    "validate",
+    {
+      description:
+        "Check the document for broken references and problems. Issues with a `fix` can be repaired by calling the tool `fix.tool` with `fix.args` (the editor's one-click fix). With hints: true, also lists advisory hints (unused images, empty skins/animations, settings with no effect) that never block an export.",
+      inputSchema: { hints: z.boolean().default(false).describe("Also list advisory hints") },
+    },
+    async (a) => {
+      const issues = a.hints ? findProblems(session.doc) : validate(session.doc);
+      return text(issues.length ? issues : "No issues found.");
+    },
+  );
 
   server.registerTool("undo", { description: "Undo the last edit." }, async () => {
     const ok = session.store.undo();

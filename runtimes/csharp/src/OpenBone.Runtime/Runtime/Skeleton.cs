@@ -531,11 +531,10 @@ namespace OpenBone
                         double s = 1 + (k - 1) * mix;
                         b.World.A *= s;
                         b.World.C *= s;
-                        if (uniform)
-                        {
-                            b.World.B *= s;
-                            b.World.D *= s;
-                        }
+                        // Width: uniform scales it with the length, volume keeps the area (1 / s), otherwise it stays.
+                        double u = uniform ? s : c.Volume && s > 1e-6 ? 1 / s : 1;
+                        b.World.B *= u;
+                        b.World.D *= u;
                         b.SyncApplied(root);
                     }
                 }
@@ -579,7 +578,7 @@ namespace OpenBone
             {
                 double s = 1 + (dRaw / dEff - 1) * mix;
                 var cw = ch.World;
-                double u = uniform ? s : 1;
+                double u = uniform ? s : c.Volume ? 1 / s : 1;
                 p.World.A *= s;
                 p.World.C *= s;
                 p.World.B *= u;
@@ -642,6 +641,11 @@ namespace OpenBone
             var target = BoneById(c.Target);
             if (target == null) return;
             var root = RootMatrix;
+            if (c.Map != null && c.Map.Count > 0)
+            {
+                ApplyTransformMap(c, target, mr, mt, ms, mh);
+                return;
+            }
             double offScaleX = c.OffsetScaleX, offScaleY = c.OffsetScaleY, offShear = c.OffsetShear;
             foreach (var id in c.Bones)
             {
@@ -722,6 +726,151 @@ namespace OpenBone
                 }
                 b.SyncApplied(root);
                 b.UpdateSubtree(root, false);
+            }
+        }
+
+        /// <summary>Channels a transform mapping reads or writes, in the order they are applied.</summary>
+        static readonly string[] TransformChannels = { "rotation", "x", "y", "scaleX", "scaleY", "shearY" };
+
+        static double GetChannel(LocalTransform t, string ch)
+        {
+            switch (ch)
+            {
+                case "rotation": return t.Rotation;
+                case "x": return t.X;
+                case "y": return t.Y;
+                case "scaleX": return t.ScaleX;
+                case "scaleY": return t.ScaleY;
+                case "shearY": return t.ShearY;
+                default: return double.NaN;
+            }
+        }
+
+        static void SetChannel(LocalTransform t, string ch, double v)
+        {
+            switch (ch)
+            {
+                case "rotation": t.Rotation = v; break;
+                case "x": t.X = v; break;
+                case "y": t.Y = v; break;
+                case "scaleX": t.ScaleX = v; break;
+                case "scaleY": t.ScaleY = v; break;
+                case "shearY": t.ShearY = v; break;
+            }
+        }
+
+        /// <summary>Source value of one mapping channel: the target's local or world value, or its change from setup (Relative).</summary>
+        double TransformSource(TransformConstraintData c, Bone target, string ch)
+        {
+            if (c.LocalSource ?? c.Local)
+            {
+                var t = target.Applied;
+                if (!c.Relative) return GetChannel(t, ch);
+                var s = target.Data;
+                switch (ch)
+                {
+                    case "rotation": return MathUtil.WrapDeg(t.Rotation - s.Rotation);
+                    case "scaleX": return (s.ScaleX != 0 && !double.IsNaN(s.ScaleX) ? t.ScaleX / s.ScaleX : 1) - 1;
+                    case "scaleY": return (s.ScaleY != 0 && !double.IsNaN(s.ScaleY) ? t.ScaleY / s.ScaleY : 1) - 1;
+                    case "x": return t.X - s.X;
+                    case "y": return t.Y - s.Y;
+                    case "shearY": return t.ShearY - s.ShearY;
+                    default: return double.NaN;
+                }
+            }
+            var tw = target.World;
+            var sw = c.Relative ? SetupWorldOf(target.Data.Id) : null;
+            switch (ch)
+            {
+                case "rotation": return sw != null ? MathUtil.WrapDeg(MathUtil.WorldRotation(tw) - MathUtil.WorldRotation(sw)) : MathUtil.WorldRotation(tw);
+                case "x": return sw != null ? tw.X - sw.X : tw.X;
+                case "y": return sw != null ? tw.Y - sw.Y : tw.Y;
+                case "scaleX": return sw != null ? MathUtil.WorldScaleX(tw) / Or1(MathUtil.WorldScaleX(sw)) - 1 : MathUtil.WorldScaleX(tw);
+                case "scaleY": return sw != null ? MathUtil.WorldScaleY(tw) / Or1(MathUtil.WorldScaleY(sw)) - 1 : MathUtil.WorldScaleY(tw);
+                case "shearY": return sw != null ? MathUtil.WrapDeg(SkewOf(tw) - SkewOf(sw)) : SkewOf(tw);
+                default: return double.NaN;
+            }
+        }
+
+        /// <summary>
+        /// Transform constraint with a property mapping: each mapping's value (offset + source x scale, clamped) is summed
+        /// per written property, then each constrained bone moves toward it (or, Relative, has it added) by that
+        /// property's mix, in the order rotation, x, y, scaleX, scaleY, shearY.
+        /// </summary>
+        void ApplyTransformMap(TransformConstraintData c, Bone target, double mr, double mt, double ms, double mh)
+        {
+            var values = new Dictionary<string, double>();
+            foreach (var m in c.Map)
+            {
+                double v = m.Offset + TransformSource(c, target, m.From) * m.Scale;
+                if (m.Min.HasValue) v = Math.Max(m.Min.Value, v);
+                if (m.Max.HasValue) v = Math.Min(m.Max.Value, v);
+                values[m.To ?? ""] = (values.TryGetValue(m.To ?? "", out var prev) ? prev : 0) + v;
+            }
+            var root = RootMatrix;
+            bool rel = c.Relative;
+            foreach (var id in c.Bones)
+            {
+                var b = BoneById(id);
+                if (b == null || b == target) continue;
+                foreach (var ch in TransformChannels)
+                {
+                    if (!values.TryGetValue(ch, out var val)) continue;
+                    double mix = ch == "rotation" ? mr : ch == "x" || ch == "y" ? mt : ch == "shearY" ? mh : ms;
+                    if (mix <= 0) continue;
+                    if (c.Local)
+                    {
+                        var p = b.Applied;
+                        double cur = GetChannel(p, ch);
+                        if (ch == "scaleX" || ch == "scaleY") SetChannel(p, ch, rel ? cur * (1 + val * mix) : cur + (val - cur) * mix);
+                        else if (rel) SetChannel(p, ch, cur + val * mix);
+                        else if (ch == "rotation" || ch == "shearY") SetChannel(p, ch, cur + MathUtil.WrapDeg(val - cur) * mix);
+                        else SetChannel(p, ch, cur + (val - cur) * mix);
+                        continue;
+                    }
+                    var w = b.World;
+                    switch (ch)
+                    {
+                        case "rotation":
+                            RotateAxes(w, (rel ? val : MathUtil.WrapDeg(val - MathUtil.WorldRotation(w))) * mix * MathUtil.DEG);
+                            break;
+                        case "x":
+                            w.X += rel ? val * mix : (val - w.X) * mix;
+                            break;
+                        case "y":
+                            w.Y += rel ? val * mix : (val - w.Y) * mix;
+                            break;
+                        case "scaleX":
+                        case "scaleY":
+                        {
+                            double cur = Or1(ch == "scaleX" ? MathUtil.WorldScaleX(w) : MathUtil.WorldScaleY(w));
+                            double k = (rel ? cur * (1 + val * mix) : cur + (val - cur) * mix) / cur;
+                            if (ch == "scaleX")
+                            {
+                                w.A *= k;
+                                w.C *= k;
+                            }
+                            else
+                            {
+                                w.B *= k;
+                                w.D *= k;
+                            }
+                            break;
+                        }
+                        case "shearY":
+                        {
+                            double sb = SkewOf(w);
+                            SetSkew(w, sb + (rel ? val : MathUtil.WrapDeg(val - sb)) * mix);
+                            break;
+                        }
+                    }
+                }
+                if (c.Local) b.UpdateSubtree(root);
+                else
+                {
+                    b.SyncApplied(root);
+                    b.UpdateSubtree(root, false);
+                }
             }
         }
 
@@ -866,6 +1015,11 @@ namespace OpenBone
                         double s = 1 + (d / rest - 1) * c.ScaleX * mix;
                         w.A *= s;
                         w.C *= s;
+                        if (c.Volume && s > 1e-6)
+                        {
+                            w.B /= s;
+                            w.D /= s;
+                        }
                     }
                 }
             }

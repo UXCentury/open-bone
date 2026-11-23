@@ -41,7 +41,8 @@ button.live { background: #133d27; border-color: var(--ok); color: var(--ok); }
 select, input[type="text"], input[type="number"], input:not([type]) {
   background: #14161b; border: 1px solid var(--line); border-radius: 4px; padding: 2px 5px; min-width: 0;
 }
-input[type="number"] { width: 70px; }
+input[type="number"], input.num-expr { width: 70px; }
+input.num-expr.invalid { border-color: var(--danger, #e5534b); }
 input.tiny { width: 52px; }
 .app { display: flex; flex-direction: column; height: 100%; }
 .toolbar {
@@ -126,7 +127,7 @@ input.tiny { width: 52px; }
 .range-field { display: flex; gap: 4px; align-items: center; }
 .range-field > .field { flex: 1; min-width: 0; }
 .range-field > .field + .field > span:first-child { width: auto; }
-.range-field input[type="number"] { width: 100%; min-width: 0; }
+.range-field input[type="number"], .range-field input.num-expr { width: 100%; min-width: 0; }
 .range-field .row-del { visibility: visible; }
 .gradient-strip { height: 14px; border-radius: 3px; border: 1px solid var(--line); }
 .add-select { max-width: 110px; }
@@ -212,7 +213,7 @@ input.tiny { width: 52px; }
 .props { display: flex; flex-direction: column; gap: 6px; padding: 4px 10px 10px; }
 .props .col-title { padding: 4px 0; }
 .props .state-input { display: flex; gap: 6px; align-items: center; min-width: 0; }
-.props .state-input input[type="number"], .props .state-input input[type="text"] { flex: 1; min-width: 0; }
+.props .state-input input[type="number"], .props .state-input input.num-expr, .props .state-input input[type="text"] { flex: 1; min-width: 0; }
 .cond select { flex: 1; }
 /* scripts */
 .scripts-panel { display: flex; height: 100%; }
@@ -465,13 +466,13 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
 .bg-swatch { width: 12px; height: 12px; border-radius: 3px; border: 1px solid #ffffff40; }
 .bg-swatch.none { background: conic-gradient(#d6d9df 25%, #eceef2 0 50%, #d6d9df 0 75%, #eceef2 0) 0 0 / 6px 6px; }
 .export-atlas { display: flex; flex-direction: column; gap: 5px; padding: 4px 0 4px 20px; }
-.export-atlas .field input[type="number"] { width: 56px; }
+.export-atlas .field input[type="number"], .export-atlas .field input.num-expr { width: 56px; }
 .export-atlas .error { color: #ffd0d0; }
 .export-atlas .warn { color: #ffd98a; }
 .export-atlas .field select + select, .export-atlas .field select + .muted + select { margin-left: 4px; }
 .atlas-scales { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .atlas-scale-row { display: flex; gap: 4px; align-items: center; }
-.atlas-scale-row input[type="number"] { width: 56px; }
+.atlas-scale-row input[type="number"], .atlas-scale-row input.num-expr { width: 56px; }
 .atlas-scale-row input[type="text"] { width: 90px; }
 .atlas-scales .link-btn { background: transparent; border-color: transparent; padding: 0; color: var(--accent, #8ab4ff); cursor: pointer; }
 .export-advanced { margin-top: 2px; }
@@ -496,7 +497,7 @@ button:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; 
 .seg-choice button:first-child { border-radius: 5px 0 0 5px; }
 .seg-choice button:last-child { border-radius: 0 5px 5px 0; }
 .seg-choice button.active { background: #5b8cff2e; border-color: var(--accent); color: var(--text); }
-.export-group .field input[type="number"] { width: 72px; }
+.export-group .field input[type="number"], .export-group .field input.num-expr { width: 72px; }
 .export-group .field input[type="range"] { flex: 1; min-width: 0; }
 .export-dialog .modal-foot { flex-wrap: wrap; }
 /* export: name field with the extension inside, quick pick row */
@@ -825,3 +826,21 @@ button.link { background: none; border: none; padding: 0; color: var(--accent, #
 .mcp-config-block pre { margin: 0; padding: 8px 10px; background: var(--bg, #15171c); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; white-space: pre-wrap; word-break: break-all; user-select: text; -webkit-user-select: text; }
 .update-btn { background: #1d2e52; border-color: var(--accent); color: #cfe0ff; }
 .mcp-config-dialog .modal-head .close { margin-left: auto; }
+
+/* Transform constraint property mapping rows */
+.transform-map .map-row { border-left: 2px solid var(--line); padding-left: 6px; margin: 4px 0 8px; }
+.transform-map .map-row input.num-expr { width: 52px; }
+
+/* Problems panel */
+.problems-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.problems-head { display: flex; gap: 4px; align-items: center; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.problems-head button.active { background: var(--accent, #3d6fd8); color: #fff; }
+.problems-head .spacer { flex: 1; }
+.problems-list { overflow: auto; flex: 1; min-height: 0; }
+.problem-row { display: flex; gap: 8px; align-items: baseline; padding: 3px 8px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.problem-row.clickable { cursor: pointer; }
+.problem-row.clickable:hover { background: rgba(255, 255, 255, 0.04); }
+.problem-where { color: var(--muted, #8a93a6); white-space: nowrap; }
+.problem-msg { flex: 1; min-width: 0; }
+.problem-fix { white-space: nowrap; font-size: 11px; }
+.tab-badge.error { background: #c9423b; }

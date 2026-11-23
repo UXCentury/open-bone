@@ -8,6 +8,7 @@ export * from "./path.ts";
 export * from "./setup.ts";
 export * from "./constraints.ts";
 export * from "./validate.ts";
+export * from "./problems.ts";
 export * from "./summary.ts";
 export * from "./store.ts";
 export * from "./linked.ts";

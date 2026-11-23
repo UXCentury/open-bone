@@ -224,6 +224,8 @@ namespace OpenBone
         public bool BendPositive = true;
         public double Softness;
         public bool Stretch, Compress, Uniform;
+        /// <summary>Keep volume when stretching or compressing: the width scales by 1 / the length factor. Ignored with Uniform.</summary>
+        public bool Volume;
     }
 
     public sealed class TransformConstraintData : ConstraintData
@@ -234,6 +236,21 @@ namespace OpenBone
         public double MixRotate, MixTranslate, MixScale, MixShear;
         public double OffsetRotation, OffsetX, OffsetY, OffsetScaleX, OffsetScaleY, OffsetShear;
         public bool Local, Relative;
+        /// <summary>Property mapping; when non-empty the constraint uses it instead of the classic copy.</summary>
+        public List<TransformMapping> Map = new List<TransformMapping>();
+        /// <summary>Mapping only: read the target's local values; null = the same space as Local.</summary>
+        public bool? LocalSource;
+    }
+
+    /// <summary>
+    /// One mapping of a transform constraint: value = Offset + (the target's From) x Scale, clamped to Min..Max, is
+    /// written to each constrained bone's To. Channels: rotation, x, y, scaleX, scaleY, shearY.
+    /// </summary>
+    public sealed class TransformMapping
+    {
+        public string From, To;
+        public double Scale, Offset;
+        public double? Min, Max;
     }
 
     public sealed class PathConstraintData : ConstraintData
@@ -257,6 +274,8 @@ namespace OpenBone
         public override string Kind => "physics";
         public string Bone;
         public double X, Y, Rotate, ScaleX, Inertia, Strength, Damping, Mass, Gravity, Wind, Mix, Fps;
+        /// <summary>Keep volume when stretching: the width scales by 1 / the stretch factor.</summary>
+        public bool Volume;
     }
 
     public sealed class SliderData

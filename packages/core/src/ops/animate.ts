@@ -293,6 +293,38 @@ defineOp({
   },
 });
 
+defineOp({
+  name: "removeBrokenKeys",
+  group: "animation",
+  description:
+    "Remove timelines, event keys and sound keys that point at bones, slots, constraints, events or sounds no longer in the document (left behind by hand edits or merges). Without `animation`, cleans every animation.",
+  schema: z.object({ animation: ref("Animation").optional() }),
+  apply(doc, a) {
+    const sk = doc.skeleton;
+    const ids: Record<string, Set<string>> = {
+      bone: new Set(sk.bones.map((b) => b.id)),
+      slot: new Set(sk.slots.map((s) => s.id)),
+      ik: new Set(sk.ik.map((c) => c.id)),
+      transform: new Set(sk.transform.map((c) => c.id)),
+      path: new Set(sk.path.map((c) => c.id)),
+      physics: new Set(sk.physics.map((c) => c.id)),
+    };
+    for (const t of ["deform", "sequence", "particles"]) ids[t] = ids.slot;
+    const events = new Set(doc.events.map((e) => e.id));
+    const sounds = new Set(doc.audio?.sounds.map((x) => x.id) ?? []);
+    const anims = a.animation ? [get.animation(doc, a.animation)] : doc.animations;
+    let removed = 0;
+    for (const anim of anims) {
+      const before = anim.timelines.length + anim.events.length + (anim.audio?.length ?? 0);
+      anim.timelines = anim.timelines.filter((t) => !ids[t.target] || ids[t.target].has(t.id));
+      anim.events = anim.events.filter((e) => events.has(e.event));
+      if (anim.audio) anim.audio = anim.audio.filter((k) => sounds.has(k.sound));
+      removed += before - (anim.timelines.length + anim.events.length + (anim.audio?.length ?? 0));
+    }
+    return { removed };
+  },
+});
+
 // ---------------- Events ----------------
 
 defineOp({

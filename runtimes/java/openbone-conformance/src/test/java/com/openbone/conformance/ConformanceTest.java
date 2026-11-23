@@ -19,7 +19,7 @@ import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
-/** Every case of every conformance/expected/*.json (21 files) against the Java runtime. */
+/** Every case of every conformance/expected/*.json against the Java runtime. */
 class ConformanceTest {
   static Path repo() {
     return Paths.get(System.getProperty("openbone.repo", "../.."));

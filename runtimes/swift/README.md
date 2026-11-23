@@ -4,7 +4,7 @@ A Swift package for iOS and macOS that plays OpenBone documents (`.obone` / `.ob
 state machines with inputs, triggers and pointer listeners, events, sound (AVFoundation) and scripts. It is a thin layer
 over the [C++ runtime](../cpp) — SwiftPM compiles the C++ sources directly and the Swift API wraps its stable C API
 (`openbone.h`) — so it poses, draws and reacts exactly like the other runtimes. It passes the whole
-[conformance suite](../../conformance) (21 reference files, 92 cases).
+[conformance suite](../../conformance) (23 reference files, 102 cases).
 
 | | |
 | --- | --- |

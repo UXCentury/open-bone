@@ -21,7 +21,9 @@ import {
   type SequenceAttachment,
   type SkinData,
   type SlotData,
+  type TransformChannel,
   type TransformConstraintData,
+  TRANSFORM_CHANNELS,
   DEG,
   RAD,
   activeBones,
@@ -725,10 +727,10 @@ export class Skeleton {
           const s = 1 + (k - 1) * mix;
           b.world.a *= s;
           b.world.c *= s;
-          if (uniform) {
-            b.world.b *= s;
-            b.world.d *= s;
-          }
+          // Width: uniform scales it with the length, volume keeps the area (1 / s), otherwise it stays.
+          const u = uniform ? s : c.volume && s > 1e-6 ? 1 / s : 1;
+          b.world.b *= u;
+          b.world.d *= u;
           b.syncApplied(root);
         }
       }
@@ -777,7 +779,7 @@ export class Skeleton {
     if (stretch && dRaw > dEff + 1e-9) {
       const s = 1 + (dRaw / dEff - 1) * mix;
       const cw = ch.world;
-      const u = uniform ? s : 1;
+      const u = uniform ? s : c.volume ? 1 / s : 1;
       p.world.a *= s;
       p.world.c *= s;
       p.world.b *= u;
@@ -808,6 +810,10 @@ export class Skeleton {
     const target = this.boneById.get(c.target);
     if (!target) return;
     const root = this.rootMatrix;
+    if (c.map?.length) {
+      this.applyTransformMap(c, target, { rotation: mr, x: mt, y: mt, scaleX: ms, scaleY: ms, shearY: mh });
+      return;
+    }
     const offScaleX = c.offsetScaleX ?? 0;
     const offScaleY = c.offsetScaleY ?? 0;
     const offShear = c.offsetShear ?? 0;
@@ -878,6 +884,110 @@ export class Skeleton {
       }
       b.syncApplied(root);
       b.updateSubtree(root, false);
+    }
+  }
+
+  /** Source value of one mapping channel: the target's local or world value, or its change from setup (`relative`). */
+  private transformSource(c: TransformConstraintData, target: Bone, ch: TransformChannel): number {
+    if (c.localSource ?? c.local) {
+      const t = target.applied;
+      if (!c.relative) return t[ch];
+      const s = target.data;
+      switch (ch) {
+        case "rotation":
+          return wrap(t.rotation - s.rotation);
+        case "scaleX":
+          return (s.scaleX ? t.scaleX / s.scaleX : 1) - 1;
+        case "scaleY":
+          return (s.scaleY ? t.scaleY / s.scaleY : 1) - 1;
+        default:
+          return t[ch] - s[ch];
+      }
+    }
+    const t = target.world;
+    const s = c.relative ? this.setupWorldOf(target.data.id) : null;
+    switch (ch) {
+      case "rotation":
+        return s ? wrap(worldRotation(t) - worldRotation(s)) : worldRotation(t);
+      case "x":
+        return s ? t.x - s.x : t.x;
+      case "y":
+        return s ? t.y - s.y : t.y;
+      case "scaleX":
+        return s ? worldScaleX(t) / (worldScaleX(s) || 1) - 1 : worldScaleX(t);
+      case "scaleY":
+        return s ? worldScaleY(t) / (worldScaleY(s) || 1) - 1 : worldScaleY(t);
+      case "shearY":
+        return s ? wrap(skewOf(t) - skewOf(s)) : skewOf(t);
+    }
+  }
+
+  /**
+   * Transform constraint with a property mapping: each mapping's value (offset + source x scale, clamped) is summed
+   * per written property, then each constrained bone moves toward it (or, `relative`, has it added) by that
+   * property's mix, in the order rotation, x, y, scaleX, scaleY, shearY.
+   */
+  private applyTransformMap(c: TransformConstraintData, target: Bone, mixes: Record<TransformChannel, number>) {
+    const values = new Map<TransformChannel, number>();
+    for (const m of c.map!) {
+      let v = m.offset + this.transformSource(c, target, m.from) * m.scale;
+      if (m.min !== undefined) v = Math.max(m.min, v);
+      if (m.max !== undefined) v = Math.min(m.max, v);
+      values.set(m.to, (values.get(m.to) ?? 0) + v);
+    }
+    const root = this.rootMatrix;
+    const rel = c.relative;
+    for (const id of c.bones) {
+      const b = this.boneById.get(id);
+      if (!b || b === target) continue;
+      for (const ch of TRANSFORM_CHANNELS) {
+        const val = values.get(ch);
+        const mix = mixes[ch];
+        if (val === undefined || mix <= 0) continue;
+        if (c.local) {
+          const p = b.applied;
+          if (ch === "scaleX" || ch === "scaleY") p[ch] = rel ? p[ch] * (1 + val * mix) : p[ch] + (val - p[ch]) * mix;
+          else if (rel) p[ch] += val * mix;
+          else if (ch === "rotation" || ch === "shearY") p[ch] += wrap(val - p[ch]) * mix;
+          else p[ch] += (val - p[ch]) * mix;
+          continue;
+        }
+        const w = b.world;
+        switch (ch) {
+          case "rotation":
+            rotateAxes(w, (rel ? val : wrap(val - worldRotation(w))) * mix * DEG);
+            break;
+          case "x":
+            w.x += rel ? val * mix : (val - w.x) * mix;
+            break;
+          case "y":
+            w.y += rel ? val * mix : (val - w.y) * mix;
+            break;
+          case "scaleX":
+          case "scaleY": {
+            const cur = (ch === "scaleX" ? worldScaleX(w) : worldScaleY(w)) || 1;
+            const k = (rel ? cur * (1 + val * mix) : cur + (val - cur) * mix) / cur;
+            if (ch === "scaleX") {
+              w.a *= k;
+              w.c *= k;
+            } else {
+              w.b *= k;
+              w.d *= k;
+            }
+            break;
+          }
+          case "shearY": {
+            const sb = skewOf(w);
+            setSkew(w, sb + (rel ? val : wrap(val - sb)) * mix);
+            break;
+          }
+        }
+      }
+      if (c.local) b.updateSubtree(root);
+      else {
+        b.syncApplied(root);
+        b.updateSubtree(root, false);
+      }
     }
   }
 
@@ -1023,6 +1133,10 @@ export class Skeleton {
           const s = 1 + (d / rest - 1) * c.scaleX * mix;
           w.a *= s;
           w.c *= s;
+          if (c.volume && s > 1e-6) {
+            w.b /= s;
+            w.d /= s;
+          }
         }
       }
     }

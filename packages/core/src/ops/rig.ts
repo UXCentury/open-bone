@@ -5,7 +5,7 @@ import { smoothKnots } from "../path.ts";
 import { apply as applyM, invert, worldRotation } from "../math.ts";
 import { setupWorld } from "../setup.ts";
 import { constraintOrder, nextConstraintOrder } from "../constraints.ts";
-import type { Attachment, BoneData, OpenBoneDocument, SkinData, SliderData, VertexWeight } from "../types.ts";
+import type { Attachment, BoneData, OpenBoneDocument, SkinData, SliderData, TransformConstraintData, TransformMapping, VertexWeight } from "../types.ts";
 import { defineOp, hex, optId, ref } from "./registry.ts";
 import { checkSequenceProps } from "./sequence-props.ts";
 import { swapInfluence } from "../weights.ts";
@@ -1126,6 +1126,7 @@ const ikProps = {
   stretch: z.boolean().optional().describe("Scale bones up along their length when the target is out of reach"),
   compress: z.boolean().optional().describe("1-bone only: scale the bone down when the target is closer than its length"),
   uniform: z.boolean().optional().describe("With stretch/compress: scale both axes, keeping proportions"),
+  volume: z.boolean().optional().describe("With stretch/compress: keep volume (the bone gets thinner as it stretches, wider as it squashes). Ignored with uniform"),
 };
 
 defineOp({
@@ -1161,6 +1162,7 @@ defineOp({
       stretch: a.stretch ?? false,
       compress: a.compress ?? false,
       ...(a.uniform ? { uniform: true } : {}),
+      ...(a.volume ? { volume: true } : {}),
     });
     return { id, name };
   },
@@ -1169,7 +1171,7 @@ defineOp({
 defineOp({
   name: "updateIkConstraint",
   group: "constraint",
-  description: "Change an IK constraint's mix, bend direction, softness, stretch/compress/uniform, target or name. Animate bend/stretch/compress with setKeys (properties bend: 1|-1, stretch: 1|0, compress: 1|0; stepped).",
+  description: "Change an IK constraint's mix, bend direction, softness, stretch/compress/uniform/volume, target or name. Animate bend/stretch/compress with setKeys (properties bend: 1|-1, stretch: 1|0, compress: 1|0; stepped).",
   schema: z.object({ constraint: ref("IK constraint"), name: z.string().optional(), target: ref("Bone").optional(), ...ikProps }),
   apply(doc, a) {
     const ik = get.ik(doc, a.constraint);
@@ -1179,10 +1181,23 @@ defineOp({
       if (ik.bones.some((b) => descendantIds(doc, b).has(t.id))) throw new Error("IK target must not be a descendant of a constrained bone");
       ik.target = t.id;
     }
-    assignDefined(ik, a, ["mix", "bendPositive", "softness", "stretch", "compress", "uniform"]);
+    assignDefined(ik, a, ["mix", "bendPositive", "softness", "stretch", "compress", "uniform", "volume"]);
+    if (!ik.uniform) delete ik.uniform;
+    if (!ik.volume) delete ik.volume;
     return {};
   },
 });
+
+const transformChannel = z.enum(["rotation", "x", "y", "scaleX", "scaleY", "shearY"]);
+const transformMapping = z
+  .object({
+    from: transformChannel.describe("Target property read (rotation/shearY in degrees)"),
+    to: transformChannel.describe("Constrained bones' property written"),
+    scale: z.number().optional().describe("Multiplier (default 1)"),
+    offset: z.number().optional().describe("Added after scaling (default 0)"),
+    min: z.number().optional().describe("Clamp the result to at least this"),
+    max: z.number().optional().describe("Clamp the result to at most this"),
+  });
 
 const transformProps = {
   mixRotate: mix01.optional(),
@@ -1197,8 +1212,30 @@ const transformProps = {
   offsetShear: z.number().optional(),
   local: z.boolean().optional().describe("Copy local (parent-space) values instead of world transforms"),
   relative: z.boolean().optional().describe("Add the target's change from its setup pose instead of copying its absolute value"),
+  map: z
+    .array(transformMapping)
+    .optional()
+    .describe(
+      "Property mapping (replaces copying): each entry writes offset + target[from] x scale, clamped to min..max, into every bone's `to`; entries with the same `to` add up. Example: target x drives rotation: [{from:'x', to:'rotation', scale:0.5, offset:0}]. Empty list = back to plain copying",
+    ),
+  localSource: z.boolean().optional().describe("Mapping only: read the target's local values (default: same space as `local`)"),
 };
 const TRANSFORM_KEYS = Object.keys(transformProps) as (keyof typeof transformProps)[];
+
+/** Store `map`/`localSource` only when they do something, so plain constraints keep their exact file contents. */
+function tidyTransform(c: TransformConstraintData) {
+  if (!c.map?.length) delete c.map;
+  else
+    c.map = c.map.map((m) => ({
+      from: m.from,
+      to: m.to,
+      scale: m.scale ?? 1,
+      offset: m.offset ?? 0,
+      ...(m.min !== undefined ? { min: m.min } : {}),
+      ...(m.max !== undefined ? { max: m.max } : {}),
+    }));
+  if (c.localSource === undefined || !c.map) delete c.localSource;
+}
 
 defineOp({
   name: "addTransformConstraint",
@@ -1236,7 +1273,10 @@ defineOp({
       offsetShear: a.offsetShear ?? 0,
       local: a.local ?? false,
       relative: a.relative ?? false,
+      ...(a.map ? { map: a.map as TransformMapping[] } : {}),
+      ...(a.localSource !== undefined ? { localSource: a.localSource } : {}),
     });
+    tidyTransform(doc.skeleton.transform[doc.skeleton.transform.length - 1]);
     return { id, name };
   },
 });
@@ -1244,7 +1284,7 @@ defineOp({
 defineOp({
   name: "updateTransformConstraint",
   group: "constraint",
-  description: "Change a transform constraint's mixes, offsets, space (local), relative mode, bones, target or name.",
+  description: "Change a transform constraint's mixes, offsets, space (local), relative mode, property mapping (map, localSource), bones, target or name.",
   schema: z.object({
     constraint: ref("Transform constraint"),
     name: z.string().optional(),
@@ -1259,6 +1299,7 @@ defineOp({
     if (a.target) c.target = get.bone(doc, a.target).id;
     if (c.bones.includes(c.target)) throw new Error("A transform constraint's target cannot be one of its bones");
     assignDefined(c, a, TRANSFORM_KEYS);
+    tidyTransform(c);
     return {};
   },
 });
@@ -1373,6 +1414,7 @@ const physicsProps = {
   wind: z.number().optional().describe("Sideways +x acceleration (units/s²)"),
   mix: mix01.optional(),
   fps: z.number().min(1).max(480).optional().describe("Simulation steps per second (fixed timestep)"),
+  volume: z.boolean().optional().describe("Keep volume when scaleX stretches the bone (it gets thinner as it stretches)"),
 };
 const PHYSICS_KEYS = Object.keys(physicsProps) as (keyof typeof physicsProps)[];
 
@@ -1403,6 +1445,7 @@ defineOp({
       wind: a.wind ?? 0,
       mix: a.mix ?? 1,
       fps: a.fps ?? 60,
+      ...(a.volume ? { volume: true } : {}),
     });
     return { id, name };
   },
@@ -1418,6 +1461,7 @@ defineOp({
     if (a.name) c.name = a.name;
     if (a.bone) c.bone = get.bone(doc, a.bone).id;
     assignDefined(c, a, PHYSICS_KEYS);
+    if (!c.volume) delete c.volume;
     return {};
   },
 });

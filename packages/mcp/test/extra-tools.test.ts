@@ -36,7 +36,7 @@ describe("extra MCP tools", () => {
   it("lists the new tools", async () => {
     const { client } = await connect();
     const names = (await client.listTools()).tools.map((t) => t.name);
-    for (const n of ["export_file", "trace_mesh", "lip_sync", "pose_bones", "get_stats", "smooth_weights", "prune_weights", "add_slider"]) expect(names).toContain(n);
+    for (const n of ["export_file", "trace_mesh", "lip_sync", "pose_bones", "get_stats", "smooth_weights", "prune_weights", "add_slider", "bake_constraints"]) expect(names).toContain(n);
   });
 
   it("exports every format", async () => {
@@ -131,6 +131,24 @@ describe("extra MCP tools", () => {
     const lf = doc.skeleton.bones.find((b) => b.name === "back-forearm")!;
     const tl = doc.animations.find((a) => a.name === "idle")!.timelines.find((t) => t.target === "bone" && t.id === lf.id && t.property === "rotation");
     expect((tl?.keys as { time: number }[]).some((k) => Math.abs(k.time - 1.2) < 1e-6)).toBe(true);
+  });
+
+  it("bakes IK into bone keys and keys the IK off", async () => {
+    const dir = sandbox();
+    const { call } = await connect();
+    await call("open_project", { path: path.join(dir, "walker.obone") });
+    const r = JSON.parse(await call("bake_constraints", { animation: "walk", fps: 30 }));
+    expect(r.ok).toBe(true);
+    expect(r.bones.length).toBeGreaterThan(0);
+    expect(r.constraintsKeyedOff.length).toBe(2);
+    const doc = deserialize(readFileSync(path.join(dir, "walker.obone"), "utf8"));
+    const walk = doc.animations.find((a) => a.name === "walk")!;
+    for (const ik of doc.skeleton.ik) {
+      const mix = walk.timelines.find((t) => t.target === "ik" && t.id === ik.id && t.property === "mix");
+      expect(mix?.keys.map((k) => k.value)).toEqual([0]);
+      expect(walk.timelines.some((t) => t.target === "bone" && t.id === ik.bones[0] && t.property === "rotation")).toBe(true);
+    }
+    await expect(call("bake_constraints", { animation: "nope" })).rejects.toThrow(/not found/);
   });
 
   it("smooths and prunes weights, and reports stats", async () => {

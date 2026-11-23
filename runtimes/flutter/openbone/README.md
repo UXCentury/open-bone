@@ -4,7 +4,7 @@
 animation, meshes, constraints, physics, particles, text, and Rive-style state machines with inputs, pointer listeners,
 events, audio commands and scripts. It is a thin `dart:ffi` wrapper over the native C++ runtime
 ([`runtimes/cpp`](https://github.com/UXCentury/open-bone/tree/main/runtimes/cpp), C API [`openbone.h`](https://github.com/UXCentury/open-bone/blob/main/runtimes/cpp/include/openbone.h)), so it poses and reacts exactly like the
-other runtimes: `flutter test` runs all 92 cases of the [conformance suite](https://github.com/UXCentury/open-bone/blob/main/conformance/README.md) through the
+other runtimes: `flutter test` runs all 102 cases of the [conformance suite](https://github.com/UXCentury/open-bone/blob/main/conformance/README.md) through the
 Dart API.
 
 | | |
@@ -144,7 +144,7 @@ on any canvas):
 cd runtimes/flutter/openbone
 flutter pub get
 tool/build_native.sh                     # libopenbone for the host → .dart_tool/openbone_native/
-flutter test                             # conformance (92 cases), API, widget + golden tests
+flutter test                             # conformance (102 cases), API, widget + golden tests
 flutter analyze
 cd example && flutter run -d linux       # the example app (knight + button)
 ```
@@ -173,7 +173,7 @@ cd /tmp/openbone-pub/openbone && flutter pub publish --dry-run
 
 ### What has been checked
 
-- Linux x64: `flutter test` (all 92 conformance cases, API tests, widget tests with a golden), `flutter analyze`, and
+- Linux x64: `flutter test` (all 102 conformance cases, API tests, widget tests with a golden), `flutter analyze`, and
   the example app built with `flutter build linux` and run under xvfb (`--dart-define=OPENBONE_SMOKE=true` loads the
   button, presses it, prints a status line and exits).
 - The iOS/macOS source layout: the `darwin/Classes` forwarders compiled with clang and the podspec's flags into a

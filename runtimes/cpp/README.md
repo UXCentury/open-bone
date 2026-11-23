@@ -8,7 +8,7 @@ commands. Rendering and audio playback are up to the engine (the Godot, Cocos2d-
 the sounds; `engines/common/openbone_audio.hpp` is the shared, engine-neutral mixer logic).
 
 It follows [docs/runtime-spec.md](../../docs/runtime-spec.md) and passes the whole [conformance suite](../../conformance)
-(21 reference files, 92 cases: setup poses, every animation per skin, scripted state-machine runs), also with
+(23 reference files, 102 cases: setup poses, every animation per skin, scripted state-machine runs), also with
 `--strict`, i.e. within the reference's 4-decimal rounding rather than the suite's tolerances.
 
 | | |
@@ -128,6 +128,12 @@ instance. These are additive, so `OB_API_VERSION` stays 1.
 Path constraints read `constantSpeed` (default true: bones are placed by arc length inside each bezier segment). With
 `constantSpeed: false` only the segment is found by arc length and the point inside it is at the raw bezier parameter
 (Spine with "constant speed" off; spec §7.3). `PathConstraintData::constantSpeed` holds it.
+
+Transform constraints with a non-empty `map` (`TransformConstraintData::map`, `TransformMapping {from, to, scale,
+offset, min, max}`) use property mapping instead of the classic copy: each target channel (rotation, x, y, scaleX,
+scaleY, shearY), read in `localSource` space (default: the `local` space), is scaled, offset, clamped and written to a
+channel of the constrained bones (spec §7.2). IK and physics constraints read `volume`: stretching scales the width by
+1/s so the area is kept (spec §7.1, §7.4).
 
 ## Drawing the draw list
 

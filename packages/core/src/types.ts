@@ -485,6 +485,11 @@ export interface IkConstraintData {
   compress: boolean;
   /** With stretch/compress: scale both axes (keeps the image's proportions) instead of only along the bone. */
   uniform?: boolean;
+  /**
+   * Keep volume when stretching or compressing: the bone's width scales by 1 / the length factor (squash and
+   * stretch). Ignored with `uniform`.
+   */
+  volume?: boolean;
 }
 
 export interface TransformConstraintData {
@@ -512,6 +517,30 @@ export interface TransformConstraintData {
   local: boolean;
   /** Add the target's change from its setup pose instead of copying its absolute value. */
   relative: boolean;
+  /**
+   * Property mapping: when set and non-empty, the constraint drives the bones through these mappings instead of
+   * copying the target's transform (the offset fields are then unused; the mixes still apply per written property).
+   */
+  map?: TransformMapping[];
+  /** Mapping only: read the target's local (parent-space) values; unset = the same space as `local`. */
+  localSource?: boolean;
+}
+
+/** Bone properties a transform mapping reads or writes (rotation and shearY in degrees). */
+export type TransformChannel = "rotation" | "x" | "y" | "scaleX" | "scaleY" | "shearY";
+export const TRANSFORM_CHANNELS: TransformChannel[] = ["rotation", "x", "y", "scaleX", "scaleY", "shearY"];
+
+/**
+ * One mapping of a transform constraint: value = offset + (the target's `from`) x scale, clamped to min..max, is
+ * written to each constrained bone's `to`. Mappings with the same `to` add up. See docs/format.md.
+ */
+export interface TransformMapping {
+  from: TransformChannel;
+  to: TransformChannel;
+  scale: number;
+  offset: number;
+  min?: number;
+  max?: number;
 }
 
 /** fixed: `position` is a distance along the path; percent: `position` is 0..1 of the path length. */
@@ -588,6 +617,8 @@ export interface PhysicsConstraintData {
   mix: number;
   /** Simulation steps per second. */
   fps: number;
+  /** Keep volume when the simulation stretches the bone (`scaleX`): its width scales by 1 / the stretch. */
+  volume?: boolean;
 }
 export interface SkeletonData {
   bones: BoneData[];

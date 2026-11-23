@@ -230,6 +230,19 @@ struct IkConstraintData {
   Id target;
   double mix = 1, softness = 0;
   bool bendPositive = true, stretch = false, compress = false, uniform = false;
+  /** Stretch keeps the area: the width scales by 1/s (ignored when `uniform`). */
+  bool volume = false;
+};
+
+/** Bone property a transform mapping reads or writes (rotation and shearY in degrees), in application order. */
+enum class TransformChannel : uint8_t { Rotation, X, Y, ScaleX, ScaleY, ShearY };
+constexpr int kTransformChannels = 6;
+
+/** One property mapping: value = offset + (target's `from`) * scale, clamped to min..max, written to `to` (spec §7.2). */
+struct TransformMapping {
+  TransformChannel from = TransformChannel::Rotation, to = TransformChannel::Rotation;
+  double scale = 1, offset = 0;
+  std::optional<double> min, max;
 };
 
 struct TransformConstraintData {
@@ -241,6 +254,10 @@ struct TransformConstraintData {
   double mixRotate = 1, mixTranslate = 1, mixScale = 1, mixShear = 0;
   double offsetRotation = 0, offsetX = 0, offsetY = 0, offsetScaleX = 0, offsetScaleY = 0, offsetShear = 0;
   bool local = false, relative = false;
+  /** Property mapping; non-empty replaces the classic copy (spec §7.2 "Property mapping"). */
+  std::vector<TransformMapping> map;
+  /** Mapping only: read the target's local values; unset = the same space as `local`. */
+  std::optional<bool> localSource;
 };
 
 enum class PositionMode : uint8_t { Fixed, Percent };
@@ -268,6 +285,8 @@ struct PhysicsConstraintData {
   Id bone;
   double x = 0, y = 0, rotate = 0, scaleX = 0;
   double inertia = 0.5, strength = 100, damping = 1, mass = 1, gravity = 0, wind = 0, mix = 1, fps = 60;
+  /** Stretch (scaleX) keeps the area: the width scales by 1/s. */
+  bool volume = false;
 };
 
 enum class BoneProp : uint8_t { X, Y, Rotation, ScaleX, ScaleY, ShearX, ShearY, Inherit, Unknown };

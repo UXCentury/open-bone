@@ -328,7 +328,7 @@ softness (`|usX|`) and physics wind (`usX`) / gravity (`usY`) use it.
 
 ### 7.1 IK (`applyIk`)
 Skip if `mix ≤ 0`, the target is missing or no bone exists. `bendPositive = bend > 0`, `stretch = stretch > 0`,
-`compress = compress > 0` (live values), `uniform = !!c.uniform`. `(tx, ty)` = target world position.
+`compress = compress > 0` (live values), `uniform = !!c.uniform`, `volume = !!c.volume`. `(tx, ty)` = target world position.
 
 **One bone** `b`, parent matrix `P = parent ? parent.world : root`:
 ```
@@ -340,7 +340,8 @@ len = data.length · worldScaleX(b.world)
 if (stretch or compress) and len > 1e-6:
     k = hypot(dx, dy) / len
     if (k > 1 and stretch) or (k < 1 and compress):
-        s = 1 + (k − 1)·mix;  world.a,c *= s;  if uniform: world.b,d *= s
+        s = 1 + (k − 1)·mix;  world.a,c *= s
+        u = uniform ? s : (volume and s > 1e-6) ? 1/s : 1;  world.b,d *= u;  b.syncApplied(root)
 b.updateSubtree(root, false)
 ```
 
@@ -364,7 +365,7 @@ deltaC = wrap(atan2(ay − ch.world.y, ax − ch.world.x)·RAD − worldRotation
 p.applied.rotation = pRot + deltaP·mix;  ch.applied.rotation = cRot + deltaC·mix
 p.updateWorld; ch.updateWorld
 if stretch and dRaw > dEff + 1e-9:
-    s = 1 + (dRaw/dEff − 1)·mix;  u = uniform ? s : 1
+    s = 1 + (dRaw/dEff − 1)·mix;  u = uniform ? s : volume ? 1/s : 1
     p.world.a,c *= s;  p.world.b,d *= u
     ch.world = {a: ch.a·s, b: ch.b·u, c: ch.c·s, d: ch.d·u, pos: p.world·(ch.applied.x, ch.applied.y)}   // ignores ch inherit mode
 ch.updateSubtree(root, false);  every other child of p: updateSubtree(root)
@@ -397,6 +398,29 @@ Each channel runs only when its mix > 0, in this order:
   `kx = 1 + (|t col0| / (|s col0| ‖ 1) − 1 + offSX)·ms` (y likewise); `setSkew(w, skewOf(w) + (wrap(skewOf(t) − skewOf(s)) + offSh)·mh)`.
 
 then `b.updateSubtree(root, false)`.
+
+**Property mapping** (`applyTransformMap`, when `c.map` is non-empty; replaces both tables above, offsets unused).
+Mix per written channel: rotation `mr`, x/y `mt`, scaleX/scaleY `ms`, shearY `mh` (the skip-if-all-≤-0 rule above
+still applies first). Source space `srcLocal = c.localSource ?? c.local`. Source value `S(ch)` of the target:
+
+| ch | local, absolute | local, relative (`s` = target data) | world, absolute | world, relative (`s` = setup world, as above) |
+| --- | --- | --- | --- | --- |
+| rotation | `t.r` | `wrap(t.r − s.r)` | `rot(t)` | `wrap(rot(t) − rot(s))` |
+| x / y | `t.x` | `t.x − s.x` | `t.pos.x` | `t.x − s.x` |
+| scaleX / Y | `t.sx` | `(s.sx ? t.sx/s.sx : 1) − 1` | `\|t col0\|` | `\|t col0\| / (\|s col0\| ‖ 1) − 1` |
+| shearY | `t.shY` | `t.shY − s.shY` | `skewOf(t)` | `wrap(skewOf(t) − skewOf(s))` |
+
+Computed once per constraint (before any bone moves): for each mapping in order,
+`v = offset + S(from)·scale`, then `v = max(min, v)` if `min` is set, `v = min(max, v)` if `max` is set, and
+`V[to] += v` (mappings with the same `to` add up). Then for each listed bone `b ≠ target`, for `ch` in the order
+rotation, x, y, scaleX, scaleY, shearY, skipping channels with no `V[ch]` or mix `m ≤ 0`:
+- **local** (`c.local`, on `p = b.applied`): scale channels: relative `p.ch *= 1 + V·m`, absolute `p.ch += (V − p.ch)·m`;
+  others: relative `p.ch += V·m`, absolute rotation/shearY `p.ch += wrap(V − p.ch)·m`, x/y `p.ch += (V − p.ch)·m`.
+  After all channels: `b.updateSubtree(root)`.
+- **world** (on `w = b.world`): rotation `rotateAxes(w, (rel ? V : wrap(V − rot(w)))·m·DEG)`; x `w.x += rel ? V·m :
+  (V − w.x)·m` (y likewise); scaleX `cur = |w col0| ‖ 1`, `k = (rel ? cur·(1 + V·m) : cur + (V − cur)·m) / cur`,
+  `w.a,c *= k` (scaleY: col1, `w.b,d`); shearY `sb = skewOf(w)`, `setSkew(w, sb + (rel ? V : wrap(V − sb))·m)`.
+  After all channels: `b.syncApplied(root)`, `b.updateSubtree(root, false)`.
 
 ### 7.3 Path (`applyPath`)
 Skip if `mixRotate, mixX, mixY` all ≤ 0, the target slot is missing or its current attachment is not a path.
@@ -461,6 +485,7 @@ if c.rotate > 0 or c.scaleX > 0:
     (dx, dy) = S(tip) − w.pos ;  d = hypot ;  if d > 1e-9:
         rotateAxes(w, wrap((atan2(dy,dx) − atan2(ty−oy, tx−ox))·RAD)·c.rotate·mix·DEG)
         if c.scaleX > 0 and data.length > 1e-6: s = 1 + (d/rest − 1)·c.scaleX·mix; w.a,c *= s   // rest = world distance origin→tip before simulating (len if 0)
+            if c.volume and s > 1e-6: w.b,d /= s
 bone.syncApplied(root) ;  bone.updateSubtree(root, false)
 ```
 `dt` is everything passed to `Skeleton.update` since the previous `updateWorldTransform`. `x, y, rotate, scaleX`

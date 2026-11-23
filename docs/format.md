@@ -83,10 +83,34 @@ skins that list them:
 
 | Constraint | Fields worth knowing |
 |---|---|
-| **IK** | `softness` (2-bone) eases the chain toward straight over that distance before full reach; `stretch` scales the bones to reach a far target; `compress` (1-bone) shortens the bone for a near one; `uniform` makes stretch/compress scale both axes |
-| **Transform** | World mode blends world matrices; `local` blends the bones' local values instead. `relative` adds the target's change since its setup pose (plus offsets) rather than copying its absolute value. `mixShear` blends the angle between the bone's axes |
+| **IK** | `softness` (2-bone) eases the chain toward straight over that distance before full reach; `stretch` scales the bones to reach a far target; `compress` (1-bone) shortens the bone for a near one; `uniform` makes stretch/compress scale both axes; `volume` (optional) keeps volume instead: the width scales by 1 / the length factor, for squash and stretch (ignored with `uniform`) |
+| **Transform** | World mode blends world matrices; `local` blends the bones' local values instead. `relative` adds the target's change since its setup pose (plus offsets) rather than copying its absolute value. `mixShear` blends the angle between the bone's axes. With `map` the constraint maps properties instead of copying them ([below](#transform-property-mapping)) |
 | **Path** | Places `bones` along the path attachment shown by the `target` slot. `positionMode`: `fixed` (distance) or `percent` (0..1 of the length). `spacingMode`: `length` (bone length + spacing), `fixed`, `percent` or `proportional` (spacing × length shared by bone length). `rotateMode`: `tangent`, `chain` (aim at the next placed point) or `chainScale` (also stretch to reach it). Distances are arc lengths; open paths extend straight past their ends, closed paths wrap |
-| **Physics** | Two spring particles (bone origin and tip) lag behind the animated pose. `x`, `y`, `rotate`, `scaleX` (0..1) choose which channels move the bone; `inertia` is how much of the bone's own motion is resisted; `strength`/`mass` set the spring; `damping` is velocity decay per second; `gravity`/`wind` are constant accelerations. Simulated at `fps` fixed steps per second, so the same frame times always give the same result |
+| **Physics** | Two spring particles (bone origin and tip) lag behind the animated pose. `x`, `y`, `rotate`, `scaleX` (0..1) choose which channels move the bone; `inertia` is how much of the bone's own motion is resisted; `strength`/`mass` set the spring; `damping` is velocity decay per second; `gravity`/`wind` are constant accelerations. Simulated at `fps` fixed steps per second, so the same frame times always give the same result. `volume` (optional) keeps volume when `scaleX` stretches the bone (width × 1 / stretch) |
+
+### Transform property mapping
+
+`map` (optional, on a transform constraint): `[{ from, to, scale, offset, min?, max? }]`, where `from` and `to` are
+`rotation`, `x`, `y`, `scaleX`, `scaleY` or `shearY` (angles in degrees). When the list is non-empty the constraint
+stops copying the target and instead writes, for each mapping, `offset + target[from] × scale`, clamped to
+`min`..`max` when set, into each constrained bone's `to`. Mappings with the same `to` add up, so two sources can drive
+one property. Any combination is allowed: the target's x can turn the bones, its rotation can scale them.
+
+| Setting | Effect with `map` |
+|---|---|
+| `local` | Write the bones' local (parent-space) values; off: their world transform |
+| `localSource` (optional) | Read the target's local values; off: its world values. Unset: the same as `local` |
+| `relative` | Read the target's change from its setup pose (for scales: ratio − 1) and add the result to the bones (scales multiply by `1 + value`), instead of moving them toward it |
+| `mixRotate` … `mixShear` | Still the blend of each written property: rotation uses `mixRotate`, x/y `mixTranslate`, scaleX/scaleY `mixScale`, shearY `mixShear` (all times the keyable `mix`) |
+| `offset*` fields | Unused (each mapping has its own `offset`) |
+
+Example, a dial that turns as a slider bone moves right, never past ±90°:
+
+```json
+"map": [{ "from": "x", "to": "rotation", "scale": 1.5, "offset": 0, "min": -90, "max": 90 }]
+```
+
+The exact rules are in [runtime-spec.md §7.2](runtime-spec.md#72-transform-applytransform).
 
 ### Constraint order
 

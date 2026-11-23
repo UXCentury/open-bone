@@ -27,6 +27,7 @@ import com.openbone.runtime.data.StateMachineData;
 import com.openbone.runtime.data.TextAttachment;
 import com.openbone.runtime.data.Timeline;
 import com.openbone.runtime.data.TransformConstraintData;
+import com.openbone.runtime.data.TransformMapping;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -656,10 +657,10 @@ public final class Skeleton {
           double s = 1 + (k - 1) * mix;
           b.world.a *= s;
           b.world.c *= s;
-          if (uniform) {
-            b.world.b *= s;
-            b.world.d *= s;
-          }
+          // Width: uniform scales it with the length, volume keeps the area (1 / s), otherwise it stays.
+          double u = uniform ? s : c.volume && s > 1e-6 ? 1 / s : 1;
+          b.world.b *= u;
+          b.world.d *= u;
           b.syncApplied(root);
         }
       }
@@ -699,7 +700,7 @@ public final class Skeleton {
     if (stretch && dRaw > dEff + 1e-9) {
       double s = 1 + (dRaw / dEff - 1) * mix;
       Affine cw = ch.world;
-      double u = uniform ? s : 1;
+      double u = uniform ? s : c.volume ? 1 / s : 1;
       p.world.a *= s;
       p.world.c *= s;
       p.world.b *= u;
@@ -759,6 +760,10 @@ public final class Skeleton {
     Bone target = boneById.get(c.target);
     if (target == null) return;
     Affine root = rootMatrix();
+    if (!c.map.isEmpty()) {
+      applyTransformMap(c, target, mr, mt, ms, mh);
+      return;
+    }
     double offScaleX = c.offsetScaleX, offScaleY = c.offsetScaleY, offShear = c.offsetShear;
     for (String id : c.bones) {
       Bone b = boneById.get(id);
@@ -824,6 +829,122 @@ public final class Skeleton {
       }
       b.syncApplied(root);
       b.updateSubtree(root, false);
+    }
+  }
+
+  private static final String[] TRANSFORM_CHANNELS = {"rotation", "x", "y", "scaleX", "scaleY", "shearY"};
+
+  /** Source value of one mapping channel: the target's local or world value, or its change from setup (relative). */
+  private double transformSource(TransformConstraintData c, Bone target, String ch) {
+    if (c.localSource != null ? c.localSource : c.local) {
+      LocalTransform t = target.applied;
+      if (!c.relative) return t.get(ch);
+      BoneData s = target.data;
+      switch (ch) {
+        case "rotation":
+          return MathUtil.wrapDeg(t.rotation - s.rotation);
+        case "scaleX":
+          return (s.scaleX != 0 && !Double.isNaN(s.scaleX) ? t.scaleX / s.scaleX : 1) - 1;
+        case "scaleY":
+          return (s.scaleY != 0 && !Double.isNaN(s.scaleY) ? t.scaleY / s.scaleY : 1) - 1;
+        default:
+          return t.get(ch) - s.get(ch);
+      }
+    }
+    Affine t = target.world;
+    Affine s = c.relative ? setupWorldOf(target.data.id) : null;
+    switch (ch) {
+      case "rotation":
+        return s != null ? MathUtil.wrapDeg(t.rotation() - s.rotation()) : t.rotation();
+      case "x":
+        return s != null ? t.x - s.x : t.x;
+      case "y":
+        return s != null ? t.y - s.y : t.y;
+      case "scaleX":
+        return s != null ? t.scaleX() / orOne(s.scaleX()) - 1 : t.scaleX();
+      case "scaleY":
+        return s != null ? t.scaleY() / orOne(s.scaleY()) - 1 : t.scaleY();
+      case "shearY":
+        return s != null ? MathUtil.wrapDeg(skewOf(t) - skewOf(s)) : skewOf(t);
+      default:
+        return Double.NaN;
+    }
+  }
+
+  /**
+   * Transform constraint with a property mapping: each mapping's value (offset + source x scale, clamped) is summed
+   * per written property, then each constrained bone moves toward it (or, relative, has it added) by that property's
+   * mix, in the order rotation, x, y, scaleX, scaleY, shearY.
+   */
+  private void applyTransformMap(TransformConstraintData c, Bone target, double mr, double mt, double ms, double mh) {
+    Map<String, Double> values = new HashMap<>();
+    for (TransformMapping m : c.map) {
+      double v = m.offset + transformSource(c, target, m.from) * m.scale;
+      if (m.min != null) v = Math.max(m.min, v);
+      if (m.max != null) v = Math.min(m.max, v);
+      Double prev = values.get(m.to);
+      values.put(m.to, (prev != null ? prev : 0) + v);
+    }
+    Affine root = rootMatrix();
+    boolean rel = c.relative;
+    for (String id : c.bones) {
+      Bone b = boneById.get(id);
+      if (b == null || b == target) continue;
+      for (String ch : TRANSFORM_CHANNELS) {
+        Double boxed = values.get(ch);
+        double mix;
+        switch (ch) {
+          case "rotation": mix = mr; break;
+          case "x": case "y": mix = mt; break;
+          case "scaleX": case "scaleY": mix = ms; break;
+          default: mix = mh;
+        }
+        if (boxed == null || mix <= 0) continue;
+        double val = boxed;
+        if (c.local) {
+          LocalTransform p = b.applied;
+          double cur = p.get(ch);
+          if (ch.equals("scaleX") || ch.equals("scaleY")) p.set(ch, rel ? cur * (1 + val * mix) : cur + (val - cur) * mix);
+          else if (rel) p.set(ch, cur + val * mix);
+          else if (ch.equals("rotation") || ch.equals("shearY")) p.set(ch, cur + MathUtil.wrapDeg(val - cur) * mix);
+          else p.set(ch, cur + (val - cur) * mix);
+          continue;
+        }
+        Affine w = b.world;
+        switch (ch) {
+          case "rotation":
+            rotateAxes(w, (rel ? val : MathUtil.wrapDeg(val - w.rotation())) * mix * MathUtil.DEG);
+            break;
+          case "x":
+            w.x += rel ? val * mix : (val - w.x) * mix;
+            break;
+          case "y":
+            w.y += rel ? val * mix : (val - w.y) * mix;
+            break;
+          case "scaleX":
+          case "scaleY": {
+            double cur = orOne(ch.equals("scaleX") ? w.scaleX() : w.scaleY());
+            double k = (rel ? cur * (1 + val * mix) : cur + (val - cur) * mix) / cur;
+            if (ch.equals("scaleX")) {
+              w.a *= k;
+              w.c *= k;
+            } else {
+              w.b *= k;
+              w.d *= k;
+            }
+            break;
+          }
+          default: {
+            double sb = skewOf(w);
+            setSkew(w, sb + (rel ? val : MathUtil.wrapDeg(val - sb)) * mix);
+          }
+        }
+      }
+      if (c.local) b.updateSubtree(root, true);
+      else {
+        b.syncApplied(root);
+        b.updateSubtree(root, false);
+      }
     }
   }
 
@@ -954,6 +1075,10 @@ public final class Skeleton {
           double s = 1 + (d / rest - 1) * c.scaleX * mix;
           w.a *= s;
           w.c *= s;
+          if (c.volume && s > 1e-6) {
+            w.b /= s;
+            w.d /= s;
+          }
         }
       }
     }

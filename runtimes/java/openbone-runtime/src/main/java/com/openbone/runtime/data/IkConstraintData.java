@@ -7,7 +7,7 @@ public class IkConstraintData extends ConstraintData {
   public final List<String> bones = new ArrayList<>();
   public String target;
   public double mix = 1, softness;
-  public boolean bendPositive = true, stretch, compress, uniform;
+  public boolean bendPositive = true, stretch, compress, uniform, volume;
 
   @Override
   public String kind() {

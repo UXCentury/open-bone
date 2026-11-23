@@ -1,4 +1,4 @@
-import { animationDuration, type Attachment, attachmentOwner, constraintOrder, INHERIT_MODES, type BindingTarget, type BoneProperty, type ClippingAttachment, CONSTRAINT_PROPERTIES, defaultSkin, descendantIds, estimateTextBox, getAttachment, type SequenceAttachment, shapeOutline, type SkinData, slotAttachments, splitFontFamilies, templateInputs } from "@openbone/core";
+import { animationDuration, type Attachment, type TransformChannel, type TransformMapping, TRANSFORM_CHANNELS, attachmentOwner, constraintOrder, INHERIT_MODES, type BindingTarget, type BoneProperty, type ClippingAttachment, CONSTRAINT_PROPERTIES, defaultSkin, descendantIds, estimateTextBox, getAttachment, type SequenceAttachment, shapeOutline, type SkinData, slotAttachments, splitFontFamilies, templateInputs } from "@openbone/core";
 import { regionGridMesh, retraceMesh, traceRegion } from "../mesh-trace.ts";
 import { lastBackground, setBackground } from "../background.ts";
 import { reorderSlot } from "../visibility.ts";
@@ -10,6 +10,7 @@ import { activeSkin, apply, currentAnimation, doc, mode, selection, setSelection
 import { askConfirm, askForm, confirmDelete } from "../dialogs.tsx";
 import { deleteAttachmentAsk, deleteBoneAsk, deleteConstraintAsk, deleteSlotAsk } from "../destructive.ts";
 import { ColorField, NumberField, Section, SelectField, TextField } from "./fields.tsx";
+import { evalNumberExpr } from "../expr.ts";
 import { AudioAssetInspector, BusInspector, SoundInspector } from "./AudioPanel.tsx";
 import { FontInspector, pickFonts } from "./FontsPanel.tsx";
 import { SequenceEditor } from "./SequenceEditor.tsx";
@@ -679,6 +680,9 @@ function IkInspector(p: { id: string }) {
         </Show>
         <Show when={c()!.stretch || (c()!.bones.length === 1 && c()!.compress)}>
           <Check label="Uniform" title="Scale both axes when stretching or compressing, so the art keeps its proportions" checked={!!c()!.uniform} onChange={(v) => set({ uniform: v })} />
+          <Show when={!c()!.uniform}>
+            <Check label="Volume" title="Keep volume: the bone gets thinner as it stretches and wider as it squashes" checked={!!c()!.volume} onChange={(v) => set({ volume: v })} />
+          </Show>
         </Show>
         <SkinMembership kind="constraints" id={p.id} />
         <button class="danger" onClick={() => void deleteConstraintAsk(p.id, "IK")}>
@@ -707,7 +711,7 @@ function TransformInspector(p: { id: string }) {
     <Show when={c()}>
       <Section title="Transform constraint">
         <TextField label="Name" value={c()!.name} onCommit={(v) => set({ name: v })} />
-        <BonesHint bones={c()!.bones} verb={c()!.relative ? "add the changes of" : "copy"} target={c()!.target} />
+        <BonesHint bones={c()!.bones} verb={c()!.map?.length ? "are driven by the mapping from" : c()!.relative ? "add the changes of" : "copy"} target={c()!.target} />
         <AnimateHint />
         <SelectField label="Target" value={c()!.target} options={bones()} onCommit={(v) => set({ target: v })} />
         <div class="field col">
@@ -723,6 +727,9 @@ function TransformInspector(p: { id: string }) {
         </div>
         <Check label="Local" title="Copy local (parent-space) values instead of world transforms" checked={c()!.local} onChange={(v) => set({ local: v })} />
         <Check label="Relative" title="Add the target's change from its setup pose instead of copying its value" checked={c()!.relative} onChange={(v) => set({ relative: v })} />
+        <Show when={c()!.map?.length}>
+          <Check label="Source local" title="Read the target's local (parent-space) values; off: its world values" checked={c()!.localSource ?? c()!.local} onChange={(v) => set({ localSource: v })} />
+        </Show>
         <Show when={mode() === "animate"}>
           <CNumber kind="transform" id={p.id} prop="mix" label="Mix ×" step={0.01} min={0} max={1} value={1} />
         </Show>
@@ -730,12 +737,15 @@ function TransformInspector(p: { id: string }) {
         <CNumber kind="transform" id={p.id} prop="mixTranslate" label="Translate" step={0.01} min={0} max={1} value={c()!.mixTranslate} />
         <CNumber kind="transform" id={p.id} prop="mixScale" label="Scale" step={0.01} min={0} max={1} value={c()!.mixScale} />
         <CNumber kind="transform" id={p.id} prop="mixShear" label="Shear" step={0.01} min={0} max={1} value={c()!.mixShear} />
-        <CNumber kind="transform" id={p.id} prop="offsetRotation" label="Offset rot" value={c()!.offsetRotation} />
-        <CNumber kind="transform" id={p.id} prop="offsetX" label="Offset X" value={c()!.offsetX} />
-        <CNumber kind="transform" id={p.id} prop="offsetY" label="Offset Y" value={c()!.offsetY} />
-        <CNumber kind="transform" id={p.id} prop="offsetScaleX" label="Offset sX" step={0.01} value={c()!.offsetScaleX} />
-        <CNumber kind="transform" id={p.id} prop="offsetScaleY" label="Offset sY" step={0.01} value={c()!.offsetScaleY} />
-        <CNumber kind="transform" id={p.id} prop="offsetShear" label="Offset shear" value={c()!.offsetShear} />
+        <Show when={!c()!.map?.length}>
+          <CNumber kind="transform" id={p.id} prop="offsetRotation" label="Offset rot" value={c()!.offsetRotation} />
+          <CNumber kind="transform" id={p.id} prop="offsetX" label="Offset X" value={c()!.offsetX} />
+          <CNumber kind="transform" id={p.id} prop="offsetY" label="Offset Y" value={c()!.offsetY} />
+          <CNumber kind="transform" id={p.id} prop="offsetScaleX" label="Offset sX" step={0.01} value={c()!.offsetScaleX} />
+          <CNumber kind="transform" id={p.id} prop="offsetScaleY" label="Offset sY" step={0.01} value={c()!.offsetScaleY} />
+          <CNumber kind="transform" id={p.id} prop="offsetShear" label="Offset shear" value={c()!.offsetShear} />
+        </Show>
+        <TransformMapEditor id={p.id} />
         <SkinMembership kind="constraints" id={p.id} />
         <button class="danger" onClick={() => void deleteConstraintAsk(p.id, "transform")}>
           Delete
@@ -743,6 +753,64 @@ function TransformInspector(p: { id: string }) {
       </Section>
       <ConstraintOrderSection current={p.id} />
     </Show>
+  );
+}
+
+const CHANNEL_LABELS: Record<TransformChannel, string> = { rotation: "Rotation", x: "X", y: "Y", scaleX: "Scale X", scaleY: "Scale Y", shearY: "Shear" };
+
+/** Property mapping of a transform constraint: rows of "target <from> × scale + offset, clamped → bones' <to>". */
+function TransformMapEditor(p: { id: string }) {
+  const c = () => doc().skeleton.transform.find((x) => x.id === p.id);
+  const rows = () => c()?.map ?? [];
+  const write = (map: TransformMapping[]) => apply("updateTransformConstraint", { constraint: p.id, map });
+  const patch = (i: number, change: Partial<TransformMapping> | ((m: TransformMapping) => TransformMapping)) =>
+    write(rows().map((m, j) => (j !== i ? m : typeof change === "function" ? change(m) : { ...m, ...change })));
+  const without = (m: TransformMapping, key: "min" | "max") => {
+    const { [key]: _drop, ...rest } = m;
+    return rest as TransformMapping;
+  };
+  const channelOptions = TRANSFORM_CHANNELS.map((ch) => ({ value: ch, label: CHANNEL_LABELS[ch] }));
+  return (
+    <div class="transform-map">
+      <div class="field">
+        <span>Mapping</span>
+        <button
+          title="Drive one property from another (e.g. the target's X turns these bones). Replaces copying; the mixes above still apply per written property."
+          onClick={() => write([...rows(), { from: "rotation", to: "rotation", scale: 1, offset: 0 }])}
+        >
+          + Add
+        </button>
+      </div>
+      <Show when={!rows().length}>
+        <div class="hint">Off: the bones copy the target. Add a mapping to drive any property from any other, with a factor, offset and limits.</div>
+      </Show>
+      <For each={rows()}>
+        {(m, i) => (
+          <div class="map-row">
+            <SelectField label="Target" value={m.from} options={channelOptions} onCommit={(v) => patch(i(), { from: v })} />
+            <SelectField label="→ Bones" value={m.to} options={channelOptions} onCommit={(v) => patch(i(), { to: v })} />
+            <NumberField label="Factor" step={0.01} value={m.scale} onCommit={(v) => patch(i(), { scale: v })} />
+            <NumberField label="Offset" value={m.offset} onCommit={(v) => patch(i(), { offset: v })} />
+            <label class="field">
+              <span>Limits</span>
+              <input class="num-expr" placeholder="min" value={m.min ?? ""} onChange={(e) => {
+                const t = e.currentTarget.value.trim();
+                const v = t ? evalNumberExpr(t, m.min ?? 0) : null;
+                patch(i(), (cur) => (v === null ? without(cur, "min") : { ...cur, min: v }));
+              }} />
+              <input class="num-expr" placeholder="max" value={m.max ?? ""} onChange={(e) => {
+                const t = e.currentTarget.value.trim();
+                const v = t ? evalNumberExpr(t, m.max ?? 0) : null;
+                patch(i(), (cur) => (v === null ? without(cur, "max") : { ...cur, max: v }));
+              }} />
+              <button class="icon" title="Remove this mapping" onClick={() => write(rows().filter((_, j) => j !== i()))}>
+                ✕
+              </button>
+            </label>
+          </div>
+        )}
+      </For>
+    </div>
   );
 }
 
@@ -836,6 +904,9 @@ function PhysicsInspector(p: { id: string }) {
         <CNumber kind="physics" id={p.id} prop="x" label="Move X" step={0.01} min={0} max={1} value={c()!.x} />
         <CNumber kind="physics" id={p.id} prop="y" label="Move Y" step={0.01} min={0} max={1} value={c()!.y} />
         <CNumber kind="physics" id={p.id} prop="scaleX" label="Stretch" step={0.01} min={0} max={1} value={c()!.scaleX} />
+        <Show when={c()!.scaleX > 0}>
+          <Check label="Volume" title="Keep volume: the bone gets thinner as the simulation stretches it" checked={!!c()!.volume} onChange={(v) => set({ volume: v })} />
+        </Show>
         <CNumber kind="physics" id={p.id} prop="inertia" label="Inertia" step={0.01} min={0} max={1} value={c()!.inertia} />
         <CNumber kind="physics" id={p.id} prop="strength" label="Strength" min={0} value={c()!.strength} />
         <CNumber kind="physics" id={p.id} prop="damping" label="Damping" step={0.1} min={0} value={c()!.damping} />

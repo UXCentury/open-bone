@@ -275,6 +275,8 @@ class Skeleton {
   void applySliders();
   void applyIk(const IkConstraintData& c, ConstraintValues& v);
   void applyTransform(const TransformConstraintData& c, ConstraintValues& v);
+  void applyTransformMap(const TransformConstraintData& c, Bone& target, const double* mixes);
+  double transformSource(const TransformConstraintData& c, Bone& target, TransformChannel ch) const;
   void applyPath(const PathConstraintData& c, ConstraintValues& v);
   void applyPhysics(const PhysicsConstraintData& c, ConstraintValues& v, double dt);
   void stepParticles(double h);

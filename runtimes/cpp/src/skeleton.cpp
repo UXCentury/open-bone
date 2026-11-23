@@ -695,10 +695,10 @@ void Skeleton::applyIk(const IkConstraintData& c, ConstraintValues& v) {
         const double s = 1 + (k - 1) * mix;
         b.world.a *= s;
         b.world.c *= s;
-        if (uniform) {
-          b.world.b *= s;
-          b.world.d *= s;
-        }
+        // Width: uniform scales it with the length, volume keeps the area (1 / s), otherwise it stays.
+        const double u = uniform ? s : c.volume && s > 1e-6 ? 1 / s : 1;
+        b.world.b *= u;
+        b.world.d *= u;
         b.syncApplied(root);
       }
     }
@@ -738,7 +738,7 @@ void Skeleton::applyIk(const IkConstraintData& c, ConstraintValues& v) {
   if (stretch && dRaw > dEff + 1e-9) {
     const double s = 1 + (dRaw / dEff - 1) * mix;
     const Affine cw = ch.world;
-    const double u = uniform ? s : 1;
+    const double u = uniform ? s : c.volume ? 1 / s : 1;
     p.world.a *= s;
     p.world.c *= s;
     p.world.b *= u;
@@ -782,6 +782,11 @@ void Skeleton::applyTransform(const TransformConstraintData& c, ConstraintValues
   Bone* target = boneById(c.target);
   if (!target) return;
   const Affine root = rootMatrix();
+  if (!c.map.empty()) {
+    const double mixes[kTransformChannels] = {mr, mt, mt, ms, ms, mh};
+    applyTransformMap(c, *target, mixes);
+    return;
+  }
   const double offScaleX = c.offsetScaleX, offScaleY = c.offsetScaleY, offShear = c.offsetShear;
   for (const auto& id : c.bones) {
     Bone* bp = boneById(id);
@@ -851,6 +856,132 @@ void Skeleton::applyTransform(const TransformConstraintData& c, ConstraintValues
     }
     b.syncApplied(root);
     b.updateSubtree(root, false);
+  }
+}
+
+namespace {
+double& localChannel(LocalTransform& t, TransformChannel ch) {
+  switch (ch) {
+    case TransformChannel::Rotation: return t.rotation;
+    case TransformChannel::X: return t.x;
+    case TransformChannel::Y: return t.y;
+    case TransformChannel::ScaleX: return t.scaleX;
+    case TransformChannel::ScaleY: return t.scaleY;
+    case TransformChannel::ShearY: break;
+  }
+  return t.shearY;
+}
+double dataChannel(const BoneData& d, TransformChannel ch) {
+  switch (ch) {
+    case TransformChannel::Rotation: return d.rotation;
+    case TransformChannel::X: return d.x;
+    case TransformChannel::Y: return d.y;
+    case TransformChannel::ScaleX: return d.scaleX;
+    case TransformChannel::ScaleY: return d.scaleY;
+    case TransformChannel::ShearY: break;
+  }
+  return d.shearY;
+}
+}  // namespace
+
+double Skeleton::transformSource(const TransformConstraintData& c, Bone& target, TransformChannel ch) const {
+  if (c.localSource.value_or(c.local)) {
+    LocalTransform& t = target.applied;
+    if (!c.relative) return localChannel(t, ch);
+    const BoneData& s = *target.data;
+    switch (ch) {
+      case TransformChannel::Rotation: return wrapDeg(t.rotation - s.rotation);
+      case TransformChannel::ScaleX: return (s.scaleX != 0 && !std::isnan(s.scaleX) ? t.scaleX / s.scaleX : 1) - 1;
+      case TransformChannel::ScaleY: return (s.scaleY != 0 && !std::isnan(s.scaleY) ? t.scaleY / s.scaleY : 1) - 1;
+      default: return localChannel(t, ch) - dataChannel(s, ch);
+    }
+  }
+  const Affine t = target.world;
+  if (c.relative) {
+    const Affine s = setupWorldOf(target.data->id);
+    switch (ch) {
+      case TransformChannel::Rotation: return wrapDeg(openbone::worldRotation(t) - openbone::worldRotation(s));
+      case TransformChannel::X: return t.x - s.x;
+      case TransformChannel::Y: return t.y - s.y;
+      case TransformChannel::ScaleX: return worldScaleX(t) / orNum(worldScaleX(s), 1) - 1;
+      case TransformChannel::ScaleY: return worldScaleY(t) / orNum(worldScaleY(s), 1) - 1;
+      case TransformChannel::ShearY: break;
+    }
+    return wrapDeg(skewOf(t) - skewOf(s));
+  }
+  switch (ch) {
+    case TransformChannel::Rotation: return openbone::worldRotation(t);
+    case TransformChannel::X: return t.x;
+    case TransformChannel::Y: return t.y;
+    case TransformChannel::ScaleX: return worldScaleX(t);
+    case TransformChannel::ScaleY: return worldScaleY(t);
+    case TransformChannel::ShearY: break;
+  }
+  return skewOf(t);
+}
+
+void Skeleton::applyTransformMap(const TransformConstraintData& c, Bone& target, const double* mixes) {
+  double values[kTransformChannels] = {0, 0, 0, 0, 0, 0};
+  bool has[kTransformChannels] = {false, false, false, false, false, false};
+  for (const TransformMapping& m : c.map) {
+    double v = m.offset + transformSource(c, target, m.from) * m.scale;
+    // Math.max / Math.min semantics: NaN propagates.
+    if (m.min) v = std::isnan(v) || std::isnan(*m.min) ? NAN : std::max(*m.min, v);
+    if (m.max) v = std::isnan(v) || std::isnan(*m.max) ? NAN : std::min(*m.max, v);
+    const int i = static_cast<int>(m.to);
+    values[i] = (has[i] ? values[i] : 0) + v;
+    has[i] = true;
+  }
+  const Affine root = rootMatrix();
+  const bool rel = c.relative;
+  for (const auto& id : c.bones) {
+    Bone* bp = boneById(id);
+    if (!bp || bp == &target) continue;
+    Bone& b = *bp;
+    for (int i = 0; i < kTransformChannels; i++) {
+      const auto ch = static_cast<TransformChannel>(i);
+      const double val = values[i], mix = mixes[i];
+      if (!has[i] || mix <= 0) continue;
+      if (c.local) {
+        double& p = localChannel(b.applied, ch);
+        if (ch == TransformChannel::ScaleX || ch == TransformChannel::ScaleY) p = rel ? p * (1 + val * mix) : p + (val - p) * mix;
+        else if (rel) p += val * mix;
+        else if (ch == TransformChannel::Rotation || ch == TransformChannel::ShearY) p += wrapDeg(val - p) * mix;
+        else p += (val - p) * mix;
+        continue;
+      }
+      Affine& w = b.world;
+      switch (ch) {
+        case TransformChannel::Rotation:
+          rotateAxes(w, (rel ? val : wrapDeg(val - openbone::worldRotation(w))) * mix * DEG);
+          break;
+        case TransformChannel::X: w.x += rel ? val * mix : (val - w.x) * mix; break;
+        case TransformChannel::Y: w.y += rel ? val * mix : (val - w.y) * mix; break;
+        case TransformChannel::ScaleX:
+        case TransformChannel::ScaleY: {
+          const double cur = orNum(ch == TransformChannel::ScaleX ? worldScaleX(w) : worldScaleY(w), 1);
+          const double k = (rel ? cur * (1 + val * mix) : cur + (val - cur) * mix) / cur;
+          if (ch == TransformChannel::ScaleX) {
+            w.a *= k;
+            w.c *= k;
+          } else {
+            w.b *= k;
+            w.d *= k;
+          }
+          break;
+        }
+        case TransformChannel::ShearY: {
+          const double sb = skewOf(w);
+          setSkew(w, sb + (rel ? val : wrapDeg(val - sb)) * mix);
+          break;
+        }
+      }
+    }
+    if (c.local) b.updateSubtree(root, true);
+    else {
+      b.syncApplied(root);
+      b.updateSubtree(root, false);
+    }
   }
 }
 
@@ -996,6 +1127,10 @@ void Skeleton::applyPhysics(const PhysicsConstraintData& c, ConstraintValues& v,
         const double s = 1 + (d / rest - 1) * c.scaleX * mix;
         w.a *= s;
         w.c *= s;
+        if (c.volume && s > 1e-6) {
+          w.b /= s;
+          w.d /= s;
+        }
       }
     }
   }

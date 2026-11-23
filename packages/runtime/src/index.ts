@@ -11,3 +11,4 @@ export * from "./particles.ts";
 export * from "./text.ts";
 export * from "./fonts.ts";
 export * from "./pose.ts";
+export * from "./bake.ts";

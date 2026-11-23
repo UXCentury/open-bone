@@ -762,10 +762,10 @@ class Skeleton {
 					var s = 1 + (k - 1) * mix;
 					b.world.a *= s;
 					b.world.c *= s;
-					if (uniform) {
-						b.world.b *= s;
-						b.world.d *= s;
-					}
+					// Width: uniform scales it with the length, volume keeps the area (1 / s), otherwise it stays.
+					var u = uniform ? s : c.volume && s > 1e-6 ? 1 / s : 1;
+					b.world.b *= u;
+					b.world.d *= u;
 					b.syncApplied(root);
 				}
 			}
@@ -806,7 +806,7 @@ class Skeleton {
 		if (stretch && dRaw > dEff + 1e-9) {
 			var s = 1 + (dRaw / dEff - 1) * mix;
 			var cw = ch.world;
-			var u = uniform ? s : 1;
+			var u = uniform ? s : c.volume ? 1 / s : 1;
 			p.world.a *= s;
 			p.world.c *= s;
 			p.world.b *= u;
@@ -868,6 +868,10 @@ class Skeleton {
 		if (target == null)
 			return;
 		var root = rootMatrix();
+		if (c.map.length > 0) {
+			applyTransformMap(c, target, mr, mt, ms, mh);
+			return;
+		}
 		var offScaleX = c.offsetScaleX, offScaleY = c.offsetScaleY, offShear = c.offsetShear;
 		for (id in c.bones) {
 			var b = boneMap.get(id);
@@ -937,6 +941,149 @@ class Skeleton {
 			}
 			b.syncApplied(root);
 			b.updateSubtree(root, false);
+		}
+	}
+
+	static function localGet(t:LocalTransform, ch:String):Float {
+		return switch (ch) {
+			case "rotation": t.rotation;
+			case "x": t.x;
+			case "y": t.y;
+			case "scaleX": t.scaleX;
+			case "scaleY": t.scaleY;
+			case "shearY": t.shearY;
+			default: Math.NaN;
+		}
+	}
+
+	static function localSet(t:LocalTransform, ch:String, v:Float):Void {
+		switch (ch) {
+			case "rotation": t.rotation = v;
+			case "x": t.x = v;
+			case "y": t.y = v;
+			case "scaleX": t.scaleX = v;
+			case "scaleY": t.scaleY = v;
+			case "shearY": t.shearY = v;
+			default:
+		}
+	}
+
+	static function dataGet(s:BoneData, ch:String):Float {
+		return switch (ch) {
+			case "rotation": s.rotation;
+			case "x": s.x;
+			case "y": s.y;
+			case "scaleX": s.scaleX;
+			case "scaleY": s.scaleY;
+			case "shearY": s.shearY;
+			default: Math.NaN;
+		}
+	}
+
+	/** Source value of one mapping channel: the target's local or world value, or its change from setup (`relative`). */
+	function transformSource(c:TransformConstraintData, target:Bone, ch:String):Float {
+		if (c.localSource != null ? c.localSource : c.local) {
+			var t = target.applied;
+			if (!c.relative)
+				return localGet(t, ch);
+			var s = target.data;
+			return switch (ch) {
+				case "rotation": MathUtil.wrapDeg(t.rotation - s.rotation);
+				case "scaleX": (s.scaleX != 0 && !Math.isNaN(s.scaleX) ? t.scaleX / s.scaleX : 1) - 1;
+				case "scaleY": (s.scaleY != 0 && !Math.isNaN(s.scaleY) ? t.scaleY / s.scaleY : 1) - 1;
+				default: localGet(t, ch) - dataGet(s, ch);
+			}
+		}
+		var t = target.world;
+		var s = c.relative ? setupWorldOf(target.data.id) : null;
+		return switch (ch) {
+			case "rotation": s != null ? MathUtil.wrapDeg(t.rotation() - s.rotation()) : t.rotation();
+			case "x": s != null ? t.x - s.x : t.x;
+			case "y": s != null ? t.y - s.y : t.y;
+			case "scaleX": s != null ? t.scaleX() / MathUtil.orOne(s.scaleX()) - 1 : t.scaleX();
+			case "scaleY": s != null ? t.scaleY() / MathUtil.orOne(s.scaleY()) - 1 : t.scaleY();
+			case "shearY": s != null ? MathUtil.wrapDeg(skewOf(t) - skewOf(s)) : skewOf(t);
+			default: Math.NaN;
+		}
+	}
+
+	/**
+	 * Transform constraint with a property mapping: each mapping's value (offset + source x scale, clamped) is summed
+	 * per written property, then each constrained bone moves toward it (or, `relative`, has it added) by that
+	 * property's mix, in the order rotation, x, y, scaleX, scaleY, shearY.
+	 */
+	function applyTransformMap(c:TransformConstraintData, target:Bone, mr:Float, mt:Float, ms:Float, mh:Float):Void {
+		var values = new Map<String, Float>();
+		for (m in c.map) {
+			var v = m.offset + transformSource(c, target, m.from) * m.scale;
+			if (m.min != null)
+				v = Math.max(m.min, v);
+			if (m.max != null)
+				v = Math.min(m.max, v);
+			var prev = values.get(m.to);
+			values.set(m.to, (prev != null ? prev : 0) + v);
+		}
+		var root = rootMatrix();
+		var rel = c.relative;
+		for (id in c.bones) {
+			var b = boneMap.get(id);
+			if (b == null || b == target)
+				continue;
+			for (ch in TransformChannels.ALL) {
+				if (!values.exists(ch))
+					continue;
+				var val:Float = values.get(ch);
+				var mix = switch (ch) {
+					case "rotation": mr;
+					case "x" | "y": mt;
+					case "scaleX" | "scaleY": ms;
+					default: mh;
+				}
+				if (mix <= 0)
+					continue;
+				if (c.local) {
+					var p = b.applied;
+					var cur = localGet(p, ch);
+					if (ch == "scaleX" || ch == "scaleY")
+						localSet(p, ch, rel ? cur * (1 + val * mix) : cur + (val - cur) * mix);
+					else if (rel)
+						localSet(p, ch, cur + val * mix);
+					else if (ch == "rotation" || ch == "shearY")
+						localSet(p, ch, cur + MathUtil.wrapDeg(val - cur) * mix);
+					else
+						localSet(p, ch, cur + (val - cur) * mix);
+					continue;
+				}
+				var w = b.world;
+				switch (ch) {
+					case "rotation":
+						rotateAxes(w, (rel ? val : MathUtil.wrapDeg(val - w.rotation())) * mix * MathUtil.DEG);
+					case "x":
+						w.x += rel ? val * mix : (val - w.x) * mix;
+					case "y":
+						w.y += rel ? val * mix : (val - w.y) * mix;
+					case "scaleX" | "scaleY":
+						var cur = MathUtil.orOne(ch == "scaleX" ? w.scaleX() : w.scaleY());
+						var k = (rel ? cur * (1 + val * mix) : cur + (val - cur) * mix) / cur;
+						if (ch == "scaleX") {
+							w.a *= k;
+							w.c *= k;
+						} else {
+							w.b *= k;
+							w.d *= k;
+						}
+					case "shearY":
+						var sb = skewOf(w);
+						setSkew(w, sb + (rel ? val : MathUtil.wrapDeg(val - sb)) * mix);
+					default:
+				}
+			}
+			if (c.local)
+				b.updateSubtree(root, true);
+			else {
+				b.syncApplied(root);
+				b.updateSubtree(root, false);
+			}
 		}
 	}
 
@@ -1076,6 +1223,10 @@ class Skeleton {
 					var s = 1 + (d / rest - 1) * c.scaleX * mix;
 					w.a *= s;
 					w.c *= s;
+					if (c.volume && s > 1e-6) {
+						w.b /= s;
+						w.d /= s;
+					}
 				}
 			}
 		}

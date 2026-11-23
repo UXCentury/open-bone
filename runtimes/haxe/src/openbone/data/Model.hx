@@ -668,6 +668,9 @@ class IkConstraintData extends ConstraintData {
 	public var compress = false;
 	public var uniform = false;
 
+	/** Keep volume when stretching or compressing: width scales by 1 / the length factor. Ignored with `uniform`. */
+	public var volume = false;
+
 	public function new() {
 		super("ik");
 	}
@@ -689,9 +692,35 @@ class TransformConstraintData extends ConstraintData {
 	public var local = false;
 	public var relative = false;
 
+	/**
+	 * Property mapping: when non-empty, the constraint drives the bones through these mappings instead of copying the
+	 * target's transform (offsets unused; the mixes still apply per written property). Empty = classic copy.
+	 */
+	public final map:Array<TransformMapping> = [];
+
+	/** Mapping only: read the target's local (parent-space) values; null = the same space as `local`. */
+	public var localSource:Null<Bool> = null;
+
 	public function new() {
 		super("transform");
 	}
+}
+
+/** Channels a transform mapping reads or writes, in application order (rotation and shearY in degrees). */
+class TransformChannels {
+	public static final ALL:Array<String> = ["rotation", "x", "y", "scaleX", "scaleY", "shearY"];
+}
+
+/** One transform mapping: value = offset + target's `from` x scale, clamped to min..max, written to `to`. */
+class TransformMapping {
+	public var from:String;
+	public var to:String;
+	public var scale = 1.0;
+	public var offset = 0.0;
+	public var min:Null<Float> = null;
+	public var max:Null<Float> = null;
+
+	public function new() {}
 }
 
 class PathConstraintData extends ConstraintData {
@@ -741,6 +770,9 @@ class PhysicsConstraintData extends ConstraintData {
 	public var wind = 0.0;
 	public var mix = 0.0;
 	public var fps = 0.0;
+
+	/** Keep volume when the simulation stretches the bone (`scaleX`): its width scales by 1 / the stretch. */
+	public var volume = false;
 
 	public function new() {
 		super("physics");

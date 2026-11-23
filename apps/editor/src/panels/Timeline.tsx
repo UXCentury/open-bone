@@ -1,7 +1,8 @@
 import { type Curve, EASINGS, type Key, type Timeline as TL, animationDuration } from "@openbone/core";
 import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import { isMac, tip } from "../shortcuts/index.ts";
-import { apply, currentAnimation, doc, mode, playing, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey, toast, transaction } from "../state.ts";
+import { bakeConstraintsAsk } from "../bake.ts";
+import { apply, currentAnimation, doc, mode, playing, selection, setMode, setPlaying, setTime, time, setAnimationId, autoKey, setAutoKey, toast, transaction } from "../state.ts";
 import { askForm, askText, confirmDelete } from "../dialogs.tsx";
 import { AudioTrack, addSoundKey } from "./AudioPanel.tsx";
 import { GraphView, timelineColor, timelineKey } from "./GraphView.tsx";
@@ -469,6 +470,12 @@ export function Timeline() {
             value={anim()!.color?.slice(0, 7) ?? "#8a93a6"}
             onChange={(e) => apply("updateAnimation", { animation: anim()!.id, color: e.currentTarget.value })}
           />
+          <button
+            title="Bake constraints: key the bones as they are after IK, transform, path and physics, then key the constraints off"
+            onClick={() => void bakeConstraintsAsk(anim()!.id, selection()?.kind === "bone" ? selection()!.id : null)}
+          >
+            Bake…
+          </button>
           <label class="check" title="Export this animation (untick for helper or work-in-progress animations; they can still be picked in the export dialog)">
             <input type="checkbox" checked={anim()!.export !== false} onChange={(e) => apply("updateAnimation", { animation: anim()!.id, export: e.currentTarget.checked })} /> Export
           </label>

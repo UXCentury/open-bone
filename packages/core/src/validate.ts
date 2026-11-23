@@ -1,19 +1,44 @@
 import { resolveSound } from "./audio.ts";
 import { descendantIds, getAttachment } from "./document.ts";
 import { usedFonts } from "./fonts.ts";
-import type { OpenBoneDocument } from "./types.ts";
+import { type OpenBoneDocument, TRANSFORM_CHANNELS } from "./types.ts";
 
 export interface Issue {
   level: "error" | "warning";
   path: string;
   message: string;
+  /** What the issue is about, so an editor can select it (kinds match the editor's selection, plus animation). */
+  ref?: IssueRef;
+  /** A one-click fix: apply op `op` with `args` (MCP tool `tool`). */
+  fix?: IssueFix;
 }
+
+export interface IssueRef {
+  kind: "bone" | "slot" | "ik" | "transform" | "path" | "physics" | "slider" | "image" | "font" | "sound" | "animation";
+  id: string;
+}
+
+export interface IssueFix {
+  label: string;
+  op: string;
+  /** The same op as an MCP tool name. */
+  tool: string;
+  args: Record<string, unknown>;
+}
+
+type Extra = { ref?: IssueRef; fix?: IssueFix };
+export const issueFix = (label: string, op: string, args: Record<string, unknown>): IssueFix => ({
+  label,
+  op,
+  tool: op.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`),
+  args,
+});
 
 /** Structural + referential checks. Returns an empty list when the document is sound. */
 export function validate(d: OpenBoneDocument): Issue[] {
   const issues: Issue[] = [];
-  const err = (path: string, message: string) => issues.push({ level: "error", path, message });
-  const warn = (path: string, message: string) => issues.push({ level: "warning", path, message });
+  const err = (path: string, message: string, x?: Extra) => issues.push({ level: "error", path, message, ...x });
+  const warn = (path: string, message: string, x?: Extra) => issues.push({ level: "warning", path, message, ...x });
   if (d.format !== "openbone") err("format", "must be 'openbone'");
   const sk = d.skeleton;
   const boneIds = new Set<string>();
@@ -27,10 +52,11 @@ export function validate(d: OpenBoneDocument): Issue[] {
   const imageIds = new Set(d.images.map((i) => i.id));
   (d.skeleton.sliders ?? []).forEach((sl, i) => {
     const where = `skeleton.sliders[${i}]`;
-    if (!d.animations.some((a) => a.id === sl.animation)) err(where, `animation ${sl.animation} missing`);
-    if (sl.bone && !d.skeleton.bones.some((b) => b.id === sl.bone)) err(where, `bone ${sl.bone} missing`);
-    if (sl.input && !d.stateMachines.some((m) => m.inputs.some((x) => x.id === sl.input))) err(where, `input ${sl.input} missing`);
-    if (!sl.bone && !sl.input) err(where, "no driver (bone or input)");
+    const x = { ref: { kind: "slider" as const, id: sl.id }, fix: issueFix(`Delete slider "${sl.name}"`, "deleteSlider", { slider: sl.id }) };
+    if (!d.animations.some((a) => a.id === sl.animation)) err(where, `animation ${sl.animation} missing`, x);
+    if (sl.bone && !d.skeleton.bones.some((b) => b.id === sl.bone)) err(where, `bone ${sl.bone} missing`, x);
+    if (sl.input && !d.stateMachines.some((m) => m.inputs.some((x) => x.id === sl.input))) err(where, `input ${sl.input} missing`, x);
+    if (!sl.bone && !sl.input) err(where, "no driver (bone or input)", x);
   });
   if (d.atlas) {
     const pages = new Map(d.atlas.pages.map((p) => [p.id, p]));
@@ -49,81 +75,104 @@ export function validate(d: OpenBoneDocument): Issue[] {
       }
     });
     if (d.atlas.white && !pages.has(d.atlas.white.page)) err("atlas.white", `page ${d.atlas.white.page} missing`);
-    d.images.forEach((img, i) => !img.src && !packed.has(img.id) && err(`images[${i}]`, `"${img.name}" has no src and no atlas region`));
-  } else d.images.forEach((img, i) => !img.src && err(`images[${i}]`, `"${img.name}" has no src`));
+    d.images.forEach((img, i) => !img.src && !packed.has(img.id) && err(`images[${i}]`, `"${img.name}" has no src and no atlas region`, { ref: { kind: "image", id: img.id } }));
+  } else d.images.forEach((img, i) => !img.src && err(`images[${i}]`, `"${img.name}" has no src`, { ref: { kind: "image", id: img.id } }));
   sk.slots.forEach((s, i) => {
-    if (!boneIds.has(s.bone)) err(`slots[${i}]`, `bone ${s.bone} missing`);
+    if (!boneIds.has(s.bone)) err(`slots[${i}]`, `bone ${s.bone} missing`, { ref: { kind: "slot", id: s.id } });
     if (s.attachment && !sk.skins.some((k) => k.attachments[s.id]?.[s.attachment!]))
-      warn(`slots[${i}]`, `attachment "${s.attachment}" not in any skin`);
+      warn(`slots[${i}]`, `attachment "${s.attachment}" not in any skin`, {
+        ref: { kind: "slot", id: s.id },
+        fix: issueFix(`Show no attachment on "${s.name}" in setup`, "updateSlot", { slot: s.id, attachment: null }),
+      });
   });
   for (const skin of sk.skins)
     for (const [slotId, atts] of Object.entries(skin.attachments)) {
-      if (!slotIds.has(slotId)) err(`skins.${skin.name}`, `unknown slot ${slotId}`);
+      const slotRef = slotIds.has(slotId) ? { ref: { kind: "slot" as const, id: slotId } } : undefined;
+      if (!slotIds.has(slotId)) err(`skins.${skin.name}`, `unknown slot ${slotId}`, slotRef);
       for (const a of Object.values(atts)) {
         if ((a.type === "region" || a.type === "mesh") && !imageIds.has(a.image))
-          err(`skins.${skin.name}.${a.name}`, `image ${a.image} missing`);
+          err(`skins.${skin.name}.${a.name}`, `image ${a.image} missing`, slotRef);
         if (a.type === "sequence") {
-          if (!a.frames.length) warn(`sequence ${a.name}`, "has no frames");
-          a.frames.forEach((f, i) => !imageIds.has(f.image) && err(`sequence ${a.name}`, `frame ${i}: image ${f.image} missing`));
-          if (!(a.fps > 0)) err(`sequence ${a.name}`, "fps must be positive");
+          if (!a.frames.length) warn(`sequence ${a.name}`, "has no frames", slotRef);
+          a.frames.forEach((f, i) => !imageIds.has(f.image) && err(`sequence ${a.name}`, `frame ${i}: image ${f.image} missing`, slotRef));
+          if (!(a.fps > 0)) err(`sequence ${a.name}`, "fps must be positive", slotRef);
           if (a.input && !d.stateMachines.some((sm) => sm.inputs.some((x) => x.id === a.input)))
-            warn(`sequence ${a.name}`, `input ${a.input} missing`);
+            warn(`sequence ${a.name}`, `input ${a.input} missing`, slotRef);
         }
         if (a.type === "particles") {
-          if (a.look === "image" && (!a.image || !imageIds.has(a.image))) err(`particles ${a.name}`, `image ${a.image ?? "(none)"} missing`);
-          if (!a.colors?.length) err(`particles ${a.name}`, "needs at least one colour stop");
+          if (a.look === "image" && (!a.image || !imageIds.has(a.image))) err(`particles ${a.name}`, `image ${a.image ?? "(none)"} missing`, slotRef);
+          if (!a.colors?.length) err(`particles ${a.name}`, "needs at least one colour stop", slotRef);
         }
         if (a.type === "clipping") {
-          if (a.vertices.length < 6 || a.vertices.length % 2) err(`clipping ${a.name}`, "needs at least 3 points");
-          if (a.end && !slotIds.has(a.end)) err(`clipping ${a.name}`, `end slot ${a.end} missing`);
+          if (a.vertices.length < 6 || a.vertices.length % 2) err(`clipping ${a.name}`, "needs at least 3 points", slotRef);
+          if (a.end && !slotIds.has(a.end)) err(`clipping ${a.name}`, `end slot ${a.end} missing`, slotRef);
         }
         if (a.type === "boundingBox") {
-          if (a.vertices.length < 6 || a.vertices.length % 2) warn(`bounding box ${a.name}`, "needs at least 3 points");
-          if (a.weights && a.weights.length !== a.vertices.length / 2) err(`bounding box ${a.name}`, "weights length mismatch");
-          a.weights?.forEach((w) => w.forEach((x) => !boneIds.has(x.bone) && err(`bounding box ${a.name}`, `weight bone ${x.bone} missing`)));
+          if (a.vertices.length < 6 || a.vertices.length % 2) warn(`bounding box ${a.name}`, "needs at least 3 points", slotRef);
+          if (a.weights && a.weights.length !== a.vertices.length / 2) err(`bounding box ${a.name}`, "weights length mismatch", slotRef);
+          a.weights?.forEach((w) => w.forEach((x) => !boneIds.has(x.bone) && err(`bounding box ${a.name}`, `weight bone ${x.bone} missing`, slotRef)));
         }
         if (a.type === "path") {
-          if (a.vertices.length < 12 || a.vertices.length % 6) err(`path ${a.name}`, "needs 6 numbers per knot and at least 2 knots");
-          if (a.weights && a.weights.length !== a.vertices.length / 2) err(`path ${a.name}`, "weights length mismatch");
-          a.weights?.forEach((w) => w.forEach((x) => !boneIds.has(x.bone) && err(`path ${a.name}`, `weight bone ${x.bone} missing`)));
+          if (a.vertices.length < 12 || a.vertices.length % 6) err(`path ${a.name}`, "needs 6 numbers per knot and at least 2 knots", slotRef);
+          if (a.weights && a.weights.length !== a.vertices.length / 2) err(`path ${a.name}`, "weights length mismatch", slotRef);
+          a.weights?.forEach((w) => w.forEach((x) => !boneIds.has(x.bone) && err(`path ${a.name}`, `weight bone ${x.bone} missing`, slotRef)));
         }
         if (a.type === "mesh") {
-          if (a.uvs.length !== a.vertices.length) err(`mesh ${a.name}`, "uvs/vertices length mismatch");
+          if (a.uvs.length !== a.vertices.length) err(`mesh ${a.name}`, "uvs/vertices length mismatch", slotRef);
           const n = a.vertices.length / 2;
-          if (a.triangles.some((t) => t >= n)) err(`mesh ${a.name}`, "triangle index out of range");
-          if (a.weights && a.weights.length !== n) err(`mesh ${a.name}`, "weights length mismatch");
-          a.weights?.forEach((w) => w.forEach((x) => !boneIds.has(x.bone) && err(`mesh ${a.name}`, `weight bone ${x.bone} missing`)));
+          if (a.triangles.some((t) => t >= n)) err(`mesh ${a.name}`, "triangle index out of range", slotRef);
+          if (a.weights && a.weights.length !== n) err(`mesh ${a.name}`, "weights length mismatch", slotRef);
+          a.weights?.forEach((w) => w.forEach((x) => !boneIds.has(x.bone) && err(`mesh ${a.name}`, `weight bone ${x.bone} missing`, slotRef)));
         }
       }
     }
-  for (const c of [...sk.ik, ...sk.transform]) {
-    if (!boneIds.has(c.target)) err(`constraint ${c.name}`, "target missing");
-    for (const b of c.bones) if (!boneIds.has(b)) err(`constraint ${c.name}`, `bone ${b} missing`);
+  for (const [kind, list] of [["ik", sk.ik], ["transform", sk.transform]] as const)
+    for (const c of list) {
+      const x = { ref: { kind, id: c.id }, fix: issueFix(`Delete constraint "${c.name}"`, "deleteConstraint", { constraint: c.id }) };
+      if (!boneIds.has(c.target)) err(`constraint ${c.name}`, "target missing", x);
+      for (const b of c.bones) if (!boneIds.has(b)) err(`constraint ${c.name}`, `bone ${b} missing`, x);
+    }
+  for (const c of sk.transform) {
+    const channels = new Set<string>(TRANSFORM_CHANNELS);
+    c.map?.forEach((m, i) => {
+      const where = `transform constraint ${c.name} map[${i}]`;
+      const ref = { ref: { kind: "transform" as const, id: c.id } };
+      if (!channels.has(m.from)) err(where, `unknown source property ${m.from}`, ref);
+      if (!channels.has(m.to)) err(where, `unknown target property ${m.to}`, ref);
+      if (!Number.isFinite(m.scale) || !Number.isFinite(m.offset)) err(where, "scale and offset must be numbers", ref);
+      if (m.min !== undefined && m.max !== undefined && m.min > m.max)
+        warn(where, `min ${m.min} is above max ${m.max}`, {
+          ref: { kind: "transform", id: c.id },
+          fix: issueFix("Swap min and max", "updateTransformConstraint", { constraint: c.id, map: c.map!.map((x, j) => (j === i ? { ...x, min: m.max, max: m.min } : x)) }),
+        });
+    });
   }
   const boneIndex = new Map(sk.bones.map((b, i) => [b.id, i]));
   for (const c of sk.path ?? []) {
     const path = `path constraint ${c.name}`;
+    const pref = { ref: { kind: "path" as const, id: c.id } };
     const slot = sk.slots.find((s) => s.id === c.target);
-    for (const b of c.bones) if (!boneIds.has(b)) err(path, `bone ${b} missing`);
+    for (const b of c.bones) if (!boneIds.has(b)) err(path, `bone ${b} missing`, pref);
     if (!slot) {
-      err(path, `target slot ${c.target} missing`);
+      err(path, `target slot ${c.target} missing`, pref);
       continue;
     }
     for (let i = 1; i < c.bones.length; i++)
-      if ((boneIndex.get(c.bones[i]) ?? 0) < (boneIndex.get(c.bones[i - 1]) ?? 0)) err(path, "bones must be listed parent before child");
+      if ((boneIndex.get(c.bones[i]) ?? 0) < (boneIndex.get(c.bones[i - 1]) ?? 0)) err(path, "bones must be listed parent before child", pref);
     const att = getAttachment(d, slot.id, slot.attachment);
-    if (!att || att.type !== "path") warn(path, `slot ${slot.name} does not show a path attachment in setup pose`);
+    if (!att || att.type !== "path") warn(path, `slot ${slot.name} does not show a path attachment in setup pose`, pref);
     const chain = new Set<string>();
     for (const b of c.bones) if (boneIds.has(b)) for (const x of descendantIds(d, b)) chain.add(x);
-    if (chain.has(slot.bone)) err(path, "the path's slot bone is moved by the constrained bones (cycle)");
+    if (chain.has(slot.bone)) err(path, "the path's slot bone is moved by the constrained bones (cycle)", pref);
     if (att?.type === "path" && att.weights?.some((w) => w.some((x) => chain.has(x.bone))))
-      warn(path, "path is weighted to bones the constraint moves; the path will lag a frame behind");
+      warn(path, "path is weighted to bones the constraint moves; the path will lag a frame behind", pref);
   }
   for (const c of sk.physics ?? []) {
     const path = `physics constraint ${c.name}`;
-    if (!boneIds.has(c.bone)) err(path, `bone ${c.bone} missing`);
-    if (!(c.fps > 0)) err(path, "fps must be positive");
-    if (!(c.mass > 0)) err(path, "mass must be positive");
+    const pref = { ref: { kind: "physics" as const, id: c.id } };
+    if (!boneIds.has(c.bone)) err(path, `bone ${c.bone} missing`, pref);
+    if (!(c.fps > 0)) err(path, "fps must be positive", pref);
+    if (!(c.mass > 0)) err(path, "mass must be positive", pref);
   }
   const constraintIds = {
     ik: new Set(sk.ik.map((c) => c.id)),
@@ -140,15 +189,18 @@ export function validate(d: OpenBoneDocument): Issue[] {
   const animIds = new Set(d.animations.map((a) => a.id));
   const eventIds = new Set(d.events.map((e) => e.id));
   for (const a of d.animations) {
+    const broken = { ref: { kind: "animation" as const, id: a.id }, fix: issueFix(`Remove broken keys from "${a.name}"`, "removeBrokenKeys", { animation: a.id }) };
+    const aref = { ref: broken.ref };
     for (const t of a.timelines) {
-      if (t.target === "bone" && !boneIds.has(t.id)) err(`animation ${a.name}`, `bone ${t.id} missing`);
-      if ((t.target === "slot" || t.target === "deform" || t.target === "sequence") && !slotIds.has(t.id)) err(`animation ${a.name}`, `slot ${t.id} missing`);
+      if (t.target === "bone" && !boneIds.has(t.id)) err(`animation ${a.name}`, `bone ${t.id} missing`, broken);
+      if ((t.target === "slot" || t.target === "deform" || t.target === "sequence" || t.target === "particles") && !slotIds.has(t.id))
+        err(`animation ${a.name}`, `slot ${t.id} missing`, broken);
       if (t.target in constraintIds && !constraintIds[t.target as keyof typeof constraintIds].has(t.id))
-        err(`animation ${a.name}`, `${t.target} constraint ${t.id} missing`);
+        err(`animation ${a.name}`, `${t.target} constraint ${t.id} missing`, broken);
       for (let i = 1; i < t.keys.length; i++)
-        if (t.keys[i].time < t.keys[i - 1].time) err(`animation ${a.name}`, "keys not sorted");
+        if (t.keys[i].time < t.keys[i - 1].time) err(`animation ${a.name}`, "keys not sorted", aref);
     }
-    for (const e of a.events) if (!eventIds.has(e.event)) err(`animation ${a.name}`, `event ${e.event} missing`);
+    for (const e of a.events) if (!eventIds.has(e.event)) err(`animation ${a.name}`, `event ${e.event} missing`, broken);
   }
   const scriptIds = new Set(d.scripts.map((s) => s.id));
   for (const sm of d.stateMachines) {
@@ -179,7 +231,8 @@ export function validate(d: OpenBoneDocument): Issue[] {
   (d.fonts ?? []).forEach((f, i) => {
     if (!f.src) err(`fonts[${i}]`, `"${f.name}" has no src`);
     if (!f.family) err(`fonts[${i}]`, `"${f.name}" has no family`);
-    else if (!used.has(f)) warn(`fonts[${i}]`, `"${f.name}": no text uses family "${f.family}"`);
+    else if (!used.has(f))
+      warn(`fonts[${i}]`, `"${f.name}": no text uses family "${f.family}"`, { ref: { kind: "font", id: f.id }, fix: issueFix(`Delete font "${f.name}"`, "deleteFont", { font: f.id }) });
   });
   return issues;
 }
@@ -214,19 +267,26 @@ function validateTriggerSounds(d: OpenBoneDocument, warn: (p: string, m: string)
   }
 }
 
-function validateAudio(d: OpenBoneDocument, err: (p: string, m: string) => void, warn: (p: string, m: string) => void) {
+function validateAudio(d: OpenBoneDocument, err: (p: string, m: string, x?: Extra) => void, warn: (p: string, m: string, x?: Extra) => void) {
   const au = d.audio;
   const assetIds = new Set(au?.assets.map((a) => a.id));
   const busIds = new Set(au?.buses.map((b) => b.id));
   const soundIds = new Set(au?.sounds.map((s) => s.id));
   au?.assets.forEach((a, i) => !a.src && err(`audio.assets[${i}]`, `"${a.name}" has no src`));
   au?.sounds.forEach((s, i) => {
-    if (!assetIds.has(s.asset)) err(`audio.sounds[${i}]`, `asset ${s.asset} missing`);
-    if (s.bus && !busIds.has(s.bus)) err(`audio.sounds[${i}]`, `bus ${s.bus} missing`);
-    if (!(s.rate > 0)) err(`audio.sounds[${i}]`, "rate must be positive");
+    const ref = { ref: { kind: "sound" as const, id: s.id } };
+    if (!assetIds.has(s.asset)) err(`audio.sounds[${i}]`, `asset ${s.asset} missing`, ref);
+    if (s.bus && !busIds.has(s.bus)) err(`audio.sounds[${i}]`, `bus ${s.bus} missing`, ref);
+    if (!(s.rate > 0)) err(`audio.sounds[${i}]`, "rate must be positive", ref);
   });
   d.events.forEach((e) => e.audio && !resolveSound(d, e.audio) && warn(`event ${e.name}`, `audio "${e.audio}" is not a sound or audio asset`));
-  for (const a of d.animations) for (const k of a.audio ?? []) if (!soundIds.has(k.sound)) err(`animation ${a.name}`, `sound ${k.sound} missing`);
+  for (const a of d.animations)
+    for (const k of a.audio ?? [])
+      if (!soundIds.has(k.sound))
+        err(`animation ${a.name}`, `sound ${k.sound} missing`, {
+          ref: { kind: "animation", id: a.id },
+          fix: issueFix(`Remove broken keys from "${a.name}"`, "removeBrokenKeys", { animation: a.id }),
+        });
   for (const sm of d.stateMachines) {
     for (const l of sm.layers)
       for (const st of l.states) for (const x of st.sounds ?? []) if (!soundIds.has(x.sound)) err(`${sm.name}/${st.name}`, `sound ${x.sound} missing`);
