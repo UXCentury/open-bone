@@ -52,6 +52,7 @@ export function versionFiles(): { file: string; get: (s: string) => string | nul
     pattern("runtimes/flutter/openbone/pubspec.yaml", /(^version: )(\S+)()/m),
     pattern("runtimes/flutter/openbone/darwin/openbone.podspec", /(s\.version\s*= ')([^']+)(')/),
     pattern("runtimes/flutter/openbone/android/build.gradle", /(^version = ")([^"]+)(")/m),
+    pattern("runtimes/cpp/engines/unreal/OpenBone/OpenBone.uplugin", /("VersionName": ")([^"]+)(")/),
   ].filter((f) => fs.existsSync(rel(f.file)));
   const nativeJson = ["runtimes/csharp/unity/com.openbone.runtime/package.json", "conformance/package.json"].filter((f) => fs.existsSync(rel(f))).map(json);
   return [
