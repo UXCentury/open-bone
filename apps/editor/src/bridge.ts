@@ -4,6 +4,7 @@ import { logActivity } from "./activity.ts";
 import { clearAgentFx } from "./agent-fx.ts";
 import { registerAudioOverride } from "./audio.ts";
 import { askConfirm } from "./dialogs.tsx";
+import { addRecent } from "./recent.ts";
 import { registerFontOverride } from "./fonts.ts";
 import { registerImageOverride } from "./images.ts";
 import { loadDocument, setFileName, store, toast } from "./state.ts";
@@ -70,8 +71,12 @@ export function connectBridge(url = localStorageGet("openbone.bridge") ?? "ws://
     store.load(doc, "bridge");
     if (path) {
       setFileName(path.split(/[\\/]/).pop() ?? "project.obone");
-      // The server sends the art over the link; remembering its folder brings it back after a restart too.
-      if (isDesktop()) setProjectAssetDir(dirOf(path));
+      // The server sends the art over the link; remembering its folder brings it back after a restart too. The file is
+      // on this machine, so ☰ Menu → Open recent lists it like a project opened here.
+      if (isDesktop()) {
+        setProjectAssetDir(dirOf(path));
+        addRecent(path);
+      }
     } else if (keepDir) setProjectAssetDir(keepDir);
   };
   const firstLoad = async (doc: OpenBoneDocument, path?: string) => {

@@ -86,3 +86,21 @@ describe("MCP link keeps the project folder", () => {
     expect(projectAssetDir()).toBeNull();
   });
 });
+
+describe("MCP link and Open recent", () => {
+  it("lists the server's project file in the desktop app", async () => {
+    const { recentProjects } = await import("../src/recent.ts");
+    (globalThis as { window?: unknown }).window = { __TAURI_INTERNALS__: {} };
+    try {
+      store.load(createDocument("Untitled"));
+      connectBridge("ws://test");
+      FakeSocket.last.onopen?.();
+      FakeSocket.last.serve({ type: "load", doc: king(), path: "/home/me/wahala/openbone/king.obone" });
+      expect(store.doc.name).toBe("leopard-king");
+      expect(projectAssetDir()).toBe("/home/me/wahala/openbone");
+      expect(recentProjects()[0]?.path).toBe("/home/me/wahala/openbone/king.obone");
+    } finally {
+      delete (globalThis as { window?: unknown }).window;
+    }
+  });
+});
