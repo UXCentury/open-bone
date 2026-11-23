@@ -1,3 +1,7 @@
+## 0.4.11
+
+- Plays transform constraint property mappings and volume-preserving stretch (IK and physics `volume`), through the shared C++ runtime. Released with OpenBone 0.4.11 (transform property mapping and volume-preserving stretch in the format, constraint baking, a Problems panel and editor fixes).
+
 ## 0.4.10
 
 - No changes to the Flutter plugin; released with OpenBone 0.4.10 (desktop app: projects opened through MCP are listed in Open recent), so every package keeps the same version.

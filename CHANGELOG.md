@@ -2,7 +2,7 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
-## Unreleased
+## 0.4.11 (2026-11-23)
 
 ### Format (all runtimes)
 - **Transform constraint property mapping.** A transform constraint can now drive any property from any other instead of copying the target: `map: [{ from, to, scale, offset, min?, max? }]` with `rotation`, `x`, `y`, `scaleX`, `scaleY` and `shearY`. A slider bone's x can turn a dial, a wheel's rotation can squash a spring, and results can be clamped. Mappings to the same property add up; `localSource` reads the target in local space while the bones are written in world space (or the other way round); `relative` works on changes from the setup pose. Editor: Inspector → Transform constraint → Mapping. MCP: `add_transform_constraint` / `update_transform_constraint` take `map` and `localSource`. See [docs/format.md](docs/format.md#transform-property-mapping).
@@ -13,6 +13,8 @@ OpenBone uses one version for the whole repo (packages, editor, desktop app, nat
 - **Bake constraints into keys.** Timeline → Bake… keys the bones as they are after IK, transform, path and physics constraints (and sliders) over a range, at a chosen rate, with near-linear keys simplified away, and keys those constraints off so the motion isn't applied twice. Use it to turn physics into keys you can edit, or to hand a rig to an engine without constraints. One undo step. MCP: `bake_constraints`.
 - **Problems panel** (bottom dock, next to Activity): every broken reference, warning and hint in the project, filterable, with the error count on its tab. Click a problem to select what it's about; many have a one-click fix (delete a slider whose animation is gone, remove keys left pointing at deleted bones, swap a reversed clamp, delete an unused image, font or empty skin, turn on a mix a mapping needs). Fix all applies them in one undo step. MCP: `validate` returns the same fixes (`fix.tool` + `fix.args`), and `hints: true` adds the hints; the new `remove_broken_keys` tool cleans animations.
 - **Maths in number fields.** Type `v*2`, `+=15`, `/=2`, `clamp(v, 0, 1)`, `90 - v` or `sin(30)*40` into any Inspector number (`v` is the current value; trig in degrees). Up/Down step the value, Shift steps ×10. Invalid input is outlined instead of being turned into 0.
+- **Play runs the state machine after an MCP load.** When the MCP server sent the editor another project, the state machine chosen in the previous project stayed selected, so Play ran the first animation instead and no button, listener or script reacted. Play now uses the project's state machine, and opening another project lets Play pick again.
+- **Web editor: Choose folder for a project's art.** A web page can't read the files next to a project it opened, so images, sounds and fonts stored beside the `.obone` showed as placeholders after ☰ Menu → Open or a reload. The editor now offers **Choose folder** and reads them from the project folder you pick (the desktop app reads them itself).
 
 ## 0.4.10 (2026-11-23)
 
