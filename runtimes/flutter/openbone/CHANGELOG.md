@@ -1,3 +1,7 @@
+## 0.4.10
+
+- No changes to the Flutter plugin; released with OpenBone 0.4.10 (desktop app: projects opened through MCP are listed in Open recent), so every package keeps the same version.
+
 ## 0.4.9
 
 - No changes to the Flutter plugin; released with OpenBone 0.4.9 (desktop app: a project's art stays after connecting to MCP; a new slot game example), so every package keeps the same version.

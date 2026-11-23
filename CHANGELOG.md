@@ -2,6 +2,11 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
+## 0.4.10 (2026-11-23)
+
+### Desktop app
+- **Projects opened through MCP are listed in Open recent.** When the MCP server sends the editor a project it opened from a file, that file goes to the top of ☰ Menu → Open recent, like a project opened from the menu. Before, only projects opened or saved from the menu were listed, so Open recent stayed empty if you worked through MCP.
+
 ## 0.4.9 (2026-11-23)
 
 ### Desktop app fix
