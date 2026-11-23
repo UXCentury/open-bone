@@ -2,6 +2,14 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
+## 0.4.9 (2026-11-23)
+
+### Desktop app fix
+- **A project's art stays after connecting to MCP.** An MCP server that takes over your open scene has no file of its own, so when it sent the scene back (on a reconnect, or with the agent's edits) the editor forgot which folder the project's images, sounds and fonts are in. The autosave then lost it too, and the next start showed blank parts with "open it again with ☰ Menu → Open". The editor now keeps the folder for the same project, and ignores its own scene sent back unchanged. To recover an affected autosave, open the project once with ☰ Menu → Open or Open recent.
+
+### Examples
+- **Pearl of the Deep** (`examples/slot`): an original underwater slot built entirely through the MCP server, with art, sound effects and music generated with ElevenLabs. 3×3 reels plus a Depth reel of multipliers, paylines, wilds, a sea serpent guardian on a mesh spine, and a scripted spin. Demo credits only; `seed` and `force` inputs make spins repeatable.
+
 ## 0.4.8 (2026-11-20)
 
 ### Desktop app fix
