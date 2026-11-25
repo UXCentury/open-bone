@@ -48,6 +48,7 @@ export class WebGLRenderer {
   /** Ids of textures stored premultiplied (from the rendered document's atlas): uploaded as they are. */
   private pma = new Set<string>();
   private pmaDoc: OpenBoneDocument | null = null;
+  private pmaFilter: OpenBoneDocument["textureFilter"];
   /** Whether each cached texture was uploaded as premultiplied data (re-uploaded when that changes). */
   /** What each cached texture was uploaded with (premultiplied flag + sampling), to rebuild it when that changes. */
   private texPma = new Map<string, string>();
@@ -157,8 +158,10 @@ export class WebGLRenderer {
 
   render(sk: Skeleton, view = { x: 0, y: 0, zoom: 1 }, clearColor: [number, number, number, number] | null = [0, 0, 0, 0]) {
     const gl = this.gl;
-    if (this.pmaDoc !== sk.doc) {
+    // The texture filter is a setting edited in place, so it is part of the key.
+    if (this.pmaDoc !== sk.doc || this.pmaFilter !== sk.doc.textureFilter) {
       this.pmaDoc = sk.doc;
+      this.pmaFilter = sk.doc.textureFilter;
       this.pma = premultipliedTextures(sk.doc);
       this.sampling = textureSamplings(sk.doc);
     }

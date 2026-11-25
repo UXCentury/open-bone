@@ -114,6 +114,7 @@ export class CanvasKitRenderer {
   /** Atlas page sampling (filter / wrap) of the current document, and of the batch being drawn. */
   private sampling = new Map<string, TextureSampling>();
   private samplingDoc: OpenBoneDocument | null = null;
+  private samplingFilter: OpenBoneDocument["textureFilter"];
   private curSampling: TextureSampling | undefined;
   private sampledShaders = new Map<Image, { key: string; shader: Shader }>();
 
@@ -159,8 +160,9 @@ export class CanvasKitRenderer {
     canvas.concat(CanvasKitRenderer.matrix(sk.doc, view));
     // Device pixels per skeleton unit (view and the canvas's own matrix), for text rasters.
     const zoom = Math.sqrt(Math.abs(determinant(canvas.getTotalMatrix())));
-    if (this.samplingDoc !== sk.doc) {
+    if (this.samplingDoc !== sk.doc || this.samplingFilter !== sk.doc.textureFilter) {
       this.samplingDoc = sk.doc;
+      this.samplingFilter = sk.doc.textureFilter;
       this.sampling = textureSamplings(sk.doc);
     }
     const batches = buildBatches(sk.drawList(), { hasTexture: (id) => !!this.image(id) });

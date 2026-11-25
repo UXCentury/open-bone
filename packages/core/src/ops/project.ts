@@ -3,12 +3,12 @@ import { newId } from "../document.ts";
 import { get } from "../document.ts";
 import { defineOp, hex, optId, ref } from "./registry.ts";
 import { atlasSampling } from "../atlas.ts";
-import { ATLAS_FILTERS, ATLAS_PIXEL_FORMATS, ATLAS_WRAPS, type AtlasFilter, type AtlasPixelFormat, type AtlasWrap } from "../types.ts";
+import { ATLAS_FILTERS, ATLAS_PIXEL_FORMATS, ATLAS_WRAPS, TEXTURE_FILTERS, type AtlasFilter, type AtlasPixelFormat, type AtlasWrap } from "../types.ts";
 
 defineOp({
   name: "setDocument",
   group: "project",
-  description: "Change document settings: name, artboard size, skeleton origin within the artboard (pixels, y-down), background, fps, reference scale.",
+  description: "Change document settings: name, artboard size, skeleton origin within the artboard (pixels, y-down), background, fps, reference scale, texture filter (\"nearest\" for pixel art).",
   schema: z.object({
     name: z.string().optional(),
     width: z.number().positive().optional(),
@@ -17,6 +17,10 @@ defineOp({
     originY: z.number().optional(),
     background: hex.nullable().optional(),
     fps: z.number().positive().optional(),
+    textureFilter: z
+      .enum(TEXTURE_FILTERS)
+      .optional()
+      .describe('How images are sampled when scaled: "nearest" keeps hard pixel edges (pixel art), "linear" (default) smooths'),
     referenceScale: z
       .number()
       .positive()
@@ -24,7 +28,9 @@ defineOp({
       .describe("Size in percent the rig's physics (gravity, wind) and IK softness values were made for (default 100); they scale by the skeleton's size relative to it"),
   }),
   apply(doc, a) {
-    const { referenceScale, ...rest } = a;
+    const { referenceScale, textureFilter, ...rest } = a;
+    if (textureFilter === "linear") delete doc.textureFilter;
+    else if (textureFilter) doc.textureFilter = textureFilter;
     if (referenceScale !== undefined) {
       if (referenceScale === 100) delete doc.skeleton.referenceScale;
       else doc.skeleton.referenceScale = referenceScale;

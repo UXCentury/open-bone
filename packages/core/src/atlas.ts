@@ -453,12 +453,18 @@ export function filterParts(f: AtlasFilter): { texel: "nearest" | "linear"; mip:
  * Sampling for every atlas page whose atlas asks for something other than the default (linear, clamp). Loose images
  * are not listed: renderers keep their own defaults for them.
  */
-export function textureSamplings(doc: Pick<OpenBoneDocument, "atlas">): Map<Id, TextureSampling> {
+export function textureSamplings(doc: Pick<OpenBoneDocument, "atlas"> & Partial<Pick<OpenBoneDocument, "images" | "textureFilter">>): Map<Id, TextureSampling> {
   const a = doc.atlas;
   const out = new Map<Id, TextureSampling>();
+  // Pixel art: every image, and atlas pages unless the atlas chose its own filters, sample nearest.
+  if (doc.textureFilter === "nearest") {
+    const s: TextureSampling = { min: "nearest", mag: "nearest", wrapX: "clamp", wrapY: "clamp", mipmaps: false };
+    for (const i of doc.images ?? []) out.set(i.id, s);
+    for (const p of a?.pages ?? []) out.set(p.id, s);
+  }
   if (!a || !(a.filterMin || a.filterMag || a.wrapX || a.wrapY)) return out;
-  const min = a.filterMin ?? "linear";
-  const mag = filterParts(a.filterMag ?? "linear").texel;
+  const min = a.filterMin ?? (doc.textureFilter === "nearest" ? "nearest" : "linear");
+  const mag = filterParts(a.filterMag ?? (doc.textureFilter === "nearest" ? "nearest" : "linear")).texel;
   const s: TextureSampling = { min, mag, wrapX: a.wrapX ?? "clamp", wrapY: a.wrapY ?? "clamp", mipmaps: filterParts(min).mip !== "none" };
   for (const p of a.pages) out.set(p.id, s);
   return out;

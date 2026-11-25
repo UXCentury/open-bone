@@ -234,6 +234,8 @@ export function setupShortcuts(): () => void {
     b("edit.finishPath", () => (tool() === "pen" ? penFinish() : false)),
     b("view.grid", () => toggleViewAid("grid")),
     b("view.rulers", () => toggleViewAid("rulers")),
+    b("view.pixelGrid", () => toggleViewAid("pixelGrid")),
+    b("view.smoothing", () => void apply("setDocument", { textureFilter: doc().textureFilter === "nearest" ? "linear" : "nearest" })),
     b("view.bones", () => setShowBones(!showBones())),
     b("view.mesh", () => setShowMesh(!showMesh())),
     b("view.z", () => setZView(!zView())),

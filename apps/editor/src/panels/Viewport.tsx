@@ -6,7 +6,7 @@ import { boneLocked, showImages, slotLocked, slotOpacity } from "../visibility.t
 import { type ZLayout, view3d, zDropIndex, zHit, zLayout, zMove, zView } from "../zview.ts";
 import { View3D } from "./View3D.tsx";
 import { applySequencePreview } from "../sequence-import.ts";
-import { type Guide, clearGuides, guides, newGuideId, removeGuide, setViewAid, toggleViewAid, upsertGuide, viewAids } from "../guides.ts";
+import { type Guide, PIXEL_GRID_MIN_ZOOM, clearGuides, guides, newGuideId, removeGuide, setViewAid, toggleViewAid, upsertGuide, viewAids } from "../guides.ts";
 import { CanvasRenderer } from "@openbone/render-canvas";
 import { type Bone, type ScriptHost, type Slot, Skeleton, StateMachineInstance, applyAnimation, poseChainFrom, poseEffector, poseGrabPoint, solvePose, trustedFunctionHost } from "@openbone/runtime";
 import { createQuickJsHost } from "@openbone/scripting";
@@ -514,6 +514,7 @@ export function Viewport() {
       beforeOverlays: () => {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         if (viewAids().grid) drawGrid(ctx, w, h);
+        if (viewAids().pixelGrid && view.zoom >= PIXEL_GRID_MIN_ZOOM) drawPixelGrid(ctx, w, h);
         if (viewAids().origin) drawOriginLines(ctx, w, h, d.background);
       },
     });
@@ -1443,6 +1444,25 @@ export function Viewport() {
     const p = 10 ** Math.floor(Math.log10(raw));
     return [1, 2, 5, 10].map((k) => k * p).find((v) => v >= raw) ?? 10 * p;
   };
+
+  /** One line per artboard pixel (pixel art), on whole artboard pixels whatever the origin. Fades in with zoom. */
+  function drawPixelGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
+    const z = view.zoom;
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = `rgba(160,170,200,${Math.min(0.22, 0.06 + (z - PIXEL_GRID_MIN_ZOOM) * 0.012).toFixed(3)})`;
+    ctx.beginPath();
+    for (let n = Math.floor(-view.x / z), end = (w - view.x) / z; n <= end; n++) {
+      const sx = Math.round(view.x + n * z) + 0.5;
+      ctx.moveTo(sx, 0);
+      ctx.lineTo(sx, h);
+    }
+    for (let n = Math.floor(-view.y / z), end = (h - view.y) / z; n <= end; n++) {
+      const sy = Math.round(view.y + n * z) + 0.5;
+      ctx.moveTo(0, sy);
+      ctx.lineTo(w, sy);
+    }
+    ctx.stroke();
+  }
 
   function drawGrid(ctx: CanvasRenderingContext2D, w: number, h: number) {
     let step = viewAids().gridSize;
@@ -2425,6 +2445,12 @@ export function Viewport() {
             <div class="muted small">Show</div>
             <label class="check" title="Shows what is transparent: the stage, and the artboard when its background is transparent">
               <input type="checkbox" checked={viewAids().checker} onChange={(e) => setViewAid("checker", e.currentTarget.checked)} /> Checkerboard
+            </label>
+            <label class="check" title={`One line per artboard pixel, shown from ${PIXEL_GRID_MIN_ZOOM * 100}% zoom (pixel art)`}>
+              <input type="checkbox" checked={viewAids().pixelGrid} onChange={(e) => setViewAid("pixelGrid", e.currentTarget.checked)} /> Pixel grid
+            </label>
+            <label class="check" title="Project setting, saved in the file and used by every runtime: off draws images with hard pixel edges when scaled (pixel art)">
+              <input type="checkbox" checked={doc().textureFilter !== "nearest"} onChange={(e) => apply("setDocument", { textureFilter: e.currentTarget.checked ? "linear" : "nearest" })} /> Smooth images
             </label>
             <label class="check" title="Lines through the skeleton origin (x = 0, y = 0)">
               <input type="checkbox" checked={viewAids().origin} onChange={(e) => setViewAid("origin", e.currentTarget.checked)} /> Origin lines

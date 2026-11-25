@@ -585,6 +585,9 @@ Aliased regions (several images sharing one rect) need nothing special: each reg
 `empty` regions (blank images) point at a 1×1 transparent block with `origW = origH = 1`, so the formulas above
 sample transparent pixels; a runtime may skip their draw items instead (the reference runtime keeps them).
 The sampling fields (`filterMin`, `filterMag`, `wrapX`, `wrapY`, `pixelFormat`) don't change the draw list.
+Neither does the document's `textureFilter`: `"nearest"` asks renderers to sample every image, and every atlas
+page whose atlas sets no filter of its own, without smoothing (pixel art). An atlas's own `filterMin`/`filterMag` win
+for its pages (`core/atlas.ts:textureSamplings`).
 
 **Polygons** (`AtlasRegion.polygon`, flat `[x0,y0,…]` in original-image pixels, y-down, like the offsets; used when
 length ≥ 6; built in `Skeleton.constructor`). Only `region` attachments use it (sequences, meshes, particles and

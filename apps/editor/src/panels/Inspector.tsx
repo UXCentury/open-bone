@@ -991,6 +991,11 @@ function DocumentInspector() {
       <NumberField label="Origin Y" value={d().originY} onCommit={(v) => apply("setDocument", { originY: v })} />
       <BackgroundField />
       <NumberField label="FPS" value={d().fps} onCommit={(v) => apply("setDocument", { fps: v })} />
+      <label class="field" title="How images are drawn when scaled, in the editor and every runtime. Off keeps hard pixel edges, for pixel art.">
+        <span>Smoothing</span>
+        <input type="checkbox" checked={d().textureFilter !== "nearest"} onChange={(e) => apply("setDocument", { textureFilter: e.currentTarget.checked ? "linear" : "nearest" })} />
+        <span class="unit">{d().textureFilter === "nearest" ? "off (pixel art)" : "on"}</span>
+      </label>
       <label class="field" title="Size (%) the rig's physics gravity and wind and IK softness were made for. They scale with the skeleton's size relative to it, so a rig exported at another size behaves the same. Default 100.">
         <span>Ref. scale</span>
         <input

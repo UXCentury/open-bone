@@ -269,4 +269,28 @@ describe("sampling metadata", () => {
     // layoutAtlas records what it is given.
     expect(layoutAtlas([{ id: "a", width: 4, height: 4 }], { filterMag: "nearest", pixelFormat: "RGB565" })).toMatchObject({ filterMag: "nearest", pixelFormat: "RGB565" });
   });
+
+  it("samples every image and page nearest for pixel art, unless the atlas chose its own filters", () => {
+    const nearest = { min: "nearest", mag: "nearest", wrapX: "clamp", wrapY: "clamp", mipmaps: false };
+    const images = [{ id: "img_a", name: "a", src: "a.png", width: 4, height: 4 }];
+    const plain = { ...atlas(), filterMin: undefined, filterMag: undefined, wrapX: undefined, wrapY: undefined };
+    expect(textureSamplings({ images, textureFilter: "nearest" }).get("img_a")).toEqual(nearest);
+    expect(textureSamplings({ images, atlas: plain, textureFilter: "nearest" }).get("p0")).toEqual(nearest);
+    // Wrap set, filters not: the pages keep their wrap and sample nearest.
+    expect(textureSamplings({ images, atlas: { ...plain, wrapX: "repeat" }, textureFilter: "nearest" }).get("p0")).toMatchObject({ min: "nearest", mag: "nearest", wrapX: "repeat" });
+    // The atlas's own filters win for its pages.
+    expect(textureSamplings({ images, atlas: atlas(), textureFilter: "nearest" }).get("p0")).toMatchObject({ min: "mipmapLinearNearest", mag: "nearest" });
+    expect(textureSamplings({ images }).size).toBe(0);
+  });
+
+  it("setDocument switches smoothing off and back on (linear leaves no field)", () => {
+    const store = new DocumentStore(createDocument("Pixels"));
+    store.apply("setDocument", { textureFilter: "nearest" });
+    expect(store.doc.textureFilter).toBe("nearest");
+    expect(deserialize(serialize(store.doc)).textureFilter).toBe("nearest");
+    expect(deserializeBinary(serializeBinary(store.doc)).textureFilter).toBe("nearest");
+    expect(validate(store.doc).filter((p) => p.level === "error")).toEqual([]);
+    store.apply("setDocument", { textureFilter: "linear" });
+    expect("textureFilter" in store.doc).toBe(false);
+  });
 });

@@ -22,6 +22,7 @@ in the [runtime specification](runtime-spec.md).
 {
   "format": "openbone", "version": 1, "name": "Walker",
   "width": 800, "height": 600, "originX": 400, "originY": 500, "background": "#eef2f7", "fps": 30,
+  "textureFilter?": "linear" | "nearest",
   "images":   [{ "id": "img_…", "name": "cape", "src": "assets/cape.png", "width": 120, "height": 60 }],
   "fonts?":   [{ "id": "fnt_…", "name": "NotoSerifJP-Regular", "family": "Noto Serif JP", "src": "assets/fonts/NotoSerifJP-Regular.otf",
                  "weight?": 400, "style?": "normal" | "italic" }],
@@ -56,6 +57,9 @@ in the [runtime specification](runtime-spec.md).
 
 Fields marked `?` are optional. Coordinates in skeleton space are y-up, angles in degrees counter-clockwise; the
 artboard (`width × height`) is y-down pixels with the skeleton origin at `originX, originY`.
+`textureFilter` is how images are sampled when drawn scaled: `"linear"` (the default, smooth) or `"nearest"`
+(hard pixel edges, for pixel art). It covers every image and every atlas page whose atlas sets no `filterMin` /
+`filterMag` of its own.
 
 ## Skeleton
 

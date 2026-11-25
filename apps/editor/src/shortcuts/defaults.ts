@@ -51,6 +51,8 @@ export const DEFAULT_SHORTCUTS: ShortcutDef[] = [
   { id: "view.zoomOut", label: "Zoom out", group: "View", keys: ["-"], scope: "editor", repeat: true },
   { id: "view.zoom100", label: "Zoom to 100%", group: "View", keys: ["Shift+0"], scope: "editor" },
   { id: "view.grid", label: "Toggle grid", group: "View", keys: ["G"], scope: "editor" },
+  { id: "view.pixelGrid", label: "Toggle pixel grid", group: "View", keys: [], scope: "editor" },
+  { id: "view.smoothing", label: "Toggle image smoothing (pixel art)", group: "View", keys: [], scope: "editor" },
   { id: "view.rulers", label: "Toggle rulers and guides", group: "View", keys: ["Shift+R"], scope: "editor" },
   { id: "view.bones", label: "Toggle bones", group: "View", keys: ["Shift+B"], scope: "editor" },
   { id: "view.mesh", label: "Toggle mesh wireframe", group: "View", keys: ["Shift+M"], scope: "editor" },

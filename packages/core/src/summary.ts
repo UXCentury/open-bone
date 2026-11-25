@@ -5,7 +5,7 @@ import type { OpenBoneDocument } from "./types.ts";
 export function summarize(d: OpenBoneDocument): string {
   const lines: string[] = [];
   const name = (id: string | null) => d.skeleton.bones.find((b) => b.id === id)?.name ?? id;
-  lines.push(`# ${d.name} — artboard ${d.width}x${d.height}, origin (${d.originX},${d.originY}), ${d.fps}fps`);
+  lines.push(`# ${d.name} — artboard ${d.width}x${d.height}, origin (${d.originX},${d.originY}), ${d.fps}fps${d.textureFilter === "nearest" ? ", no smoothing (pixel art)" : ""}`);
   lines.push(`## Bones (${d.skeleton.bones.length}) — name [id] parent: x,y rot len`);
   const depth = (id: string | null): number => {
     const b = d.skeleton.bones.find((x) => x.id === id);

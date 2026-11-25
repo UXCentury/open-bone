@@ -83,6 +83,7 @@ export class CanvasRenderer {
   convertPremultiplied = true;
   private pma = new Set<string>();
   private pmaDoc: OpenBoneDocument | null = null;
+  private pmaFilter: OpenBoneDocument["textureFilter"];
   /** Atlas page sampling: a 2D canvas can only switch smoothing off, which it does for nearest magnification. */
   private sampling = new Map<string, TextureSampling>();
 
@@ -180,8 +181,10 @@ export class CanvasRenderer {
   render(sk: Skeleton, opts: CanvasRenderOptions = {}) {
     const { ctx } = this;
     const doc = sk.doc;
-    if (this.pmaDoc !== doc) {
+    // The texture filter is a setting edited in place, so it is part of the key.
+    if (this.pmaDoc !== doc || this.pmaFilter !== doc.textureFilter) {
       this.pmaDoc = doc;
+      this.pmaFilter = doc.textureFilter;
       this.pma = premultipliedTextures(doc);
       this.sampling = textureSamplings(doc);
     }

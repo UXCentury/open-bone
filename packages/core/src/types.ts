@@ -1000,6 +1000,11 @@ export interface OpenBoneDocument {
   originY: number;
   background: Hex | null;
   fps: number;
+  /**
+   * How images are sampled when drawn scaled. "nearest" keeps hard pixel edges (pixel art); absent means "linear"
+   * (smooth). It applies to every image and to atlas pages whose atlas sets no filter of its own.
+   */
+  textureFilter?: TextureFilter;
   /** An image whose src is "" is only available through `atlas`. */
   images: ImageAsset[];
   /** Packed textures. Images with a region here are drawn from the atlas page instead of their own src. */
@@ -1014,5 +1019,8 @@ export interface OpenBoneDocument {
   /** Font files for text attachments, by family. Absent when the document embeds no fonts. */
   fonts?: FontAsset[];
 }
+
+export const TEXTURE_FILTERS = ["linear", "nearest"] as const;
+export type TextureFilter = (typeof TEXTURE_FILTERS)[number];
 
 export const FORMAT_VERSION = 1 as const;

@@ -26,11 +26,13 @@ interface Settings {
   checker: boolean;
   /** Lines through the skeleton origin (x = 0 and y = 0). */
   origin: boolean;
+  /** One line per artboard pixel, shown once a pixel is big enough on screen (pixel art). */
+  pixelGrid: boolean;
 }
 
 const SETTINGS_KEY = "openbone.viewaids.v1";
 const GUIDES_KEY = "openbone.guides.v1";
-const DEFAULTS: Settings = { grid: false, gridSize: 25, rulers: true, snap: true, snapGrid: true, snapGuides: true, snapArtboard: true, snapBones: true, checker: true, origin: true };
+const DEFAULTS: Settings = { grid: false, gridSize: 25, rulers: true, snap: true, snapGrid: true, snapGuides: true, snapArtboard: true, snapBones: true, checker: true, origin: true, pixelGrid: false };
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -48,6 +50,9 @@ function write(key: string, v: unknown) {
   }
 }
 
+/** Screen pixels an artboard pixel must cover before the pixel grid is drawn. */
+export const PIXEL_GRID_MIN_ZOOM = 6;
+
 const [settings, setSettingsRaw] = createSignal<Settings>(read(SETTINGS_KEY, DEFAULTS));
 export { settings as viewAids };
 export function setViewAid<K extends keyof Settings>(key: K, value: Settings[K]) {
@@ -56,7 +61,7 @@ export function setViewAid<K extends keyof Settings>(key: K, value: Settings[K])
   setSettingsRaw(next);
   write(SETTINGS_KEY, next);
 }
-export const toggleViewAid = (key: "grid" | "rulers" | "snap" | "checker" | "origin") => setViewAid(key, !settings()[key]);
+export const toggleViewAid = (key: "grid" | "rulers" | "snap" | "checker" | "origin" | "pixelGrid") => setViewAid(key, !settings()[key]);
 
 // ---- guides, per project ----
 const [allGuides, setAllGuides] = createSignal<Record<string, Guide[]>>(read(GUIDES_KEY, {}));
