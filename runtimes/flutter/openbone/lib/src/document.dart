@@ -64,6 +64,9 @@ class OpenBoneDocument implements Finalizable {
   /// Atlas pages first, then images.
   late final List<OpenBoneTexture> textures;
 
+  /// True when the document's `textureFilter` is "nearest" (pixel art: images draw with hard pixel edges).
+  late final bool isPixelArt;
+
   /// Sound files the document's audio commands play (`asset` in a play command is an id here).
   late final List<OpenBoneAudioAsset> audioAssets;
 
@@ -153,6 +156,21 @@ class OpenBoneDocument implements Finalizable {
       ];
 
       final tex = arena<ob_texture_info>();
+      final smp = arena<ob_texture_sampling>();
+      OpenBoneTextureSampling sampling(int i) {
+        if (b.ob_document_texture_sampling(_ptr, i, smp) == 0) return const OpenBoneTextureSampling();
+        final s = smp.ref;
+        final filters = OpenBoneTextureFilter.values, wraps = OpenBoneTextureWrap.values;
+        return OpenBoneTextureSampling(
+          minFilter: s.min >= 0 && s.min < filters.length ? filters[s.min] : OpenBoneTextureFilter.linear,
+          magFilter: s.mag == 0 ? OpenBoneTextureFilter.nearest : OpenBoneTextureFilter.linear,
+          mipmaps: s.mipmaps != 0,
+          wrapX: s.wrap_x >= 0 && s.wrap_x < wraps.length ? wraps[s.wrap_x] : OpenBoneTextureWrap.clamp,
+          wrapY: s.wrap_y >= 0 && s.wrap_y < wraps.length ? wraps[s.wrap_y] : OpenBoneTextureWrap.clamp,
+        );
+      }
+
+      isPixelArt = b.ob_document_texture_filter_nearest(_ptr) != 0;
       textures = [
         for (var i = 0; i < b.ob_document_texture_count(_ptr); i++)
           if (b.ob_document_texture(_ptr, i, tex) != 0)
@@ -164,6 +182,7 @@ class OpenBoneDocument implements Finalizable {
               height: tex.ref.height,
               isAtlasPage: tex.ref.is_atlas_page != 0,
               premultipliedAlpha: tex.ref.premultiplied_alpha != 0,
+              sampling: sampling(i),
             ),
       ];
 

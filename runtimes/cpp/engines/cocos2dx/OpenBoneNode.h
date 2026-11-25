@@ -75,6 +75,7 @@ class OpenBoneNode : public cocos2d::Node {
   std::unordered_map<std::string, std::string> _fontCache;   // families + weight + text → resolved file
   std::unordered_map<std::string, std::string> _docFontFiles;  // document font id → file
   cocos2d::Texture2D* texture(const openbone::TextureRef& ref);
+  static void applySampling(cocos2d::Texture2D* tex, const openbone::TextureSampling& s);
   void handleAudio(const openbone::AudioCommand& c);
   std::string audioFile(const std::string& assetId);
   double busGain(const std::optional<std::string>& bus) const;

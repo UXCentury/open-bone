@@ -79,10 +79,16 @@ class OpenBoneBytesSource extends OpenBoneSource {
 
 /// Decoded textures by id, ready for drawing.
 class OpenBoneTextures {
-  OpenBoneTextures(this.images);
+  OpenBoneTextures(this.images, [Map<String, OpenBoneTextureSampling>? samplings]) : samplings = samplings ?? {};
   final Map<String, ui.Image> images;
 
+  /// How each texture id is sampled (from its document); ids not listed draw with the renderer's filter quality.
+  final Map<String, OpenBoneTextureSampling> samplings;
+
   ui.Image? operator [](String id) => images[id];
+
+  /// The sampling of a texture id, or null when its document asks for nothing special.
+  OpenBoneTextureSampling? sampling(String id) => samplings[id];
 
   void dispose() {
     for (final i in images.values) {
@@ -112,7 +118,7 @@ class OpenBoneTextures {
       }
     }));
     out[openBoneParticleDotTexture] = await particleDot();
-    return OpenBoneTextures(out);
+    return OpenBoneTextures(out, {for (final t in document.textures) t.id: t.sampling});
   }
 
   static Future<Uint8List?> _defaultBytes(OpenBoneTexture t, OpenBoneDocument doc, OpenBoneSource? source) =>

@@ -157,4 +157,37 @@ void main() {
     expect(width(fonts.families('openbone embedded check, sans-serif', 400)), lessThan(20));
     doc.dispose();
   });
+
+  testWidgets('pixel art (textureFilter nearest) draws with hard texel edges', (tester) async {
+    // A 2×2 image (red, blue / green, white) drawn 8×8.
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAEklEQVR4nGP4z8AAQmDqPwgAAEnICfchVbMlAAAAAElFTkSuQmCC';
+    Future<List<int>> pixel(String filter, int x, int y) async {
+      final json = '{"format":"openbone","version":1,"name":"px","width":8,"height":8,"originX":4,"originY":4,"fps":30$filter,'
+          '"images":[{"id":"img","name":"px","src":"data:image/png;base64,$png","width":2,"height":2}],'
+          '"skeleton":{"bones":[{"id":"b","name":"root","parent":null}],"slots":[{"id":"s","name":"px","bone":"b","attachment":"r"}],'
+          '"skins":[{"id":"skin_default","name":"default","attachments":{"s":{"r":{"type":"region","name":"r","image":"img","width":8,"height":8}}}}]},'
+          '"animations":[]}';
+      final doc = OpenBoneDocument.bytes(Uint8List.fromList(utf8.encode(json)));
+      final textures = (await tester.runAsync(() => OpenBoneTextures.load(doc)))!;
+      final inst = doc.createInstance()..advance(0);
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder)
+        ..translate(4, 4)
+        ..scale(1, -1);
+      OpenBoneRenderer().draw(canvas, inst.drawList(), textures);
+      final image = (await tester.runAsync(() => recorder.endRecording().toImage(8, 8)))!;
+      final data = (await tester.runAsync(() => image.toByteData(format: ui.ImageByteFormat.rawStraightRgba)))!;
+      final i = (y * 8 + x) * 4;
+      final px = data.buffer.asUint8List().sublist(i, i + 4);
+      expect(textures.sampling('img')?.isNearest, filter.isNotEmpty);
+      inst.dispose();
+      textures.dispose();
+      doc.dispose();
+      return px;
+    }
+
+    // Pixel (3, 1) sits 3/8 of a texel from the red/blue edge: unfiltered it is pure red, smoothed it blends in blue.
+    expect(await pixel(',"textureFilter":"nearest"', 3, 1), [255, 0, 0, 255]);
+    expect((await pixel('', 3, 1))[2], greaterThan(0));
+  });
 }

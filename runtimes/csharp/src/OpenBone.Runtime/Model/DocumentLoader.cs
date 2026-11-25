@@ -69,6 +69,7 @@ namespace OpenBone
                 OriginY = j.Num("originY"),
                 Background = j.Str("background"),
                 Fps = j.Num("fps", 30),
+                TextureFilter = j.Str("textureFilter") == "nearest" ? "nearest" : "linear",
             };
             foreach (var x in j.Arr("images"))
                 d.Images.Add(new ImageAsset { Id = S(x, "id"), Name = S(x, "name"), Src = S(x, "src"), Width = x.Num("width"), Height = x.Num("height") });
@@ -114,6 +115,10 @@ namespace OpenBone
                 PremultipliedAlpha = a.Bool("premultipliedAlpha"),
                 StripWhitespace = a.Bool("stripWhitespace"),
                 Polygons = a.Bool("polygons"),
+                FilterMin = a.Str("filterMin"),
+                FilterMag = a.Str("filterMag"),
+                WrapX = a.Str("wrapX"),
+                WrapY = a.Str("wrapY"),
             };
             foreach (var p in a.Arr("pages"))
                 r.Pages.Add(new AtlasPage { Id = S(p, "id"), Name = S(p, "name"), Src = S(p, "src"), Width = p.Num("width"), Height = p.Num("height") });

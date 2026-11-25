@@ -10,6 +10,8 @@ namespace OpenBone
         public double Width, Height, OriginX, OriginY;
         public string Background;
         public double Fps;
+        /// <summary>"linear" (default, smooth) or "nearest" (pixel art): how images, and atlas pages whose atlas sets no filter of its own, are sampled.</summary>
+        public string TextureFilter = "linear";
         public List<ImageAsset> Images = new List<ImageAsset>();
         public AtlasData Atlas;
         public SkeletonData Skeleton = new SkeletonData();
@@ -22,6 +24,21 @@ namespace OpenBone
         public List<FontAsset> Fonts = new List<FontAsset>();
         /// <summary>The JSON the document was read from (normalised).</summary>
         public JsonValue Json;
+
+        /// <summary>
+        /// How a renderer samples an image or atlas page: the atlas's own FilterMin/FilterMag/Wrap win for its pages,
+        /// then <see cref="TextureFilter"/>, then linear + clamp. It never changes the pose or the draw list.
+        /// </summary>
+        public TextureSampling TextureSamplingFor(string textureId)
+        {
+            string baseFilter = TextureFilter == "nearest" ? "nearest" : "linear";
+            var a = Atlas;
+            bool page = false;
+            if (a != null) foreach (var p in a.Pages) if (p.Id == textureId) page = true;
+            if (page && (a.FilterMin != null || a.FilterMag != null || a.WrapX != null || a.WrapY != null))
+                return OpenBone.TextureSampling.Of(a.FilterMin ?? baseFilter, a.FilterMag ?? baseFilter, a.WrapX ?? "clamp", a.WrapY ?? "clamp");
+            return OpenBone.TextureSampling.Of(baseFilter, baseFilter, "clamp", "clamp");
+        }
 
         public SkinData DefaultSkin => Skeleton.Skins.Count > 0 ? Skeleton.Skins[0] : null;
 
@@ -169,6 +186,35 @@ namespace OpenBone
         public double Padding;
         public double? Scale;
         public bool PremultipliedAlpha, StripWhitespace, Polygons;
+        /// <summary>Sampling the atlas asks for its pages; null = not set. Filters: nearest | linear | mipmap…; wraps: clamp | repeat | mirroredRepeat.</summary>
+        public string FilterMin, FilterMag, WrapX, WrapY;
+    }
+
+    /// <summary>How a renderer samples one texture (see <see cref="Document.TextureSamplingFor"/>).</summary>
+    public sealed class TextureSampling
+    {
+        /// <summary>Minification: nearest | linear | mipmap | mipmapNearestNearest | mipmapLinearNearest | mipmapNearestLinear | mipmapLinearLinear.</summary>
+        public string Min = "linear";
+        /// <summary>Texel filters of minification and magnification (mipmap filters reduce to their first part; "mipmap" is linear).</summary>
+        public bool MinNearest, MagNearest;
+        /// <summary>True when Min uses mipmaps; MipNearest picks the nearest level instead of blending two.</summary>
+        public bool Mipmaps, MipNearest;
+        public string WrapX = "clamp", WrapY = "clamp";
+        /// <summary>For renderers with one smooth on/off switch: true = hard pixel edges.</summary>
+        public bool Nearest => MagNearest;
+
+        internal static bool TexelNearest(string f) => f == "nearest" || f == "mipmapNearestNearest" || f == "mipmapNearestLinear";
+
+        internal static TextureSampling Of(string min, string mag, string wrapX, string wrapY) => new TextureSampling
+        {
+            Min = min,
+            MinNearest = TexelNearest(min),
+            MagNearest = TexelNearest(mag),
+            Mipmaps = min != "nearest" && min != "linear",
+            MipNearest = min == "mipmapNearestNearest" || min == "mipmapLinearNearest",
+            WrapX = wrapX,
+            WrapY = wrapY,
+        };
     }
 
     public sealed class BoneData

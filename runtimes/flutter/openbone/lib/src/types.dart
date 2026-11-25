@@ -84,6 +84,7 @@ class OpenBoneTexture {
     required this.height,
     required this.isAtlasPage,
     required this.premultipliedAlpha,
+    this.sampling = const OpenBoneTextureSampling(),
   });
   final String id, name, src;
   final double width, height;
@@ -91,6 +92,37 @@ class OpenBoneTexture {
 
   /// Atlas pages packed with premultiplied alpha.
   final bool premultipliedAlpha;
+
+  /// How to sample it: the document's `textureFilter` and the atlas's own filters and wraps.
+  final OpenBoneTextureSampling sampling;
+}
+
+/// Texture filters; mipmap filters name the texel part first, then the level part.
+enum OpenBoneTextureFilter { nearest, linear, mipmap, mipmapNearestNearest, mipmapLinearNearest, mipmapNearestLinear, mipmapLinearLinear }
+
+enum OpenBoneTextureWrap { clamp, repeat, mirroredRepeat }
+
+/// How a renderer samples one texture (docs/runtime-spec.md "Atlas"): an atlas's own filterMin / filterMag / wrap win
+/// for its pages, then the document's `textureFilter`, then linear + clamp.
+class OpenBoneTextureSampling {
+  const OpenBoneTextureSampling({
+    this.minFilter = OpenBoneTextureFilter.linear,
+    this.magFilter = OpenBoneTextureFilter.linear,
+    this.mipmaps = false,
+    this.wrapX = OpenBoneTextureWrap.clamp,
+    this.wrapY = OpenBoneTextureWrap.clamp,
+  });
+  final OpenBoneTextureFilter minFilter;
+
+  /// Magnification: only nearest or linear.
+  final OpenBoneTextureFilter magFilter;
+
+  /// True when [minFilter] uses mipmaps.
+  final bool mipmaps;
+  final OpenBoneTextureWrap wrapX, wrapY;
+
+  /// Pixel art: draw with hard pixel edges (no smoothing).
+  bool get isNearest => magFilter == OpenBoneTextureFilter.nearest;
 }
 
 class OpenBoneEvent {

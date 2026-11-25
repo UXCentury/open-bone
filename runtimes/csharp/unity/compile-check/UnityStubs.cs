@@ -176,11 +176,13 @@ namespace UnityEngine
     public class Texture : Object
     {
         public TextureWrapMode wrapMode { get; set; }
+        public TextureWrapMode wrapModeU { get; set; }
+        public TextureWrapMode wrapModeV { get; set; }
         public FilterMode filterMode { get; set; }
     }
 
     public enum TextureFormat { RGBA32 = 4 }
-    public enum TextureWrapMode { Repeat = 0, Clamp = 1 }
+    public enum TextureWrapMode { Repeat = 0, Clamp = 1, Mirror = 2, MirrorOnce = 3 }
     public enum FilterMode { Point = 0, Bilinear = 1, Trilinear = 2 }
 
     public sealed class Texture2D : Texture

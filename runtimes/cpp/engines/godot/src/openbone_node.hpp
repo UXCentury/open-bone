@@ -80,6 +80,8 @@ class OpenBoneSprite : public Node2D {
   bool set_text(const String& slot, const String& text);
   /** The Font text items with this CSS-like family list and weight draw with (document fonts first, see font_for). */
   Ref<Font> get_text_font(const String& families, double weight = 400);
+  /** The CanvasItem texture filter this node draws an image or atlas page with (DEFAULT = this node's own texture_filter). */
+  int get_texture_sampling_filter(const String& texture) const;
 
  protected:
   static void _bind_methods();
@@ -115,6 +117,8 @@ class OpenBoneSprite : public Node2D {
   RID canvas_item(size_t index);
   RID material_for(openbone::BlendMode blend, const std::optional<openbone::RGBA>& dark, bool pma);
   Ref<Texture2D> texture_for(const std::string& id, const std::string& src, bool page);
+  Ref<Image> with_mipmaps(const Ref<Image>& img, const std::string& id) const;
+  void apply_sampling(RID ci, const std::string& texture);
   void free_resources();
 };
 

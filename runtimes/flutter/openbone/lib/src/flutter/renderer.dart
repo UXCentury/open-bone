@@ -50,8 +50,19 @@ class OpenBoneViewTransform {
 class OpenBoneRenderer {
   OpenBoneRenderer({this.filterQuality = FilterQuality.medium});
 
+  /// Smoothing for textures whose document asks for nothing else; pixel art (textureFilter "nearest") and atlases
+  /// with nearest filters draw with [FilterQuality.none].
   final FilterQuality filterQuality;
-  final Map<ui.Image, ui.ImageShader> _shaders = {};
+  final Map<(ui.Image, FilterQuality, TileMode, TileMode), ui.ImageShader> _shaders = {};
+
+  /// The filter quality a texture draws with: [FilterQuality.none] for nearest sampling, else [filterQuality].
+  FilterQuality qualityFor(OpenBoneTextureSampling? s) => s != null && s.isNearest ? FilterQuality.none : filterQuality;
+
+  static TileMode _tile(OpenBoneTextureWrap? w) => switch (w) {
+        OpenBoneTextureWrap.repeat => TileMode.repeated,
+        OpenBoneTextureWrap.mirroredRepeat => TileMode.mirror,
+        _ => TileMode.clamp,
+      };
 
   static BlendMode blendMode(OpenBoneBlend b) => switch (b) {
         OpenBoneBlend.normal => BlendMode.srcOver,
@@ -126,13 +137,15 @@ class OpenBoneRenderer {
         uv[i * 2 + 1] = item.uvs[i * 2 + 1] * h;
       }
     }
+    final sampling = id == null ? null : textures.sampling(id);
+    final quality = qualityFor(sampling);
     final vertices = ui.Vertices.raw(VertexMode.triangles, item.vertices,
         textureCoordinates: uv, colors: colors, indices: item.indices);
     final paint = Paint()
       ..blendMode = blendMode(item.blend)
-      ..filterQuality = filterQuality
+      ..filterQuality = quality
       ..color = const Color(0xFFFFFFFF);
-    if (image != null) paint.shader = _shader(image);
+    if (image != null) paint.shader = _shader(image, quality, sampling);
     // Tint: vertex colours multiply the texture.
     canvas.drawVertices(vertices, BlendMode.modulate, paint);
 
@@ -142,8 +155,8 @@ class OpenBoneRenderer {
       // color * tex; add dark * (1 - tex.rgb), weighted by the item's alpha, on top.
       final alpha = Int32List(n)..fillRange(0, n, _argb(1, 1, 1, c[3]));
       final darkPaint = Paint()
-        ..shader = _shader(image)
-        ..filterQuality = filterQuality
+        ..shader = _shader(image, quality, sampling)
+        ..filterQuality = quality
         ..blendMode = item.blend == OpenBoneBlend.normal ? BlendMode.plus : blendMode(item.blend)
         ..colorFilter = ColorFilter.matrix(<double>[
           -dark[0], 0, 0, 0, dark[0] * 255, //
@@ -158,8 +171,11 @@ class OpenBoneRenderer {
     }
   }
 
-  ui.ImageShader _shader(ui.Image image) => _shaders.putIfAbsent(
-      image, () => ui.ImageShader(image, TileMode.clamp, TileMode.clamp, Matrix4Identity.storage, filterQuality: filterQuality));
+  ui.ImageShader _shader(ui.Image image, FilterQuality quality, OpenBoneTextureSampling? s) {
+    final tx = _tile(s?.wrapX), ty = _tile(s?.wrapY);
+    return _shaders.putIfAbsent(
+        (image, quality, tx, ty), () => ui.ImageShader(image, tx, ty, Matrix4Identity.storage, filterQuality: quality));
+  }
 
   void _shape(Canvas canvas, OpenBoneDrawItem item) {
     final c = item.color;

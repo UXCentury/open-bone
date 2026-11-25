@@ -17,6 +17,10 @@ class OpenBoneDocument {
 	public var originY = 0.0;
 	public var background:String;
 	public var fps = 30.0;
+
+	/** "linear" (default, smooth) or "nearest" (pixel art): how images, and atlas pages whose atlas sets no filter of its own, are sampled. */
+	public var textureFilter = "linear";
+
 	public final images:Array<ImageAsset> = [];
 
 	/** Fonts the document carries (text attachments name them by family). */
@@ -35,6 +39,24 @@ class OpenBoneDocument {
 	public var audio:AudioData;
 
 	public function new() {}
+
+	/**
+	 * How a renderer samples an image or atlas page: the atlas's own filterMin/filterMag/wrap win for its pages, then
+	 * `textureFilter`, then linear + clamp. It never changes the pose or the draw list.
+	 */
+	public function textureSampling(textureId:String):TextureSampling {
+		var base = textureFilter == "nearest" ? "nearest" : "linear";
+		var a = atlas;
+		var page = false;
+		if (a != null)
+			for (p in a.pages)
+				if (p.id == textureId)
+					page = true;
+		if (page && (a.filterMin != null || a.filterMag != null || a.wrapX != null || a.wrapY != null))
+			return new TextureSampling(a.filterMin != null ? a.filterMin : base, a.filterMag != null ? a.filterMag : base,
+				a.wrapX != null ? a.wrapX : "clamp", a.wrapY != null ? a.wrapY : "clamp");
+		return new TextureSampling(base, base, "clamp", "clamp");
+	}
 
 	/** Animation by id, then by name; null if none. */
 	public function findAnimation(ref:String):AnimationData {
@@ -198,7 +220,54 @@ class AtlasData {
 	public var stripWhitespace = false;
 	public var polygons = false;
 
+	/** Sampling the atlas asks for its pages; null = not set. Filters: nearest | linear | mipmap…; wraps: clamp | repeat | mirroredRepeat. */
+	public var filterMin:String;
+
+	public var filterMag:String;
+	public var wrapX:String;
+	public var wrapY:String;
+
 	public function new() {}
+}
+
+/** How a renderer samples one texture (see `OpenBoneDocument.textureSampling`). */
+class TextureSampling {
+	/** Minification: nearest | linear | mipmap | mipmapNearestNearest | mipmapLinearNearest | mipmapNearestLinear | mipmapLinearLinear. */
+	public final min:String;
+
+	/** Texel filters of minification and magnification (mipmap filters reduce to their first part; "mipmap" is linear). */
+	public final minNearest:Bool;
+
+	public final magNearest:Bool;
+
+	/** True when `min` uses mipmaps; mipNearest picks the nearest level instead of blending two. */
+	public final mipmaps:Bool;
+
+	public final mipNearest:Bool;
+
+	/** clamp | repeat | mirroredRepeat */
+	public final wrapX:String;
+
+	public final wrapY:String;
+
+	/** For renderers with one smooth on/off switch: true = hard pixel edges. */
+	public var nearest(get, never):Bool;
+
+	function get_nearest()
+		return magNearest;
+
+	public function new(min:String, mag:String, wrapX:String, wrapY:String) {
+		this.min = min;
+		minNearest = texelNearest(min);
+		magNearest = texelNearest(mag);
+		mipmaps = min != "nearest" && min != "linear";
+		mipNearest = min == "mipmapNearestNearest" || min == "mipmapLinearNearest";
+		this.wrapX = wrapX;
+		this.wrapY = wrapY;
+	}
+
+	static function texelNearest(f:String):Bool
+		return f == "nearest" || f == "mipmapNearestNearest" || f == "mipmapNearestLinear";
 }
 
 class AtlasPage {

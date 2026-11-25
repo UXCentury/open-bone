@@ -116,16 +116,55 @@ public final class OpenBoneDocument {
         public var isAtlasPage: Bool
         /// Atlas pages packed with premultiplied alpha.
         public var premultipliedAlpha: Bool
+        /// How to sample it: the document's `textureFilter` and the atlas's own filters and wraps.
+        public var sampling: TextureSampling = TextureSampling()
     }
+
+    /// Texture filters (`TextureSampling.minFilter`); mipmap filters name the texel part first, then the level part.
+    public enum TextureFilter: Int32, Equatable {
+        case nearest = 0, linear, mipmap, mipmapNearestNearest, mipmapLinearNearest, mipmapNearestLinear, mipmapLinearLinear
+    }
+
+    public enum TextureWrap: Int32, Equatable {
+        case clamp = 0, `repeat`, mirroredRepeat
+    }
+
+    /// How a renderer samples one texture (docs/runtime-spec.md "Atlas"): an atlas's own filterMin/filterMag/wrap
+    /// win for its pages, then the document's `textureFilter`, then linear + clamp.
+    public struct TextureSampling: Equatable, Hashable {
+        public var minFilter: TextureFilter = .linear
+        /// Magnification: only `.nearest` or `.linear`.
+        public var magFilter: TextureFilter = .linear
+        /// True when `minFilter` uses mipmaps.
+        public var mipmaps = false
+        public var wrapX: TextureWrap = .clamp
+        public var wrapY: TextureWrap = .clamp
+        /// Pixel art: true when the texture should draw with hard pixel edges (no smoothing).
+        public var isNearest: Bool { magFilter == .nearest }
+        public init() {}
+    }
+
+    /// True when the document's `textureFilter` is "nearest" (pixel art).
+    public var isPixelArt: Bool { ob_document_texture_filter_nearest(handle) != 0 }
 
     /// Atlas pages first, then images.
     public var textures: [Texture] {
         (0 ..< Int(ob_document_texture_count(handle))).compactMap { i in
             var t = ob_texture_info()
             guard ob_document_texture(handle, Int32(i), &t) != 0 else { return nil }
+            var sampling = TextureSampling()
+            var s = ob_texture_sampling()
+            if ob_document_texture_sampling(handle, Int32(i), &s) != 0 {
+                sampling.minFilter = TextureFilter(rawValue: s.min) ?? .linear
+                sampling.magFilter = s.mag == 0 ? .nearest : .linear
+                sampling.mipmaps = s.mipmaps != 0
+                sampling.wrapX = TextureWrap(rawValue: s.wrap_x) ?? .clamp
+                sampling.wrapY = TextureWrap(rawValue: s.wrap_y) ?? .clamp
+            }
             return Texture(id: optionalString(t.id) ?? "", name: optionalString(t.name) ?? "",
                            source: optionalString(t.src) ?? "", width: t.width, height: t.height,
-                           isAtlasPage: t.is_atlas_page != 0, premultipliedAlpha: t.premultiplied_alpha != 0)
+                           isAtlasPage: t.is_atlas_page != 0, premultipliedAlpha: t.premultiplied_alpha != 0,
+                           sampling: sampling)
         }
     }
 

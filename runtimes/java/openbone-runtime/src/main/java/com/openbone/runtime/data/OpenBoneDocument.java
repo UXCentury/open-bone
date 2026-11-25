@@ -11,6 +11,8 @@ public class OpenBoneDocument {
   public double width, height, originX, originY;
   public String background;
   public double fps = 30;
+  /** "linear" (default, smooth) or "nearest" (pixel art): how images, and atlas pages whose atlas sets no filter of its own, are sampled. */
+  public String textureFilter = "linear";
   public final List<ImageAsset> images = new ArrayList<>();
   /** Fonts the document carries (text attachments name them by family). */
   public final List<FontAsset> fonts = new ArrayList<>();
@@ -25,6 +27,21 @@ public class OpenBoneDocument {
   public AudioData audio;
 
   /** Animation by id, then by name; null if none. */
+  /**
+   * How a renderer samples an image or atlas page: the atlas's own filterMin/filterMag/wrap win for its pages, then
+   * {@link #textureFilter}, then linear + clamp.
+   */
+  public TextureSampling textureSampling(String textureId) {
+    String base = "nearest".equals(textureFilter) ? "nearest" : "linear";
+    AtlasData a = atlas;
+    boolean page = false;
+    if (a != null) for (AtlasData.Page p : a.pages) if (p.id.equals(textureId)) page = true;
+    if (page && (a.filterMin != null || a.filterMag != null || a.wrapX != null || a.wrapY != null))
+      return new TextureSampling(a.filterMin != null ? a.filterMin : base, a.filterMag != null ? a.filterMag : base,
+          a.wrapX != null ? a.wrapX : "clamp", a.wrapY != null ? a.wrapY : "clamp");
+    return new TextureSampling(base, base, "clamp", "clamp");
+  }
+
   public AnimationData findAnimation(String ref) {
     for (AnimationData a : animations) if (a.id.equals(ref)) return a;
     for (AnimationData a : animations) if (a.name.equals(ref)) return a;

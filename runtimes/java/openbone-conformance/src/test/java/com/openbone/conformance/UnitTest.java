@@ -139,4 +139,38 @@ class UnitTest {
     else assertEquals(ts, mine, path);
     return 1;
   }
+
+  private static OpenBoneDocument textureDoc(String extra, String atlas) throws IOException {
+    String json = "{\"format\":\"openbone\",\"version\":1,\"name\":\"t\",\"width\":8,\"height\":8,\"originX\":0,\"originY\":0,\"background\":null,\"fps\":30" + extra
+        + ",\"images\":[{\"id\":\"img\",\"name\":\"a\",\"src\":\"a.png\",\"width\":4,\"height\":4}]"
+        + ",\"atlas\":{\"pages\":[{\"id\":\"pg\",\"name\":\"p\",\"src\":\"p.png\",\"width\":8,\"height\":8}],\"regions\":[]" + atlas + "}"
+        + ",\"skeleton\":{\"bones\":[],\"slots\":[],\"skins\":[]},\"animations\":[],\"stateMachines\":[]}";
+    return DocumentLoader.load(json.getBytes(StandardCharsets.UTF_8));
+  }
+
+  @Test
+  void textureFilter() throws IOException {
+    OpenBoneDocument smooth = textureDoc("", "");
+    assertEquals("linear", smooth.textureFilter);
+    assertTrue(!smooth.textureSampling("img").nearest() && !smooth.textureSampling("pg").nearest());
+
+    OpenBoneDocument pixel = textureDoc(",\"textureFilter\":\"nearest\"", "");
+    assertEquals("nearest", pixel.textureFilter);
+    assertTrue(pixel.textureSampling("img").nearest() && pixel.textureSampling("pg").nearest());
+    assertEquals("nearest", pixel.textureSampling("pg").min);
+
+    // The atlas's own filters win for its pages; images still follow textureFilter.
+    OpenBoneDocument own = textureDoc(",\"textureFilter\":\"nearest\"", ",\"filterMin\":\"mipmapLinearLinear\",\"filterMag\":\"linear\",\"wrapX\":\"repeat\"");
+    assertEquals("mipmapLinearLinear", own.atlas.filterMin);
+    assertTrue(!own.textureSampling("pg").nearest() && own.textureSampling("pg").mipmaps);
+    assertEquals("repeat", own.textureSampling("pg").wrapX);
+    assertEquals("clamp", own.textureSampling("pg").wrapY);
+    assertTrue(own.textureSampling("img").nearest());
+
+    // An atlas that only sets a wrap keeps textureFilter for its filters.
+    assertTrue(textureDoc(",\"textureFilter\":\"nearest\"", ",\"wrapY\":\"repeat\"").textureSampling("pg").nearest());
+    OpenBoneDocument magOnly = textureDoc("", ",\"filterMag\":\"nearest\"");
+    assertTrue(magOnly.textureSampling("pg").nearest() && !magOnly.textureSampling("img").nearest());
+    assertEquals("linear", magOnly.textureSampling("pg").min);
+  }
 }

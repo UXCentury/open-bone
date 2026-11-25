@@ -749,6 +749,47 @@ class OpenBoneBindings {
   late final _ob_document_texture_count = _ob_document_texture_countPtr
       .asFunction<int Function(ffi.Pointer<ob_document>)>();
 
+  /// 1 when the document's textureFilter is "nearest" (pixel art), else 0.
+  int ob_document_texture_filter_nearest(ffi.Pointer<ob_document> doc) {
+    return _ob_document_texture_filter_nearest(doc);
+  }
+
+  late final _ob_document_texture_filter_nearestPtr =
+      _lookup<ffi.NativeFunction<ffi.Int Function(ffi.Pointer<ob_document>)>>(
+        'ob_document_texture_filter_nearest',
+      );
+  late final _ob_document_texture_filter_nearest =
+      _ob_document_texture_filter_nearestPtr
+          .asFunction<int Function(ffi.Pointer<ob_document>)>();
+
+  /// Sampling of texture `index` (same order as ob_document_texture).
+  int ob_document_texture_sampling(
+    ffi.Pointer<ob_document> doc,
+    int index,
+    ffi.Pointer<ob_texture_sampling> out,
+  ) {
+    return _ob_document_texture_sampling(doc, index, out);
+  }
+
+  late final _ob_document_texture_samplingPtr =
+      _lookup<
+        ffi.NativeFunction<
+          ffi.Int Function(
+            ffi.Pointer<ob_document>,
+            ffi.Int,
+            ffi.Pointer<ob_texture_sampling>,
+          )
+        >
+      >('ob_document_texture_sampling');
+  late final _ob_document_texture_sampling = _ob_document_texture_samplingPtr
+      .asFunction<
+        int Function(
+          ffi.Pointer<ob_document>,
+          int,
+          ffi.Pointer<ob_texture_sampling>,
+        )
+      >();
+
   /// 1 when built with the QuickJS script host.
   int ob_has_scripts() {
     return _ob_has_scripts();
@@ -1651,7 +1692,7 @@ final class ob_audio_command extends ffi.Struct {
     required ffi.Pointer<ffi.Char> source,
     required double fade,
     required double duration,
-    int muted = 0,
+    required int muted,
   }) => $allocator<ob_audio_command>()
     ..ref.type = type
     ..ref.id = id
@@ -2143,6 +2184,31 @@ typedef Dartob_state_fnFunction =
       ffi.Pointer<ffi.Char> to,
     );
 
+/// Texture filters and wraps (ob_texture_sampling.min / mag / wrap_x / wrap_y).
+enum ob_texture_filter {
+  OB_FILTER_NEAREST(0),
+  OB_FILTER_LINEAR(1),
+  OB_FILTER_MIPMAP(2),
+  OB_FILTER_MIPMAP_NEAREST_NEAREST(3),
+  OB_FILTER_MIPMAP_LINEAR_NEAREST(4),
+  OB_FILTER_MIPMAP_NEAREST_LINEAR(5),
+  OB_FILTER_MIPMAP_LINEAR_LINEAR(6);
+
+  final int value;
+  const ob_texture_filter(this.value);
+
+  static ob_texture_filter fromValue(int value) => switch (value) {
+    0 => OB_FILTER_NEAREST,
+    1 => OB_FILTER_LINEAR,
+    2 => OB_FILTER_MIPMAP,
+    3 => OB_FILTER_MIPMAP_NEAREST_NEAREST,
+    4 => OB_FILTER_MIPMAP_LINEAR_NEAREST,
+    5 => OB_FILTER_MIPMAP_NEAREST_LINEAR,
+    6 => OB_FILTER_MIPMAP_LINEAR_LINEAR,
+    _ => throw ArgumentError('Unknown value for ob_texture_filter: $value'),
+  };
+}
+
 /// A texture source: an image asset or an atlas page. `src` is a data: URL or a path relative to the document.
 final class ob_texture_info extends ffi.Struct {
   external ffi.Pointer<ffi.Char> id;
@@ -2181,6 +2247,65 @@ final class ob_texture_info extends ffi.Struct {
     ..ref.height = height
     ..ref.is_atlas_page = is_atlas_page
     ..ref.premultiplied_alpha = premultiplied_alpha;
+}
+
+/// How a renderer samples one texture. `nearest` = 1 when it should draw with hard pixel edges (no smoothing): the
+/// one switch for renderers that only have smooth on/off. Atlas filters win for their pages, then the document's
+/// textureFilter, then linear + clamp.
+final class ob_texture_sampling extends ffi.Struct {
+  /// ob_texture_filter
+  @ffi.Int()
+  external int min;
+
+  /// OB_FILTER_NEAREST or OB_FILTER_LINEAR
+  @ffi.Int()
+  external int mag;
+
+  /// 1 when min uses mipmaps
+  @ffi.Int()
+  external int mipmaps;
+
+  /// ob_texture_wrap
+  @ffi.Int()
+  external int wrap_x;
+
+  @ffi.Int()
+  external int wrap_y;
+
+  @ffi.Int()
+  external int nearest;
+
+  static ffi.Pointer<ob_texture_sampling> $allocate(
+    ffi.Allocator $allocator, {
+    required int min,
+    required int mag,
+    required int mipmaps,
+    required int wrap_x,
+    required int wrap_y,
+    required int nearest,
+  }) => $allocator<ob_texture_sampling>()
+    ..ref.min = min
+    ..ref.mag = mag
+    ..ref.mipmaps = mipmaps
+    ..ref.wrap_x = wrap_x
+    ..ref.wrap_y = wrap_y
+    ..ref.nearest = nearest;
+}
+
+enum ob_texture_wrap {
+  OB_WRAP_CLAMP(0),
+  OB_WRAP_REPEAT(1),
+  OB_WRAP_MIRRORED_REPEAT(2);
+
+  final int value;
+  const ob_texture_wrap(this.value);
+
+  static ob_texture_wrap fromValue(int value) => switch (value) {
+    0 => OB_WRAP_CLAMP,
+    1 => OB_WRAP_REPEAT,
+    2 => OB_WRAP_MIRRORED_REPEAT,
+    _ => throw ArgumentError('Unknown value for ob_texture_wrap: $value'),
+  };
 }
 
 final class ob_value extends ffi.Struct {

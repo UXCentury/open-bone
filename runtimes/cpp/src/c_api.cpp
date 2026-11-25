@@ -205,6 +205,23 @@ int ob_document_texture(const ob_document* d, int i, ob_texture_info* out) {
   *out = {im.id.c_str(), im.name.c_str(), im.src.c_str(), im.width, im.height, 0, 0};
   return 1;
 }
+int ob_document_texture_sampling(const ob_document* d, int i, ob_texture_sampling* out) {
+  if (!d || !out || i < 0) return fail("bad arguments");
+  const int pages = d->doc->atlas ? (int)d->doc->atlas->pages.size() : 0;
+  const Id* id = nullptr;
+  if (i < pages) id = &d->doc->atlas->pages[i].id;
+  else if (i - pages < (int)d->doc->images.size()) id = &d->doc->images[i - pages].id;
+  if (!id) return fail("no such texture");
+  const TextureSampling s = d->doc->textureSampling(*id);
+  static const char* filters[] = {"nearest", "linear", "mipmap", "mipmapNearestNearest", "mipmapLinearNearest", "mipmapNearestLinear", "mipmapLinearLinear"};
+  int min = OB_FILTER_MIPMAP_LINEAR_LINEAR;
+  for (int k = 0; k < 7; ++k)
+    if (s.min == filters[k]) min = k;
+  auto wrap = [](const std::string& w) { return w == "repeat" ? OB_WRAP_REPEAT : w == "mirroredRepeat" ? OB_WRAP_MIRRORED_REPEAT : OB_WRAP_CLAMP; };
+  *out = {min, s.magNearest ? OB_FILTER_NEAREST : OB_FILTER_LINEAR, s.mipmaps ? 1 : 0, wrap(s.wrapX), wrap(s.wrapY), s.nearest() ? 1 : 0};
+  return 1;
+}
+int ob_document_texture_filter_nearest(const ob_document* d) { return d && d->doc->textureFilter == "nearest" ? 1 : 0; }
 
 ob_instance* ob_instance_create(ob_document* d, int flags) {
   try {

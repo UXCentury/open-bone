@@ -443,6 +443,31 @@ void OpenBoneNode::handleAudio(const ob::AudioCommand& c) {
   }
 }
 
+// The document's textureFilter and the atlas's filters/wraps (docs/runtime-spec.md "Atlas"). Mipmaps need a
+// power-of-two texture in Cocos2d-x; other sizes keep only the texel part of a mipmap filter.
+void OpenBoneNode::applySampling(Texture2D* tex, const ob::TextureSampling& s) {
+  using backend::SamplerAddressMode;
+  using backend::SamplerFilter;
+  const auto pot = [](int n) { return n > 0 && (n & (n - 1)) == 0; };
+  const bool mips = s.mipmaps && pot(tex->getPixelsWide()) && pot(tex->getPixelsHigh());
+  const bool clamp = s.wrapX == "clamp" && s.wrapY == "clamp";
+  if (!mips && clamp && s.minNearest == s.magNearest) {
+    if (s.nearest()) tex->setAliasTexParameters();
+    else tex->setAntiAliasTexParameters();
+    return;
+  }
+  if (mips) tex->generateMipmap();
+  const auto wrap = [](const std::string& w) {
+    return w == "repeat" ? SamplerAddressMode::REPEAT : w == "mirroredRepeat" ? SamplerAddressMode::MIRROR_REPEAT : SamplerAddressMode::CLAMP_TO_EDGE;
+  };
+  SamplerFilter min = s.minNearest ? SamplerFilter::NEAREST : SamplerFilter::LINEAR;
+  if (mips)
+    min = s.minNearest ? (s.mipNearest ? SamplerFilter::NEAREST_MIPMAP_NEAREST : SamplerFilter::NEAREST_MIPMAP_LINEAR)
+                       : (s.mipNearest ? SamplerFilter::LINEAR_MIPMAP_NEAREST : SamplerFilter::LINEAR_MIPMAP_LINEAR);
+  Texture2D::TexParams p(s.magNearest ? SamplerFilter::NEAREST : SamplerFilter::LINEAR, min, wrap(s.wrapX), wrap(s.wrapY));
+  tex->setTexParameters(p);
+}
+
 Texture2D* OpenBoneNode::texture(const ob::TextureRef& ref) {
   auto it = _textures.find(ref.id);
   if (it != _textures.end()) return it->second;
@@ -459,6 +484,7 @@ Texture2D* OpenBoneNode::texture(const ob::TextureRef& ref) {
   if (ok) {
     tex = new (std::nothrow) Texture2D();
     if (tex && !tex->initWithImage(image)) CC_SAFE_RELEASE_NULL(tex);
+    if (tex && _doc && ref.id != ob::PARTICLE_DOT_TEXTURE) applySampling(tex, _doc->textureSampling(ref.id));
   }
   CC_SAFE_RELEASE(image);
   _textures[ref.id] = tex;

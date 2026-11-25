@@ -245,6 +245,26 @@ OB_API int ob_document_input(const ob_document* doc, int state_machine, int inde
 /** Textures a renderer may need: atlas pages first, then images. */
 OB_API int ob_document_texture_count(const ob_document* doc);
 OB_API int ob_document_texture(const ob_document* doc, int index, ob_texture_info* out);
+/** Texture filters and wraps (ob_texture_sampling.min / mag / wrap_x / wrap_y). */
+typedef enum ob_texture_filter {
+  OB_FILTER_NEAREST = 0, OB_FILTER_LINEAR = 1, OB_FILTER_MIPMAP = 2, OB_FILTER_MIPMAP_NEAREST_NEAREST = 3,
+  OB_FILTER_MIPMAP_LINEAR_NEAREST = 4, OB_FILTER_MIPMAP_NEAREST_LINEAR = 5, OB_FILTER_MIPMAP_LINEAR_LINEAR = 6
+} ob_texture_filter;
+typedef enum ob_texture_wrap { OB_WRAP_CLAMP = 0, OB_WRAP_REPEAT = 1, OB_WRAP_MIRRORED_REPEAT = 2 } ob_texture_wrap;
+/** How a renderer samples one texture. `nearest` = 1 when it should draw with hard pixel edges (no smoothing): the
+ * one switch for renderers that only have smooth on/off. Atlas filters win for their pages, then the document's
+ * textureFilter, then linear + clamp. */
+typedef struct ob_texture_sampling {
+  int min;      /* ob_texture_filter */
+  int mag;      /* OB_FILTER_NEAREST or OB_FILTER_LINEAR */
+  int mipmaps;  /* 1 when min uses mipmaps */
+  int wrap_x, wrap_y; /* ob_texture_wrap */
+  int nearest;
+} ob_texture_sampling;
+/** Sampling of texture `index` (same order as ob_document_texture). */
+OB_API int ob_document_texture_sampling(const ob_document* doc, int index, ob_texture_sampling* out);
+/** 1 when the document's textureFilter is "nearest" (pixel art), else 0. */
+OB_API int ob_document_texture_filter_nearest(const ob_document* doc);
 
 /* ---------- Instances ---------- */
 OB_API ob_instance* ob_instance_create(ob_document* doc, int flags);

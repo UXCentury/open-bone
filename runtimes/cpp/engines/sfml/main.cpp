@@ -48,6 +48,7 @@ void main() {
 
 struct Textures {
   std::string documentPath;
+  std::shared_ptr<const ob::Document> doc;
   std::map<std::string, std::unique_ptr<sf::Texture>> cache;
   const sf::Texture* get(const ob::TextureRef& ref) {
     auto it = cache.find(ref.id);
@@ -63,7 +64,12 @@ struct Textures {
       const auto bytes = ob::assets::readSource(*ref.src, documentPath);
       ok = !bytes.empty() && tex->loadFromMemory(bytes.data(), bytes.size());
     }
-    tex->setSmooth(true);
+    // The document's textureFilter and the atlas's filters/wraps (docs/runtime-spec.md "Atlas"); SFML has one smooth
+    // switch, one repeat switch (no mirroring) and optional mipmaps.
+    const ob::TextureSampling s = doc && ref.id != ob::PARTICLE_DOT_TEXTURE ? doc->textureSampling(ref.id) : ob::TextureSampling{};
+    tex->setSmooth(!s.nearest());
+    tex->setRepeated(s.wrapX != "clamp" || s.wrapY != "clamp");
+    if (ok && s.mipmaps) tex->generateMipmap();
     const sf::Texture* out = ok ? tex.get() : nullptr;
     cache[ref.id] = ok ? std::move(tex) : nullptr;
     return out;
@@ -287,7 +293,7 @@ int main(int argc, char** argv) {
   inst.advance(0);
 
   const unsigned W = doc->width > 0 ? unsigned(doc->width) : 800, H = doc->height > 0 ? unsigned(doc->height) : 600;
-  Textures textures{path, {}};
+  Textures textures{path, doc, {}};
   sf::Shader shader;
   sf::Shader* darkShader = sf::Shader::isAvailable() && shader.loadFromMemory(DARK_SHADER, sf::Shader::Fragment) ? &shader : nullptr;
   sf::Font font;

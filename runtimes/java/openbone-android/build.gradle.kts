@@ -17,6 +17,7 @@ android {
     targetCompatibility = JavaVersion.VERSION_11
   }
   sourceSets["main"].java.srcDirs("src/main/kotlin")
+  sourceSets["test"].java.srcDirs("src/test/kotlin")
   // The instrumented test replays the whole conformance suite on the device with the shared runner.
   sourceSets["androidTest"].java.srcDirs("src/androidTest/kotlin", "../openbone-conformance/src/runner/java")
   // A plain directory (AGP 9 rejects Providers here); conformanceAssets below fills it before the assets merge.

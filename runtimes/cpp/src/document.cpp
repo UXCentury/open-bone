@@ -442,6 +442,7 @@ std::shared_ptr<const Document> build(const json& j) {
   d.originX = num(j, "originX");
   d.originY = num(j, "originY");
   d.fps = num(j, "fps", 30);
+  d.textureFilter = str(j, "textureFilter") == "nearest" ? "nearest" : "linear";
   if (const json* ims = get(j, "images"))
     for (const auto& im : *ims) d.images.push_back({str(im, "id"), str(im, "name"), str(im, "src"), num(im, "width"), num(im, "height")});
   if (const json* fs = get(j, "fonts"))
@@ -476,6 +477,10 @@ std::shared_ptr<const Document> build(const json& j) {
       a.whiteHeight = num(*w, "height");
     }
     a.premultipliedAlpha = boolean(*at, "premultipliedAlpha");
+    a.filterMin = str(*at, "filterMin");
+    a.filterMag = str(*at, "filterMag");
+    a.wrapX = str(*at, "wrapX");
+    a.wrapY = str(*at, "wrapY");
     d.atlas = std::move(a);
   }
   const json empty = json::object();
@@ -945,6 +950,36 @@ std::shared_ptr<const Document> loadFile(const std::string& path) {
   ss << f.rdbuf();
   const std::string s = ss.str();
   return loadDocument(reinterpret_cast<const uint8_t*>(s.data()), s.size());
+}
+
+namespace {
+// A filter's texel part ("nearest" or "linear") and its between-levels part ("none", "nearest" or "linear").
+void filterParts(const std::string& f, bool& texelNearest, bool& mipmaps, bool& mipNearest) {
+  texelNearest = f == "nearest" || f == "mipmapNearestNearest" || f == "mipmapNearestLinear";
+  mipmaps = f != "nearest" && f != "linear";
+  mipNearest = f == "mipmapNearestNearest" || f == "mipmapLinearNearest";
+}
+}  // namespace
+
+TextureSampling Document::textureSampling(const Id& textureId) const {
+  TextureSampling s;
+  const std::string base = textureFilter == "nearest" ? "nearest" : "linear";
+  s.min = base;
+  bool isPage = false;
+  if (atlas)
+    for (const auto& p : atlas->pages)
+      if (p.id == textureId) isPage = true;
+  if (isPage && (!atlas->filterMin.empty() || !atlas->filterMag.empty() || !atlas->wrapX.empty() || !atlas->wrapY.empty())) {
+    s.min = atlas->filterMin.empty() ? base : atlas->filterMin;
+    if (!atlas->wrapX.empty()) s.wrapX = atlas->wrapX;
+    if (!atlas->wrapY.empty()) s.wrapY = atlas->wrapY;
+    bool m1, m2;
+    filterParts(atlas->filterMag.empty() ? base : atlas->filterMag, s.magNearest, m1, m2);
+  } else {
+    s.magNearest = base == "nearest";
+  }
+  filterParts(s.min, s.minNearest, s.mipmaps, s.mipNearest);
+  return s;
 }
 
 const AnimationData* Document::findAnimation(const std::string& ref) const {

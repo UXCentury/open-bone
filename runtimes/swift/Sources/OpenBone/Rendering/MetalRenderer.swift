@@ -57,6 +57,9 @@ public final class OpenBoneMetalRenderer {
     private let white: MTLTexture
     private let dot: MTLTexture
     private var documentTextures: [String: MTLTexture] = [:]
+    /// Sampling per document texture id (refreshed when the document changes) and one sampler state per sampling.
+    private var textureSamplings: [String: OpenBoneDocument.TextureSampling] = [:]
+    private var samplers: [OpenBoneDocument.TextureSampling: MTLSamplerState] = [:]
     private var suppliedTextures: [String: MTLTexture] = [:]
     private var textTextures: [OpenBoneTextKey: MTLTexture] = [:]
     /// The current document's fonts by asset id (nil: the font data didn't load).
@@ -158,6 +161,7 @@ public final class OpenBoneMetalRenderer {
                        into encoder: MTLRenderCommandEncoder) {
         if cachedDocument !== document {
             documentTextures.removeAll()
+            textureSamplings = Dictionary(document.textures.map { ($0.id, $0.sampling) }, uniquingKeysWith: { a, _ in a })
             // Text keys don't name their document, and another document's fonts may draw the same family differently.
             textTextures.removeAll()
             documentFonts.removeAll()
@@ -184,6 +188,7 @@ public final class OpenBoneMetalRenderer {
         var activeClip: Int? = nil
         var stencilValue: UInt32 = 0
         var currentBlend: OpenBoneBlendMode? = nil
+        var currentSampler: MTLSamplerState? = sampler
         for cmd in mesh.commands {
             if cmd.clip != activeClip {
                 if let k = cmd.clip, k < mesh.clips.count {
@@ -209,9 +214,47 @@ public final class OpenBoneMetalRenderer {
                 currentBlend = cmd.blend
             }
             encoder.setFragmentTexture(texture(for: cmd.texture, document: document, viewport: viewport), index: 0)
+            let smp = samplerState(for: cmd.texture)
+            if smp !== currentSampler {
+                encoder.setFragmentSamplerState(smp, index: 0)
+                currentSampler = smp
+            }
             encoder.drawIndexedPrimitives(type: .triangle, indexCount: cmd.indexCount, indexType: .uint32,
                                           indexBuffer: ib, indexBufferOffset: cmd.indexStart * 4)
         }
+    }
+
+    /// The sampler a texture draws with: its document's textureFilter and atlas filters (a nearest sampler for pixel
+    /// art); text, white and the particle dot keep the default linear one.
+    private func samplerState(for key: OpenBoneTextureKey) -> MTLSamplerState {
+        guard case let .document(id) = key, let s = textureSamplings[id], s != OpenBoneDocument.TextureSampling() else { return sampler }
+        if let smp = samplers[s] { return smp }
+        let d = MTLSamplerDescriptor()
+        func texel(_ f: OpenBoneDocument.TextureFilter) -> MTLSamplerMinMagFilter {
+            switch f {
+            case .nearest, .mipmapNearestNearest, .mipmapNearestLinear: return .nearest
+            default: return .linear
+            }
+        }
+        func address(_ w: OpenBoneDocument.TextureWrap) -> MTLSamplerAddressMode {
+            switch w {
+            case .clamp: return .clampToEdge
+            case .repeat: return .repeat
+            case .mirroredRepeat: return .mirrorRepeat
+            }
+        }
+        d.minFilter = texel(s.minFilter)
+        d.magFilter = texel(s.magFilter)
+        switch s.minFilter {
+        case .nearest, .linear: d.mipFilter = .notMipmapped
+        case .mipmapNearestNearest, .mipmapLinearNearest: d.mipFilter = .nearest
+        default: d.mipFilter = .linear
+        }
+        d.sAddressMode = address(s.wrapX)
+        d.tAddressMode = address(s.wrapY)
+        let smp = device.makeSamplerState(descriptor: d) ?? sampler
+        samplers[s] = smp
+        return smp
     }
 
     private func texture(for key: OpenBoneTextureKey, document: OpenBoneDocument, viewport: OpenBoneViewport) -> MTLTexture {

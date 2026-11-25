@@ -97,7 +97,23 @@ class CanvasRenderer(
   }
 
   private fun shader(ref: DrawItem.TextureRef, bmp: Bitmap): BitmapShader =
-    shaders.getOrPut(ref.id) { BitmapShader(bmp, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP) }
+    shaders.getOrPut(ref.id) {
+      val s = doc.textureSampling(ref.id)
+      BitmapShader(bmp, tileMode(s.wrapX), tileMode(s.wrapY))
+    }
+
+  /**
+   * Whether a texture draws smoothed: false for pixel art (the document's textureFilter "nearest", or an atlas whose
+   * filterMag is "nearest"), see docs/runtime-spec.md "Atlas". The particle dot and solid fills stay smooth.
+   */
+  fun filterBitmap(ref: DrawItem.TextureRef?): Boolean =
+    ref == null || ref.id == DrawItem.PARTICLE_DOT_TEXTURE || !doc.textureSampling(ref.id).nearest()
+
+  private fun tileMode(wrap: String) = when (wrap) {
+    "repeat" -> Shader.TileMode.REPEAT
+    "mirroredRepeat" -> Shader.TileMode.MIRROR
+    else -> Shader.TileMode.CLAMP
+  }
 
   private fun xfer(blend: String) = when (blend) {
     "additive" -> PorterDuffXfermode(PorterDuff.Mode.ADD)
@@ -166,7 +182,7 @@ class CanvasRenderer(
     for (i in it.indices.indices) idx[i] = it.indices[i].toShort()
     paint.reset()
     paint.isAntiAlias = true
-    paint.isFilterBitmap = true
+    paint.isFilterBitmap = filterBitmap(it.texture)
     paint.xfermode = xfer(it.blend)
     val tex = it.texture
     if (bmp != null && tex != null && !shape) {

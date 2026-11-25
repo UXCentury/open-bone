@@ -17,6 +17,7 @@ namespace OpenBone.MonoGame
         readonly Dictionary<string, Texture2D> _byId = new Dictionary<string, Texture2D>();
         readonly List<Texture2D> _owned = new List<Texture2D>();
         readonly GraphicsDevice _device;
+        Document _doc;
 
         /// <summary>1×1 white, for solid fills, strokes and clip masks.</summary>
         public Texture2D White { get; }
@@ -45,6 +46,7 @@ namespace OpenBone.MonoGame
 
         public void LoadDocument(Document doc, string baseDirectory)
         {
+            _doc = doc;
             var packed = new HashSet<string>();
             if (doc.Atlas != null)
             {
@@ -54,6 +56,50 @@ namespace OpenBone.MonoGame
             foreach (var img in doc.Images)
                 if (!packed.Contains(img.Id) || !string.IsNullOrEmpty(img.Src)) LoadTexture(img, baseDirectory, false);
         }
+
+        /// <summary>
+        /// How to sample a texture id: the document's textureFilter and its atlas's filters and wraps
+        /// (docs/runtime-spec.md "Atlas"). Pixel art (textureFilter "nearest") gives <see cref="SamplerState.PointClamp"/>;
+        /// ids the document asks nothing for, and documents not loaded with <see cref="LoadDocument"/>, give LinearClamp.
+        /// </summary>
+        public SamplerState SamplerFor(string id) => SamplerFor(_doc, id);
+
+        /// <summary>How to sample texture <paramref name="id"/> of <paramref name="doc"/> (LinearClamp when doc is null).</summary>
+        public static SamplerState SamplerFor(Document doc, string id)
+        {
+            if (doc == null || id == null || id == OpenBone.ParticleDot.TextureId) return SamplerState.LinearClamp;
+            return SamplerOf(doc.TextureSamplingFor(id));
+        }
+
+        /// <summary>A sampler state for a document's sampling (shared instances, created once per combination).</summary>
+        public static SamplerState SamplerOf(TextureSampling s)
+        {
+            var u = Address(s.WrapX);
+            var v = Address(s.WrapY);
+            if (u == TextureAddressMode.Clamp && v == TextureAddressMode.Clamp && s.MinNearest == s.MagNearest && !s.Mipmaps)
+                return s.Nearest ? SamplerState.PointClamp : SamplerState.LinearClamp;
+            TextureFilter f;
+            if (s.MinNearest == s.MagNearest)
+                f = s.MinNearest ? (s.Mipmaps && !s.MipNearest ? TextureFilter.PointMipLinear : TextureFilter.Point)
+                                 : (s.Mipmaps && s.MipNearest ? TextureFilter.LinearMipPoint : TextureFilter.Linear);
+            else if (s.MagNearest)
+                f = s.Mipmaps && s.MipNearest ? TextureFilter.MinLinearMagPointMipPoint : TextureFilter.MinLinearMagPointMipLinear;
+            else
+                f = s.Mipmaps && s.MipNearest ? TextureFilter.MinPointMagLinearMipPoint : TextureFilter.MinPointMagLinearMipLinear;
+            var key = (f, u, v);
+            lock (Samplers)
+            {
+                if (!Samplers.TryGetValue(key, out var state))
+                    Samplers[key] = state = new SamplerState { Filter = f, AddressU = u, AddressV = v, AddressW = TextureAddressMode.Clamp };
+                return state;
+            }
+        }
+
+        static readonly Dictionary<(TextureFilter, TextureAddressMode, TextureAddressMode), SamplerState> Samplers =
+            new Dictionary<(TextureFilter, TextureAddressMode, TextureAddressMode), SamplerState>();
+
+        static TextureAddressMode Address(string w) =>
+            w == "repeat" ? TextureAddressMode.Wrap : w == "mirroredRepeat" ? TextureAddressMode.Mirror : TextureAddressMode.Clamp;
 
         /// <summary>Use your own texture for an id (premultiplied alpha).</summary>
         public void Set(string id, Texture2D texture) => _byId[id] = texture;
