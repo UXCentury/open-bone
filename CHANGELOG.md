@@ -2,6 +2,18 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
+## 0.4.12 (2026-11-25)
+
+### Format (all runtimes)
+- **Pixel art: no image smoothing.** A new document setting `textureFilter: "nearest"` draws every image with hard pixel edges when scaled, instead of blurring it (`"linear"`, the default, keeps today's smoothing). Atlas pages follow it unless the atlas sets its own `filterMin` / `filterMag`. Honoured by the editor, Play mode, the web player and every web renderer (Canvas, WebGL, Pixi, Three, Phaser, CanvasKit), GIF/video/`render_frame` output, and the native runtimes: C++ (Godot, SFML, Cocos2d-x, and so Swift and Flutter), C# (MonoGame, Unity), Java (libGDX, Android) and Haxe. The native runtimes now also apply the atlas's own filter and wrap settings. See [docs/format.md](docs/format.md). Requested in #10.
+
+### Editor
+- **Smoothing** switch in the Document inspector and the viewport's grid menu (▾), and a command in the palette.
+- **Pixel grid**: one line per artboard pixel once you zoom past 600%. Turn it on in the grid menu (▾) or the palette.
+
+### MCP
+- `set_document` takes `textureFilter`.
+
 ## 0.4.11 (2026-11-23)
 
 ### Format (all runtimes)

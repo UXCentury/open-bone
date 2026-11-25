@@ -1,6 +1,6 @@
 [package]
 name = "openbone-desktop"
-version = "0.4.11"
+version = "0.4.12"
 description = "OpenBone desktop editor"
 license = "MIT"
 edition = "2021"

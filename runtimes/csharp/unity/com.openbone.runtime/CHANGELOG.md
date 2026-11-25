@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.12
+
+- Draws pixel art without smoothing when the document sets `textureFilter: "nearest"`, and applies the atlas's own filter and wrap settings. Released with OpenBone 0.4.12 (pixel art option and a pixel grid in the editor).
+
 ## 0.4.11
 
 - Plays transform constraint property mappings and volume-preserving stretch (IK and physics `volume`). Released with OpenBone 0.4.11 (transform property mapping and volume-preserving stretch in the format, constraint baking, a Problems panel and editor fixes).

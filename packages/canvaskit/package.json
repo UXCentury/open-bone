@@ -1,6 +1,6 @@
 {
   "name": "@openbone/canvaskit",
-  "version": "0.4.11",
+  "version": "0.4.12",
   "description": "OpenBone runtime for CanvasKit (Skia WebAssembly): renderer and player",
   "keywords": [
     "openbone",
