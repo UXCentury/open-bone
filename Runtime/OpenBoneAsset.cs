@@ -60,10 +60,31 @@ namespace OpenBone.Unity
         {
             var a = CreateInstance<OpenBoneAsset>();
             a.SetData(bytes);
-            if (textureById != null) foreach (var kv in textureById) a.textures.Add(new TextureEntry { id = kv.Key, texture = kv.Value });
+            if (textureById != null)
+                foreach (var kv in textureById)
+                {
+                    // The document's textureFilter / atlas filters: pixel art samples Point.
+                    if (kv.Value != null) ApplySampling(kv.Value, a.Document.TextureSamplingFor(kv.Key), kv.Value.filterMode);
+                    a.textures.Add(new TextureEntry { id = kv.Key, texture = kv.Value });
+                }
             if (clips != null) foreach (var kv in clips) a.audioClips.Add(new AudioEntry { id = kv.Key, clip = kv.Value });
             return a;
         }
+
+        /// <summary>
+        /// Set a texture's filter and wrap modes from the document (docs/runtime-spec.md "Atlas"): Point when it asks for
+        /// nearest sampling (textureFilter "nearest", or an atlas's filterMag "nearest"), Trilinear when its atlas uses
+        /// mipmaps, else <paramref name="smooth"/>. Unity has one filter per texture, so the magnification filter decides.
+        /// </summary>
+        public static void ApplySampling(Texture2D tex, TextureSampling s, FilterMode smooth = FilterMode.Bilinear)
+        {
+            if (tex == null || s == null) return;
+            tex.filterMode = s.Nearest ? FilterMode.Point : s.Mipmaps ? FilterMode.Trilinear : smooth;
+            tex.wrapModeU = Wrap(s.WrapX);
+            tex.wrapModeV = Wrap(s.WrapY);
+        }
+
+        static TextureWrapMode Wrap(string w) => w == "repeat" ? TextureWrapMode.Repeat : w == "mirroredRepeat" ? TextureWrapMode.Mirror : TextureWrapMode.Clamp;
 
         public void SetData(byte[] bytes)
         {
