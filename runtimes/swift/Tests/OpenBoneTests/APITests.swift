@@ -17,6 +17,35 @@ final class APITests: XCTestCase {
         XCTAssertFalse(OpenBoneRuntime.version.isEmpty)
     }
 
+    func textureDoc(_ extra: String, atlas: String = "") throws -> OpenBoneDocument {
+        let json = #"{"format":"openbone","version":1,"name":"t","width":8,"height":8,"originX":0,"originY":0,"background":null,"fps":30"#
+            + extra + #","images":[{"id":"img","name":"a","src":"a.png","width":4,"height":4}],"#
+            + #""atlas":{"pages":[{"id":"pg","name":"p","src":"p.png","width":8,"height":8}],"regions":[]"# + atlas + "},"
+            + #""skeleton":{"bones":[],"slots":[],"skins":[]},"animations":[],"stateMachines":[]}"#
+        return try OpenBoneDocument(data: Data(json.utf8))
+    }
+
+    func testTextureFilter() throws {
+        func sampling(_ d: OpenBoneDocument, _ id: String) -> OpenBoneDocument.TextureSampling? {
+            d.textures.first { $0.id == id }?.sampling
+        }
+        let smooth = try textureDoc("")
+        XCTAssertFalse(smooth.isPixelArt)
+        XCTAssertEqual(sampling(smooth, "img"), OpenBoneDocument.TextureSampling())
+        let pixel = try textureDoc(#","textureFilter":"nearest""#)
+        XCTAssertTrue(pixel.isPixelArt)
+        XCTAssertEqual(sampling(pixel, "img")?.isNearest, true)
+        XCTAssertEqual(sampling(pixel, "pg")?.minFilter, .nearest)
+        // The atlas's own filters win for its pages; images still follow textureFilter.
+        let own = try textureDoc(#","textureFilter":"nearest""#, atlas: #","filterMin":"mipmapLinearNearest","filterMag":"linear","wrapX":"repeat""#)
+        XCTAssertEqual(sampling(own, "pg")?.isNearest, false)
+        XCTAssertEqual(sampling(own, "pg")?.minFilter, .mipmapLinearNearest)
+        XCTAssertEqual(sampling(own, "pg")?.mipmaps, true)
+        XCTAssertEqual(sampling(own, "pg")?.wrapX, .repeat)
+        XCTAssertEqual(sampling(own, "pg")?.wrapY, .clamp)
+        XCTAssertEqual(sampling(own, "img")?.isNearest, true)
+    }
+
     func testLoadErrors() {
         XCTAssertThrowsError(try OpenBoneDocument(contentsOf: URL(fileURLWithPath: "/nonexistent/x.obone"))) { e in
             XCTAssertFalse((e as? OpenBoneError)?.message.isEmpty ?? true)

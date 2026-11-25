@@ -12,6 +12,13 @@ dependencies {
   // for their platform (gdx-freetype-platform: natives-desktop, natives-arm64-v8a, …); without them text falls back
   // to libGDX's built-in bitmap font.
   api("com.badlogicgames.gdx:gdx-freetype:$gdxVersion")
+  testImplementation(platform("org.junit:junit-bom:5.11.4"))
+  testImplementation("org.junit.jupiter:junit-jupiter")
+  testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.test {
+  useJUnitPlatform()
 }
 
 java {

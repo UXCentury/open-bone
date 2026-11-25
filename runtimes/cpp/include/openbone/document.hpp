@@ -109,6 +109,23 @@ struct AtlasData {
   Id whitePage;
   double whiteX = 0, whiteY = 0, whiteWidth = 0, whiteHeight = 0;
   bool premultipliedAlpha = false;
+  /** Sampling the atlas asks for its pages; "" = not set (filters: nearest | linear | mipmap…, wraps: clamp | repeat | mirroredRepeat). */
+  std::string filterMin, filterMag, wrapX, wrapY;
+};
+
+/** How a renderer samples one texture (an image or an atlas page). */
+struct TextureSampling {
+  /** Minification: nearest | linear | mipmap | mipmapNearestNearest | mipmapLinearNearest | mipmapNearestLinear | mipmapLinearLinear. */
+  std::string min = "linear";
+  /** Magnification texel filter, only nearest or linear. */
+  bool magNearest = false;
+  /** The texel filter of `min` (mipmap filters reduce to their first part; plain "mipmap" is linear). */
+  bool minNearest = false;
+  /** True when `min` uses mipmaps; mipNearest picks the nearest level instead of blending two. */
+  bool mipmaps = false, mipNearest = false;
+  std::string wrapX = "clamp", wrapY = "clamp";
+  /** One-switch renderers (smooth on/off): true when the texture should draw with hard pixel edges. */
+  bool nearest() const { return magNearest; }
 };
 
 enum class AttachmentType : uint8_t { Region, Mesh, Shape, BoundingBox, Point, Clipping, Path, Sequence, Particles, Text, Unknown };
@@ -500,6 +517,8 @@ struct StateMachineData {
 struct Document {
   std::string name;
   double width = 0, height = 0, originX = 0, originY = 0, fps = 30;
+  /** "linear" (default, smooth) or "nearest" (pixel art): how images and atlas pages without filters of their own are sampled. */
+  std::string textureFilter = "linear";
   std::vector<ImageAsset> images;
   std::vector<FontAsset> fonts;
   std::optional<AtlasData> atlas;
@@ -511,6 +530,11 @@ struct Document {
   std::optional<AudioData> audio;
 
   const AnimationData* findAnimation(const std::string& idOrName) const;
+  /**
+   * Sampling for an image or atlas page id: an atlas's own filterMin/filterMag/wrap win for its pages, then the
+   * document's textureFilter, then linear + clamp. It never changes the pose or the draw list.
+   */
+  TextureSampling textureSampling(const Id& textureId) const;
   const AnimationData* animationById(const Id& id) const;
   const EventData* eventById(const Id& id) const;
   const StateMachineData* findStateMachine(const std::string& idOrName) const;

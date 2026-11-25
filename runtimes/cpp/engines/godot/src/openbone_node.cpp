@@ -267,6 +267,7 @@ void OpenBoneSprite::_bind_methods() {
   ClassDB::bind_method(D_METHOD("get_bounds"), &OpenBoneSprite::get_bounds);
   ClassDB::bind_method(D_METHOD("set_text", "slot", "text"), &OpenBoneSprite::set_text);
   ClassDB::bind_method(D_METHOD("get_text_font", "families", "weight"), &OpenBoneSprite::get_text_font, DEFVAL(400.0));
+  ClassDB::bind_method(D_METHOD("get_texture_sampling_filter", "texture"), &OpenBoneSprite::get_texture_sampling_filter);
   ClassDB::bind_method(D_METHOD("set_audio_enabled", "enabled"), &OpenBoneSprite::set_audio_enabled);
   ClassDB::bind_method(D_METHOD("get_audio_enabled"), &OpenBoneSprite::get_audio_enabled);
   ClassDB::bind_method(D_METHOD("set_audio_bus", "bus"), &OpenBoneSprite::set_audio_bus);
@@ -656,6 +657,12 @@ Ref<Font> OpenBoneSprite::font_for(const std::string& families, double weight) {
 
 Ref<Font> OpenBoneSprite::get_text_font(const String& families, double weight) { return font_for(U(families), weight); }
 
+// An atlas whose filterMin uses mipmaps needs them on the texture for the *_WITH_MIPMAPS filters to have levels.
+Ref<Image> OpenBoneSprite::with_mipmaps(const Ref<Image>& img, const std::string& id) const {
+  if (img.is_valid() && doc && doc->textureSampling(id).mipmaps && !img->has_mipmaps()) img->generate_mipmaps();
+  return img;
+}
+
 Ref<Texture2D> OpenBoneSprite::texture_for(const std::string& id, const std::string& src, bool page) {
   auto it = textures.find(id);
   if (it != textures.end()) return it->second;
@@ -682,14 +689,14 @@ Ref<Texture2D> OpenBoneSprite::texture_for(const std::string& id, const std::str
     Error err = meta.find("jpeg") != std::string::npos || meta.find("jpg") != std::string::npos ? img->load_jpg_from_buffer(raw)
               : meta.find("webp") != std::string::npos                                          ? img->load_webp_from_buffer(raw)
                                                                                                   : img->load_png_from_buffer(raw);
-    if (err == OK) tex = ImageTexture::create_from_image(img);
+    if (err == OK) tex = ImageTexture::create_from_image(with_mipmaps(img, id));
   } else if (!src.empty()) {
     // A path relative to the document.
     const String path = document_path.get_base_dir().path_join(S(src));
     if (ResourceLoader::get_singleton()->exists(path)) tex = ResourceLoader::get_singleton()->load(path);
     else {
       Ref<Image> img = Image::load_from_file(path);
-      if (img.is_valid()) tex = ImageTexture::create_from_image(img);
+      if (img.is_valid()) tex = ImageTexture::create_from_image(with_mipmaps(img, id));
     }
   }
   (void)page;
@@ -722,6 +729,32 @@ RID OpenBoneSprite::material_for(ob::BlendMode blend, const std::optional<ob::RG
   rs->material_set_param(mat, "premultiplied", pma);
   materials[key] = mat;
   return mat;
+}
+
+// The document's textureFilter and the atlas's filters/wraps (docs/runtime-spec.md "Atlas"). Textures that ask for
+// nothing keep DEFAULT, so they follow this node's own texture_filter / texture_repeat.
+void OpenBoneSprite::apply_sampling(RID ci, const std::string& texture) {
+  RenderingServer* rs = RenderingServer::get_singleton();
+  auto filter = RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_DEFAULT;
+  auto repeat = RenderingServer::CANVAS_ITEM_TEXTURE_REPEAT_DEFAULT;
+  if (doc && !texture.empty() && texture != ob::PARTICLE_DOT_TEXTURE) {
+    const ob::TextureSampling s = doc->textureSampling(texture);
+    if (s.nearest())
+      filter = s.mipmaps ? RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS : RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_NEAREST;
+    else if (s.mipmaps)
+      filter = RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS;
+    if (s.wrapX == "mirroredRepeat" || s.wrapY == "mirroredRepeat") repeat = RenderingServer::CANVAS_ITEM_TEXTURE_REPEAT_MIRROR;
+    else if (s.wrapX == "repeat" || s.wrapY == "repeat") repeat = RenderingServer::CANVAS_ITEM_TEXTURE_REPEAT_ENABLED;
+  }
+  rs->canvas_item_set_default_texture_filter(ci, filter);
+  rs->canvas_item_set_default_texture_repeat(ci, repeat);
+}
+
+int OpenBoneSprite::get_texture_sampling_filter(const String& texture) const {
+  if (!doc) return RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_DEFAULT;
+  const ob::TextureSampling s = doc->textureSampling(U(texture));
+  if (s.nearest()) return s.mipmaps ? RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_NEAREST_WITH_MIPMAPS : RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_NEAREST;
+  return s.mipmaps ? RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_LINEAR_WITH_MIPMAPS : RenderingServer::CANVAS_ITEM_TEXTURE_FILTER_DEFAULT;
 }
 
 RID OpenBoneSprite::canvas_item(size_t index) {
@@ -766,6 +799,7 @@ void OpenBoneSprite::redraw() {
     rs->canvas_item_set_canvas_group_mode(ci, RenderingServer::CANVAS_GROUP_MODE_DISABLED);
     rs->canvas_item_set_parent(ci, clipItem >= 0 ? items[clipItem] : parent);
     rs->canvas_item_set_draw_index(ci, order++);
+    apply_sampling(ci, it.texture && !it.text ? it.texture->id : std::string());
     if (it.text) {
       const ob::TextDraw& t = *it.text;
       Ref<Font> font = font_for(t.font, t.weight);

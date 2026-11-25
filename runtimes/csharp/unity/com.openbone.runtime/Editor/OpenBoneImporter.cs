@@ -19,7 +19,7 @@ namespace OpenBone.Unity.Editor
     [ScriptedImporter(4, new[] { "obone", "obonb" })]
     public sealed class OpenBoneImporter : ScriptedImporter
     {
-        [Tooltip("Filter mode of textures embedded in the document.")]
+        [Tooltip("Filter mode of textures embedded in the document when it doesn't ask for pixel art (textureFilter \"nearest\" always imports Point).")]
         public FilterMode filterMode = FilterMode.Bilinear;
 
         public override void OnImportAsset(AssetImportContext ctx)
@@ -47,10 +47,10 @@ namespace OpenBone.Unity.Editor
             {
                 pma = doc.Atlas.PremultipliedAlpha;
                 foreach (var r in doc.Atlas.Regions) if (r.Image != null) packed.Add(r.Image);
-                foreach (var page in doc.Atlas.Pages) AddTexture(ctx, asset, dir, page, pma);
+                foreach (var page in doc.Atlas.Pages) AddTexture(ctx, doc, asset, dir, page, pma);
             }
             foreach (var img in doc.Images)
-                if (!packed.Contains(img.Id) || !string.IsNullOrEmpty(img.Src)) AddTexture(ctx, asset, dir, img, false);
+                if (!packed.Contains(img.Id) || !string.IsNullOrEmpty(img.Src)) AddTexture(ctx, doc, asset, dir, img, false);
 
             if (doc.Audio != null)
                 foreach (var a in doc.Audio.Assets)
@@ -177,19 +177,21 @@ namespace OpenBone.Unity.Editor
             return r.Length > 0 ? r : "font";
         }
 
-        void AddTexture(AssetImportContext ctx, OpenBoneAsset asset, string dir, ITexture t, bool premultiplied)
+        void AddTexture(AssetImportContext ctx, Document doc, OpenBoneAsset asset, string dir, ITexture t, bool premultiplied)
         {
             if (t.Id == null) return;
+            var sampling = doc.TextureSamplingFor(t.Id);
             Texture2D tex = null;
             if (DataUri.TryDecode(t.Src, out var mime, out var data))
             {
                 if (data.Length <= 3) return; // "data:," placeholders (layout-only pages)
-                tex = new Texture2D(2, 2, TextureFormat.RGBA32, false) { name = t.Name ?? t.Id, wrapMode = TextureWrapMode.Clamp, filterMode = filterMode };
+                tex = new Texture2D(2, 2, TextureFormat.RGBA32, sampling.Mipmaps) { name = t.Name ?? t.Id };
                 if (!tex.LoadImage(data))
                 {
                     ctx.LogImportWarning($"OpenBone: cannot decode image \"{t.Name}\" ({mime})");
                     return;
                 }
+                OpenBoneAsset.ApplySampling(tex, sampling, filterMode);
                 ctx.AddObjectToAsset("tex:" + t.Id, tex);
             }
             else
@@ -200,6 +202,9 @@ namespace OpenBone.Unity.Editor
                     if (!string.IsNullOrEmpty(t.Src)) ctx.LogImportWarning($"OpenBone: texture \"{t.Name}\" ({t.Src}) not found in the project");
                     return;
                 }
+                // A project texture keeps its own import settings; say so when they don't match pixel art.
+                if (sampling.Nearest && tex.filterMode != FilterMode.Point)
+                    ctx.LogImportWarning($"OpenBone: {asset.name} is pixel art (textureFilter \"nearest\"); set Filter Mode to Point on texture \"{t.Name}\"");
             }
             asset.Textures.Add(new OpenBoneAsset.TextureEntry { id = t.Id, texture = tex, premultiplied = premultiplied });
         }

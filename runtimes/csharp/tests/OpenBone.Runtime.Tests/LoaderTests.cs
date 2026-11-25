@@ -128,5 +128,43 @@ namespace OpenBone.Tests
             for (int k = 0; k < 31; k++) expected.AddRange(new[] { 96, 3 * k, 3 * k + 3 });
             Assert.Equal(expected.ToArray(), Earcut.Triangulate(pts).ToArray());
         }
+
+        static Document Doc(string extra, string atlas) => DocumentLoader.FromJson(
+            "{\"format\":\"openbone\",\"version\":1,\"name\":\"t\",\"width\":8,\"height\":8,\"originX\":0,\"originY\":0,\"background\":null,\"fps\":30" + extra +
+            ",\"images\":[{\"id\":\"img\",\"name\":\"a\",\"src\":\"a.png\",\"width\":4,\"height\":4}]" +
+            ",\"atlas\":{\"pages\":[{\"id\":\"pg\",\"name\":\"p\",\"src\":\"p.png\",\"width\":8,\"height\":8}],\"regions\":[]" + atlas + "}" +
+            ",\"skeleton\":{\"bones\":[],\"slots\":[],\"skins\":[]},\"animations\":[],\"stateMachines\":[]}");
+
+        [Fact]
+        public void ReadsTextureFilter()
+        {
+            var smooth = Doc("", "");
+            Assert.Equal("linear", smooth.TextureFilter);
+            Assert.False(smooth.TextureSamplingFor("img").Nearest);
+            Assert.False(smooth.TextureSamplingFor("pg").Nearest);
+
+            var pixel = Doc(",\"textureFilter\":\"nearest\"", "");
+            Assert.Equal("nearest", pixel.TextureFilter);
+            Assert.True(pixel.TextureSamplingFor("img").Nearest);
+            Assert.True(pixel.TextureSamplingFor("pg").Nearest);
+            Assert.Equal("nearest", pixel.TextureSamplingFor("pg").Min);
+
+            // The atlas's own filters win for its pages; images still follow textureFilter.
+            var own = Doc(",\"textureFilter\":\"nearest\"", ",\"filterMin\":\"mipmapLinearLinear\",\"filterMag\":\"linear\",\"wrapX\":\"repeat\"");
+            Assert.Equal("mipmapLinearLinear", own.Atlas.FilterMin);
+            var page = own.TextureSamplingFor("pg");
+            Assert.False(page.Nearest);
+            Assert.True(page.Mipmaps);
+            Assert.Equal("repeat", page.WrapX);
+            Assert.Equal("clamp", page.WrapY);
+            Assert.True(own.TextureSamplingFor("img").Nearest);
+
+            // An atlas that only sets a wrap keeps textureFilter for its filters.
+            Assert.True(Doc(",\"textureFilter\":\"nearest\"", ",\"wrapY\":\"repeat\"").TextureSamplingFor("pg").Nearest);
+            var magOnly = Doc("", ",\"filterMag\":\"nearest\"");
+            Assert.True(magOnly.TextureSamplingFor("pg").Nearest);
+            Assert.Equal("linear", magOnly.TextureSamplingFor("pg").Min);
+            Assert.False(magOnly.TextureSamplingFor("img").Nearest);
+        }
     }
 }

@@ -297,4 +297,39 @@ namespace OpenBone.MonoGame.Tests
             Assert.Equal(r.BaseStream.Length, r.BaseStream.Position);
         }
     }
+
+    public class SamplerTests
+    {
+        static Document Doc(string extra, string atlas) => DocumentLoader.FromJson(
+            "{\"format\":\"openbone\",\"version\":1,\"name\":\"t\",\"width\":8,\"height\":8,\"originX\":0,\"originY\":0,\"background\":null,\"fps\":30" + extra +
+            ",\"images\":[{\"id\":\"img\",\"name\":\"a\",\"src\":\"a.png\",\"width\":4,\"height\":4}]" +
+            ",\"atlas\":{\"pages\":[{\"id\":\"pg\",\"name\":\"p\",\"src\":\"p.png\",\"width\":8,\"height\":8}],\"regions\":[]" + atlas + "}" +
+            ",\"skeleton\":{\"bones\":[],\"slots\":[],\"skins\":[]},\"animations\":[],\"stateMachines\":[]}");
+
+        [Fact]
+        public void PixelArtSamplesPointClamp()
+        {
+            var pixel = Doc(",\"textureFilter\":\"nearest\"", "");
+            Assert.Same(SamplerState.PointClamp, OpenBoneTextures.SamplerFor(pixel, "img"));
+            Assert.Same(SamplerState.PointClamp, OpenBoneTextures.SamplerFor(pixel, "pg"));
+            Assert.Same(SamplerState.LinearClamp, OpenBoneTextures.SamplerFor(pixel, ParticleDot.TextureId));
+            var smooth = Doc("", "");
+            Assert.Same(SamplerState.LinearClamp, OpenBoneTextures.SamplerFor(smooth, "img"));
+            Assert.Same(SamplerState.LinearClamp, OpenBoneTextures.SamplerFor(null, "img"));
+        }
+
+        [Fact]
+        public void AtlasFiltersAndWrapsWinForItsPages()
+        {
+            var d = Doc(",\"textureFilter\":\"nearest\"", ",\"filterMin\":\"linear\",\"filterMag\":\"nearest\",\"wrapX\":\"repeat\",\"wrapY\":\"mirroredRepeat\"");
+            var s = OpenBoneTextures.SamplerFor(d, "pg");
+            Assert.Equal(TextureFilter.MinLinearMagPointMipLinear, s.Filter);
+            Assert.Equal(TextureAddressMode.Wrap, s.AddressU);
+            Assert.Equal(TextureAddressMode.Mirror, s.AddressV);
+            Assert.Same(s, OpenBoneTextures.SamplerFor(d, "pg"));
+            Assert.Same(SamplerState.PointClamp, OpenBoneTextures.SamplerFor(d, "img"));
+            var mips = OpenBoneTextures.SamplerFor(Doc("", ",\"filterMin\":\"mipmapLinearNearest\""), "pg");
+            Assert.Equal(TextureFilter.LinearMipPoint, mips.Filter);
+        }
+    }
 }

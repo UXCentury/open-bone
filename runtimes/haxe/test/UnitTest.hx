@@ -21,6 +21,7 @@ class UnitTest {
 		angles();
 		binaryDocumentsDecodeLikeTypeScript();
 		documentFonts();
+		textureFilter();
 		setMuteOverridesTheDocumentMix();
 		for (f in failures)
 			Platform.println("  FAIL " + f);
@@ -145,6 +146,40 @@ class UnitTest {
 			eq(file + " other family", doc.findFont("Georgia", 400) == null, true);
 		}
 		eq("no fonts", DocumentLoader.fromJson('{"format":"openbone","version":1}').fonts.length, 0);
+	}
+
+	static function textureDoc(extra:String, atlas:String) {
+		return DocumentLoader.fromJson('{"format":"openbone","version":1,"name":"t","width":8,"height":8,"originX":0,"originY":0,"background":null,"fps":30'
+			+ extra
+			+ ',"images":[{"id":"img","name":"a","src":"a.png","width":4,"height":4}]'
+			+ ',"atlas":{"pages":[{"id":"pg","name":"p","src":"p.png","width":8,"height":8}],"regions":[]'
+			+ atlas
+			+ '},"skeleton":{"bones":[],"slots":[],"skins":[]},"animations":[],"stateMachines":[]}');
+	}
+
+	/** textureFilter: "nearest" covers images and atlas pages; an atlas's own filters win for its pages. */
+	static function textureFilter() {
+		var smooth = textureDoc("", "");
+		eq("absent textureFilter", smooth.textureFilter, "linear");
+		eq("absent: image smooth", smooth.textureSampling("img").nearest, false);
+		eq("absent: page smooth", smooth.textureSampling("pg").nearest, false);
+		var pixel = textureDoc(',"textureFilter":"nearest"', "");
+		eq("nearest textureFilter", pixel.textureFilter, "nearest");
+		eq("nearest: image", pixel.textureSampling("img").nearest, true);
+		eq("nearest: page", pixel.textureSampling("pg").nearest, true);
+		eq("nearest: page min", pixel.textureSampling("pg").min, "nearest");
+		var own = textureDoc(',"textureFilter":"nearest"', ',"filterMin":"mipmapLinearLinear","filterMag":"linear","wrapX":"repeat"');
+		eq("atlas filterMin", own.atlas.filterMin, "mipmapLinearLinear");
+		eq("atlas filters: page smooth", own.textureSampling("pg").nearest, false);
+		eq("atlas filters: mipmaps", own.textureSampling("pg").mipmaps, true);
+		eq("atlas filters: wrapX", own.textureSampling("pg").wrapX, "repeat");
+		eq("atlas filters: wrapY", own.textureSampling("pg").wrapY, "clamp");
+		eq("atlas filters: image nearest", own.textureSampling("img").nearest, true);
+		eq("wrap only: nearest", textureDoc(',"textureFilter":"nearest"', ',"wrapY":"repeat"').textureSampling("pg").nearest, true);
+		var magOnly = textureDoc("", ',"filterMag":"nearest"');
+		eq("filterMag nearest: page", magOnly.textureSampling("pg").nearest, true);
+		eq("filterMag nearest: min", magOnly.textureSampling("pg").min, "linear");
+		eq("filterMag nearest: image", magOnly.textureSampling("img").nearest, false);
 	}
 
 	/** setMute listener actions: parsing (null bus = master, missing muted = toggle) and AudioDirector overrides. */

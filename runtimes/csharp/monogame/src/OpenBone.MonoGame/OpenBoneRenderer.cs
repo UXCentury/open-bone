@@ -41,8 +41,11 @@ namespace OpenBone.MonoGame
         public bool SupportsTwoColorTint => _custom != null || (_tint != null && UseTintEffect);
         /// <summary>Draw with the built-in tint effect when it loaded (false: always BasicEffect, no dark colour).</summary>
         public bool UseTintEffect = true;
-        /// <summary>Texture filtering (default: linear, clamped edges).</summary>
-        public SamplerState SamplerState = SamplerState.LinearClamp;
+        /// <summary>
+        /// Texture filtering for every texture; null (the default) samples each texture the way its document asks
+        /// (<see cref="OpenBoneTextures.SamplerFor"/>: PointClamp for pixel art, else linear with clamped edges).
+        /// </summary>
+        public SamplerState SamplerState;
         /// <summary>Draws text items; null skips them.</summary>
         public IOpenBoneTextRenderer TextRenderer;
         /// <summary>Clip space projection; null = the viewport in pixels (y down), matching <see cref="SkeletonView"/>.</summary>
@@ -165,12 +168,13 @@ namespace OpenBone.MonoGame
                     d.BlendState = RenderStates.ForBatch(b.Blend, b.Stencil);
                     d.DepthStencilState = RenderStates.ForStencil(b.Stencil);
                     d.RasterizerState = raster;
+                    var sampler = SamplerState ?? textures.SamplerFor(b.TextureId);
                     if (texParam != null) texParam.SetValue(tex);
                     else if (effect == _basic) _basic.Texture = tex;
                     foreach (var pass in effect.CurrentTechnique.Passes)
                     {
                         pass.Apply();
-                        d.SamplerStates[0] = SamplerState;
+                        d.SamplerStates[0] = sampler;
                         if (texParam == null && effect != _basic) d.Textures[0] = tex;
                         d.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, _mesher.Vertices, b.VertexStart, b.VertexCount,
                             _mesher.Indices, b.IndexStart, b.PrimitiveCount, OpenBoneVertex.VertexDeclaration);

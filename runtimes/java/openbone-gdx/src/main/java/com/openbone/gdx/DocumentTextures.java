@@ -9,6 +9,7 @@ import com.openbone.runtime.DrawItem;
 import com.openbone.runtime.data.AtlasData;
 import com.openbone.runtime.data.ImageAsset;
 import com.openbone.runtime.data.OpenBoneDocument;
+import com.openbone.runtime.data.TextureSampling;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -23,7 +24,12 @@ public class DocumentTextures implements Disposable {
   private final Map<String, Texture> cache = new HashMap<>();
   private final Map<String, Boolean> missing = new HashMap<>();
   private Texture white, dot;
-  public Texture.TextureFilter filter = Texture.TextureFilter.Linear;
+  /**
+   * Filter for every texture; null (the default) samples each texture the way the document asks: its textureFilter
+   * ("nearest" = pixel art) and its atlas's filterMin / filterMag / wrapX / wrapY (see {@link #filters}).
+   */
+  public Texture.TextureFilter filter;
+  private boolean loadMipmaps;
 
   /** @param base folder that relative image paths resolve against (usually the document's folder), or null. */
   public DocumentTextures(OpenBoneDocument doc, FileHandle base) {
@@ -40,7 +46,9 @@ public class DocumentTextures implements Disposable {
     String src = null;
     for (ImageAsset i : doc.images) if (i.id.equals(ref.id)) src = i.src;
     if (src == null && doc.atlas != null) for (AtlasData.Page p : doc.atlas.pages) if (p.id.equals(ref.id)) src = p.src;
+    TextureSampling sampling = doc.textureSampling(ref.id);
     try {
+      loadMipmaps = filter == null && sampling.mipmaps;
       t = src == null ? null : load(src);
     } catch (Exception e) {
       Gdx.app.error("OpenBone", "Cannot load texture " + ref.id + ": " + e.getMessage());
@@ -48,10 +56,39 @@ public class DocumentTextures implements Disposable {
     }
     if (t == null) missing.put(ref.id, true);
     else {
-      t.setFilter(filter, filter);
+      if (filter != null) t.setFilter(filter, filter);
+      else {
+        Texture.TextureFilter[] f = filters(sampling);
+        // Without mipmap levels (file textures, or a Pixmap that couldn't build them), keep the texel part only.
+        if (f[0].isMipMap() && t.getTextureData().useMipMaps() == false) f[0] = sampling.minNearest ? Texture.TextureFilter.Nearest : Texture.TextureFilter.Linear;
+        t.setFilter(f[0], f[1]);
+        t.setWrap(wrap(sampling.wrapX), wrap(sampling.wrapY));
+      }
       cache.put(ref.id, t);
     }
     return t;
+  }
+
+  /**
+   * libGDX min and mag filters for a document's sampling: {Nearest, Nearest} for pixel art (textureFilter "nearest"),
+   * the atlas's own filters for its pages, else {Linear, Linear}.
+   */
+  public static Texture.TextureFilter[] filters(TextureSampling s) {
+    Texture.TextureFilter min;
+    switch (s.min) {
+      case "nearest": min = Texture.TextureFilter.Nearest; break;
+      case "linear": min = Texture.TextureFilter.Linear; break;
+      case "mipmapNearestNearest": min = Texture.TextureFilter.MipMapNearestNearest; break;
+      case "mipmapLinearNearest": min = Texture.TextureFilter.MipMapLinearNearest; break;
+      case "mipmapNearestLinear": min = Texture.TextureFilter.MipMapNearestLinear; break;
+      default: min = Texture.TextureFilter.MipMapLinearLinear; break; // "mipmap", "mipmapLinearLinear"
+    }
+    return new Texture.TextureFilter[] {min, s.magNearest ? Texture.TextureFilter.Nearest : Texture.TextureFilter.Linear};
+  }
+
+  /** libGDX wrap for a document wrap (clamp | repeat | mirroredRepeat). */
+  public static Texture.TextureWrap wrap(String w) {
+    return "repeat".equals(w) ? Texture.TextureWrap.Repeat : "mirroredRepeat".equals(w) ? Texture.TextureWrap.MirroredRepeat : Texture.TextureWrap.ClampToEdge;
   }
 
   /** Whether a texture holds premultiplied alpha (atlas pages packed with premultipliedAlpha). */
@@ -68,13 +105,13 @@ public class DocumentTextures implements Disposable {
       byte[] bytes = Base64.getDecoder().decode(src.substring(comma + 1));
       if (bytes.length == 0) return null;
       Pixmap pm = new Pixmap(bytes, 0, bytes.length);
-      Texture t = new Texture(pm);
+      Texture t = new Texture(pm, loadMipmaps);
       pm.dispose();
       return t;
     }
     FileHandle f = base != null ? base.child(src) : Gdx.files.internal(src);
     if (!f.exists()) f = Gdx.files.absolute(src);
-    return f.exists() ? new Texture(f) : null;
+    return f.exists() ? new Texture(f, loadMipmaps) : null;
   }
 
   /** 1×1 white texture (solid fills when the document has no atlas white block). */

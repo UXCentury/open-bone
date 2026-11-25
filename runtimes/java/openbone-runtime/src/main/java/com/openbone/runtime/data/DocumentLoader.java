@@ -45,6 +45,7 @@ public final class DocumentLoader {
     d.originY = num(m, "originY", 0);
     d.background = str(m, "background", null);
     d.fps = num(m, "fps", 30);
+    d.textureFilter = "nearest".equals(str(m, "textureFilter", null)) ? "nearest" : "linear";
     for (Map<String, Object> x : maps(m.get("images"))) {
       ImageAsset i = new ImageAsset();
       i.id = str(x, "id", "");
@@ -133,6 +134,10 @@ public final class DocumentLoader {
     a.premultipliedAlpha = bool(m, "premultipliedAlpha", false);
     a.stripWhitespace = bool(m, "stripWhitespace", false);
     a.polygons = bool(m, "polygons", false);
+    a.filterMin = str(m, "filterMin", null);
+    a.filterMag = str(m, "filterMag", null);
+    a.wrapX = str(m, "wrapX", null);
+    a.wrapY = str(m, "wrapY", null);
     return a;
   }
 

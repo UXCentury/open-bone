@@ -11,6 +11,8 @@ public class AtlasData {
   public White white;
   public double padding, scale = 1;
   public boolean premultipliedAlpha, stripWhitespace, polygons;
+  /** Sampling the atlas asks for its pages; null = not set. Filters: nearest | linear | mipmap…; wraps: clamp | repeat | mirroredRepeat. */
+  public String filterMin, filterMag, wrapX, wrapY;
 
   public static class Page {
     public String id, name, src;
