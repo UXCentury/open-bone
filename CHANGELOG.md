@@ -2,6 +2,11 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
+## Unreleased
+
+### MCP
+- Tools whose schemas used fixed-length tuples now describe them as arrays with a fixed length: `set_keys`, `paste_keys` and `move_key` (the bezier `curve` handles) and `add_particles` / `update_particles` (the `[min, max]` ranges). Tuples were sent as the draft-07 form `items: [...]`, which clients that validate tool schemas as JSON Schema 2020-12 (the Claude API among them) reject, dropping the whole tool. Accepted values are unchanged.
+
 ## 0.4.12 (2026-11-25)
 
 ### Format (all runtimes)
