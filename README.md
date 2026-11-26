@@ -276,7 +276,7 @@ covers the installers, releases and code signing.
 - **Views**: **3D view** (every part on its own layer in depth, with 3D bones, to check the stacking), **Order view** (the draw order side by side), bones only, mesh wireframes; **lock** and **show only selected** for parts and bones.
 - **Photoshop import**: every layer becomes an image, slot and region in place; groups can become bones.
 - **Folders** for slots, skins, animations, events, constraints and state machines; **Import from project…** to copy animations, skins or a whole skeleton from another file.
-- **Skeleton tree** with search, eyes and locks; viewport grid, rulers, guides and **smart snapping**.
+- **Skeleton tree** with search, eyes and locks; viewport grid, a **pixel grid** at high zoom, rulers, guides and **smart snapping**; for **pixel art**, switch image smoothing off per project and every runtime draws it crisp.
 - **Dockable workspace** with **your own saved layouts**, **Play mode** (run it as shipped, with inputs and logs), **Preview**, **Outline** and **Stats** panels; eyes, locks and the camera are remembered per project.
 - **Command palette** (Ctrl/⌘+K) to find any action by name, tool hints in the status line, **live art reloading** from your paint or audio app, rebindable **keyboard shortcuts** (⌘ on macOS, Ctrl elsewhere), and a live MCP connection.
 
