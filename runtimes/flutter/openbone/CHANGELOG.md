@@ -1,3 +1,7 @@
+## 0.4.13
+
+- No changes to the Flutter plugin; released with OpenBone 0.4.13 (MCP: tools with bezier curves or particle ranges load in clients that check tool schemas strictly, such as the Claude API), so every package keeps the same version.
+
 ## 0.4.12
 
 - Draws pixel art without smoothing when the document sets `textureFilter: "nearest"`, and applies the atlas's own filter and wrap settings. Released with OpenBone 0.4.12 (pixel art option and a pixel grid in the editor).

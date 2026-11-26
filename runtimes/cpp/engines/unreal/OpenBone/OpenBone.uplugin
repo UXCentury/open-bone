@@ -1,7 +1,7 @@
 {
   "FileVersion": 3,
   "Version": 1,
-  "VersionName": "0.4.12",
+  "VersionName": "0.4.13",
   "FriendlyName": "OpenBone",
   "Description": "Plays OpenBone skeletal animations and state machines (.obone / .obonb) with the native C++ runtime.",
   "Category": "Animation",
