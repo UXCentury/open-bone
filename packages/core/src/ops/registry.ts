@@ -52,8 +52,9 @@ export const hex = z
   .string()
   .regex(/^#([0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/)
   .describe("Hex color like #ff8800 or #ff880080");
+// Bezier handles as an array of length 4, not z.tuple: see the note on range() in particles.ts.
 export const curve = z
-  .union([z.literal("linear"), z.literal("stepped"), z.tuple([z.number(), z.number(), z.number(), z.number()])])
+  .union([z.literal("linear"), z.literal("stepped"), z.array(z.number()).length(4)])
   .describe('"linear", "stepped" or bezier handles [cx1, cy1, cx2, cy2] (e.g. [0.42,0,0.58,1] for ease-in-out)');
 export const optId = z.string().optional().describe("Optional explicit id (generated when omitted)");
 

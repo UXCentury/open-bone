@@ -4,11 +4,14 @@ import { PARTICLE_PRESETS, type ParticlePreset, defaultParticleSettings, particl
 import type { ParticlesAttachment, SkinData } from "../types.ts";
 import { defineOp, hex, ref } from "./registry.ts";
 
+// An array of length 2, not z.tuple: a tuple becomes draft-07 `items: [...]`, which strict
+// JSON Schema 2020-12 validators (e.g. the Claude API) reject, dropping the whole tool.
 const range = (what: string, min = -Infinity) =>
   z
-    .tuple([z.number().min(min), z.number().min(min)])
-    .refine(([a, b]) => a <= b, { message: "min must be <= max" })
-    .describe(`${what} as [min, max]; each particle picks a random value in between`);
+    .array(z.number().min(min))
+    .length(2)
+    .refine(([a, b]) => a! <= b!, { message: "min must be <= max" })
+    .describe(`${what} as [min, max]; each particle picks a random value in between`) as unknown as z.ZodType<[number, number]>;
 
 /** Every editable emitter field. Used (partial) by addParticles and updateParticles. */
 const settings = z.object({
