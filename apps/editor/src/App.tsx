@@ -18,6 +18,7 @@ import { McpConfigDialog } from "./panels/McpConfig.tsx";
 import { scheduleUpdateCheck } from "./updates.ts";
 import { ImportDialog, importOpen } from "./panels/ImportDialog.tsx";
 import { ExamplesDialog } from "./panels/ExamplesDialog.tsx";
+import { VideoToAnimationDialog, videoAnimOpen } from "./mocap/VideoToAnimationDialog.tsx";
 
 export function App() {
   onMount(() => onCleanup(setupShortcuts()));
@@ -61,6 +62,9 @@ export function App() {
       </Show>
       <Show when={examplesOpen()}>
         <ExamplesDialog />
+      </Show>
+      <Show when={videoAnimOpen()}>
+        <VideoToAnimationDialog />
       </Show>
       <MenuHost contextItems={contextItems} />
       <Show when={shortcutsOpen()}>

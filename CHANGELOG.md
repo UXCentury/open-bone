@@ -2,6 +2,14 @@
 
 OpenBone uses one version for the whole repo (packages, editor, desktop app, native runtimes). Set it with `pnpm version:set <major|minor|patch|x.y.z>` and check it with `pnpm version:check`. Versions follow [Semantic Versioning](https://semver.org): while it's 0.x, minor versions may change the `.obone` format or APIs.
 
+## Unreleased
+
+### Editor
+- **Animate from video.** Timeline → **From video…** (or ☰ Menu → Animate from video…): choose a video of a person, or record one with the webcam, and OpenBone tracks the body and keys the skeleton to it. Limb bones point along the arms and legs, a spine, neck and head follow the body, IK targets follow the ankles and wrists, and the hips bone carries the body's movement (or keeps it in place for a cycle). Which bone follows which body part is guessed from the bone names (front-/back- and left/right), and can be changed before animating. Keys are simplified within a tolerance and smoothed against jitter; one undo step. Tracking runs on your computer with MediaPipe's Pose Landmarker (Apache-2.0), bundled with the editor, so it works offline and nothing is uploaded. **Save tracking…** keeps the tracked body as a `.pose.json` file to map again later.
+
+### MCP
+- `animate_from_video` tracks a video in the connected editor and keys the skeleton (mapping, root motion, mirror, smoothing and tolerance options; `saveTrack` keeps the tracking). `animate_from_pose_track` keys from a saved track without the editor. The live bridge gained request/reply messages for work only the editor can do.
+
 ## 0.4.13 (2026-11-26)
 
 ### MCP

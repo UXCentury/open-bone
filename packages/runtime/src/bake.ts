@@ -1,4 +1,4 @@
-import { type BoneProperty, BONE_PROPERTIES, type Curve, type Id, type OpenBoneDocument, animationDuration } from "@openbone/core";
+import { type BoneProperty, BONE_PROPERTIES, type Curve, type Id, type OpenBoneDocument, animationDuration, simplifyKeys } from "@openbone/core";
 import { OpenBoneInstance } from "./instance.ts";
 
 /**
@@ -58,30 +58,6 @@ function constraintBones(doc: OpenBoneDocument) {
     ...sk.path.map((c) => ({ kind: "path" as const, c, bones: c.bones, mixes: ["mixRotate", "mixX", "mixY"] })),
     ...sk.physics.map((c) => ({ kind: "physics" as const, c, bones: [c.bone], mixes: ["mix"] })),
   ];
-}
-
-/** Greedy key reduction: keep a key only when skipping it would move the line between the kept neighbours by > tol. */
-function simplify(times: number[], values: number[], tol: number): number[] {
-  const n = times.length;
-  if (n <= 2 || tol <= 0) return times.map((_, i) => i);
-  const keep = [0];
-  let anchor = 0;
-  for (let i = 1; i < n - 1; i++) {
-    // Can the segment anchor → i+1 stand in for every sample between them?
-    const t0 = times[anchor];
-    const t1 = times[i + 1];
-    let ok = true;
-    for (let j = anchor + 1; j <= i && ok; j++) {
-      const f = (times[j] - t0) / (t1 - t0);
-      ok = Math.abs(values[anchor] + (values[i + 1] - values[anchor]) * f - values[j]) <= tol;
-    }
-    if (!ok) {
-      keep.push(i);
-      anchor = i;
-    }
-  }
-  keep.push(n - 1);
-  return keep;
 }
 
 export function bakeConstraints(doc: OpenBoneDocument, o: BakeOptions): BakeResult {
@@ -162,7 +138,7 @@ export function bakeConstraints(doc: OpenBoneDocument, o: BakeOptions): BakeResu
       const setup = b.data[prop];
       // Nothing to say: constant at the setup value and not keyed already.
       if (!existing && vals.every((v) => Math.abs(v - setup) <= Math.max(ptol, 1e-6))) return;
-      const kept = simplify(times, vals, ptol);
+      const kept = simplifyKeys(times, vals, ptol);
       const outside = ((existing?.keys ?? []) as { time: number; value: number; curve: Curve }[]).filter((k) => !inRange(k.time));
       const keys = [...outside, ...kept.map((k) => ({ time: times[k], value: r4(vals[k]), curve: "linear" as Curve }))].sort((p, q) => p.time - q.time);
       ops.push({ animation: anim.id, target: "bone", id: b.data.id, property: prop, keys, replace: true });

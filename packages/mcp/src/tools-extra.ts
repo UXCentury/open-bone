@@ -1,9 +1,21 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { decodeImage } from "./image-load.ts";
 import path from "node:path";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createCanvas } from "@napi-rs/canvas";
-import { type MouthShape, type TracePlacement, guessMouthMapping, lipSync, meshUvAffine, slotAttachments, traceMesh } from "@openbone/core";
+import {
+  type MouthShape,
+  POSE_SOURCES,
+  type PoseTrack,
+  type TracePlacement,
+  guessMouthMapping,
+  guessPoseMapping,
+  lipSync,
+  meshUvAffine,
+  poseToKeys,
+  slotAttachments,
+  traceMesh,
+} from "@openbone/core";
 import { OpenBoneInstance, type ScriptHost, Skeleton, applyAnimation, bakeConstraints, poseChainFrom, solvePose } from "@openbone/runtime";
 import { z } from "zod";
 import { atlasSettingsSchema } from "./atlas-schema.ts";
@@ -239,6 +251,114 @@ export function registerExtraTools(server: McpServer, session: ProjectSession, s
         await commit();
         const used = [...new Set(keys.map((k) => k.shape))].map((sh) => `${sh}→${map[sh]}`).join(", ");
         return text({ ok: true, animation: animName, keys: keys.length, seconds: Math.round((end - a.start) * 100) / 100, shapes: used });
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  // ---------------- video to animation ----------------
+  const poseOptions = {
+    animation: z.string().optional().describe("Animation id or name; created if missing (default: a new '<video name>' animation)"),
+    at: z.number().min(0).default(0).describe("Where the clip starts in the animation (seconds); keys already in its span are replaced"),
+    mapping: z
+      .record(z.string(), z.enum(POSE_SOURCES as [string, ...string[]]))
+      .optional()
+      .describe(
+        "Bone (name or id) → body part it follows. Segments (rotation keys): leftUpperArm, leftForearm, leftHand, rightUpperArm, rightForearm, rightHand, leftThigh, leftShin, leftFoot, rightThigh, rightShin, rightFoot, spine, neck, head. Points (x/y keys): hips, leftWrist, rightWrist, leftAnkle, rightAnkle (for IK targets). Default: guessed from bone names; IK chain bones are left to their constraint and the IK target follows the ankle/wrist",
+      ),
+    frontSide: z.enum(["left", "right"]).default("left").describe("For side-view rigs named front-/back-: which side of the body the front bones are (used when guessing the mapping)"),
+    mirror: z.boolean().default(false).describe("Flip the video left to right (and swap left and right)"),
+    rootMotion: z.enum(["full", "inPlace", "off"]).default("full").describe("The hips bone: move with the body, in place (keep the bounce), or stay still"),
+    mode: z.enum(["direction", "relative"]).default("direction").describe("direction: bones point along their body segment; relative: bones keep their setup angle at the first frame and turn by the segment's change"),
+    smoothing: z.number().min(0).max(1).default(0.5).describe("Jitter filtering, 0 = raw, 1 = very smooth"),
+    tolerance: z.number().min(0).default(1).describe("Key simplification in degrees / pixels; 0 = a key per frame"),
+    fps: z.number().min(1).max(120).optional().describe("Key rate (default: the document's fps)"),
+  };
+  const applyPoseTrack = async (track: PoseTrack, a: { animation?: string; at: number; mapping?: Record<string, string>; frontSide: "left" | "right"; mirror: boolean; rootMotion: "full" | "inPlace" | "off"; mode: "direction" | "relative"; smoothing: number; tolerance: number; fps?: number }, fallbackName: string) => {
+    let animation = a.animation ?? fallbackName;
+    if (!a.animation) for (let i = 2; session.doc.animations.some((x) => x.name === animation); i++) animation = `${fallbackName} ${i}`;
+    const res = poseToKeys(session.doc, track, {
+      animation,
+      at: a.at,
+      mapping: (a.mapping as never) ?? guessPoseMapping(session.doc, { frontSide: a.frontSide }),
+      mirror: a.mirror,
+      rootMotion: a.rootMotion,
+      mode: a.mode,
+      smoothing: a.smoothing,
+      tolerance: a.tolerance,
+      fps: a.fps,
+    });
+    session.store.transaction("animate from video", (s) => {
+      for (const o of res.ops) s.apply(o.op, o.args);
+    });
+    await commit();
+    const bones = session.doc.skeleton.bones;
+    return {
+      ok: true,
+      animation,
+      seconds: Math.round(res.duration * 100) / 100,
+      keys: res.keys,
+      mapping: Object.fromEntries(Object.entries(res.mapping).map(([id, src]) => [bones.find((b) => b.id === id)?.name ?? id, src])),
+      scale: Math.round(res.scale * 1e4) / 1e4,
+      ...(res.warnings.length ? { warnings: res.warnings } : {}),
+    };
+  };
+
+  server.registerTool(
+    "animate_from_video",
+    {
+      description:
+        "Video to animation: track a person's body in a video file (MP4/WebM/MOV, one person, body in view) and key the skeleton to it: limb bones point along the arms and legs, IK targets follow the ankles/wrists, a hips bone follows the body. Tracking runs in the connected OpenBone editor (the body tracker needs a browser), so the editor must be open and connected with ⚡ Connect MCP. Keys are simplified; one undo step. `saveTrack` writes the tracked body as JSON so animate_from_pose_track can map it again without the editor.",
+      inputSchema: {
+        path: z.string().describe("Video file, absolute or relative to the project"),
+        start: z.number().min(0).optional().describe("Seconds into the video to start (default 0)"),
+        end: z.number().min(0).optional().describe("Seconds into the video to stop (default: the end)"),
+        saveTrack: z.string().optional().describe("Also save the tracked body to this .pose.json file"),
+        ...poseOptions,
+      },
+    },
+    async (a) => {
+      try {
+        if (!session.editor?.connected) throw new Error("Tracking a video needs the OpenBone editor: open it, press ⚡ Connect MCP, and try again (or use animate_from_pose_track with a saved track)");
+        const file = path.resolve(session.baseDir, a.path);
+        const size = (await stat(file)).size;
+        if (size > 300 * 1024 * 1024) throw new Error("The video is over 300 MB: trim it to the part you need");
+        const ext = path.extname(file).slice(1).toLowerCase();
+        const mime = ({ mp4: "video/mp4", m4v: "video/mp4", webm: "video/webm", mov: "video/quicktime", mkv: "video/x-matroska", ogv: "video/ogg" } as Record<string, string>)[ext] ?? "video/mp4";
+        const track = (await session.editor.request("trackVideo", {
+          name: path.basename(file),
+          mime,
+          base64: (await readFile(file)).toString("base64"),
+          fps: a.fps ?? session.doc.fps,
+          start: a.start,
+          end: a.end,
+        })) as PoseTrack;
+        if (a.saveTrack) await writeFile(path.resolve(session.baseDir, a.saveTrack), JSON.stringify(track));
+        const out = await applyPoseTrack(track, a, path.basename(file).replace(/\.[^.]+$/, ""));
+        return text({ ...out, trackedFrames: track.frames.length, ...(a.saveTrack ? { savedTrack: a.saveTrack } : {}) });
+      } catch (e) {
+        return fail(e);
+      }
+    },
+  );
+
+  server.registerTool(
+    "animate_from_pose_track",
+    {
+      description:
+        "Key the skeleton from a tracked body saved earlier (a .pose.json from animate_from_video's saveTrack or the editor's Animate from video → Save tracking), without the editor. Same options as animate_from_video. Format: {width, height, fps, frames:[{time, points:[[x, y, visibility] | null] × 33]}} with x/y as fractions of the frame (y down), MediaPipe Pose Landmarker point order.",
+      inputSchema: {
+        path: z.string().describe("The .pose.json file, absolute or relative to the project"),
+        ...poseOptions,
+      },
+    },
+    async (a) => {
+      try {
+        const file = path.resolve(session.baseDir, a.path);
+        const track = JSON.parse(await readFile(file, "utf8")) as PoseTrack;
+        if (!Array.isArray(track.frames) || !track.width || !track.height) throw new Error("Not a pose track: expected {width, height, fps, frames}");
+        return text(await applyPoseTrack(track, a, path.basename(file).replace(/(\.pose)?\.json$/, "")));
       } catch (e) {
         return fail(e);
       }

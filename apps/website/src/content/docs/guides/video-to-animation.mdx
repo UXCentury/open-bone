@@ -1,0 +1,68 @@
+---
+title: Animate from video
+description: Track a person in a video or a webcam clip and key the skeleton to it, then tidy the keys by hand.
+sidebar:
+  label: Animate from video
+---
+
+import { Steps, Aside } from "@astrojs/starlight/components";
+
+**Animate from video** turns a clip of a person into an animation: OpenBone follows the body through the video and
+keys your rig's bones to it. It's a fast way to rough out a walk, a wave or a dance, which you then clean up and
+exaggerate by hand.
+
+Tracking runs on your computer with MediaPipe's Pose Landmarker, which ships with the editor. It works offline, and the
+video never leaves your machine.
+
+## What makes a good clip
+
+- **One person**, with the **whole body in view** (or at least the upper body for arm motion).
+- A steady camera, good light, and clothes that don't hide the joints.
+- For a side-view rig, film from the side; for a front-facing rig, film from the front.
+- Short is fine: a few seconds for a cycle.
+
+## Animate
+
+<Steps>
+
+1. Open your rig and choose **From video…** in the Timeline toolbar (or ☰ Menu → **Animate from video…**).
+
+2. **Choose video…** to pick an MP4, WebM or MOV file, or **Use webcam** → **● Record** (a 3-second countdown, up to
+   30 seconds, **■ Stop** to end early). Set **From** and **to** to use part of the clip.
+
+3. Press **Track body**. The tracked skeleton is drawn over the video: play or scrub the video to check it.
+
+4. Check the **Bones** list. Each bone follows a body part, guessed from its name:
+   - *upper arm, forearm, hand, thigh, shin, foot* with a side (`left`/`right`, `l`/`r`), *spine*/*torso*, *neck*,
+     *head*, and *hip*/*pelvis* for the body's movement;
+   - side-view rigs named `front-`/`back-`: pick which side of the body is the **front**;
+   - bones in an **IK chain** are left to the constraint, and its **target** follows the ankle or wrist instead.
+
+   Change any row, or **+ Animate another bone…**. **Mirror** flips the video left to right.
+
+5. Choose where the keys go: a **new animation**, or an existing one at a start time (keys in the clip's span are
+   replaced, the rest stay). Then:
+   - **Body movement**: *Move with the body*, *In place* (keeps the bounce: good for cycles) or *Hips stay still*.
+   - **Bones point**: *Along the body* (bones follow the limbs' directions) or *Relative to the first frame* (for rigs
+     whose bones don't point along the limbs: stand in the rig's pose at the start of the clip).
+   - **Smoothing** filters jitter; **Key tolerance** sets how far simplified keys may stray (0 keys every frame).
+
+6. Press **Animate**. It's one undo step.
+
+</Steps>
+
+<Aside type="tip">
+**Save tracking…** keeps the tracked body as a `.pose.json` file. **Load tracking…** maps it again later, for example
+on another rig, without tracking the video again.
+</Aside>
+
+## Tidy up
+
+Tracked motion is a starting point. Typical next steps: loop a cycle by matching the last keys to the first, push the
+key poses further, ease the timing in the graph editor, and add secondary motion with physics.
+
+## With an AI agent
+
+With the editor open and connected (**⚡ Connect MCP**), an agent can call `animate_from_video {path}`: the editor
+tracks the clip and the server keys the rig, returning the mapping it used. `saveTrack` keeps the tracking, and
+`animate_from_pose_track` maps a saved track without the editor. See [MCP](/reference/mcp/).

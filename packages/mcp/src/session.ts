@@ -4,10 +4,22 @@ import { DocumentStore, createDocument, deserialize, serialize } from "@openbone
 import type { OpenBoneDocument } from "@openbone/core";
 
 /** One open project: the store plus where it lives on disk. */
+/** Ask the open editor to do something and wait for its answer. */
+export interface EditorLink {
+  /** True while at least one editor is connected. */
+  readonly connected: boolean;
+  request(task: string, args: Record<string, unknown>, o?: { onProgress?: (stage: string, p: number) => void; timeoutMs?: number }): Promise<unknown>;
+}
+
 export class ProjectSession {
   store = new DocumentStore(createDocument("Untitled"));
   filePath: string | null = null;
   autosave = true;
+  /**
+   * Work the connected editor does for the server (set by the live bridge): tasks that need a browser, such as tracking
+   * a body in a video. Null when the bridge is off.
+   */
+  editor: EditorLink | null = null;
   /** Nothing has happened yet: no project created or opened, no edit. An editor that connects now keeps its scene. */
   private touched = false;
 

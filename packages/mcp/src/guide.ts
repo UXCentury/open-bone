@@ -39,6 +39,10 @@ Everything can be referenced by **name or id**. Every edit tool validates its in
    physics mix|inertia|strength|damping|mass|gravity|wind, deform offsets (mesh or path), sequence frame (with attachment), drawOrder. Curves: linear, stepped, easeIn, easeOut, easeInOut, backOut or [cx1,cy1,cx2,cy2].
    set_keys merges into the timeline; pass replace:true to set the whole timeline (e.g. when redoing a motion path).
    Loop cleanly by making the last key equal the first. add_event_key fires events (footsteps, sounds).
+   From a video of a person: animate_from_video {path} (the editor must be open and connected: it tracks the body)
+   keys limb bones along the arms and legs, IK targets to the ankles/wrists and the hips bone to the body; it returns
+   the mapping it guessed from bone names (pass mapping {bone: "leftUpperArm"|…|"hips"|"leftAnkle"…} to change it,
+   rootMotion "inPlace" for a cycle). saveTrack keeps the tracking; animate_from_pose_track maps it again without the editor.
 7. Interactivity (Rive-style): create_state_machine → add_input (bool/number/trigger) → add_state {animation}
    (first state = entry) → add_transition {from, to, conditions:[{input, op, value}], duration, exitTime}.
    Transition with no conditions waits for the source animation to finish (exitTime 1).

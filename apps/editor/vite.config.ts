@@ -47,6 +47,35 @@ function examples(): Plugin {
 }
 
 /**
+ * The pose tracker for "Animate from video": MediaPipe's vision WASM (from @mediapipe/tasks-vision) and the Pose
+ * Landmarker model (assets/mediapipe), served (dev) and copied (build) at /mediapipe/. Bundled, so tracking works
+ * offline and never contacts another server. Loaded only when someone opens the dialog.
+ */
+function mediapipe(): Plugin {
+  const wasm = path.resolve(__dirname, "node_modules/@mediapipe/tasks-vision/wasm");
+  const files: Record<string, string> = {
+    "vision_wasm_internal.js": path.join(wasm, "vision_wasm_internal.js"),
+    "vision_wasm_internal.wasm": path.join(wasm, "vision_wasm_internal.wasm"),
+    "pose_landmarker_full.task": path.resolve(__dirname, "assets/mediapipe/pose_landmarker_full.task"),
+  };
+  const types: Record<string, string> = { ".js": "text/javascript", ".wasm": "application/wasm", ".task": "application/octet-stream" };
+  return {
+    name: "openbone-mediapipe",
+    configureServer(server) {
+      server.middlewares.use("/mediapipe", (req, res, next) => {
+        const file = files[decodeURIComponent((req.url ?? "/").split("?")[0]).replace(/^\/+/, "")];
+        if (!file) return next();
+        res.setHeader("content-type", types[path.extname(file)] ?? "application/octet-stream");
+        fs.createReadStream(file).pipe(res);
+      });
+    },
+    generateBundle() {
+      for (const [name, file] of Object.entries(files)) this.emitFile({ type: "asset", fileName: `mediapipe/${name}`, source: fs.readFileSync(file) });
+    },
+  };
+}
+
+/**
  * `virtual:openbone-player-bundle`: the self-contained WebView player script (packages/player/src/bundle), built
  * with esbuild on first import and rebuilt when package sources change. Export dialogs load it lazily, so it costs
  * nothing until someone exports a WebView package, and it needs no prebuilt file or network.
@@ -145,7 +174,7 @@ function about(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [solid(), examples(), playerBundle(), webPlayerBundle(), about()],
+  plugins: [solid(), examples(), mediapipe(), playerBundle(), webPlayerBundle(), about()],
   server: { port: Number(process.env.PORT) || 5180, strictPort: false },
   optimizeDeps: { exclude: ["quickjs-emscripten"] },
   build: { target: "es2022", rollupOptions: { input: { editor: path.resolve(__dirname, "index.html"), player: path.resolve(__dirname, "player.html") } } },

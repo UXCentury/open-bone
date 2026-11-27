@@ -120,8 +120,19 @@ export function connectBridge(url = localStorageGet("openbone.bridge") ?? "ws://
     logActivity("mcp", `Connected to the MCP server (${url}): agent edits appear here as they happen`);
   };
   socket.onmessage = (m) => {
-    const msg = JSON.parse(String(m.data)) as { type: string; doc?: OpenBoneDocument; ops?: OpCall[]; message?: string; path?: string; files?: BridgeFile[] };
-    if (msg.type === "files" && msg.files) receiveFiles(msg.files);
+    const msg = JSON.parse(String(m.data)) as {
+      type: string;
+      doc?: OpenBoneDocument;
+      ops?: OpCall[];
+      message?: string;
+      path?: string;
+      files?: BridgeFile[];
+      id?: number;
+      task?: string;
+      args?: Record<string, unknown>;
+    };
+    if (msg.type === "request" && msg.id !== undefined) void answerRequest(socket, msg.id, msg.task ?? "", msg.args ?? {});
+    else if (msg.type === "files" && msg.files) receiveFiles(msg.files);
     else if (msg.type === "synced") {
       phase = "synced";
       logActivity("mcp", "The MCP server took over this scene: the agent works on it");
@@ -151,6 +162,35 @@ export function connectBridge(url = localStorageGet("openbone.bridge") ?? "ws://
     unsub?.();
     unsub = null;
   };
+}
+
+/** Work the MCP server asks of the editor because it needs a browser (see packages/mcp/src/bridge.ts). */
+async function answerRequest(socket: WebSocket, id: number, task: string, args: Record<string, unknown>) {
+  const reply = (msg: Record<string, unknown>) => socket.readyState === WebSocket.OPEN && socket.send(JSON.stringify({ id, ...msg }));
+  try {
+    if (task !== "trackVideo") throw new Error(`This editor can't do "${task}": update it`);
+    const { trackVideo } = await import("./mocap/tracker.ts");
+    const name = String(args.name ?? "video");
+    logActivity("mcp", `The agent asked to track the body in ${name}`);
+    const bytes = Uint8Array.from(atob(String(args.base64 ?? "")), (c) => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: String(args.mime ?? "video/mp4") });
+    let last = 0;
+    const track = await trackVideo(blob, {
+      fps: Number(args.fps) || store.doc.fps || 30,
+      start: typeof args.start === "number" ? args.start : undefined,
+      end: typeof args.end === "number" ? args.end : undefined,
+      onProgress: (stage, p) => {
+        const now = performance.now();
+        if (now - last < 250 && p < 1) return;
+        last = now;
+        reply({ type: "progress", stage, p });
+      },
+    });
+    reply({ type: "result", ok: true, data: track });
+    logActivity("mcp", `Tracked ${track.frames.length} frames of ${name} for the agent`);
+  } catch (e) {
+    reply({ type: "result", ok: false, error: (e as Error).message });
+  }
 }
 
 export function disconnectBridge() {

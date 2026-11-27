@@ -7,6 +7,7 @@ import { askForm, askText, confirmDelete } from "../dialogs.tsx";
 import { AudioTrack, addSoundKey } from "./AudioPanel.tsx";
 import { GraphView, timelineColor, timelineKey } from "./GraphView.tsx";
 import { lipSyncDialog } from "../lipsync-ui.ts";
+import { setVideoAnimOpen } from "../mocap/VideoToAnimationDialog.tsx";
 import { scrubAudio, scrubSound, setScrubSound } from "../audio.ts";
 
 /** Dopesheet (keys per row) or Graph (value curves); remembered while the editor is open. */
@@ -585,6 +586,9 @@ export function Timeline() {
         </button>
         <button title="Lip sync: key a mouth slot's images to the speech in a sound, from the current time" onClick={() => void lipSyncDialog(anim()?.id ?? null)}>
           Lip sync…
+        </button>
+        <button title="Animate from video: track a body in a video or webcam clip and key the skeleton to it" onClick={() => setVideoAnimOpen(true)}>
+          From video…
         </button>
         <label class="check" title="Zoom">
           🔍

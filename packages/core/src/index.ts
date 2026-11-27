@@ -4,6 +4,7 @@ export * from "./document.ts";
 export * from "./geometry.ts";
 export * from "./trace.ts";
 export * from "./lipsync.ts";
+export * from "./mocap.ts";
 export * from "./path.ts";
 export * from "./setup.ts";
 export * from "./constraints.ts";

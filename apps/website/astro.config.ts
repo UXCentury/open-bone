@@ -77,6 +77,7 @@ export default defineConfig({
             "guides/animating",
             "guides/state-machines",
             "guides/audio-lip-sync",
+            "guides/video-to-animation",
             "guides/particles",
             "guides/physics",
             "guides/exporting",

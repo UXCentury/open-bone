@@ -272,6 +272,7 @@ covers the installers, releases and code signing.
 
 - **Tools**: select, rotate, translate, scale, **Pose** (drag a bone and its parents bend to follow), create bone, **Pen** (paths and bounding boxes), mesh editing with soft selection, and **weights** (brush or direct values, lock bones, Smooth, Auto, Prune, Swap) with Spine-style **bone colours, a weight overlay and vertex pies**.
 - **Bones or parts**: the **Bone | Part** switch decides whether dragging a picture moves its bone or the picture itself; parts get their own move, rotate and scale gizmos, and rotating shows the angle live. A **hover preview** outlines what a click will grab, and a **pick filter** rules out bones or parts.
+- **Animate from video**: pick a video of a person or record one with the webcam; OpenBone tracks the body on your computer (nothing is uploaded) and keys the arms, legs, spine, head, IK feet and hips, with keys simplified so they stay easy to edit. Agents can do it too (`animate_from_video`).
 - **Setup and Animate modes**, undo/redo for every change, **Compensate** (move a bone while its children stay put), **multi-selection** of bones and parts (Shift/Ctrl-click, box), flip and rotate parts or bones from the right-click menu.
 - **Views**: **3D view** (every part on its own layer in depth, with 3D bones, to check the stacking), **Order view** (the draw order side by side), bones only, mesh wireframes; **lock** and **show only selected** for parts and bones.
 - **Photoshop import**: every layer becomes an image, slot and region in place; groups can become bones.
@@ -347,6 +348,7 @@ OpenBone stands on the shoulders of these open-source projects. Thank you to eve
 | [gifenc](https://github.com/mattdesl/gifenc) | GIF export | MIT |
 | [ag-psd](https://github.com/Agamnentzar/ag-psd) | PSD export | MIT |
 | [mp4-muxer](https://github.com/Vanilagy/mp4-muxer), [webm-muxer](https://github.com/Vanilagy/webm-muxer) | MP4 and WebM video export in the browser | MIT |
+| [MediaPipe](https://ai.google.dev/edge/mediapipe) Tasks Vision and the Pose Landmarker model | Tracking a body in a video for Animate from video (bundled, runs offline) | Apache-2.0 |
 | [idb-keyval](https://github.com/jakearchibald/idb-keyval) | Remembering projects and settings in the browser | Apache-2.0 |
 | [esbuild](https://esbuild.github.io) | Bundling the player for web exports | MIT |
 | [ws](https://github.com/websockets/ws) | The editor's live MCP connection | MIT |

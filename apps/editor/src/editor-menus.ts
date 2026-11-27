@@ -18,6 +18,7 @@ import { attachmentOwner, getAttachment } from "@openbone/core";
 import { retraceMesh, traceRegion } from "./mesh-trace.ts";
 import { activeSkin, compensate } from "./state.ts";
 import { importFromProject } from "./panels/ImportDialog.tsx";
+import { setVideoAnimOpen } from "./mocap/VideoToAnimationDialog.tsx";
 import { moveToFolder } from "./panels/Folders.tsx";
 import { penMenuItems } from "./tools/pen.ts";
 
@@ -191,6 +192,7 @@ export function mainMenu(): MenuItem[] {
     { label: "Save to folder…", action: () => void saveProjectToFolder().catch((e) => toast((e as Error).message, "error")) },
     { label: "Export…", shortcut: "file.export", disabled: locked },
     { label: "Import from project…", action: () => void importFromProject(), disabled: locked },
+    { label: "Animate from video…", shortcut: "anim.fromVideo", action: () => setVideoAnimOpen(true), disabled: locked },
     "sep",
     { label: watching() ? `Watch art for changes (${shortList(watchedFolders())})` : "Watch art for changes", checked: watching(), action: () => void toggleWatching().catch((e) => toast((e as Error).message, "error")) },
     { label: "Watch folder…", action: () => void watchFolder().catch((e) => toast((e as Error).message, "error")) },

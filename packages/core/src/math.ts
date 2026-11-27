@@ -177,3 +177,30 @@ export function pointInPolygon(px: number, py: number, poly: ArrayLike<number>):
   }
   return inside;
 }
+
+/**
+ * Greedy key reduction: returns the indices of the samples to keep as linear keys. A sample is dropped when the straight
+ * line between the kept neighbours passes within `tol` of every sample in between. The first and last are always kept.
+ */
+export function simplifyKeys(times: number[], values: number[], tol: number): number[] {
+  const n = times.length;
+  if (n <= 2 || tol <= 0) return times.map((_, i) => i);
+  const keep = [0];
+  let anchor = 0;
+  for (let i = 1; i < n - 1; i++) {
+    // Can the segment anchor → i+1 stand in for every sample between them?
+    const t0 = times[anchor];
+    const t1 = times[i + 1];
+    let ok = true;
+    for (let j = anchor + 1; j <= i && ok; j++) {
+      const f = (times[j] - t0) / (t1 - t0);
+      ok = Math.abs(values[anchor] + (values[i + 1] - values[anchor]) * f - values[j]) <= tol;
+    }
+    if (!ok) {
+      keep.push(i);
+      anchor = i;
+    }
+  }
+  keep.push(n - 1);
+  return keep;
+}

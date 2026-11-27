@@ -75,6 +75,7 @@ export const DEFAULT_SHORTCUTS: ShortcutDef[] = [
   { id: "anim.last", label: "Last frame", group: "Animate", keys: ["End"], scope: "editor" },
   { id: "anim.setKey", label: "Key selected bone or slot", group: "Animate", keys: ["K"], scope: "editor" },
   { id: "mode.toggle", label: "Switch Setup / Animate", group: "Animate", keys: ["`"], scope: "editor" },
+  { id: "anim.fromVideo", label: "Animate from video…", group: "Animate", keys: [], scope: "editor" },
 
   // ---- Panels
   { id: "panel.hierarchy", label: "Show Skeleton panel", group: "Panels", keys: ["1"], scope: "editor" },

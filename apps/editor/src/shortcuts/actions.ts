@@ -4,6 +4,7 @@ import { Skeleton, applyAnimation } from "@openbone/runtime";
 import { createSignal } from "solid-js";
 import { ensureAnimation } from "../edit.ts";
 import { toggleViewAid } from "../guides.ts";
+import { setVideoAnimOpen } from "../mocap/VideoToAnimationDialog.tsx";
 import { type PanelId, showPanel } from "../layout.ts";
 import { deleteSelectedVertices, meshTarget, nudgeSelected, selectAllVertices } from "../mesh-edit.ts";
 import { penDeselect, penDelete, penFinish, penNudge, penSelectAll } from "../tools/pen.ts";
@@ -269,6 +270,7 @@ export function setupShortcuts(): () => void {
       setTime(a ? animationDuration(a) : 0);
     }),
     b("anim.setKey", setKey),
+    b("anim.fromVideo", () => setVideoAnimOpen(true)),
     b("mode.toggle", () => {
       if (mode() === "animate") {
         setMode("setup");

@@ -14,6 +14,8 @@ import type { ProjectSession } from "./session.ts";
  *   editor → server: {type:"hello", doc?} | {type:"op", op, args} | {type:"undo"} | {type:"redo"} | {type:"load", doc}
  *   server → editor: {type:"load", doc, path} | {type:"synced"} (took over the hello's scene) | {type:"ops", ops} | {type:"error", message}
  *                    | {type:"files", files:[{src, kind, mime, base64}]}
+ *                    | {type:"request", id, task, args} (work only a browser can do, e.g. "trackVideo")
+ *   editor → server (answers): {type:"progress", id, stage, p} | {type:"result", id, ok, data?, error?}
  *
  * The server stores imported art and sound as paths relative to the project file, which the editor (a web page, or
  * the desktop app without that project open) can't read. So before the document or ops that use such a path, the
@@ -105,6 +107,35 @@ export function startBridge(session: ProjectSession, port: number, log: (m: stri
     }
   };
 
+  // Requests to the editor (session.editor): the most recently connected editor does the work.
+  let nextId = 0;
+  const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void; onProgress?: (stage: string, p: number) => void; ws: WebSocket; timer: NodeJS.Timeout }>();
+  session.editor = {
+    get connected() {
+      return [...clients].some((c) => c.readyState === c.OPEN);
+    },
+    request(task, args, o = {}) {
+      const ws = [...clients].reverse().find((c) => c.readyState === c.OPEN);
+      if (!ws) return Promise.reject(new Error("No OpenBone editor is connected: open the editor and press ⚡ Connect MCP, then try again"));
+      const id = ++nextId;
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          pending.delete(id);
+          reject(new Error(`The editor did not finish "${task}" in time`));
+        }, o.timeoutMs ?? 15 * 60_000);
+        pending.set(id, { resolve, reject, onProgress: o.onProgress, ws, timer });
+        send(ws, { type: "request", id, task, args });
+      });
+    },
+  };
+  const settle = (id: number, fn: (p: NonNullable<ReturnType<typeof pending.get>>) => void) => {
+    const p = pending.get(id);
+    if (!p) return;
+    pending.delete(id);
+    clearTimeout(p.timer);
+    fn(p);
+  };
+
   let current: WebSocket | undefined;
   session.store.subscribe((doc, e) => {
     const origin = e.origin;
@@ -116,13 +147,21 @@ export function startBridge(session: ProjectSession, port: number, log: (m: stri
   wss.on("connection", (ws) => {
     clients.add(ws);
     log(`editor connected (${clients.size})`);
-    ws.on("close", () => clients.delete(ws));
+    ws.on("close", () => {
+      clients.delete(ws);
+      for (const [id, p] of pending) if (p.ws === ws) settle(id, (x) => x.reject(new Error("The editor disconnected before it finished")));
+    });
     ws.on("message", async (raw) => {
-      let msg: { type: string; op?: string; args?: Record<string, unknown>; doc?: unknown };
+      let msg: { type: string; op?: string; args?: Record<string, unknown>; doc?: unknown; id?: number; ok?: boolean; data?: unknown; error?: string; stage?: string; p?: number };
       try {
         msg = JSON.parse(String(raw));
       } catch {
         return;
+      }
+      if (msg.type === "progress" && msg.id !== undefined) return pending.get(msg.id)?.onProgress?.(msg.stage ?? "", msg.p ?? 0);
+      if (msg.type === "result" && msg.id !== undefined) {
+        const { ok, data, error } = msg;
+        return settle(msg.id, (p) => (ok ? p.resolve(data) : p.reject(new Error(error ?? "The editor could not do it"))));
       }
       current = ws;
       try {
