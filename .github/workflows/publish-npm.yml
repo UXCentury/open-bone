@@ -77,7 +77,9 @@ jobs:
       # already on npm.
       - name: Publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # With trusted publishing on, no token is passed, so npm must authenticate through OIDC (and a missing or
+          # wrong trusted publisher fails loudly instead of quietly falling back to the token).
+          NODE_AUTH_TOKEN: ${{ vars.NPM_TRUSTED_PUBLISHING != 'true' && secrets.NPM_TOKEN || '' }}
         run: |
           if [ "$DRY_RUN" = "true" ]; then
             pnpm -r --filter "./packages/*" publish --access public --no-git-checks --dry-run
